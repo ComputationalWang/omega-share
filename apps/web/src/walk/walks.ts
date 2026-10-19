@@ -32,6 +32,8 @@ export interface WalkTarget {
   readonly z: number;
   /** The seat's facing if they sit there, null if they stand. */
   readonly seatFacing: Dir | null;
+  /** A jog (OME-1464, `walked.run`): the same path and frames at half the frame time. */
+  readonly run?: boolean;
 }
 
 /** Where to draw someone now. Filled in place by `sample`. */
@@ -69,6 +71,8 @@ export interface Walks {
   sample(id: MemberId, now: number, out: Pose): boolean;
   /** True while anyone is still on their way. */
   walking(now: number): boolean;
+  /** True while anyone is still jogging there (Basic then steps every 75 ms). */
+  jogging(now: number): boolean;
 }
 
 interface Entry {
@@ -248,6 +252,9 @@ export function createWalks(opts: WalksOptions): Walks {
     },
     walking(now) {
       for (const e of entries.values()) if (walkEnd(e) > now) return true;
+      return false;
+    },
+    jogging() {
       return false;
     },
   };

@@ -569,6 +569,33 @@ describe("animator pause (full screen)", () => {
 
 // OME-731 (ADR 0037): in Smooth the room draws every frame while anyone walks (the in-betweens too), one rAF after the
 // other; at rest it goes back to the breathe clock. Basic keeps its timer per 150 ms step.
+describe("animator: jog (OME-1464)", () => {
+  test("Basic: a jog redraws once per 75 ms step, then rests", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([{ ...standAt("a", 5, 8), run: true }], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    expect(s.rafs.length).toBe(0);
+    expect(s.timers.at(-1)?.ms).toBe(75);
+    const before = s.renders();
+    let t = 0;
+    for (let i = 0; i < 10; i++) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined || s.draws.at(-1)?.pose.walking === false) break;
+      t += timer.ms;
+      s.timers.length = 0;
+      timer.fn();
+      expect(s.frame(t + 5)).toBe(true);
+    }
+    // Steps at 75, 150, 225, then at rest at 300: four redraws for the tile, as a walk's.
+    expect(s.renders() - before).toBe(4);
+    expect(s.draws.at(-1)?.pose.walking).toBe(false);
+  });
+});
+
 describe("animator, Smooth tier", () => {
   test("a walk requests the next frame on every frame until the walker arrives, then waits on the breathe clock", () => {
     const s = setup({ smooth: () => true });

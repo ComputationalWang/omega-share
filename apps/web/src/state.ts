@@ -70,6 +70,8 @@ export interface ViewState {
   readonly poll: Poll | null;
   /** The option I voted for in `poll`: the server never says, so it's kept here (a `voted` event) and ends with the poll. */
   readonly vote: number | null;
+  /** Members whose last `walked` was a jog (OME-1464); like `catching`, kept outside `room.members`. */
+  readonly running: readonly MemberId[];
 }
 
 /** What the room's stage draws (stage.ts): the page's own state, or the slice the room tab mirrors to its room window (OME-600). */
@@ -100,7 +102,7 @@ export type ViewEvent =
   /** I voted for `option` of poll `pollId` (the vote went out). */
   | { readonly type: "voted"; readonly pollId: PollId; readonly option: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null, poll: null, vote: null };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null, poll: null, vote: null, running: [] };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
 const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found" || s.status === "replaced";

@@ -32,7 +32,7 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
 }
 
 /** Clicking or tapping a floor cell (ADR 0053): walk to free floor, "blocked" under a solid piece (seats too: they sit), nothing for my own cell. */
-export function walkIntent(state: ViewState, cell: FloorCell): ClientMessage | "blocked" | null {
+export function walkIntent(state: ViewState, cell: FloorCell, _run = false): ClientMessage | "blocked" | null {
   const room = state.room;
   if (state.status !== "open" || room === null) return null;
   if (!isStandable(room.layout ?? DEFAULT_LAYOUT, cell)) return "blocked";
@@ -69,7 +69,7 @@ export function stepCell(from: FloorCell, key: StepKey): FloorCell | null {
 }
 
 /** A held arrow key steps at most once a tile, the walk rate; a fresh press always steps. */
-export function stepAllowed(repeat: boolean, now: number, last: number): boolean {
+export function stepAllowed(repeat: boolean, now: number, last: number, _run = false): boolean {
   return !repeat || now - last >= TILE_MS;
 }
 
@@ -144,4 +144,12 @@ export function createWalkGate(deps: { now: () => number; send: (m: ClientMessag
       pending = null;
     },
   };
+}
+
+/** OME-1464: two clicks or taps on one cell within this many ms jog there. */
+export const DOUBLE_TAP_MS = 0;
+
+/** True if a click on `cell` at `at` makes a double with the one before it (`prev`). */
+export function doubleTap(_prev: { readonly cell: FloorCell; readonly at: number } | null, _cell: FloorCell, _at: number): boolean {
+  return false;
 }
