@@ -7,7 +7,7 @@
 // prefers-reduced-motion drops it (style.css).
 import type { SystemLine } from "../controls/sysline";
 import { el, syslineEl } from "../controls/dom";
-import { meAction } from "./effects";
+import { meAction, thinkText } from "./effects";
 
 /** Lines kept; older ones are dropped from the DOM. */
 export const CHAT_LOG_CAP = 50;
@@ -57,10 +57,12 @@ function lineEl(entry: ChatLogEntry): HTMLDivElement {
     line.append(syslineEl(entry.line));
     return line;
   }
-  // `/me waves` (OME-1375) reads "Sam waves", italic.
+  // `/me waves` (OME-1375) reads "Sam waves", `/think hmm` (OME-1465) "Sam thinks: hmm", both italic.
   const action = meAction(entry.text);
-  const line = el("div", { className: `ui-fs-line chat-log-line${entry.self ? " self" : ""}${action === null ? "" : " is-action"}` }, "chat-log-line");
-  line.append(el("b", { textContent: entry.nickname }), ` ${action ?? entry.text}`);
+  const thought = thinkText(entry.text);
+  const kind = action !== null ? " is-action" : thought !== null ? " is-think" : "";
+  const line = el("div", { className: `ui-fs-line chat-log-line${entry.self ? " self" : ""}${kind}` }, "chat-log-line");
+  line.append(el("b", { textContent: entry.nickname }), ` ${action ?? (thought === null ? entry.text : `thinks: ${thought}`)}`);
   return line;
 }
 
