@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # "In use" loops (OME-1405) from furniture-v2.png: a contact sheet (each loop as idle + frames, 1× and 4×, on the wall colour)
-# and one 4× GIF per loop at its manifest frame time. Usage: contact-use.sh <atlas-dir> <out.png> [gif-dir]
+# and one 4× GIF per loop at its manifest frame time. Usage: contact-use.sh <atlas-dir> <out.png> [gif-dir] [atlas, default furniture-v2]
 set -euo pipefail
 dir=$1 out=$2 gifs=${3:-}
 tmp=$(mktemp -d)
-python3 - "$dir/furniture-v2.json" >"$tmp/list" <<'PY'
+python3 - "$dir/${4:-furniture-v2}.json" >"$tmp/list" <<'PY'
 import json, sys
 a = json.load(open(sys.argv[1]))
 ms = {p["id"]: p["use"]["ms"] for p in a["meta"]["omega"]["pieces"] if "use" in p}
@@ -18,7 +18,7 @@ while read -r name ms idle rest; do
   frames=()
   for g in "$idle" $rest; do
     i=${#frames[@]}
-    magick "$dir/furniture-v2.png" -crop "$g" +repage "$tmp/$name-$i.png"
+    magick "$dir/${4:-furniture-v2}.png" -crop "$g" +repage "$tmp/$name-$i.png"
     frames+=("$tmp/$name-$i.png")
   done
   cells=()
