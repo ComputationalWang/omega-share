@@ -169,6 +169,8 @@ const invalid: Raw[] = [
   ...[10, -1, 1.5, "1", null, 1e400].flatMap((n) => [js({ type: "walk", cell: { x: n, y: 0 } }), js({ type: "walk", cell: { x: 0, y: n } })]),
   js({ type: "walk", cell: { x: 1 } }), js({ type: "walk", cell: null }), js({ type: "walk", cell: [1, 1] }), js({ type: "walk", cell: { x: 1, y: 1, z: 1 } }),
   ok('{"type":"walk","cell":{"x":1,"y":1e400}}'),
+  // walk run (OME-1461)
+  ...[true, false, 1, 0, "true", null, {}].map((run) => js({ type: "walk", cell: { x: 1, y: 1 }, run })),
   ...[6, -1, 0.5, "1", null, true].map((tint) => js({ type: "set-tint", tint })), js({ ...JOIN, tint: 6 }), js({ ...JOIN, tint: null }),
   // typing, set-accessory, join accessory (OME-1387)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "typing", on })), js({ type: "typing" }),

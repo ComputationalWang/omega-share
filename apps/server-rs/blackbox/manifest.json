@@ -436,6 +436,7 @@
     "apps/server/test/walk.test.ts::walk (OME-1346)::a layout that covers a standing member's cell walks them to the door",
     "apps/server/test/walk.test.ts::walk (OME-1346)::a walk to free floor is relayed as walked to everyone and lands in the next snapshot",
     "apps/server/test/walk.test.ts::walk (OME-1346)::off the grid is bad_message; a solid piece or a seat is bad_cell; nothing is relayed",
+    "apps/server/test/walk.test.ts::walk (OME-1346)::run is relayed as sent (OME-1461); a non-boolean run is bad_message",
     "apps/server/test/walk.test.ts::walk (OME-1346)::walking off a seat stands up first; sitting clears the cell"
   ],
   "timing": [

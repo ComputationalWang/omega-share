@@ -54,6 +54,22 @@ describe("client walk", () => {
   });
 });
 
+describe("client walk run (OME-1461)", () => {
+  test("run is an optional boolean; absent stays absent", () => {
+    for (const run of [true, false]) expect(parseClientMessage(JSON.stringify({ type: "walk", cell: { x: 1, y: 1 }, run }))).toEqual({ type: "walk", cell: { x: 1, y: 1 }, run });
+    expect(parseClientMessage(JSON.stringify({ type: "walk", cell: { x: 1, y: 1 } }))).toEqual({ type: "walk", cell: { x: 1, y: 1 } });
+  });
+
+  test.each([[1], ["true"], [null], [{}]])("rejects run %p", (run) => {
+    rejects(ClientMessageSchema, { type: "walk", cell: { x: 1, y: 1 }, run });
+  });
+
+  test("walked carries run when set, rejects a non-boolean one", () => {
+    expect(parseServerMessage(JSON.stringify({ type: "walked", memberId: "m1", cell: { x: 2, y: 3 }, run: true }))).toEqual({ type: "walked", memberId: "m1", cell: { x: 2, y: 3 }, run: true });
+    expect(parseServerMessage(JSON.stringify({ type: "walked", memberId: "m1", cell: null, run: "yes" }))).toBeNull();
+  });
+});
+
 describe("client set-tint", () => {
   test("accepts every tint", () => {
     for (let tint = 0; tint < TINT_COUNT; tint++) expect(parseClientMessage(JSON.stringify({ type: "set-tint", tint }))).toEqual({ type: "set-tint", tint });
