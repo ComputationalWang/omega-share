@@ -28,6 +28,7 @@ import { cellCenter } from "../layout";
 import { loadRoomSecrets } from "../room-secrets";
 import { TRAY_TABS, defaultFacing, doorCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
+import { createMoodPicker } from "./mood";
 import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
@@ -137,7 +138,7 @@ function moved(layout: RoomLayout, index: number, slot: Slot): RoomLayout | null
   if (onWall !== (slot.wall !== null)) return null;
   const next: Furniture = { ...f, col: slot.col, row: slot.row, facing: slot.wall ?? f.facing };
   if (!fits(layout, next, index)) return null;
-  return { furniture: layout.furniture.map((p, i) => (i === index ? next : p)) };
+  return { ...layout, furniture: layout.furniture.map((p, i) => (i === index ? next : p)) };
 }
 
 const CURSOR_KEYS: ReadonlySet<string> = new Set<CursorKey>(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
@@ -453,6 +454,9 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   });
   const minePanel = el("div", { className: "editor-mine" });
   minePanel.append(mineLabel, mineName, mineBtn);
+  const mood = createMoodPicker((m) => {
+    setDraft({ ...draft, mood: m }, selected);
+  });
   const piecePanel = el("div", { className: "editor-piece" });
   piecePanel.append(pickedName, swatches, rotateBtn, removeBtn, cursorText);
   const savePanel = el("div", { className: "editor-save-row" });
@@ -516,7 +520,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   };
 
-  root.append(tabs, tray, doorsLine, picker, piecePanel, problemList, savePanel, minePanel, settings);
+  root.append(tabs, tray, doorsLine, picker, piecePanel, mood.el, problemList, savePanel, minePanel, settings);
   ctx.panel.replaceChildren(root);
 
   function say(text: string): void {
@@ -572,7 +576,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
                 refresh();
               } else if (selected !== null && piece !== undefined) {
                 const recoloured: Furniture = { ...piece, variant: i };
-                setDraft({ furniture: draft.furniture.map((p, j) => (j === selected ? recoloured : p)) }, selected);
+                setDraft({ ...draft, furniture: draft.furniture.map((p, j) => (j === selected ? recoloured : p)) }, selected);
               }
             });
             return b;
@@ -581,6 +585,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     const found = problems(draft);
     problemList.replaceChildren(...found.map((p) => el("li", { textContent: problemText(p) })));
     count.textContent = `${String(draft.furniture.length)} / ${String(MAX_FURNITURE)} pieces`;
+    mood.set(draft.mood ?? "none");
     const dirty = !sameLayout(draft, saved);
     saveBtn.disabled = !dirty || found.length > 0;
     resetBtn.disabled = !dirty;

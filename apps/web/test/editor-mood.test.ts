@@ -22,7 +22,7 @@ describe("the mood picker", () => {
     const radios = [...p.el.querySelectorAll<HTMLButtonElement>('button[role="radio"]')];
     expect(radios.map((b) => b.dataset["mood"])).toEqual(["none", "warm", "cool", "night"]);
     expect(radios.map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "false", "true", "false"]);
-    expect(radios.every((b) => (b.textContent ?? "").length > 0)).toBe(true);
+    expect(radios.every((b) => b.textContent.length > 0)).toBe(true);
   });
 
   test("a click hands the mood over; set() moves the check", async () => {

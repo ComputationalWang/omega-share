@@ -616,9 +616,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     dim();
   }
 
-  /** The room dims while the video plays, lifted while the editor is open (OME-1406). */
+  /** The room dims while the video plays, lifted while the editor is open (OME-1406); the mood shown is the drawn layout's (OME-1502). */
   const dim = (): void => {
     cinema.update(pbView?.hasVideo === true && pbView.playing, owner.editing());
+    cinema.mood((owner.preview() ?? layoutOf(state.room)).mood ?? "none");
   };
 
   const requestRender = (): void => {
