@@ -6,8 +6,12 @@
 // so most of the 24 are walking at any moment (8 seats, so the rest walk about). The video plays
 // (fake player). Rows: walk25.frameP95.<profile>.<tier> (quantised p95 ≤ one vsync), walk25.workP95.<profile>.<tier>
 // (≤ 8 ms), walk25.missedVsync.<profile>.<tier> (≤ 1 %), for profile = desktop | phone, tier = basic | smooth.
+// OMEGA_PERF_WALK_LAYOUT=bar (OME-1439): the observer sees the Bar preset instead (its snapshots rewritten), so the bots in
+// the hammock seats (4–7) sway them, a bot at the piano's front plays it and the playing video lights the fireplace: the
+// same rows with every batch 6 loop running. Bots still walk the default layout's free cells (the server's layout).
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, isStandable } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { socketUrl } from "../e2e/support/bots";
@@ -35,6 +39,8 @@ const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
 const BOT_PREFIX = "w25-bot";
+const BAR_LAYOUT: unknown =
+  process.env["OMEGA_PERF_WALK_LAYOUT"] === "bar" ? JSON.parse(readFileSync(new URL("../assets/presets/bar.json", import.meta.url), "utf8")) : null;
 
 const ids = (p: Profile, t: Tier): string[] => [`walk25.frameP95.${p}.${t}`, `walk25.workP95.${p}.${t}`, `walk25.missedVsync.${p}.${t}`];
 
@@ -224,6 +230,17 @@ for (const profile of PROFILES) {
           await context.addInitScript((t) => {
             localStorage.setItem("omega.motion", t);
           }, tier);
+          if (BAR_LAYOUT !== null) {
+            await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
+              const server = ws.connectToServer();
+              server.onMessage((m) => {
+                const msg: unknown = typeof m === "string" ? JSON.parse(m) : null;
+                const room: unknown = typeof msg === "object" && msg !== null && Reflect.get(msg, "type") === "snapshot" ? Reflect.get(msg, "room") : null;
+                if (typeof room === "object" && room !== null) Reflect.set(room, "layout", BAR_LAYOUT);
+                ws.send(room === null ? m : JSON.stringify(msg));
+              });
+            });
+          }
         },
       });
       const walkers = await startWalkers(browser, room.id);
@@ -249,11 +266,19 @@ for (const profile of PROFILES) {
         const w = await tracedFrames(browser, page, WINDOW_MS);
         const end = await botTags(page);
         const s = await walkers.stats();
+        const loops: unknown =
+          BAR_LAYOUT === null
+            ? null
+            : await page.evaluate(() => {
+                const room: unknown = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room");
+                const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "furnitureLoops") : null;
+                return typeof fn === "function" ? (Reflect.apply(fn, room, []) as unknown) : null;
+              });
         // Walked in the window: moved, or changed seat (a round trip to a stable slot ends where it began, ADR 0043).
         const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player)`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player)${loops === null ? "" : `, Bar layout, loops at the end ${JSON.stringify(loops)}`}`;
         recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
