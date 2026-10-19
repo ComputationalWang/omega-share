@@ -112,6 +112,7 @@ export const site = {
   editorDelete: id("editor-delete"),
   editorDeleteConfirm: id("editor-delete-confirm"),
   editorRoomMessage: id("editor-room-message"),
+  editorSwatch: id("editor-swatch"),
   // Owner moderation (OME-507, ADR 0030): the menu and setting are the lazy owner chunk; the notices are in the room chunk.
   modMenu: id("mod-menu"),
   modMute: id("mod-mute"),

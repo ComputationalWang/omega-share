@@ -925,6 +925,29 @@ mod tests {
         assert_eq!(WALL_FIXTURE_SEGMENTS, [5, 6, 8]);
     }
 
+    // packages/shared/test/layout-contract.test.ts (OME-1463): the recolours (OME-1462) raise six kinds' variants.
+    #[test]
+    fn the_recoloured_kinds_take_their_extra_colours_and_no_more() {
+        for (kind, n) in [
+            ("sofa", 4),
+            ("beanbag", 4),
+            ("pouf", 4),
+            ("stool", 4),
+            ("runner", 4),
+            ("rug", 3),
+            ("couch", 2),
+            ("floorcushion", 2),
+        ] {
+            let (facing, col, row) = if kind == "runner" { ("ne", 4, 4) } else { ("se", 3, 3) };
+            assert!(piece_accepts(&pv(kind, col, row, facing, n - 1)), "{kind} {}", n - 1);
+            assert!(!piece_accepts(&pv(kind, col, row, facing, n)), "{kind} {n}");
+        }
+        // A layout saved before keeps parsing to the same canonical text.
+        let before = base(vec![pv("sofa", 3, 3, "ne", 1), p("rug", 1, 1, "se")]);
+        let l = parse(&before);
+        assert_eq!(parse(&serde_json::from_str(&l.to_json()).unwrap()).to_json(), l.to_json());
+    }
+
     #[test]
     fn every_kind_has_a_spec_and_a_distinct_serialised_name() {
         let names: HashSet<String> = KINDS.iter().map(|k| serde_json::to_string(k).unwrap()).collect();
