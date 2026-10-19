@@ -85,6 +85,19 @@ describe("walk (OME-1346)", () => {
     expect(a.client.socket.readyState).toBe(WebSocket.OPEN);
   });
 
+  binaryOnly("run is relayed as sent (OME-1461); a non-boolean run is bad_message", async () => {
+    t = start();
+    const a = await join("alice");
+    const b = await join("bob");
+    a.client.send({ type: "walk", cell: { x: 3, y: 3 }, run: true });
+    for (const c of [a.client, b.client]) expect(await c.next("walked")).toEqual({ type: "walked", memberId: a.snapshot.self, cell: { x: 3, y: 3 }, run: true });
+    a.client.send({ type: "walk", cell: { x: 4, y: 4 }, run: false });
+    expect(await b.client.next("walked")).toEqual({ type: "walked", memberId: a.snapshot.self, cell: { x: 4, y: 4 }, run: false });
+    a.client.send({ type: "walk", cell: { x: 5, y: 5 }, run: "yes" });
+    expect((await a.client.next("error")).code).toBe("bad_message");
+    await b.client.none("walked", 100);
+  });
+
   binaryOnly("a layout that covers a standing member's cell walks them to the door", async () => {
     t = start();
     const res = await fetch(`${t.http}/rooms`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Walks", visibility: "public" }) });

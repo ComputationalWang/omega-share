@@ -190,6 +190,8 @@ server_messages! {
         member_id: MemberId,
         #[serde(deserialize_with = "nullable")]
         cell: Option<FloorCell>,
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        run: Option<bool>,
     }
     "tint-changed" TintChanged TintChangedWire { member_id: MemberId, tint: Tint }
     "accessory-changed" AccessoryChanged AccessoryChangedWire { member_id: MemberId, accessory: Accessory }

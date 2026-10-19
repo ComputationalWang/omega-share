@@ -107,6 +107,8 @@ pub enum ClientMessage {
     },
     Walk {
         cell: FloorCell,
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
+        run: Option<bool>,
     },
     SetTint {
         tint: Tint,
@@ -316,6 +318,8 @@ struct SitW {
 #[serde(deny_unknown_fields)]
 struct WalkW {
     cell: Obj<FloorCellInput>,
+    #[serde(default, deserialize_with = "present")]
+    run: Option<bool>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -584,7 +588,10 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },
         Wire::Sit(m) => ClientMessage::Sit { seat: m.seat },
-        Wire::Walk(m) => ClientMessage::Walk { cell: m.cell.0.into() },
+        Wire::Walk(m) => ClientMessage::Walk {
+            cell: m.cell.0.into(),
+            run: m.run,
+        },
         Wire::SetTint(m) => ClientMessage::SetTint { tint: m.tint },
         Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
         Wire::SetHair(m) => ClientMessage::SetHair { hair: m.hair },

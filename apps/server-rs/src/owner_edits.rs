@@ -39,7 +39,14 @@ pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberI
     publish_msg(inner, &ServerMessage::LayoutChanged { layout, by: by.clone() });
     // After the layout, so clients path on the new floor (ADR 0053).
     for (member_id, cell) in moved {
-        publish_msg(inner, &ServerMessage::Walked { member_id, cell });
+        publish_msg(
+            inner,
+            &ServerMessage::Walked {
+                member_id,
+                cell,
+                run: None,
+            },
+        );
     }
 }
 
