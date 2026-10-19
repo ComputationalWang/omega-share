@@ -34,6 +34,8 @@ export interface StageOptions {
   readonly onLayout?: (seats: readonly Point[]) => void;
   /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
   readonly onMove?: (id: MemberId) => void;
+  /** An avatar came to rest (/hug arrives, OME-1453). */
+  readonly onStop?: (id: MemberId) => void;
   /**
    * Free walking (OME-1350, ADR 0053): a click or tap on floor cell `cell`. False when nobody can stand there: the floor
    * flashes "can't go there". Without it the floor takes no input (the pop-out room's window).
@@ -156,6 +158,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     onStop: (id, x, y) => {
       floats.settle(id, x, y - liftOf(id));
+      o.onStop?.(id);
     },
   });
   view.canvas.className = "scene";
