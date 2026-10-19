@@ -7,6 +7,7 @@ import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
 import { TAG_OFFSET_Y, cellCenter } from "../apps/web/src/layout";
 import { TILE_MS } from "../apps/web/src/walk/walks";
+import { EMOTE_LIFT } from "../apps/web/src/walk/animator";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -330,3 +331,62 @@ async function dblclickCell(page: Page, x: number, y: number): Promise<void> {
   const p = cellCenter(x, y);
   await page.mouse.dblclick(box.left + p.x * box.k, box.top + p.y * box.k);
 }
+
+/** Calls the dev handle (apps/web/src/main.ts `window.__omega.room`) method `name` with `args`. */
+async function debug(page: Page, name: string, ...args: unknown[]): Promise<unknown> {
+  return page.evaluate(
+    ([name, args]) => {
+      const omega: unknown = Reflect.get(window, "__omega");
+      const room: unknown = typeof omega === "object" && omega !== null ? Reflect.get(omega, "room") : null;
+      const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, name) : null;
+      return typeof fn === "function" ? ((Reflect.apply(fn, room, args) as unknown) ?? null) : null;
+    },
+    [name, args] as const,
+  );
+}
+
+const selfOf = async (page: Page): Promise<string> => {
+  const s = (await debug(page, "state")) as { self?: unknown } | null;
+  return typeof s?.self === "string" ? s.self : "";
+};
+/** The motion frame `id` is drawn with on `page`. */
+const frameOf = async (page: Page, id: string): Promise<string> => {
+  const f = (await debug(page, "avatarFrames", id)) as { avatar?: unknown } | null;
+  return typeof f?.avatar === "string" ? f.avatar : "";
+};
+/** Where `id`'s bubbles and stickers hang on `page`, stage px. */
+const headOf = async (page: Page, id: string): Promise<number> => {
+  const h = (await debug(page, "head", id)) as { y?: unknown } | null;
+  return typeof h?.y === "number" ? h.y : Number.NaN;
+};
+const SIT_FRAME = /(^|\/)sit\//;
+
+// OME-1501: sit on the floor anywhere: S on the focused floor, /sit, or "Sit here" on my row in People toggle it; a walk ends it.
+test("floor sit: S, /sit and Sit here toggle the sit pose on my cell for everyone, bubbles drop to seated height; a walk gets me up", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "floor").url, count: 2, nicknamePrefix: "floor" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000); // b walked in from the door
+  await clickCell(b.page, 3, 8);
+  for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "floor-2"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  const bId = await selfOf(b.page);
+  const seatedHead = Math.round(cellCenter(3, 8).y) - EMOTE_LIFT.sit;
+  await b.page.locator(site.walkFloor).focus();
+  await b.page.keyboard.press("s");
+  for (const page of [a.page, b.page]) {
+    await expect.poll(() => frameOf(page, bId), { timeout: 5000 }).toMatch(SIT_FRAME);
+    await expect.poll(() => headOf(page, bId), { timeout: 5000 }).toBe(seatedHead);
+  }
+  expect(await tagAt(a.page, "floor-2")).toBe(restOn(3, 8));
+  await b.page.locator(site.chatInput).fill("/sit");
+  await b.page.locator(site.chatInput).press("Enter");
+  for (const page of [a.page, b.page]) await expect.poll(() => frameOf(page, bId), { timeout: 5000 }).not.toMatch(SIT_FRAME);
+  await b.page.locator(site.peopleKey).click();
+  await b.page.getByRole("button", { name: "Sit here" }).click();
+  for (const page of [a.page, b.page]) await expect.poll(() => frameOf(page, bId), { timeout: 5000 }).toMatch(SIT_FRAME);
+  await expect(b.page.getByRole("button", { name: "Stand up" })).toBeVisible();
+  await b.page.locator(site.walkFloor).focus();
+  await b.page.keyboard.press("ArrowRight");
+  for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "floor-2"), { timeout: 10_000 }).toBe(restOn(4, 8));
+  for (const page of [a.page, b.page]) await expect.poll(() => frameOf(page, bId), { timeout: 5000 }).not.toMatch(SIT_FRAME);
+});
