@@ -350,7 +350,11 @@ test("the new colours (OME-1463): the editor offers them, they save, and a guest
       return ["rug", "sofa"].map((k) => furniture.find((f) => f.kind === k)?.variant);
     };
     await expect.poll(variants).toEqual([1, 2]);
-    // The sofa's frames come from its recoloured copy of the set (g) sheet.
-    await expect.poll(async () => (await drawn(guest)).some((k) => k.startsWith("recolour/sofa/2/furniture/sofa/velvet/"))).toBe(true);
+    // Both kinds draw from their recoloured copies: two copies loading at once once lost one of them (OME-1494).
+    const kinds = async (): Promise<boolean[]> => {
+      const keys = await drawn(guest);
+      return ["recolour/rug/1/rug/", "recolour/sofa/2/furniture/sofa/velvet/"].map((prefix) => keys.some((k) => k.startsWith(prefix)));
+    };
+    await expect.poll(kinds).toEqual([true, true]);
   }
 });
