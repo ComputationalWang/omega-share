@@ -356,6 +356,13 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-side > * { flex: none; margin: 0; }
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
+/* An open poll (QA OME-1460): beside the owner's invite row and bar at 1280×720 it pushed Close poll and the composer
+ * below the fold. Up next gives way first (down to its head, its content scrolling), then the card, its options
+ * scrolling between its question and Close; the log keeps three lines. */
+@media (min-height: 501px) { .room-side:has(> .poll-card:not([hidden])) > .queue-panel { flex: 0 9 auto; min-height: 64px; } }
+.room-side:has(> .poll-card:not([hidden])) > .poll-card { flex: 0 1 auto; min-height: 0; }
+.room-side:has(> .poll-card:not([hidden])) > .chat-log { min-height: 60px; }
+.room-side > .poll-card > .poll-options { min-height: 0; overflow-y: auto; }
 /* An on-screen keyboard is up (room-layout.ts, OME-1297): the invite and Up next step aside unless you're typing in them. */
 .room-side.is-typing > :is(.invite, .queue-panel):not(:focus-within) { display: none; }
 /* Typing a link: the chat steps aside too, so Up next's field has the column. */
