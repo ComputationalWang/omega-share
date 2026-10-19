@@ -816,7 +816,7 @@
     "y": 0.5
    }
   },
-  "swatch/party": {
+  "swatch/painted": {
    "frame": {
     "x": 70,
     "y": 737,
@@ -840,9 +840,33 @@
     "y": 0.5
    }
   },
-  "swatch/pink": {
+  "swatch/party": {
    "frame": {
     "x": 188,
+    "y": 738,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/pink": {
+   "frame": {
+    "x": 199,
     "y": 738,
     "w": 10,
     "h": 10
@@ -890,7 +914,7 @@
   },
   "swatch/rust": {
    "frame": {
-    "x": 199,
+    "x": 210,
     "y": 738,
     "w": 10,
     "h": 10
@@ -914,30 +938,6 @@
   },
   "swatch/teal": {
    "frame": {
-    "x": 210,
-    "y": 738,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/tide": {
-   "frame": {
     "x": 0,
     "y": 740,
     "w": 10,
@@ -960,7 +960,7 @@
     "y": 0.5
    }
   },
-  "swatch/velvet": {
+  "swatch/tide": {
    "frame": {
     "x": 38,
     "y": 742,
@@ -984,7 +984,7 @@
     "y": 0.5
    }
   },
-  "swatch/warm": {
+  "swatch/velvet": {
    "frame": {
     "x": 11,
     "y": 743,
@@ -1008,10 +1008,34 @@
     "y": 0.5
    }
   },
-  "swatch/wood": {
+  "swatch/warm": {
    "frame": {
     "x": 22,
     "y": 743,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/wood": {
+   "frame": {
+    "x": 166,
+    "y": 746,
     "w": 10,
     "h": 10
    },
