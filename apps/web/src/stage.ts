@@ -283,15 +283,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const source = r === undefined ? null : sourceOf(r.sheet);
       if (source === null || recolouring.has(id)) continue;
       recolouring.add(id);
-      lazyAtlas("recolour", key, l, async () => {
+      const load = async (): Promise<void> => {
         recolours ??= (await import("./recolour-sheets")).recolourSheets();
-        try {
-          await recolours.load(kind, variant, source);
-        } catch (e: unknown) {
-          recolouring.delete(id);
-          throw e;
-        }
-      }, () => undefined);
+        await recolours.load(kind, variant, source);
+      };
+      // A failed copy (chunk or sheet) is forgotten, so the next snapshot retries it.
+      lazyAtlas("recolour", key, l, () => load().catch((e: unknown) => {
+        recolouring.delete(id);
+        throw e;
+      }), () => undefined);
     }
   };
 
