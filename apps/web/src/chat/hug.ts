@@ -31,8 +31,10 @@ export interface PendingHug {
 export function hugStep(prev: ViewState, next: ViewState, hug: PendingHug): "arrived" | "cancel" | null {
   const room = next.room;
   if (next.status !== "open" || room === null || next.self === null) return "cancel";
-  if (!room.members.some((m) => m.id === hug.target) || room.seats.includes(next.self)) return "cancel";
   const self = next.self;
+  // Sitting down cancels; being seated already doesn't (the walk over stands me up first).
+  const sat = room.seats.includes(self) && !(prev.room?.seats.includes(self) ?? false);
+  if (sat || !room.members.some((m) => m.id === hug.target)) return "cancel";
   const mine = room.members.find((m) => m.id === self)?.cell;
   // A `walked` replaces my member, so a new cell object means I walked.
   if (mine === undefined || mine === prev.room?.members.find((m) => m.id === self)?.cell) return null;
