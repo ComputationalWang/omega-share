@@ -595,3 +595,6 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .walk-floor { position: absolute; inset: 0; }
 .walk-floor:focus-visible { outline: 4px solid var(--ui-text); outline-offset: -4px; }
 .walk-floor.no-go { cursor: not-allowed; }
+/* On a computer (OME-1490) only Fit shows, in the room's top-right corner (the wall), while the wheel has zoomed it in. */
+.stage-clip:not(.is-phone) > .room-zoom { top: 4px; bottom: auto; }
+.stage-clip:not(.is-phone) > .room-zoom > :not([data-testid="room-zoom-fit"]) { display: none; }

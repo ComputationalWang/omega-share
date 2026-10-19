@@ -9,8 +9,9 @@
 // ends, never per frame. The zoom is this viewer's: kept in localStorage, never sent.
 // On a computer (OME-1490, `desk`) the room is fitted as before, and the wheel zooms it from there, up to MAX_ZOOM× the
 // fit, around the pointer (`wheelView`): a trackpad pinch (a ctrlKey wheel) too, never the page's. The wheel is summed
-// and drawn once a frame, the transform alone. A double-click goes back to the whole room. Its own key in localStorage,
-// as its zoom is a multiple of the fit, not the phone's stage scale.
+// and drawn once a frame, the transform alone. Zoomed in, the Fit key shows in the room's corner and goes back to the
+// whole room (a double-click on the floor is a jog, OME-1350). Its own key in localStorage, as its zoom is a multiple of
+// the fit, not the phone's stage scale.
 import { el } from "./controls/dom";
 import { PHONE_ROOM_MIN_H, ROOM_VIEW, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView, type DeskView, type Point } from "./layout";
 
@@ -70,10 +71,12 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   let desk: number | null = null;
   const roomTopLeft: Point = { x: ROOM_VIEW.x, y: ROOM_VIEW.y };
   let deskView: DeskView = { zoom: storedZoom(DESK_ZOOM_STORAGE_KEY) ?? 1, pan: roomTopLeft };
+  const keys = el("div", { className: "room-zoom", hidden: true });
   const applyDesk = (fit: number, v: DeskView): void => {
     deskView = v;
     const k = fit * v.zoom;
     stage.style.transform = `translate(${String(-v.pan.x * k)}px, ${String(-v.pan.y * k)}px) scale(${String(k)})`;
+    keys.hidden = v.zoom <= 1;
   };
   // The stage's own pane, clipped beside (or above) the keys' band, so no key ever sits on a seat.
   const pane = el("div", { className: "stage-pane" });
@@ -163,11 +166,16 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     storeZoom(zoom);
   };
 
-  const keys = el("div", { className: "room-zoom", hidden: true });
+  const fitDesk = (): void => {
+    if (desk === null) return;
+    applyDesk(desk, { zoom: 1, pan: roomTopLeft });
+    storeZoom(1, DESK_ZOOM_STORAGE_KEY);
+  };
   const key = (name: string, label: string, text: string, next: () => number): void => {
     const k = el("button", { type: "button", className: "ui-button", ariaLabel: label, title: label, textContent: text }, `room-zoom-${name}`);
     k.addEventListener("click", () => {
-      zoomTo(next());
+      if (desk === null) zoomTo(next());
+      else if (name === "fit") fitDesk();
     });
     keys.append(k);
   };
@@ -356,11 +364,6 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     },
     { passive: false },
   );
-  clip.addEventListener("dblclick", () => {
-    if (desk === null) return;
-    applyDesk(desk, { zoom: 1, pan: roomTopLeft });
-    storeZoom(1, DESK_ZOOM_STORAGE_KEY);
-  });
 
   return {
     set(on, w, h) {
