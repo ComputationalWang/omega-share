@@ -242,7 +242,7 @@
 .ui-touch .chat, .ui-touch .invite { align-items: stretch; }
 .ui-touch .chat input, .ui-touch .chat > button:not(.ui-button), .ui-touch .invite input, .ui-touch .invite button, .ui-touch .queue-form .ui-input { min-height: 44px; }
 .ui-touch .invite button { min-width: 44px; }
-.ui-touch .generic-strip-unlock { min-height: 44px; }
+.ui-touch .generic-strip-unlock, .ui-touch .mod-policy-tile { min-height: 44px; }
 /* The seek and volume art stay as drawn; their transparent inputs grow to 44 px tall, centred on the track (whose padding box is ~0 tall). */
 .ui-touch .ui-seek input, .ui-touch .ui-vol-track input { top: 50%; bottom: auto; height: 44px; translate: 0 -50%; }
 .ui-touch .chat-log { max-height: 148px; }
