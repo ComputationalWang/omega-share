@@ -1262,7 +1262,7 @@ function crop(key: string, img: Uint8Array, box0?: { x0: number; y0: number; w: 
 }
 
 /** Back (+ front, for seats) layers of one piece facing `dir`. Both layers share one crop rect, so one anchor. */
-function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
+export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
   const base = `furniture/${def.id}/${colour}/${dir}`;
   if (def.image) return [crop(`${base}/back`, def.image(dir, colour))];
   const k = new Kit(dir);

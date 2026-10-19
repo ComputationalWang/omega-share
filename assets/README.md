@@ -28,6 +28,7 @@ assets/
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×1024 indexed PNG-8 (512×512 until OME-1424), 7 more pieces + catalogue v3's 6 (OME-1348) + the door (OME-1424)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
+  furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner, a runtime PLTE swap table (no sheet changes)
   furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
@@ -1075,6 +1076,43 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 - **Footprint check for M4:** the console still covers `col + row <= 2`. Don't place pieces there.
 - Contract: proposed here, for the M4 layout contract (Lead Engineer). Nothing in `apps/` reads it yet.
 
+## Furniture recolours (`furniture/recolours.json`, OME-1462)
+
+Six kinds get **2 extra colours each** by the shirt tints' technique: a runtime PLTE swap of the piece's fabric ramp(s), no new
+frames. Keyed by the `FURNITURE` kind in `packages/shared`: `rug` is the room's 7×7 rug (`room/room.png`), `runner` is the kilim
+runner (atlas id `rug` in `furniture/furniture.png`).
+
+| kind | shipped | new (variant 2, 3; the rug 1, 2) | swapped ramps (source colour) | sheet |
+|---|---|---|---|---|
+| `sofa` | `velvet`, `navy` | `teal`, `ginger` | velvet (`velvet`) | furniture.png |
+| `rug` | (navy) | `rust` (rust field, mustard border), `teal` (teal field, cream border) | navy, mustard | room.png |
+| `beanbag` | `blush`, `navy` | `mustard`, `lilac` | blush (`blush`) | furniture.png |
+| `pouf` | `rust`, `lilac` | `teal`, `mustard` | rust (`rust`) | furniture-v2.png |
+| `stool` | `wood`, `teal` | `lilac`, `mustard` (padded, like `teal`; ginger sat 19.6 from wood under CVD) | teal (`teal`) | furniture-v4.png |
+| `runner` | `lilac`, `teal` | `rust` (teal border), `mustard` (navy border) | lilac, pink (`lilac`) | furniture.png |
+
+**Why runtime, in bytes.** Every sheet (room, furniture ×3, `ui/edit.png`) carries the full shared PALETTE in its PLTE, so a swap
+needs no new colours and no sheet byte changes: the table is **756 B gz** (3 223 B raw). Baking the same 12 colours (measured by
+adding them to the catalogue and rebuilding) costs **+11 101 B of PNG** (furniture.png 21 948 → 29 620, furniture-v2.png 23 433 →
+24 574, furniture-v4.png 18 733 → 19 167, edit.png 13 689 → 14 857 for the thumbs) **+ 639 B of JSON gz**, about 15× the table,
+and would grow room.png too. The cost moves to the client: one sheet copy per (kind, variant) in use. If GPU memory matters, copy
+only the source frames' rects (the table names them by key prefix) instead of the whole sheet.
+
+**How to apply** (`kinds[<kind>]`): `slots` are PLTE indexes; for layout variant `variants[i].variant`, take a copy of `sheet`,
+write `variants[i].colors[j]` into PLTE entry `slots[j]` (redo the CRC, as `apps/web/src/walk/tint.ts` `retint` does), and draw
+the frames whose key starts with `frames` (the source colour's: `furniture/sofa/velvet/…`, the rug's `rug/…`) from that copy.
+The tray thumbnail is `thumb` in a copy of `ui/edit.png` with the same swap; the variant chip is the existing `swatch/<id>`.
+Colours are written, not indexes, so nothing cascades. The contract still says `variants: 2` (`rug`: 1); the hookup raises it.
+
+- Every target is a shared-palette ramp, so a swapped frame is index-for-index what a direct render in that ramp gives (tested
+  for every facing of the 4 seats); swapping a shipped piece into its other shipped colour (velvet → navy sofa, blush → navy
+  beanbag, rust → lilac pouf, lilac → teal runner) reproduces the shipped frames exactly. The rug's ramps never touch the planks.
+- Every new colour: ΔE ≥ 20 from each sibling with normal, deutan and protan vision, ΔE ≥ 25 from the floor, ≥ 3:1 on the dark
+  site bg `#1d1a2b` (where the tray sits). `src/recolours.test.ts` checks all of it and that `slots` hold the source colours in
+  every listed sheet.
+- Contact sheet: `preview/recolours-sheet@1x.png` / `@2x`: one row per kind (the rug as a 4×4 patch), one cell per variant with
+  every facing, shipped colours first and a cream rule before the new ones; the room floor on top, the dark site bg below.
+
 ## Set (o) extension popup kit + toolbar "found" state (OME-1041, `ui/popup/` + `store/`)
 
 The extension popup in the site's chrome, and a second toolbar icon for "this page has a video". Previews (1× and 2× device px):
@@ -1166,6 +1204,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops + door, lazy) | 23 415 |
 | `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
 | `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437, lazy) | 18 733 + 1 772 gz |
+| `furniture/recolours.json` (OME-1462, recolour table, ships with the web bundle) | 3 223 raw / 756 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -1192,6 +1231,9 @@ packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-o
 
 Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 → 226 272 of 307 200): lazy +7 293 (`furniture-v2.png` +5 375,
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
+
+Furniture recolours (OME-1462) add **756 B** (the gz table): 291 642 → 292 398 of 307 200. No sheet changes; baking them would cost
++11 740 B (see "Furniture recolours").
 
 Head accessories (OME-1388) add **12 451 B (≈ 12.2 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 8 481 gz. No existing file
 changes. Measured total: 238 750 B of 307 200.
