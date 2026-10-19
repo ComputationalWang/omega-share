@@ -9,6 +9,7 @@ use super::conn::{Conn, TimerCmd};
 use super::frames::{close_with, publish_except_msg, send_error, send_error_after, send_msg};
 use super::handle::clear_typing;
 use super::limits::MemberBuckets;
+use super::poll::{OpenPoll, member_left};
 use crate::app::{App, lock};
 use crate::contract::client_message::ClientMessage;
 use crate::contract::constants::{KICK_COOLDOWN_MS, close};
@@ -133,6 +134,9 @@ fn end(app: &App, inner: &mut RoomInner, member: &MemberId) -> Option<Session> {
     }
     let wall = app.wall();
     inner.room.leave(member, wall);
+    if !inner.closed {
+        member_left(inner, member);
+    }
     // Not when the room itself is going: its row is about to be deleted.
     if inner.room.member_count() == 0 && !inner.closed {
         app.mark_active(inner, wall);
@@ -329,6 +333,7 @@ fn resume(app: &App, inner: &mut RoomInner, conn: &mut Conn, token: &ResumeToken
         resume_token: Some(token.clone()),
         resumed: Some(true),
         owner: session.owner.then_some(true),
+        poll: inner.poll.as_ref().and_then(OpenPoll::view),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);
@@ -471,6 +476,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         resume_token,
         resumed: None,
         owner: owner.then_some(true),
+        poll: inner.poll.as_ref().and_then(OpenPoll::view),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);

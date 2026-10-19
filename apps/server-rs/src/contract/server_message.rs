@@ -8,15 +8,15 @@
 use super::Obj;
 use super::constants::{ERROR_MESSAGE_MAX_LENGTH, MAX_SERVER_MESSAGE_BYTES, RETRY_AFTER_MAX_MS};
 use super::generic_embed::AnyEmbed;
-use super::ids::{MemberId, QueueItemId, ResumeToken, ShareToken};
+use super::ids::{MemberId, PollId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
-use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, SeatIndex, Tint};
+use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PollCount, SeatIndex, Tint};
 use super::state::{
-    EmoteKind, Member, PingId, PlaybackState, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed, present,
-    queue_is_valid,
+    EmoteKind, Member, PingId, PlaybackState, Poll, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed,
+    poll_counts_are_valid, present, queue_is_valid,
 };
-use super::text::{ChatText, RoomTitle};
+use super::text::{ChatText, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -171,6 +171,9 @@ server_messages! {
         resumed: Option<bool>,
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         owner: Option<bool>,
+        /// The room's open poll (OME-1452), to everyone who joins while it is open.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        poll: Option<Poll>,
     }
     "member-joined" MemberJoined MemberJoinedWire { member: Member }
     "member-left" MemberLeft MemberLeftWire {
@@ -221,6 +224,15 @@ server_messages! {
     "title-changed" TitleChanged TitleChangedWire { title: RoomTitle, by: MemberId }
     "emoted" Emoted EmotedWire { member_id: MemberId, kind: EmoteKind }
     "rolled" Rolled RolledWire { member_id: MemberId, sides: DiceSides, value: DieValue }
+    "poll" PollChanged PollWire {
+        poll_id: PollId,
+        by: MemberId,
+        question: PollQuestion,
+        options: Vec<PollOption>,
+        counts: Vec<PollCount>,
+        ends_at: ServerTime,
+    }
+    "poll-closed" PollClosed PollClosedWire { poll_id: PollId, counts: Vec<PollCount> }
     "member-muted" MemberMuted MemberMutedWire { member_id: MemberId, muted: bool }
     "control-policy-changed" ControlPolicyChanged ControlPolicyChangedWire { policy: ControlPolicy, by: MemberId }
     "room-full" RoomFull RoomFullWire {}
@@ -277,6 +289,10 @@ impl ServerMessage {
             }
             Self::QueueChanged { queue, .. } if !queue_is_valid(queue) => Err("invalid queue"),
             Self::Rolled { sides, value, .. } if value.get() > sides.get() => Err("value above sides"),
+            Self::PollChanged { options, counts, .. } if !poll_counts_are_valid(counts) || counts.len() != options.len() => {
+                Err("one count per option")
+            }
+            Self::PollClosed { counts, .. } if !poll_counts_are_valid(counts) => Err("2 to 4 counts"),
             _ => Ok(()),
         }
     }

@@ -45,6 +45,11 @@
 {"input":"PING_ID_MAX","ok":true,"output":2147483647},
 {"input":"PLAYBACK_RATE_MAX","ok":true,"output":2},
 {"input":"PLAYBACK_RATE_MIN","ok":true,"output":0.25},
+{"input":"POLL_DURATION_MS","ok":true,"output":60000},
+{"input":"POLL_MAX_OPTIONS","ok":true,"output":4},
+{"input":"POLL_MIN_OPTIONS","ok":true,"output":2},
+{"input":"POLL_OPTION_MAX_LENGTH","ok":true,"output":40},
+{"input":"POLL_QUESTION_MAX_LENGTH","ok":true,"output":80},
 {"input":"QUEUE_ADD_MEMBER_BURST","ok":true,"output":3},
 {"input":"QUEUE_ADD_MEMBER_REFILL_MS","ok":true,"output":10000},
 {"input":"QUEUE_ADD_ROOM_BURST","ok":true,"output":10},
@@ -75,6 +80,8 @@
 {"input":"TYPING_BURST","ok":true,"output":2},
 {"input":"TYPING_REFILL_MS","ok":true,"output":1000},
 {"input":"TYPING_TIMEOUT_MS","ok":true,"output":5000},
+{"input":"VOTE_BURST","ok":true,"output":2},
+{"input":"VOTE_REFILL_MS","ok":true,"output":500},
 {"input":"WALK_BURST","ok":true,"output":8},
 {"input":"WALK_REFILL_MS","ok":true,"output":250}
 ]

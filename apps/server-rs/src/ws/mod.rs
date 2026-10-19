@@ -9,6 +9,7 @@ mod conn;
 mod frames;
 mod handle;
 pub mod limits;
+pub mod poll;
 pub mod session;
 
 use crate::app::{App, lock};

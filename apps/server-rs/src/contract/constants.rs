@@ -75,6 +75,16 @@ pub const TYPING_BURST: u32 = 2;
 pub const TYPING_REFILL_MS: u64 = 1000;
 pub const TYPING_TIMEOUT_MS: u64 = 5000;
 
+/// Watch-party polls (OME-1452, ADR 0055): question and option lengths in UTF-16 units, options per poll, how long one stays open.
+pub const POLL_QUESTION_MAX_LENGTH: usize = 80;
+pub const POLL_OPTION_MAX_LENGTH: usize = 40;
+pub const POLL_MIN_OPTIONS: usize = 2;
+pub const POLL_MAX_OPTIONS: usize = 4;
+pub const POLL_DURATION_MS: u64 = 60_000;
+/// Per member, `vote`: 2/s, burst 2, over it `rate_limited`.
+pub const VOTE_BURST: u32 = 2;
+pub const VOTE_REFILL_MS: u64 = 500;
+
 /// After a kick, joins from the kicked member's address are closed with KICKED for this long (ADR 0030).
 pub const KICK_COOLDOWN_MS: u64 = 10 * 60_000;
 /// A muted member's address stays muted this long after they leave.

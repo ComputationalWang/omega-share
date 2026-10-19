@@ -179,7 +179,7 @@ const invalid: Raw[] = [
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),
   // polls (OME-1452)
-  ...["", "   ", "q".repeat(81), "a\u202eb", "a\u200bb", "\u3164", "\u3164\u3164", "e\u0301\u0301\u0301\u0301", "a\nb", 1, null].flatMap((bad) => [
+  ...["", "   ", "q".repeat(81), "a\u202eb", "a\u200bb", "\u3164", "\u3164\u3164", "x\u0301\u0301\u0301\u0301", "a\nb", 1, null].flatMap((bad) => [
     js({ type: "poll-open", question: bad, options: ["A", "B"] }), js({ type: "poll-open", question: "Next?", options: ["A", bad] }),
   ]),
   js({ type: "poll-open", question: "Next?", options: ["A", "x".repeat(41)] }),

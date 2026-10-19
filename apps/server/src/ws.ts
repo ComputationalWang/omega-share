@@ -225,6 +225,9 @@ export function createWs({
       case "set-hair":
       case "typing":
       case "roll":
+      case "poll-open":
+      case "vote":
+      case "poll-close":
         return true;
     }
   };
@@ -360,6 +363,10 @@ export function createWs({
       case "roll":
       // OME-1435 too: the frozen TS server ignores hair.
       case "set-hair":
+      // OME-1452 too: the frozen TS server ignores polls.
+      case "poll-open":
+      case "vote":
+      case "poll-close":
         return;
       case "queue-remove":
       case "queue-advance": {

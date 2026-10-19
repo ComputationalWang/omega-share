@@ -5,6 +5,7 @@
 use super::conn::{Conn, TimerCmd};
 use super::frames::{send_error, send_error_after, send_msg};
 use super::limits::{MAX_DROPPED_IN_A_ROW, MemberBuckets};
+use super::poll;
 use super::session::{close_self, count_bad, join, kick, leave, session_of, session_of_mut, target_of};
 use crate::app::{App, lock};
 use crate::contract::client_message::{ClientMessage, EmoteKind as InEmote, parse_client_message};
@@ -18,7 +19,7 @@ use crate::owner_edits;
 use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
-use crate::registry::RoomInner;
+use crate::registry::{RoomCell, RoomInner};
 use crate::room::{SitResult, WalkResult};
 use crate::secrets;
 use std::sync::Arc;
@@ -33,7 +34,7 @@ pub enum Frame<'a> {
 /// Handles one inbound frame. The L1 bucket is the socket's own, so it is checked before the room lock is
 /// taken; the frame is parsed before it too. The member is taken out of the socket for the length of the frame,
 /// so the handlers borrow it while they mutate the socket, and the session is looked up once.
-pub fn on_frame(app: &Arc<App>, cell: &Arc<crate::registry::RoomCell>, conn: &mut Conn, frame: Frame<'_>) {
+pub fn on_frame(app: &Arc<App>, cell: &Arc<RoomCell>, conn: &mut Conn, frame: Frame<'_>) {
     let t0 = app.mono();
     let l1 = conn.bucket.take(t0);
     let parsed = match (&frame, l1) {
@@ -50,7 +51,7 @@ pub fn on_frame(app: &Arc<App>, cell: &Arc<crate::registry::RoomCell>, conn: &mu
     let member = conn.member.take();
     // `Some(owner)` while this socket still owns its session (not before join, not after a replace).
     let owner = session_of(inner, member.as_ref(), conn.id).map(|s| s.owner);
-    handle_frame(app, inner, conn, member.as_ref(), owner, l1, retry, parsed);
+    handle_frame(app, cell, inner, conn, member.as_ref(), owner, l1, retry, parsed);
     // A join or resume set a member; a leave cleared it; otherwise the socket keeps the one it had.
     if conn.member.is_none() && !conn.left {
         conn.member = member;
@@ -66,6 +67,7 @@ pub fn on_frame(app: &Arc<App>, cell: &Arc<crate::registry::RoomCell>, conn: &mu
 )]
 fn handle_frame(
     app: &Arc<App>,
+    cell: &Arc<RoomCell>,
     inner: &mut RoomInner,
     conn: &mut Conn,
     member: Option<&MemberId>,
@@ -87,7 +89,7 @@ fn handle_frame(
         return;
     }
     conn.dropped = 0;
-    handle(app, inner, conn, member.zip(owner), msg);
+    handle(app, cell, inner, conn, member.zip(owner), msg);
 }
 
 /// Drops a frame: one notice per streak, and a close once the streak is MAX_DROPPED_IN_A_ROW long.
@@ -128,6 +130,9 @@ fn admit_type(
         ClientMessage::Chat { .. } => admit!(chat, "too many chat messages, slow down"),
         // `/roll` is a chat line to the room (OME-1423).
         ClientMessage::Roll { .. } => admit!(chat, "too many chat messages, slow down"),
+        // Opening a poll is a chat line too (OME-1452); votes have their own bucket.
+        ClientMessage::PollOpen { .. } => admit!(chat, "too many chat messages, slow down"),
+        ClientMessage::Vote { .. } => owner.is_none() || admit!(vote, "too many votes, slow down"),
         ClientMessage::Sit { .. } => admit!(sit, "too many seat changes, slow down"),
         ClientMessage::Control { .. } => {
             // Refused in `handle`, before any bucket: a guest can't drain the room's control budget (ADR 0030 section 4).
@@ -183,6 +188,7 @@ fn admit_type(
         | ClientMessage::Ping { .. }
         | ClientMessage::Status { .. }
         | ClientMessage::Presence { .. }
+        | ClientMessage::PollClose { .. }
         | ClientMessage::Kick { .. }
         | ClientMessage::Mute { .. }
         | ClientMessage::ControlPolicy { .. }
@@ -224,7 +230,14 @@ fn emote_kind(kind: InEmote) -> EmoteKind {
     }
 }
 
-fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Option<(&MemberId, bool)>, msg: ClientMessage) {
+fn handle(
+    app: &Arc<App>,
+    cell: &Arc<RoomCell>,
+    inner: &mut RoomInner,
+    conn: &mut Conn,
+    session: Option<(&MemberId, bool)>,
+    msg: ClientMessage,
+) {
     if let ClientMessage::Ping { id } = &msg {
         // Clock sample: sender only, allowed before join. The token bucket already counted it. (Both ids are
         // validated 0..=PING_ID_MAX, so `new` never refuses a parsed one.)
@@ -391,6 +404,16 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                 },
             );
         }
+        ClientMessage::PollOpen { question, options } => {
+            if inner.room.is_muted(member) {
+                send_error(inner, conn.id, ErrorCode::Muted, "the room's owner muted you");
+                return;
+            }
+            clear_typing(inner, member);
+            poll::open(app, cell, inner, conn.id, member, question, options);
+        }
+        ClientMessage::Vote { poll_id, option } => poll::vote(inner, conn.id, member, &poll_id, option),
+        ClientMessage::PollClose { poll_id } => poll::close_by(inner, conn.id, member, owner, &poll_id),
         ClientMessage::Control { url, playing, position } => {
             if inner.room.control_policy() == ControlPolicy::Owner && !owner {
                 send_error(

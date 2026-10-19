@@ -51,7 +51,7 @@ describe("poll-open", () => {
       { question: "Next?", options: ["A", "B​"] },
       { question: "ㅤ", options: ["A", "B"] },
       { question: "Next?", options: ["A", "ㅤㅤ"] },
-      { question: "Next?", options: ["A", "é́́́"] },
+      { question: "Next?", options: ["A", "x\u0301\u0301\u0301\u0301"] },
       { question: "Next?", options: ["A", "B"], extra: 1 },
       { options: ["A", "B"] },
       { question: "Next?" },

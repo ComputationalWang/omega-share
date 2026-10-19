@@ -5,7 +5,10 @@
 //! The TS regexes are hand-coded over `unicode_props` (Unicode 17, like Bun) instead of the `regex`
 //! crate (Unicode 16, no lookaround).
 
-use super::constants::{CHAT_MAX_LENGTH, CHAT_MAX_MARK_RUN, NICKNAME_MAX_LENGTH, REPORT_NOTE_MAX_LENGTH, ROOM_TITLE_MAX_LENGTH};
+use super::constants::{
+    CHAT_MAX_LENGTH, CHAT_MAX_MARK_RUN, NICKNAME_MAX_LENGTH, POLL_OPTION_MAX_LENGTH, POLL_QUESTION_MAX_LENGTH, REPORT_NOTE_MAX_LENGTH,
+    ROOM_TITLE_MAX_LENGTH,
+};
 use super::ids::string_newtype;
 use super::js_compat::{js_trim, utf16_len};
 use super::unicode_props::{
@@ -29,6 +32,16 @@ string_newtype!(
     /// `ChatTextSchema`: `plain_text(CHAT_MAX_LENGTH)`.
     ChatText,
     |s| plain_text(s, CHAT_MAX_LENGTH)
+);
+string_newtype!(
+    /// `PollQuestionSchema`: `plain_text(POLL_QUESTION_MAX_LENGTH)` (OME-1452).
+    PollQuestion,
+    |s| plain_text(s, POLL_QUESTION_MAX_LENGTH)
+);
+string_newtype!(
+    /// `PollOptionSchema`: `plain_text(POLL_OPTION_MAX_LENGTH)`.
+    PollOption,
+    |s| plain_text(s, POLL_OPTION_MAX_LENGTH)
 );
 string_newtype!(
     /// `ReportNoteSchema`: raw at most 600 units, line breaks and tabs become one space, then `plain_text(300)`.

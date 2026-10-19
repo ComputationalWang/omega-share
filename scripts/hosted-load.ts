@@ -349,6 +349,8 @@ class LoadClient {
       case "hair-changed":
       case "typing-changed":
       case "rolled":
+      case "poll":
+      case "poll-closed":
       case "pong":
       case "layout-changed":
       case "title-changed":

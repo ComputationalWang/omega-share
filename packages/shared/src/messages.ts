@@ -8,8 +8,14 @@ import {
   MAX_CLIENT_MESSAGE_BYTES,
   MAX_EMBED_URL_LENGTH,
   MAX_SERVER_MESSAGE_BYTES,
+  MAX_ROOM_MEMBERS,
   MAX_URL_LENGTH,
+  POLL_MAX_OPTIONS,
+  POLL_MIN_OPTIONS,
+  POLL_OPTION_MAX_LENGTH,
+  POLL_QUESTION_MAX_LENGTH,
 } from "./constants";
+import { PollIdSchema } from "./ids";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
@@ -62,6 +68,35 @@ export const ChatTextSchema = plainTextSchema(CHAT_MAX_LENGTH);
 
 /** A die's faces, DICE_MIN_SIDES..DICE_MAX_SIDES (OME-1423). */
 export const DiceSidesSchema = v.pipe(v.number(), v.integer(), v.minValue(DICE_MIN_SIDES), v.maxValue(DICE_MAX_SIDES));
+
+/** A poll's question, `plainTextSchema` at 1–80 chars (OME-1452). */
+export const PollQuestionSchema = plainTextSchema(POLL_QUESTION_MAX_LENGTH);
+/** One poll answer, `plainTextSchema` at 1–40 chars. */
+export const PollOptionSchema = plainTextSchema(POLL_OPTION_MAX_LENGTH);
+const PollOptionsSchema = v.pipe(v.array(PollOptionSchema), v.minLength(POLL_MIN_OPTIONS), v.maxLength(POLL_MAX_OPTIONS));
+/** An index into the poll's options. Above the open poll's last option, the server answers `bad_message`. */
+export const PollOptionIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(POLL_MAX_OPTIONS - 1));
+/** Votes per option, in option order. */
+const PollCountsSchema = v.pipe(
+  v.array(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(MAX_ROOM_MEMBERS))),
+  v.minLength(POLL_MIN_OPTIONS),
+  v.maxLength(POLL_MAX_OPTIONS),
+);
+/** The room's open poll (ADR 0055): in `poll` and in the snapshot. `endsAt` is server time; `by` is the opener. */
+const POLL_ENTRIES = {
+  pollId: PollIdSchema,
+  by: MemberIdSchema,
+  question: PollQuestionSchema,
+  options: PollOptionsSchema,
+  counts: PollCountsSchema,
+  endsAt: ServerTimeSchema,
+};
+export const PollSchema = v.pipe(
+  v.object(POLL_ENTRIES),
+  v.check((p) => p.counts.length === p.options.length, "one count per option"),
+);
+export type Poll = v.InferOutput<typeof PollSchema>;
+export { PollIdSchema, type PollId } from "./ids";
 
 /**
  * Emote bubbles in the avatar motion atlas (`emote/<kind>`), plus per-avatar animations, not bubbles: `wave` (motion atlas)
@@ -123,6 +158,15 @@ export const ClientMessageSchema = v.variant("type", [
    * for a muted member, and it clears typing. The value is the server's, from the OS CSPRNG; never stored or logged.
    */
   v.strictObject({ type: v.literal("roll"), sides: DiceSidesSchema }),
+  /**
+   * Watch-party polls (OME-1452, ADR 0055), all need `join`. `poll-open` is a chat line (the chat bucket, `muted`);
+   * with a poll already open it is `bad_message`. `vote` has its own bucket (VOTE_BURST, VOTE_REFILL_MS); a vote counts
+   * once and replaces the member's earlier one, an option the poll lacks is `bad_message`. `poll-close` is for the opener
+   * or the room's owner (`not_owner` otherwise). A `vote` or `poll-close` for a poll that is not open is dropped silently.
+   */
+  v.strictObject({ type: v.literal("poll-open"), question: PollQuestionSchema, options: PollOptionsSchema }),
+  v.strictObject({ type: v.literal("vote"), pollId: PollIdSchema, option: PollOptionIndexSchema }),
+  v.strictObject({ type: v.literal("poll-close"), pollId: PollIdSchema }),
   /** Clock sample; allowed before `join`. Answered with `pong` to the sender only. */
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
   /**
@@ -242,6 +286,8 @@ export const ServerMessageSchema = v.variant("type", [
     resumed: v.optional(v.boolean()),
     /** True when this member joined with the room's owner token; only in their own snapshot (ADR 0028). */
     owner: v.optional(v.boolean()),
+    /** The room's open poll (OME-1452). Absent when there is none, or from a server without polls. */
+    poll: v.optional(PollSchema),
   }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
   /** `reason` is absent from a pre-M6 server: read it as `left`. */
@@ -307,6 +353,13 @@ export const ServerMessageSchema = v.variant("type", [
     v.object({ type: v.literal("rolled"), memberId: MemberIdSchema, sides: DiceSidesSchema, value: v.pipe(v.number(), v.integer(), v.minValue(1)) }),
     v.check((x) => x.value <= x.sides, "value above sides"),
   ),
+  /** A poll opened, or its counts changed (a vote, a changed vote, a voter who left). The whole poll every time. */
+  v.pipe(
+    v.object({ type: v.literal("poll"), ...POLL_ENTRIES }),
+    v.check((p) => p.counts.length === p.options.length, "one count per option"),
+  ),
+  /** The poll ended: its opener or the owner closed it, or POLL_DURATION_MS passed. `counts` are final. */
+  v.object({ type: v.literal("poll-closed"), pollId: PollIdSchema, counts: PollCountsSchema }),
   /** The owner muted or unmuted a member's chat (ADR 0030); published to every member. */
   v.object({ type: v.literal("member-muted"), memberId: MemberIdSchema, muted: v.boolean() }),
   /** The owner changed who controls playback (ADR 0030). */

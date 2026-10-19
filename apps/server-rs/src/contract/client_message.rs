@@ -5,12 +5,16 @@
 //! Shape (serde, strict, string-only tags) → field rules (validator) → [`ClientMessage`], whose
 //! fields are all merged newtypes or the small ones below, so nothing downstream holds raw input.
 
-use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX};
-use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
+use super::constants::{
+    MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS,
+};
+use super::ids::{InviteKey, MemberId, OwnerToken, PollId, QueueItemId, ResumeToken};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
-use super::room::{Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, QueueIndex, SeatIndex, Tint};
-use super::text::{ChatText, Nickname, RoomTitle};
+use super::room::{
+    Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, PollOptionIndex, QueueIndex, SeatIndex, Tint,
+};
+use super::text::{ChatText, Nickname, PollOption, PollQuestion, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
 use validator::{Validate, ValidationError, ValidationErrors};
@@ -122,6 +126,17 @@ pub enum ClientMessage {
     Roll {
         sides: DiceSides,
     },
+    PollOpen {
+        question: PollQuestion,
+        options: Vec<PollOption>,
+    },
+    Vote {
+        poll_id: PollId,
+        option: PollOptionIndex,
+    },
+    PollClose {
+        poll_id: PollId,
+    },
     Ping {
         id: PingId,
     },
@@ -186,6 +201,9 @@ impl ClientMessage {
             Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
             Self::Roll { .. } => "roll",
+            Self::PollOpen { .. } => "poll-open",
+            Self::Vote { .. } => "vote",
+            Self::PollClose { .. } => "poll-close",
             Self::Ping { .. } => "ping",
             Self::Control { .. } => "control",
             Self::Status { .. } => "status",
@@ -228,6 +246,14 @@ impl<'de> Deserialize<'de> for True {
         } else {
             Err(serde::de::Error::custom("expected true"))
         }
+    }
+}
+
+fn poll_option_count(options: &[PollOption]) -> Result<(), ValidationError> {
+    if (POLL_MIN_OPTIONS..=POLL_MAX_OPTIONS).contains(&options.len()) {
+        Ok(())
+    } else {
+        Err(ValidationError::new("poll_option_count"))
     }
 }
 
@@ -326,6 +352,27 @@ struct ChatW {
 #[serde(deny_unknown_fields)]
 struct RollW {
     sides: DiceSides,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct PollOpenW {
+    question: PollQuestion,
+    #[validate(custom(function = "poll_option_count"))]
+    options: Vec<PollOption>,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct VoteW {
+    poll_id: PollId,
+    option: PollOptionIndex,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct PollCloseW {
+    poll_id: PollId,
 }
 
 #[derive(Deserialize, Validate)]
@@ -449,6 +496,12 @@ enum Wire {
     Chat(ChatW),
     #[serde(rename = "roll")]
     Roll(RollW),
+    #[serde(rename = "poll-open")]
+    PollOpen(PollOpenW),
+    #[serde(rename = "vote")]
+    Vote(VoteW),
+    #[serde(rename = "poll-close")]
+    PollClose(PollCloseW),
     #[serde(rename = "ping")]
     Ping(PingW),
     #[serde(rename = "control")]
@@ -493,6 +546,9 @@ impl Validate for Wire {
             Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
             Self::Roll(m) => m.validate(),
+            Self::PollOpen(m) => m.validate(),
+            Self::Vote(m) => m.validate(),
+            Self::PollClose(m) => m.validate(),
             Self::Ping(m) => m.validate(),
             Self::Control(m) => m.validate(),
             Self::Status(m) => m.validate(),
@@ -535,6 +591,15 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
         Wire::Roll(m) => ClientMessage::Roll { sides: m.sides },
+        Wire::PollOpen(m) => ClientMessage::PollOpen {
+            question: m.question,
+            options: m.options,
+        },
+        Wire::Vote(m) => ClientMessage::Vote {
+            poll_id: m.poll_id,
+            option: m.option,
+        },
+        Wire::PollClose(m) => ClientMessage::PollClose { poll_id: m.poll_id },
         Wire::Ping(m) => ClientMessage::Ping { id: PingId(m.id) },
         Wire::Control(m) => ClientMessage::Control {
             url: ControlUrl(m.url),

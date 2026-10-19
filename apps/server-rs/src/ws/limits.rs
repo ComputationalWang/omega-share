@@ -3,7 +3,7 @@
 
 use crate::contract::constants::{
     EMOTE_BURST, EMOTE_REFILL_MS, MODERATION_BURST, MODERATION_REFILL_MS, ROOM_EDIT_BURST, ROOM_EDIT_REFILL_MS, TYPING_BURST,
-    TYPING_REFILL_MS, WALK_BURST, WALK_REFILL_MS,
+    TYPING_REFILL_MS, VOTE_BURST, VOTE_REFILL_MS, WALK_BURST, WALK_REFILL_MS,
 };
 use crate::rate_limit::TokenBucket;
 
@@ -45,6 +45,8 @@ pub struct MemberBuckets {
     pub walk: TokenBucket,
     /// `typing` (OME-1387): over it the frame is dropped without a word.
     pub typing: TokenBucket,
+    /// `vote` (OME-1452): over it `rate_limited`.
+    pub vote: TokenBucket,
     /// Owner moderation, `kick`, `mute` and `control-policy` together (ADR 0030 section 1).
     pub moderation: TokenBucket,
 }
@@ -60,6 +62,7 @@ impl MemberBuckets {
             emote: TokenBucket::new(f64::from(EMOTE_BURST), 1000.0 / EMOTE_REFILL_MS as f64, now),
             walk: TokenBucket::new(f64::from(WALK_BURST), 1000.0 / WALK_REFILL_MS as f64, now),
             typing: TokenBucket::new(f64::from(TYPING_BURST), 1000.0 / TYPING_REFILL_MS as f64, now),
+            vote: TokenBucket::new(f64::from(VOTE_BURST), 1000.0 / VOTE_REFILL_MS as f64, now),
             moderation: TokenBucket::new(f64::from(MODERATION_BURST), 1000.0 / MODERATION_REFILL_MS as f64, now),
         }
     }
