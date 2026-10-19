@@ -5,6 +5,7 @@
 // closes; when the room tab goes away it shows the set (f) plug and offers to open the room in itself.
 import type { RoomId } from "@omega/shared";
 import { createChatLog } from "../chat/log";
+import { createPollCard } from "../chat/poll";
 import { el, sprite } from "../controls/dom";
 import { createEmotePicker } from "../emote/picker";
 import { roomPageTitle } from "../page-title";
@@ -107,7 +108,21 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
   awayKeys.append(openRoom, close);
   away.append(sprite("ui-icon-unplugged"), awayText, awayKeys);
 
-  frame.append(head, log.root, form, away);
+  // The open poll's card (OME-1454), above the log; its keys go back to the room tab like chat.
+  let pollId: string | null = null;
+  const poll = createPollCard({
+    now: Date.now,
+    setInterval: o.setInterval,
+    clearTimer: o.clearTimer,
+    vote: (option) => {
+      if (pollId !== null && adopted && !gone) o.channel.post({ t: "pop-vote", pop, pollId, option });
+    },
+    close: () => {
+      if (pollId !== null && adopted && !gone) o.channel.post({ t: "pop-poll-close", pop, pollId });
+    },
+  });
+
+  frame.append(head, poll.root, log.root, form, away);
   o.root.replaceChildren(frame);
 
   /** The field and keys work only while a room tab is behind them and the room lets me talk. */
@@ -183,6 +198,12 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
         form.dataset["cooldown"] = String(m.cooling);
         renderForm();
         return;
+      case "room-poll":
+        if (!adopted || moved) return;
+        pollId = m.view?.pollId ?? null;
+        if (m.view === null) poll.hide();
+        else poll.show(m.view);
+        return;
       case "room-said":
         if (m.pop === pop && m.seq === pending) {
           // One message at a time: the field takes the next once this one is answered.
@@ -211,6 +232,8 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
       case "pop-emote":
       case "pop-back":
       case "pop-sit":
+      case "pop-vote":
+      case "pop-poll-close":
       case "pop-bye":
         return;
     }

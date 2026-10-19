@@ -3,9 +3,10 @@
 // here and not in packages/shared. It is still a boundary (any same-origin page can post to the channel), so every
 // message is parsed on receipt and anything else is dropped. Room tab → window: `room-*`; window → room tab: `pop-*`.
 import * as v from "valibot";
-import { ChatTextSchema, EmoteKindSchema, MAX_ROOM_MEMBERS, MemberIdSchema, RoomIdSchema, RoomStateSchema, SEAT_COUNT, type RoomId } from "@omega/shared";
+import { ChatTextSchema, EmoteKindSchema, MAX_ROOM_MEMBERS, MemberIdSchema, POLL_MAX_OPTIONS, PollIdSchema, PollOptionIndexSchema, PollOptionSchema, PollQuestionSchema, RoomIdSchema, RoomStateSchema, SEAT_COUNT, type RoomId } from "@omega/shared";
 import { FLOAT_PER_SPEAKER } from "../bubbles/floats";
 import type { ChatLogEntry } from "../chat/log";
+import type { PollView } from "../chat/poll";
 import type { SyslineGlyph } from "../controls/sysline";
 import { CHAT_LOG_CAP } from "../chat/log";
 import { MAX_SYSLINES, type StageState, type Status } from "../state";
@@ -30,6 +31,17 @@ const ChatLogEntrySchema: v.GenericSchema<ChatLogEntry> = v.variant("kind", [
   v.strictObject({ kind: v.literal("chat"), nickname: Text, text: Text, self: v.boolean() }),
   v.strictObject({ kind: v.literal("system"), line: SystemLineSchema }),
 ]);
+
+/** The poll card the window draws (OME-1454): the wire's own question and options, typed as the card's view. */
+const PollViewSchema: v.GenericSchema<PollView> = v.strictObject({
+  pollId: PollIdSchema,
+  question: PollQuestionSchema,
+  options: v.pipe(v.array(PollOptionSchema), v.minLength(2), v.maxLength(POLL_MAX_OPTIONS)),
+  counts: v.pipe(v.array(v.pipe(v.number(), v.integer(), v.minValue(0))), v.maxLength(POLL_MAX_OPTIONS)),
+  vote: v.nullable(PollOptionIndexSchema),
+  canClose: v.boolean(),
+  endsAt: v.number(),
+});
 
 /** What the window needs from the room's state: the head count, and whether (and why not) it may send. */
 const PopStateFields = {
@@ -95,6 +107,11 @@ const PopMessageSchema = v.variant("t", [
   v.strictObject({ t: v.literal("room-typing-clear") }),
   /** "Show the window" in the page: come to the front. */
   v.strictObject({ t: v.literal("room-raise") }),
+  /** The open poll's card as it is now (OME-1454), or none. */
+  v.strictObject({ t: v.literal("room-poll"), view: v.nullable(PollViewSchema) }),
+  /** A vote or a close from the window's card; the room tab sends it on the socket. */
+  v.strictObject({ t: v.literal("pop-vote"), pop: IdSchema, pollId: PollIdSchema, option: PollOptionIndexSchema }),
+  v.strictObject({ t: v.literal("pop-poll-close"), pop: IdSchema, pollId: PollIdSchema }),
   v.strictObject({ t: v.literal("pop-ready"), pop: IdSchema, kind: v.exactOptional(PopKindSchema) }),
   v.strictObject({ t: v.literal("pop-ping"), pop: IdSchema }),
   v.strictObject({ t: v.literal("pop-say"), pop: IdSchema, seq: Seq, text: Text }),

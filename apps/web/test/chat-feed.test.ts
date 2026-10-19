@@ -121,7 +121,7 @@ describe("logEntries", () => {
 // OME-1454: the open poll is view state; its result is one log line when it closes. The server never says which option
 // I voted, so my vote is mine to keep (a `voted` event) and ends with the poll or when a new one starts.
 describe("polls", () => {
-  const open = { type: "poll", pollId: "p1", by: "k", question: "Next video?", options: ["A", "B"], counts: [0, 0], endsAt: 90_000 } as const;
+  const open: Extract<ServerMessage, { type: "poll" }> = { type: "poll", pollId: "p1", by: "k", question: "Next video?", options: ["A", "B"], counts: [0, 0], endsAt: 90_000 };
   const polled = (): ViewState => reduce(joined(), msg(open));
 
   test("a poll message opens it; the next one replaces it whole", () => {

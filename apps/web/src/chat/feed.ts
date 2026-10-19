@@ -19,6 +19,12 @@ export function logEntries(prev: ViewState, next: ViewState, event: ViewEvent): 
     if (who === undefined) return [];
     return [{ kind: "system", line: { glyph: "everyone", actor: msg.memberId === next.self ? "You" : who.nickname, verb: `rolled ${String(msg.value)} (d${String(msg.sides)})`, time: null } }];
   }
+  // OME-1454: the card goes with the poll, so the result is the log's line ("Poll: Next video? — A 3 · B 1").
+  if (msg.type === "poll-closed") {
+    const poll = prev.poll;
+    if (poll === null || next.poll !== null) return [];
+    return [{ kind: "system", line: { glyph: "everyone", actor: null, verb: `Poll: ${poll.question} — ${poll.options.map((o, i) => `${o} ${String(msg.counts[i] ?? 0)}`).join(" · ")}`, time: null } }];
+  }
   if (msg.type === "member-left") {
     const who = prev.room?.members.find((m) => m.id === msg.memberId);
     if (who === undefined) return [];

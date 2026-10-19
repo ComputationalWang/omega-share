@@ -32,7 +32,8 @@ import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
-import { DANCE_SEATED_LINE, HELP_LINE, ROLL_USAGE_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
+import { createPollCard, type PollView } from "./chat/poll";
+import { DANCE_SEATED_LINE, HELP_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { chatKey } from "./chat/enter";
 import { createTypingSender } from "./chat/typing";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
@@ -472,6 +473,33 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
 
+  // The open poll's card (OME-1454), pinned above the log wherever the layout puts it. Votes and closes go out on the socket;
+  // my vote is marked once it went out (the server never says which option is mine).
+  const castVote = (pollId: string, option: number): void => {
+    if (state.poll?.pollId === pollId && state.vote !== option && send({ type: "vote", pollId, option })) dispatch({ type: "voted", pollId, option });
+  };
+  const closePoll = (pollId: string): void => {
+    if (state.poll?.pollId === pollId) send({ type: "poll-close", pollId });
+  };
+  const pollCard = createPollCard({
+    now: Date.now,
+    setInterval: (fn, ms) => setInterval(fn, ms),
+    clearTimer: (h) => {
+      clearInterval(h);
+    },
+    vote: (option) => {
+      if (state.poll !== null) castVote(state.poll.pollId, option);
+    },
+    close: () => {
+      if (state.poll !== null) closePoll(state.poll.pollId);
+    },
+  });
+  /** What the card shows for this state: the poll while I'm in; `endsAt` is server time, so the clock's offset brings it to mine. */
+  const pollView = (s: ViewState): PollView | null =>
+    s.poll === null || s.status !== "open"
+      ? null
+      : { pollId: s.poll.pollId, question: s.poll.question, options: s.poll.options, counts: s.poll.counts, vote: s.vote, canClose: s.poll.by === s.self || s.owner, endsAt: s.poll.endsAt - clock.offsetMs };
+
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
@@ -507,7 +535,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
@@ -524,6 +552,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     tv: tvBox,
     log: chatLog,
+    poll: pollCard.root,
     composer: { form: chatForm, away: chatAway, popOut, picker },
     queue: queuePanel,
     notice,
@@ -790,6 +819,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Always, so a window adopted later starts from the room as it is (only posted while popped out, and if changed).
     relay?.update(popState(next));
     relay?.view(next);
+    if (next.poll !== prevState.poll || next.vote !== prevState.vote || next.status !== prevState.status || next.owner !== prevOwner) {
+      const poll = pollView(next);
+      if (poll === null) pollCard.hide();
+      else pollCard.show(poll);
+      relay?.poll(poll);
+    }
     // Removed, closed or full while popped out: the window closes now, not on the next frame (a hidden tab draws none).
     if (popped && !screen(next).chat) relay?.bringBack();
     if (frame === 0) frame = requestAnimationFrame(render);
@@ -831,7 +866,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd === null) return null;
     if (cmd.type === "emote" && !(cmd.kind === "dance" && iSit())) return picker.emote(cmd.kind);
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
-    const line = cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : DANCE_SEATED_LINE;
+    if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
+    const line = cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE;
     chatLog.append({ kind: "system", line });
     relay?.append({ kind: "system", line });
     return true;
@@ -886,6 +922,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
           channel: browserChannel(channelName(opts.roomId, tab)),
           send: (m) => c.send(m),
           command: runSlash,
+          onVote: castVote,
+          onPollClose: closePoll,
           openWindow: (kind) => {
             if (kind === "room") window.open(roomPopoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=1280,height=668");
             else window.open(popoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=380,height=640");

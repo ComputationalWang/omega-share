@@ -247,6 +247,21 @@
 .ui-touch .ui-seek input, .ui-touch .ui-vol-track input { top: 50%; bottom: auto; height: 44px; translate: 0 -50%; }
 .ui-touch .chat-log { max-height: 148px; }
 
+/* ---- Poll card (OME-1454): above the chat log, in the page and in the pop-out. DOM only; the bar is a width, not an animation. */
+.poll-card { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.poll-card[hidden] { display: none; }
+.poll-head { display: flex; justify-content: space-between; gap: 8px; }
+.poll-question { margin: 0; overflow-wrap: anywhere; font-weight: 600; }
+.poll-left { flex: none; font-variant-numeric: tabular-nums; }
+.poll-options { display: flex; flex-direction: column; gap: 4px; }
+.poll-option { position: relative; overflow: hidden; display: flex; justify-content: space-between; gap: 8px; text-align: left; }
+.poll-option > span { position: relative; overflow-wrap: anywhere; }
+.poll-option > .poll-bar { position: absolute; inset: 0 auto 0 0; background: var(--ui-text); opacity: 0.18; }
+.poll-option[aria-pressed="true"] { outline: 2px solid var(--ui-text); outline-offset: -2px; }
+.poll-close { align-self: flex-end; }
+@media (pointer: coarse) { .poll-option, .poll-close { min-height: 44px; } }
+.ui-touch .poll-option, .ui-touch .poll-close { min-height: 44px; }
+
 /* ---- Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`): our wrapper, never the provider's iframe. room.ts places the
  * picture, shelf and strip from layout.ts `fullscreenLayout` (absolute, like the room page): nothing of ours over the player. ---- */
 .stage-wrap.is-fs { background: var(--bg); overflow: hidden; }
