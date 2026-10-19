@@ -3,7 +3,8 @@
 // swap applied, under the key `recolour/<kind>/<variant>/<source key>` (no shipped frame starts with `recolour/`). Pure, no Pixi.
 import * as v from "valibot";
 import { FURNITURE_KINDS, type FurnitureKind, type RoomLayout } from "@omega/shared";
-import json from "../../../assets/furniture/recolours.json";
+// The attribute: e2e specs load this through editor/draft.ts under Node, which requires it for JSON.
+import json from "../../../assets/furniture/recolours.json" with { type: "json" };
 
 const HexSchema = v.pipe(v.string(), v.regex(/^#[0-9a-f]{6}$/));
 const SlotSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255));
