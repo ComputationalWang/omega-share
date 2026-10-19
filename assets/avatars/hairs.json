@@ -1,0 +1,248 @@
+{
+ "license": "CC-BY-SA-4.0",
+ "method": "runtime PLTE swap, like tints.json: in each sheet replace PLTE entry slots[t] with hairs[n].colors[t] (t = 0 highlight, 1 base, 2 shade); use the copy only for that avatar's frames. Hair slots and tint slots never overlap, so apply both to the same copy in either order",
+ "sheets": [
+  "avatars.png",
+  "motion.png",
+  "expressions.png",
+  "../accessories/bare.png"
+ ],
+ "overlays": [
+  "../accessories/accessories.png",
+  "../themes/halloween/halloween.png",
+  "../themes/sinterklaas/sinterklaas.png",
+  "../themes/christmas/christmas.png",
+  "../themes/valentines/valentines.png",
+  "../themes/easter/easter.png"
+ ],
+ "avatars": {
+  "juno": {
+   "slots": [
+    44,
+    45,
+    46
+   ],
+   "hairs": [
+    {
+     "id": "hairDark",
+     "colors": [
+      "#5a4038",
+      "#3a2a2a",
+      "#261a1c"
+     ]
+    },
+    {
+     "id": "ginger",
+     "colors": [
+      "#f09a4e",
+      "#d9772e",
+      "#a4531d"
+     ]
+    },
+    {
+     "id": "blonde",
+     "colors": [
+      "#fbe7a8",
+      "#e9cd7c",
+      "#b89a52"
+     ]
+    },
+    {
+     "id": "silver",
+     "colors": [
+      "#eeecf4",
+      "#c4c0d4",
+      "#8e8aa4"
+     ]
+    },
+    {
+     "id": "cherry",
+     "colors": [
+      "#f0707a",
+      "#d0404e",
+      "#902836"
+     ]
+    },
+    {
+     "id": "sky",
+     "colors": [
+      "#9cd4fa",
+      "#5aa8ec",
+      "#356cb4"
+     ]
+    }
+   ]
+  },
+  "pip": {
+   "slots": [
+    71,
+    72,
+    73
+   ],
+   "hairs": [
+    {
+     "id": "hairGinger",
+     "colors": [
+      "#f09a4f",
+      "#d9772f",
+      "#a4531e"
+     ]
+    },
+    {
+     "id": "hairDark",
+     "colors": [
+      "#5a4038",
+      "#3a2a2a",
+      "#261a1c"
+     ]
+    },
+    {
+     "id": "chestnut",
+     "colors": [
+      "#b06a40",
+      "#8a4a2c",
+      "#5e301e"
+     ]
+    },
+    {
+     "id": "silver",
+     "colors": [
+      "#eeecf4",
+      "#c4c0d4",
+      "#8e8aa4"
+     ]
+    },
+    {
+     "id": "mint",
+     "colors": [
+      "#b4f0c0",
+      "#78d098",
+      "#449a6c"
+     ]
+    },
+    {
+     "id": "violet",
+     "colors": [
+      "#b48cf0",
+      "#8a5ad8",
+      "#5a3a9c"
+     ]
+    }
+   ]
+  },
+  "mo": {
+   "slots": [
+    44,
+    45,
+    46
+   ],
+   "hairs": [
+    {
+     "id": "hairDark",
+     "colors": [
+      "#5a4038",
+      "#3a2a2a",
+      "#261a1c"
+     ]
+    },
+    {
+     "id": "ginger",
+     "colors": [
+      "#f09a4e",
+      "#d9772e",
+      "#a4531d"
+     ]
+    },
+    {
+     "id": "blonde",
+     "colors": [
+      "#fbe7a8",
+      "#e9cd7c",
+      "#b89a52"
+     ]
+    },
+    {
+     "id": "silver",
+     "colors": [
+      "#eeecf4",
+      "#c4c0d4",
+      "#8e8aa4"
+     ]
+    },
+    {
+     "id": "sky",
+     "colors": [
+      "#9cd4fa",
+      "#5aa8ec",
+      "#356cb4"
+     ]
+    },
+    {
+     "id": "violet",
+     "colors": [
+      "#b48cf0",
+      "#8a5ad8",
+      "#5a3a9c"
+     ]
+    }
+   ]
+  },
+  "kiki": {
+   "slots": [
+    68,
+    69,
+    70
+   ],
+   "hairs": [
+    {
+     "id": "hairPink",
+     "colors": [
+      "#f7b3c9",
+      "#f08fb1",
+      "#c26080"
+     ]
+    },
+    {
+     "id": "hairDark",
+     "colors": [
+      "#5a4038",
+      "#3a2a2a",
+      "#261a1c"
+     ]
+    },
+    {
+     "id": "ginger",
+     "colors": [
+      "#f09a4e",
+      "#d9772e",
+      "#a4531d"
+     ]
+    },
+    {
+     "id": "chestnut",
+     "colors": [
+      "#b06a40",
+      "#8a4a2c",
+      "#5e301e"
+     ]
+    },
+    {
+     "id": "sky",
+     "colors": [
+      "#9cd4fa",
+      "#5aa8ec",
+      "#356cb4"
+     ]
+    },
+    {
+     "id": "violet",
+     "colors": [
+      "#b48cf0",
+      "#8a5ad8",
+      "#5a3a9c"
+     ]
+    }
+   ]
+  }
+ }
+}

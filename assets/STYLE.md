@@ -77,6 +77,7 @@ All three render the same scene with the same sprites. Only the palette and the 
   a 3 px seat cushion with a shade seam where it meets the mustard-piped base. Four facings: `ne`/`nw` face the TV
   (backrest toward the camera, the sitter seen from behind); `se`/`sw` face the camera (backrest behind, the sitter's face visible).
 - **Palette additions for set (b):** `velvet` (chairs) and `night` (window sky, TV glass). That's 67 colours total, still one palette.
+- **Hair-only copies (OME-1436):** `hairPink` and `hairGinger` repeat `pink` / `ginger` one blue step off, so hair owns its PLTE slots and a hair-colour swap never touches shoes, popcorn or a hat band. Not new colours to the eye; never use them for anything but hair.
 
 ## UI chrome (set c)
 - **Same rules as the art:** palette-only, 1-bit alpha, 1 px plum outline, top-left light. Raised things (panel frame,
