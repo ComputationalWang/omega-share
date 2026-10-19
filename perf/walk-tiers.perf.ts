@@ -11,6 +11,7 @@
 // shows another preset, `default` the default layout. The room's own layout stays the default one (its snapshots are
 // rewritten in the observer's page), so bots walk the cells free in both. With bar the bots in the hammock seats (4–7)
 // sway them, a bot at the piano's front plays it and the playing video lights the fireplace: every batch 6 loop runs.
+// OMEGA_PERF_WALK_RUN=1 (OME-1464): the bots jog (`walk.run`) instead, for the same rows with 25 joggers.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
@@ -39,6 +40,7 @@ type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
 const BOT_PREFIX = "w25-bot";
 const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "cafe";
+const RUN = process.env["OMEGA_PERF_WALK_RUN"] === "1";
 if (!/^[a-z]{1,12}$/.test(LAYOUT_PRESET)) throw new Error(`OMEGA_PERF_WALK_LAYOUT must be a preset id or default, not ${JSON.stringify(LAYOUT_PRESET)}`);
 const SHOWN_LAYOUT = LAYOUT_PRESET === "default" ? null : v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../assets/presets/${LAYOUT_PRESET}.json`, import.meta.url), "utf8")));
 /** Every cell a bot may walk to: free in the room's own (default) layout, which the server checks, and in the one shown. */
@@ -64,7 +66,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
   const page = await context.newPage();
   await page.goto(URLS.web);
   await page.evaluate(
-    async ({ url, bots, prefix, everyMs, cells, walksPerTick }) => {
+    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run }) => {
       interface Bot { ws: WebSocket; self: string }
       const all: Bot[] = [];
       /** seats[i] is the member id holding seat i, from the server's snapshot / seat-changed / member-left stream. */
@@ -137,7 +139,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
         for (let k = 0; k < walksPerTick; k++) {
           const bot = standing[Math.floor(Math.random() * standing.length)];
           const cell = cells[Math.floor(Math.random() * cells.length)];
-          if (bot !== undefined && cell !== undefined) bot.ws.send(JSON.stringify({ type: "walk", cell }));
+          if (bot !== undefined && cell !== undefined) bot.ws.send(JSON.stringify(run ? { type: "walk", cell, run } : { type: "walk", cell }));
         }
       }, everyMs);
       const stats = () => ({ members, changes, walks, errors: [...errors], seatChanged: [...changedSinceMark] });
@@ -157,7 +159,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
         },
       });
     },
-    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK },
+    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN },
   );
   const call = async (fn: "stats" | "mark" | "stop"): Promise<WalkerStats> => {
     const raw: unknown = await page.evaluate((f): unknown => {
@@ -300,7 +302,7 @@ for (const profile of PROFILES) {
         const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
         recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });

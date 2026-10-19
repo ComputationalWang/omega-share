@@ -70,10 +70,12 @@ export interface ViewState {
   readonly poll: Poll | null;
   /** The option I voted for in `poll`: the server never says, so it's kept here (a `voted` event) and ends with the poll. */
   readonly vote: number | null;
+  /** Members whose last `walked` was a jog (OME-1464); like `catching`, kept outside `room.members`. */
+  readonly running: readonly MemberId[];
 }
 
 /** What the room's stage draws (stage.ts): the page's own state, or the slice the room tab mirrors to its room window (OME-600). */
-export type StageState = Pick<ViewState, "status" | "self" | "room" | "bubbles" | "syslines" | "catching">;
+export type StageState = Pick<ViewState, "status" | "self" | "room" | "bubbles" | "syslines" | "catching" | "running">;
 
 export interface ErrorNotice {
   readonly code: ErrorCode;
@@ -100,7 +102,7 @@ export type ViewEvent =
   /** I voted for `option` of poll `pollId` (the vote went out). */
   | { readonly type: "voted"; readonly pollId: PollId; readonly option: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null, poll: null, vote: null };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null, poll: null, vote: null, running: [] };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
 const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found" || s.status === "replaced";
@@ -118,6 +120,11 @@ export function catchingUp(state: Pick<ViewState, "catching">, id: MemberId): bo
 function withCatching(state: ViewState, id: MemberId, on: boolean): ViewState {
   if (catchingUp(state, id) === on) return state;
   return { ...state, catching: on ? [...state.catching, id] : state.catching.filter((m) => m !== id) };
+}
+
+function withRunning(state: ViewState, id: MemberId, on: boolean): ViewState {
+  if (state.running.includes(id) === on) return state;
+  return { ...state, running: on ? [...state.running, id] : state.running.filter((m) => m !== id) };
 }
 
 /** True while the owner has this member's chat muted (ADR 0030). */
@@ -235,7 +242,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
             }
           : null,
       );
-      return next === state ? state : withMuted(withCatching({ ...next, bubbles: next.bubbles.filter((b) => b.memberId !== msg.memberId) }, msg.memberId, false), msg.memberId, false);
+      return next === state ? state : withRunning(withMuted(withCatching({ ...next, bubbles: next.bubbles.filter((b) => b.memberId !== msg.memberId) }, msg.memberId, false), msg.memberId, false), msg.memberId, false);
     }
     case "seat-changed":
       return withRoom(state, (room) => {
@@ -282,7 +289,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // ADR 0053: a member's standing cell and shirt tint live on the member.
     case "walked": {
       const cell = msg.cell;
-      return withMember(state, msg.memberId, (m) => (cell === null ? withoutCell(m) : { ...m, cell }));
+      const next = withMember(state, msg.memberId, (m) => (cell === null ? withoutCell(m) : { ...m, cell }));
+      return next === state ? state : withRunning(next, msg.memberId, msg.run === true);
     }
     case "tint-changed":
       return withMember(state, msg.memberId, (m) => ({ ...m, tint: msg.tint }));

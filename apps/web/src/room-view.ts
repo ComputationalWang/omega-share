@@ -35,6 +35,8 @@ export interface AvatarPlacement {
   readonly z: number;
   /** The seat's facing if they sit, null if they stand (walk/walks.ts). */
   readonly seatFacing: Dir | null;
+  /** They jog there (OME-1464, walk/walks.ts). */
+  readonly run?: boolean;
 }
 
 export interface RoomViewOptions {

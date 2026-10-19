@@ -307,3 +307,72 @@ describe("Smooth: walks move every frame on the 8 × 75 ms cycle", () => {
 function sitAtFor(who: string): WalkTarget {
   return sitAt(who, 4, 6, "ne", 111);
 }
+
+// OME-1464: a jog walks the same path with the same frames at half the frame time, on both tiers (ADR 0037).
+describe("jog", () => {
+  const jogAt = (who: string, col: number, row: number): WalkTarget => ({ ...standAt(who, col, row), run: true });
+
+  test("arrives in half the walk's time, on the same shared step clock, on both tiers", () => {
+    for (const smooth of [false, true]) {
+      const { walks, sample } = setup({ smooth: () => smooth });
+      walks.place([standAt("a", 9, 5)], 0);
+      walks.place([jogAt("a", 6, 5)], 1010); // three tiles, starts on the 150 ms clock at 1050
+      expect(sample("a", 1050 + (3 * TILE_MS) / 2 - 1)?.walking).toBe(true);
+      expect(walks.walking(1050 + (3 * TILE_MS) / 2 - 1)).toBe(true);
+      expect(sample("a", 1050 + (3 * TILE_MS) / 2)).toMatchObject({ ...cellCenter(6, 5), walking: false, restMs: 0 });
+      expect(walks.walking(1050 + (3 * TILE_MS) / 2)).toBe(false);
+    }
+  });
+
+  test("Basic shows a new step every 75 ms, Smooth a new frame every 37.5 ms", () => {
+    const basic = setup();
+    basic.walks.place([standAt("a", 9, 5)], 0);
+    basic.walks.place([jogAt("a", 8, 5)], 0);
+    expect([0, 74, 75, 150, 225].map((t) => basic.sample("a", t)?.step)).toEqual([0, 0, 2, 4, 6]);
+    expect(basic.sample("a", 74)?.x).toBe(basic.sample("a", 0)?.x);
+    expect(basic.sample("a", 75)?.x).not.toBe(basic.sample("a", 0)?.x);
+    const smooth = setup({ smooth: () => true });
+    smooth.walks.place([standAt("a", 9, 5)], 0);
+    smooth.walks.place([jogAt("a", 8, 5)], 0);
+    expect([0, 37, 37.5, 75, 262.5].map((t) => smooth.sample("a", t)?.step)).toEqual([0, 0, 1, 2, 7]);
+  });
+
+  test("a jog to where I'm already walking speeds up the rest of the way (double-click after the first click)", () => {
+    const { walks, sample } = setup();
+    walks.place([standAt("a", 9, 5)], 0);
+    walks.place([standAt("a", 5, 5)], 0); // four tiles walking: 2400 ms
+    walks.place([jogAt("a", 5, 5)], 300); // half a tile done; 3.5 left at 300 ms each
+    expect(sample("a", 300 + 3.5 * (TILE_MS / 2) - 1)?.walking).toBe(true);
+    expect(sample("a", 300 + 3.5 * (TILE_MS / 2))).toMatchObject({ ...cellCenter(5, 5), walking: false });
+  });
+
+  test("the same jog again, or a jog to where I stand, changes nothing", () => {
+    const { walks, sample, routes } = setup();
+    walks.place([standAt("a", 9, 5)], 0);
+    walks.place([jogAt("a", 6, 5)], 0);
+    const n = routes();
+    walks.place([jogAt("a", 6, 5)], 100);
+    expect(routes()).toBe(n);
+    walks.place([jogAt("a", 6, 5)], 5000);
+    walks.place([standAt("a", 6, 5)], 5100);
+    expect(routes()).toBe(n);
+    expect(sample("a", 5100)?.walking).toBe(false);
+  });
+
+  test("prefers-reduced-motion jumps a jog straight to the spot", () => {
+    const { walks, sample } = setup({ reduced: true });
+    walks.place([standAt("a", 9, 5)], 0);
+    walks.place([jogAt("a", 6, 5)], 10);
+    expect(sample("a", 10)).toMatchObject({ ...cellCenter(6, 5), walking: false });
+    expect(walks.walking(10)).toBe(false);
+  });
+
+  test("jogging(now) is true only while someone jogs", () => {
+    const { walks } = setup();
+    walks.place([standAt("a", 9, 5), standAt("b", 4, 9)], 0);
+    walks.place([jogAt("a", 8, 5), standAt("b", 5, 9)], 0);
+    expect(walks.jogging(0)).toBe(true);
+    expect(walks.jogging(TILE_MS / 2)).toBe(false);
+    expect(walks.walking(TILE_MS / 2)).toBe(true);
+  });
+});

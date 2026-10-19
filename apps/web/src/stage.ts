@@ -10,7 +10,7 @@ import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
-import { isStepKey, seatViews, type StepKey } from "./intents";
+import { doubleTap, isStepKey, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
@@ -37,12 +37,13 @@ export interface StageOptions {
   /** An avatar came to rest (/hug arrives, OME-1453). */
   readonly onStop?: (id: MemberId) => void;
   /**
-   * Free walking (OME-1350, ADR 0053): a click or tap on floor cell `cell`. False when nobody can stand there: the floor
-   * flashes "can't go there". Without it the floor takes no input (the pop-out room's window).
+   * Free walking (OME-1350, ADR 0053): a click or tap on floor cell `cell`; `run` for the second of a double (OME-1464).
+   * False when nobody can stand there: the floor flashes "can't go there". Without it the floor takes no input (the
+   * pop-out room's window).
    */
-  readonly onFloor?: (cell: FloorCell) => boolean;
-  /** An arrow key on the focused floor (`repeat`: held down); false flashes as `onFloor` does. */
-  readonly onStep?: (key: StepKey, repeat: boolean) => boolean;
+  readonly onFloor?: (cell: FloorCell, run: boolean) => boolean;
+  /** An arrow key on the focused floor (`repeat`: held down, `run`: with Shift); false flashes as `onFloor` does. */
+  readonly onStep?: (key: StepKey, repeat: boolean, run: boolean) => boolean;
   /** A layer right over the canvas, under the floor, seats, tags and bubbles: the cinema dim (OME-1406). */
   readonly dim?: HTMLElement;
 }
@@ -107,7 +108,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   });
   overlay.append(...seatButtons);
   // Free walking (OME-1350): the floor under the seat keys, tags and bubbles takes clicks, taps and (focused) arrow keys.
-  const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell." }, "walk-floor");
+  const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell; with Shift, jog." }, "walk-floor");
   const floorNote = el("span", { className: "sr-only", role: "status" });
   const tags = el("div", { className: "tags" });
   // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
@@ -206,16 +207,21 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       hover = null;
       view.marker(null, 1);
     });
+    let lastTap: { cell: FloorCell; at: number } | null = null;
     floorHit.addEventListener("click", (ev) => {
       const c = cellUnder(ev);
-      if (c !== null && o.onFloor?.(c) === false) flash();
+      if (c === null) return;
+      // A double-click or double-tap jogs (OME-1464); a third click starts a new pair.
+      const run = doubleTap(lastTap, c, ev.timeStamp);
+      lastTap = run ? null : { cell: c, at: ev.timeStamp };
+      if (o.onFloor?.(c, run) === false) flash();
     });
     floorHit.addEventListener("keydown", (ev) => {
       if (ev.ctrlKey || ev.metaKey || ev.altKey || !isStepKey(ev.key)) return;
       // Taken here: the page doesn't scroll, and the room's own keys don't also run.
       ev.preventDefault();
       ev.stopPropagation();
-      if (o.onStep?.(ev.key, ev.repeat) === false) flash();
+      if (o.onStep?.(ev.key, ev.repeat, ev.shiftKey) === false) flash();
     });
   }
 
@@ -353,7 +359,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const m of everyone) {
         if (m.cell === undefined || at.has(m.id)) continue;
         const p = cellCenter(m.cell.x, m.cell.y);
-        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id) });
         at.set(m.id, p);
       }
       const claimed = new Set<number>();

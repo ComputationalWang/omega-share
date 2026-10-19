@@ -302,3 +302,31 @@ test("a click on a solid piece sends nothing and flashes can't-go-there", async 
   expect(sent).toEqual([]);
   expect(await tagAt(a.page, "blocked-1")).toBe(before);
 });
+
+// OME-1464: a double-click (or double-tap) jogs, and so does Shift with an arrow key; the others see it as a jog.
+test("a double-click on free floor jogs there and Shift+arrow jogs a step: walk carries run, everyone rests on the cell", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "jog").url, count: 2, nicknamePrefix: "jog" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000); // b walked in from the door
+  const walks = await spyWalks(b.page);
+  await dblclickCell(b.page, 3, 8);
+  for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "jog-2"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  expect(walks.at(-1)?.data, "the last walk is the jog").toContain('"run":true');
+  await b.page.locator(site.walkFloor).focus();
+  await b.page.keyboard.press("Shift+ArrowRight");
+  for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "jog-2"), { timeout: 10_000 }).toBe(restOn(4, 8));
+  expect(walks.at(-1)?.data).toContain('"run":true');
+  expect(walks.at(-1)?.data).toContain('"x":4');
+});
+
+/** Double-clicks stage point `cellCenter(x, y)` on the floor layer, as `clickCell` clicks it. */
+async function dblclickCell(page: Page, x: number, y: number): Promise<void> {
+  const floor = page.locator(site.walkFloor);
+  const box = await floor.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, k: r.width / (el as HTMLElement).offsetWidth };
+  });
+  const p = cellCenter(x, y);
+  await page.mouse.dblclick(box.left + p.x * box.k, box.top + p.y * box.k);
+}

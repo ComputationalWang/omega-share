@@ -70,6 +70,19 @@ describe("reduce", () => {
     expect(server(s, { type: "walked", memberId: "zzz", cell: { x: 1, y: 1 } })).toBe(s);
   });
 
+  test("walked with run marks the member jogging until a walked without it, or they leave (OME-1464)", () => {
+    let s = server(joined(room({ members: [alice, bob] })), { type: "walked", memberId: "b", cell: { x: 3, y: 4 }, run: true });
+    expect(s.room?.members[1]?.cell).toEqual({ x: 3, y: 4 });
+    expect(s.running).toEqual(["b"]);
+    const again = server(s, { type: "walked", memberId: "b", cell: { x: 4, y: 4 }, run: true });
+    expect(again.running).toBe(s.running);
+    s = server(s, { type: "walked", memberId: "b", cell: { x: 5, y: 4 } });
+    expect(s.running).toEqual([]);
+    s = server(s, { type: "walked", memberId: "b", cell: { x: 3, y: 4 }, run: true });
+    s = server(s, { type: "member-left", memberId: "b" });
+    expect(s.running).toEqual([]);
+  });
+
   test("accessory-changed sets the accessory; typing-changed leaves the state alone (OME-1387)", () => {
     const s = server(joined(room({ members: [alice, bob] })), { type: "accessory-changed", memberId: "a", accessory: 3 });
     expect(s.room?.members[0]).toEqual({ ...alice, accessory: 3 });

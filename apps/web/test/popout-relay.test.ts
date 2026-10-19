@@ -287,7 +287,7 @@ const ROOM = { id: "movie-night", seats: [null, null, null, null, null, null, nu
 function withoutRoom<T extends { room: unknown }>(v: T): Omit<T, "room"> {
   return Object.fromEntries(Object.entries(v).filter(([k]) => k !== "room")) as Omit<T, "room">;
 }
-const VIEW = { status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [] } as const;
+const VIEW = { status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [], running: [] } as const;
 const TV = { video: true, playing: true, position: 61, live: false, catching: false };
 
 describe("room relay (OME-600)", () => {

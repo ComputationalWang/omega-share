@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_POSITION_S, WALK_REFILL_MS, type PlaybackState, type RoomState } from "@omega/shared";
-import { chatIntent, createWalkGate, playerIntent, seatViews, seekIntent, sitIntent, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
+import { chatIntent, createWalkGate, playerIntent, seatViews, seekIntent, sitIntent, DOUBLE_TAP_MS, doubleTap, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
 import { TILE_MS } from "../src/walk/walks";
 import { initialState, reduce, type ViewState } from "../src/state";
 
@@ -119,8 +119,24 @@ describe("walkIntent", () => {
     const here = reduce(open, { type: "server", msg: { type: "walked", memberId: "a", cell: { x: 3, y: 8 } }, now: 0 });
     expect(walkIntent(here, { x: 3, y: 8 })).toBeNull();
   });
+  test("a jog sends walk with run, even to the cell I'm already headed for (OME-1464)", () => {
+    expect(walkIntent(open, { x: 3, y: 8 }, true)).toEqual({ type: "walk", cell: { x: 3, y: 8 }, run: true });
+    const here = reduce(open, { type: "server", msg: { type: "walked", memberId: "a", cell: { x: 3, y: 8 } }, now: 0 });
+    expect(walkIntent(here, { x: 3, y: 8 }, true)).toEqual({ type: "walk", cell: { x: 3, y: 8 }, run: true });
+    expect(walkIntent(open, { x: 0, y: 0 }, true)).toBe("blocked");
+  });
   test("nothing is sent while not connected", () => {
     expect(walkIntent(reduce(open, { type: "disconnected" }), { x: 3, y: 8 })).toBeNull();
+  });
+});
+
+describe("doubleTap (OME-1464)", () => {
+  test("a second click or tap on the same cell within DOUBLE_TAP_MS is a double", () => {
+    const first = { cell: { x: 3, y: 8 }, at: 1000 };
+    expect(doubleTap(null, { x: 3, y: 8 }, 1000)).toBe(false);
+    expect(doubleTap(first, { x: 3, y: 8 }, 1000 + DOUBLE_TAP_MS)).toBe(true);
+    expect(doubleTap(first, { x: 3, y: 8 }, 1000 + DOUBLE_TAP_MS + 1)).toBe(false);
+    expect(doubleTap(first, { x: 4, y: 8 }, 1100)).toBe(false);
   });
 });
 
@@ -140,6 +156,10 @@ describe("stepCell", () => {
 describe("stepAllowed", () => {
   test("a fresh key press always steps", () => {
     expect(stepAllowed(false, 100, 50)).toBe(true);
+  });
+  test("a held Shift+arrow jogs, so it repeats at most once a jog tile (OME-1464)", () => {
+    expect(stepAllowed(true, 1000 + TILE_MS / 2 - 1, 1000, true)).toBe(false);
+    expect(stepAllowed(true, 1000 + TILE_MS / 2, 1000, true)).toBe(true);
   });
   test("a held key repeats at most once a tile (the walk rate)", () => {
     expect(stepAllowed(true, 1000 + TILE_MS - 1, 1000)).toBe(false);

@@ -67,15 +67,16 @@ const VIEW = {
   bubbles: [{ id: 1, memberId: "m1", text: "hi", expiresAt: 1000 }, { id: 2, memberId: "m1", text: "again", expiresAt: 1100 }],
   syslines: [{ glyph: "pause", actor: "Ada", verb: "paused", time: "1:02", id: 4, expiresAt: 2000 }, { glyph: "chat-mute", actor: null, verb: "x", time: null, self: true, id: -1, expiresAt: 3000 }],
   catching: ["m1"],
+  running: ["m1"],
 };
 
 describe("whole-room window messages (OME-600)", () => {
   test("the room view, the plate, emotes, raise, and seat clicks parse; pop-ready may say which window it is", () => {
     const ok: unknown[] = [
       VIEW,
-      { ...VIEW, status: "reconnecting", self: null, room: null, bubbles: [], syslines: [], catching: [] },
+      { ...VIEW, status: "reconnecting", self: null, room: null, bubbles: [], syslines: [], catching: [], running: [] },
       // The room left out: unchanged since the last one (review).
-      { t: "room-view", status: "open", self: "m1", bubbles: [], syslines: [], catching: [] },
+      { t: "room-view", status: "open", self: "m1", bubbles: [], syslines: [], catching: [], running: [] },
       { t: "room-tv", video: true, playing: true, position: 1531, live: false, catching: false },
       { t: "room-emote", member: "m1", kind: "wave" },
       { t: "room-raise" },
