@@ -49,6 +49,25 @@ describe("slashCommand", () => {
     expect(HELP_LINE.verb).toContain("/sit");
   });
 
+  // OME-1547: aliases for the existing emotes; they return the same emote, so they go through the same token bucket.
+  test("each alias is its emote, any case, spaces around ignored", () => {
+    const aliases = { lol: "laugh", yay: "cheer", love: "heart", hi: "wave", bye: "wave", wow: "exclaim", hmm: "question", sleepy: "yawn" } as const;
+    for (const [alias, kind] of Object.entries(aliases)) expect(slashCommand(`/${alias}`)).toEqual({ type: "emote", kind });
+    expect(slashCommand(" /LOL ")).toEqual({ type: "emote", kind: "laugh" });
+    for (const text of ["/lolz", "/hi there", "/byebye", "/wowow"]) expect(slashCommand(text)).toBeNull();
+  });
+
+  test("/help lists each alias under the emote it maps to", () => {
+    expect(HELP_LINE.verb).toContain("/heart (/love)");
+    expect(HELP_LINE.verb).toContain("/laugh (/lol)");
+    expect(HELP_LINE.verb).toContain("/question (/hmm)");
+    expect(HELP_LINE.verb).toContain("/exclaim (/wow)");
+    expect(HELP_LINE.verb).toContain("/wave (/hi /bye)");
+    expect(HELP_LINE.verb).toContain("/cheer (/yay)");
+    expect(HELP_LINE.verb).toContain("/yawn (/sleepy)");
+    expect(HELP_LINE.verb).toContain("/clap ");
+  });
+
   test("/help names /roll", () => {
     expect(HELP_LINE.verb).toContain("/roll");
   });
@@ -78,7 +97,27 @@ describe("chatSticker", () => {
   });
 
   test("plain lines, a single ! or ?, and lol or haha inside a word pop nothing", () => {
-    for (const text of ["hello", "really?", "wow!", "lollipop", "aloha", "ha", "shahaha", "3 < 4"]) expect(chatSticker(text)).toBeNull();
+    for (const text of ["hello", "really?", "whoa!", "lollipop", "aloha", "ha", "shahaha", "3 < 4"]) expect(chatSticker(text)).toBeNull();
+  });
+
+  // OME-1547: more triggers into the same stickers.
+  test(":) is a heart, :D and xD a laugh, gg a cheer, wow a surprise, hi all and bye all a wave", () => {
+    expect(chatSticker("nice :)")).toBe("heart");
+    expect(chatSticker(":D")).toBe("laugh");
+    expect(chatSticker("that cat xD")).toBe("laugh");
+    expect(chatSticker("XD")).toBe("laugh");
+    expect(chatSticker("gg")).toBe("cheer");
+    expect(chatSticker("GG everyone")).toBe("cheer");
+    expect(chatSticker("wow")).toBe("exclaim");
+    expect(chatSticker("Wow, look")).toBe("exclaim");
+    expect(chatSticker("hi all")).toBe("wave");
+    expect(chatSticker("Bye all, see you")).toBe("wave");
+  });
+
+  test("a trigger inside a longer word pops nothing", () => {
+    for (const text of ["ggplot", "eggs", "egg", "wowza", "kowow", "0xDEAD", "xDraw", "boxD", ":Day", "chi all", "hi alley", "maybe allright", "goodbye all"]) {
+      expect(chatSticker(text)).toBeNull();
+    }
   });
 });
 

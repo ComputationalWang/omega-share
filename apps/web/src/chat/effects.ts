@@ -25,7 +25,10 @@ function pollCommand(rest: string): SlashCommand {
   return { type: "poll", question: question.output, options: options.output };
 }
 
-/** `/wave` … `/exclaim` (each emote's own name), `/help`, `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
+/** Fun aliases for the emotes (OME-1547): `/lol` is `/laugh`, and so on. */
+const ALIASES: Readonly<Partial<Record<EmoteKind, readonly string[]>>> = { heart: ["love"], laugh: ["lol"], question: ["hmm"], exclaim: ["wow"], wave: ["hi", "bye"], cheer: ["yay"], yawn: ["sleepy"] };
+
+/** `/wave` … `/exclaim` (each emote's own name or an alias), `/help`, `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
 export function slashCommand(text: string): SlashCommand | null {
   const hug = /^\s*\/(hug|highfive)(?:\s+(.*?))?\s*$/is.exec(text);
   if (hug !== null) {
@@ -42,7 +45,7 @@ export function slashCommand(text: string): SlashCommand | null {
   }
   const poll = /^\/poll(?:\s+(.*))?$/is.exec(text.trim());
   if (poll !== null) return pollCommand(poll[1] ?? "");
-  const kind = PICKER_KINDS.find((k) => t === `/${k}`);
+  const kind = PICKER_KINDS.find((k) => t === `/${k}` || ALIASES[k]?.some((a) => t === `/${a}`) === true);
   return kind === undefined ? null : { type: "emote", kind };
 }
 
@@ -57,7 +60,7 @@ export function thinkText(text: string): string | null {
 }
 
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action> · /think <thought> · /sit · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}${ALIASES[k] === undefined ? "" : ` (${ALIASES[k].map((a) => `/${a}`).join(" ")})`}`).join(" ")} · /me <action> · /think <thought> · /sit · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };
@@ -79,6 +82,12 @@ const STICKERS: readonly (readonly [RegExp, EmoteKind])[] = [
   [/\b(?:lol+|ha(?:ha)+h?)\b/i, "laugh"],
   [/!!/, "exclaim"],
   [/\?\?/, "question"],
+  // OME-1547; `\b` keeps each off inside a longer word (`ggplot`, `wowza`, `0xD`).
+  [/:\)/, "heart"],
+  [/:D\b|\b[xX][dD]\b/, "laugh"],
+  [/\bgg\b/i, "cheer"],
+  [/\bwow\b/i, "exclaim"],
+  [/\b(?:hi|bye) all\b/i, "wave"],
 ];
 
 /** The sticker a chat line pops, or null. */
