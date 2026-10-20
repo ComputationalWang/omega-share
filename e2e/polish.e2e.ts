@@ -222,7 +222,9 @@ test("over-limit emotes are dropped by the server: only the burst reaches the ro
 
   // Then one per refill: drained, a steady 4 a second for 2.2 s gets 2.2 refills' worth through (plus under one
   // left over), so 2 or 3 of 9; a refill twice as fast would let 4 or more through.
-  await raw.burst(EMOTE_BURST, 0);
+  // Wait until the drain's relays have reached the watcher, so none of them lands in the paced window.
+  const drained = await raw.burst(EMOTE_BURST, 100);
+  await expect.poll(relayedToWatcher, { timeout: 1000 }).toBe(EMOTE_BURST + drained.emoted);
   const before = relayedToWatcher();
   const paced = await raw.burst(9, 600, 250);
   expect(paced.emoted, "one per EMOTE_REFILL_MS").toBeGreaterThanOrEqual(2);
