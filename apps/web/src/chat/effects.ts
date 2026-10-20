@@ -62,7 +62,7 @@ export function thinkText(text: string): string | null {
 }
 
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}${ALIASES[k] === undefined ? "" : ` (${ALIASES[k].map((a) => `/${a}`).join(" ")})`}`).join(" ")} · /me <action> · /think <thought> · /sit · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B · /snap`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}${ALIASES[k] === undefined ? "" : ` (${ALIASES[k].map((a) => `/${a}`).join(" ")})`}`).join(" ")} · /me <action> · /think <thought> · /sit · /conga · /stop · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B · /snap`, time: null, self: true };
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };
@@ -75,6 +75,9 @@ export const HUG_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: "H
 
 /** What `/sit`, "Sit here" or S says with no floor cell under me (OME-1501), to me only; nothing is sent. */
 export const SIT_NO_CELL_LINE: SystemLine = { glyph: "host", actor: null, verb: "Step onto the floor to sit there", time: null, self: true };
+
+/** What `/conga` says when the line already has 12 people (OME-1564), to me only; nothing is sent. */
+export const CONGA_FULL_LINE: SystemLine = { glyph: "host", actor: null, verb: "The conga line is full (12 people)", time: null, self: true };
 
 /** What `/dance` says while I'm seated (OME-1378), to me only; nothing is sent. */
 export const DANCE_SEATED_LINE: SystemLine = { glyph: "host", actor: null, verb: "Stand up to dance", time: null, self: true };

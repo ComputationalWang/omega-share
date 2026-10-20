@@ -34,7 +34,7 @@ import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
-import { DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
+import { CONGA_FULL_LINE, DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { hugHint, hugStep, matchMember } from "./chat/hug";
 import { attachMentionComplete } from "./chat/complete";
 import { mentionOptions } from "./chat/mention";
@@ -56,6 +56,7 @@ import { createHairSection, createTintSection } from "./controls/tint-section";
 import { saveAccessory, saveHair, saveTint } from "./profile";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import { followStep } from "./walk/follow";
+import { NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaText } from "./chat/conga";
 import { createPads } from "./walk/pad";
 import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
@@ -192,10 +193,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       layout.seats(points);
     },
     onFloor: (cell, run) => {
+      quitConga();
       stopFollow();
       return walkTo(cell, run);
     },
     onStep: (key, repeat, run) => {
+      quitConga();
       stopFollow();
       const now = performance.now();
       if (!stepAllowed(repeat, now, lastStep, run)) return true;
@@ -256,7 +259,29 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     followChip.hidden = false;
     walkOver(id)?.();
   }
-  followStopKey.addEventListener("click", stopFollow);
+  followStopKey.addEventListener("click", () => {
+    quitConga();
+    stopFollow();
+  });
+  // /conga (OME-1564): the line every client derives from the relayed `/conga` and `/stop` lines; on mine, I Follow the
+  // one before me. `congaFollows` is whom the line has me follow; `congaQuit`, a `/stop` of mine not back yet (sent once).
+  let conga = NO_CONGA;
+  let congaFollows: MemberId | null = null;
+  let congaQuit = false;
+  function congaFollow(): void {
+    const ahead = congaAhead(conga, state.self);
+    if (ahead === null) congaQuit = false;
+    if (congaQuit) return;
+    if (congaFollows !== null && ahead !== congaFollows && following === congaFollows) stopFollow();
+    congaFollows = ahead;
+    // Not only when the line changes: a resume stops Follow on an unchanged line (QA OME-1570). Leaving on purpose
+    // goes through quitConga or the prune.
+    if (ahead !== null && following !== ahead && state.status === "open") follow(ahead);
+  }
+  /** Walking off, a hug, another Follow or the chip's Stop: a follower leaves the line by a `/stop` line, so every client closes it up. */
+  function quitConga(): void {
+    if (congaFollows !== null && !congaQuit) congaQuit = send({ type: "chat", text: "/stop" });
+  }
   // Teleport pads (OME-1548): the teleport itself goes out unthrottled (one per 400 ms stand); every walk of mine, held
   // by the gate or not, takes a pending one back and arms the next stop.
   const pads = createPads({
@@ -461,7 +486,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const isHidden = (id: string): boolean => hidden.has(id);
   const people = createPeople({
     walkOver,
-    follow,
+    follow: (id) => {
+      quitConga();
+      follow(id);
+    },
     hidden,
     sit: () => {
       floorSit();
@@ -915,6 +943,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (step === "stop") stopFollow();
       else if (step === "walk") walkOver(following)?.();
     }
+    let line = conga;
+    if (e.type === "server" && e.msg.type === "chat") {
+      const c = congaText(e.msg.text);
+      const joined = c === "conga" ? congaJoin(line, e.msg.memberId, e.msg.at) : line;
+      line = c === "stop" ? congaLeave(line, e.msg.memberId) : joined === "full" ? line : joined;
+    }
+    line = congaPrune(line, next);
+    if (line !== conga) {
+      conga = line;
+      people.conga(line.ids);
+    }
+    congaFollow();
     if (hug !== null) {
       const step = hugStep(prevState, next, hug);
       if (step === "cancel") hug = null;
@@ -978,7 +1018,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** A slash command (OME-1349), from the box or the pop-out: true/false = ran (sent or not), null = not one, it's chat. */
   const runSlash = (text: string): boolean | null => {
     const cmd = slashCommand(text);
-    if (cmd === null) return null;
+    if (cmd === null) {
+      // /conga and /stop go out as chat lines; past the cap, or /stop out of the line, they stay here.
+      const c = congaText(text);
+      if (c === "conga" && state.self !== null && congaJoin(conga, state.self, clock.serverNow()) === "full") hint(CONGA_FULL_LINE);
+      else if (c === "stop" && (state.self === null || !conga.ids.includes(state.self))) stopFollow();
+      else return null;
+      return true;
+    }
     if (cmd.type === "emote" && !(cmd.kind === "dance" && iSit())) return picker.emote(cmd.kind);
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
@@ -1005,6 +1052,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     hug = null;
     const msg = walkOverIntent(state, m.id, (id) => roomStage.cellOf(id));
     if (msg?.type === "walk") {
+      quitConga();
       stopFollow();
       walkGate.push(msg);
       hug = { target: m.id, cell: msg.cell, kind, arrived: false };

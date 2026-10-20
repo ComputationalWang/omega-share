@@ -263,6 +263,75 @@ test("Follow walks me beside them each time they walk; Stop ends it", async ({ b
   expect(await tagAt(b.page, "follow-1"), "after Stop I stay put").toBe(at);
 });
 
+// OME-1564: /conga lines people up on Follow, in the order they sent it; someone leaving closes the line up.
+test("/conga: B follows A, C follows B; when B stops, C follows A", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "conga").url, count: 3, nicknamePrefix: "conga" });
+  const [a, b, c] = clients;
+  if (a === undefined || b === undefined || c === undefined) throw new Error("need three clients");
+  await a.page.waitForTimeout(6000); // b and c walked in from the door
+  const say = async (page: Page, text: string, seen: number): Promise<void> => {
+    await page.locator(site.chatInput).fill(text);
+    await page.locator(site.chatInput).press("Enter");
+    // Every client has the line before the next one sends, so the order is the send order.
+    for (const p of [a.page, b.page, c.page]) await expect(p.locator(site.chatLogLine).filter({ hasText: text })).toHaveCount(seen);
+  };
+  await say(a.page, "/conga", 1);
+  await say(b.page, "/conga", 2);
+  await say(c.page, "/conga", 3);
+  await expect(a.page.locator(site.followChip)).toBeHidden();
+  await expect(b.page.locator(site.followChip)).toContainText("Following conga-1");
+  await expect(c.page.locator(site.followChip)).toContainText("Following conga-2");
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peopleConga)).toHaveCount(3);
+  await say(b.page, "/stop", 1);
+  await expect(b.page.locator(site.followChip)).toBeHidden();
+  await expect(c.page.locator(site.followChip)).toContainText("Following conga-1");
+  await expect(a.page.locator(site.peopleConga)).toHaveCount(2);
+  // The key, not Escape: focus is on the key, outside the panel, and the open panel shrinks the stage under the click.
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peoplePanel)).toBeHidden();
+  await clickCell(a.page, 3, 8);
+  await expect.poll(() => tagAt(a.page, "conga-1"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
+  await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-3")), { timeout: 15_000 }).toBe(true);
+});
+
+// OME-1570: a resume stops Follow while the line stays the same; the follower picks the line back up.
+test("/conga: a follower whose socket drops keeps following after the resume", async ({ browser }) => {
+  const drops: (() => void)[] = [];
+  const setup = async (context: BrowserContext, i: number): Promise<void> => {
+    if (i !== 1) return;
+    await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
+      ws.connectToServer();
+      drops.push(() => void ws.close({ code: 4000, reason: "e2e drop" }));
+    });
+  };
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "conga").url, count: 2, nicknamePrefix: "conga", setup });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000);
+  for (const [p, n] of [[a.page, 1], [b.page, 2]] as const) {
+    await p.locator(site.chatInput).fill("/conga");
+    await p.locator(site.chatInput).press("Enter");
+    await expect(a.page.locator(site.chatLogLine).filter({ hasText: "/conga" })).toHaveCount(n);
+  }
+  await expect(b.page.locator(site.followChip)).toBeVisible();
+  drops[0]?.();
+  await expect.poll(() => drops.length, { timeout: 15_000 }).toBeGreaterThan(1);
+  await expect(b.page.locator(site.connectionStatus)).toHaveText("", { timeout: 20_000 });
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peopleConga), "A still has B in the line").toHaveCount(2);
+  // The chip keeps its text when hidden, so visible is the check.
+  await expect(b.page.locator(site.followChip), "B follows A again").toBeVisible();
+  await expect(b.page.locator(site.followChip)).toContainText("Following conga-1");
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peoplePanel)).toBeHidden();
+  await clickCell(a.page, 3, 8);
+  await expect.poll(() => tagAt(a.page, "conga-1"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
+  await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-2")), { timeout: 15_000 }).toBe(true);
+});
+
 test("a held arrow key steps at most once a tile", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("walk", "keys").url, count: 1, nicknamePrefix: "keys" });
   const [a] = clients;

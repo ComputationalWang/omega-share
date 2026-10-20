@@ -28,6 +28,8 @@ export interface People {
   readonly status: HTMLElement;
   /** Members in room order and who I am. Cheap when they're the same objects as last time. */
   update(members: readonly Member[], self: MemberId | null): void;
+  /** Who's in the /conga line (OME-1564): their rows wear a "conga" chip. */
+  conga(ids: readonly MemberId[]): void;
   /** Open the list; with an id, on that member's button (a right-click or long-press on their name tag). */
   open(focus?: MemberId): void;
   close(): void;
@@ -41,6 +43,7 @@ interface Row {
   /** "Away" (OME-911): shown while the member is disconnected or has the tab hidden; the row and seat stay. */
   readonly awayBadge: HTMLSpanElement;
   away: boolean;
+  readonly congaBadge: HTMLSpanElement;
   readonly button: HTMLButtonElement | null;
   /** Walk over (OME-1376); null on my own row. */
   readonly walk: HTMLButtonElement | null;
@@ -68,6 +71,13 @@ export function createPeople(o: PeopleOptions): People {
   const rows = new Map<MemberId, Row>();
   let lastMembers: readonly Member[] | null = null;
   let lastSelf: MemberId | null = null;
+  let congaIds: readonly MemberId[] = [];
+  const paintConga = (id: MemberId, row: Row): void => {
+    const on = congaIds.includes(id);
+    if (on === row.congaBadge.isConnected) return;
+    if (on) row.name.after(row.congaBadge);
+    else row.congaBadge.remove();
+  };
 
   const paint = (id: MemberId, row: Row): void => {
     const hidden = o.hidden.has(id);
@@ -127,7 +137,8 @@ export function createPeople(o: PeopleOptions): People {
       button = b;
     }
     const awayBadge = el("span", { className: "ui-tag people-away", textContent: "Away" });
-    return { li, name, badge, awayBadge, away: false, button, walk, sit, nickname: m.nickname, shown: null };
+    const congaBadge = el("span", { className: "ui-tag people-conga", textContent: "conga" }, "people-conga");
+    return { li, name, badge, awayBadge, away: false, congaBadge, button, walk, sit, nickname: m.nickname, shown: null };
   };
 
   /** Walk over is disabled with no free cell beside them; judged only while the list is open (a BFS per member). */
@@ -163,6 +174,10 @@ export function createPeople(o: PeopleOptions): People {
     key,
     panel,
     status,
+    conga(ids) {
+      congaIds = ids;
+      for (const [id, r] of rows) paintConga(id, r);
+    },
     update(members, self) {
       // Hides change only through this list's own buttons, which repaint their row: same members, nothing to do.
       if (members === lastMembers && self === lastSelf) return;
@@ -183,6 +198,7 @@ export function createPeople(o: PeopleOptions): People {
           rows.set(m.id, row);
         }
         paintAway(row, m.away === true);
+        paintConga(m.id, row);
         if (row.sit !== null) {
           const label = m.floorSit === true ? "Stand up" : "Sit here";
           // Never disabled: with no cell under me the room says why (SIT_NO_CELL_LINE).
