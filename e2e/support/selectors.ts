@@ -172,6 +172,7 @@ export const site = {
   peopleToggle: id("people-toggle"),
   peopleWalkOver: id("people-walk-over"),
   peopleFollow: id("people-follow"),
+  peopleConga: id("people-conga"),
   followChip: id("follow-chip"),
   followStop: id("follow-stop"),
   peopleStatus: id("people-status"),

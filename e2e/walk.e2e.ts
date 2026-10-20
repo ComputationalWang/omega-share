@@ -263,6 +263,36 @@ test("Follow walks me beside them each time they walk; Stop ends it", async ({ b
   expect(await tagAt(b.page, "follow-1"), "after Stop I stay put").toBe(at);
 });
 
+// OME-1564: /conga lines people up on Follow, in the order they sent it; someone leaving closes the line up.
+test("/conga: B follows A, C follows B; when B stops, C follows A", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "conga").url, count: 3, nicknamePrefix: "conga" });
+  const [a, b, c] = clients;
+  if (a === undefined || b === undefined || c === undefined) throw new Error("need three clients");
+  await a.page.waitForTimeout(6000); // b and c walked in from the door
+  const say = async (page: Page, text: string, seen: number): Promise<void> => {
+    await page.locator(site.chatInput).fill(text);
+    await page.locator(site.chatInput).press("Enter");
+    // Every client has the line before the next one sends, so the order is the send order.
+    for (const p of [a.page, b.page, c.page]) await expect(p.locator(site.chatLogLine).filter({ hasText: text })).toHaveCount(seen);
+  };
+  await say(a.page, "/conga", 1);
+  await say(b.page, "/conga", 2);
+  await say(c.page, "/conga", 3);
+  await expect(a.page.locator(site.followChip)).toBeHidden();
+  await expect(b.page.locator(site.followChip)).toContainText("Following conga-1");
+  await expect(c.page.locator(site.followChip)).toContainText("Following conga-2");
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peopleConga)).toHaveCount(3);
+  await say(b.page, "/stop", 1);
+  await expect(b.page.locator(site.followChip)).toBeHidden();
+  await expect(c.page.locator(site.followChip)).toContainText("Following conga-1");
+  await expect(a.page.locator(site.peopleConga)).toHaveCount(2);
+  await a.page.keyboard.press("Escape");
+  await clickCell(a.page, 3, 8);
+  const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
+  await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-3")), { timeout: 15_000 }).toBe(true);
+});
+
 test("a held arrow key steps at most once a tile", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("walk", "keys").url, count: 1, nicknamePrefix: "keys" });
   const [a] = clients;
