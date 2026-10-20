@@ -365,3 +365,74 @@ test("the new colours (OME-1463): the editor offers them, they save, and a guest
     await expect.poll(kinds).toEqual([true, true]);
   }
 });
+
+test("the wall pieces' new colours (OME-1503): a meadow print and peach lights save, and a guest draws them, after a reload too", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("wallcolour");
+  const owner = await newPage(browser, []);
+  await owner.addInitScript(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })] as const,
+  );
+  await owner.goto(`${URLS.web}/r/${id}`);
+  await enter(owner, "owner");
+  const keys = async (...pressed: string[]): Promise<void> => {
+    for (const k of pressed) await owner.keyboard.press(k);
+  };
+  const hit = owner.locator(site.editorHit);
+  const cursor = owner.locator(site.editorCursor);
+  const swatch = (name: string) => owner.locator(`${site.editorSwatch}[aria-label="${name}"]`);
+  await owner.locator(site.editRoom).click();
+  await expect(owner.locator(site.editorTray)).toBeVisible();
+  await owner.locator(site.editorTab).filter({ hasText: "Floor & wall" }).click();
+
+  // A print in its first new colour on the right wall, string lights in their second on the left wall.
+  await owner.locator(`${site.editorSlot}[data-kind="frame"]`).click();
+  await expect(owner.locator(site.editorSwatch)).toHaveCount(4);
+  await swatch("meadow").click();
+  await hit.focus();
+  // Onto the floor from wherever the cursor is, up onto the right wall, then along it.
+  await keys("ArrowRight", "ArrowDown", ...Array<string>(11).fill("ArrowUp"), ...Array<string>(10).fill("ArrowLeft"), "ArrowRight", "ArrowRight");
+  await expect(cursor).toHaveText("Print, right wall 3");
+  await keys("Enter");
+  await owner.locator(`${site.editorSlot}[data-kind="garland"]`).click();
+  await expect(owner.locator(site.editorSwatch)).toHaveCount(4);
+  await swatch("peach").click();
+  await hit.focus();
+  // Off the right wall, left onto the left wall at its first slot, then down it.
+  await keys("ArrowDown", ...Array<string>(11).fill("ArrowLeft"), "ArrowDown", "ArrowDown");
+  await expect(cursor).toHaveText("String lights, left wall 3");
+  await keys("Enter");
+  await expect(owner.locator(site.editorProblems)).toBeEmpty();
+  await owner.locator(site.editorSave).click();
+  await expect(owner.locator(site.editorMessage)).toHaveText("Saved.");
+
+  const saved = v.object({ furniture: v.array(v.object({ kind: v.string(), variant: v.optional(v.number()) })) });
+  const drawn = (p: Page): Promise<string[]> => p.evaluate(() => {
+    const debug: unknown = Reflect.get(window, "__omega");
+    const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+    const f: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "scene") : null;
+    return typeof f === "function" ? (Reflect.apply(f, room, []) as string[]) : [];
+  });
+  const guest = await newPage(browser, []);
+  for (const reload of [false, true]) {
+    if (reload) {
+      await guest.reload();
+      await expect(guest.locator(site.room)).toBeVisible();
+    } else {
+      await guest.goto(`${URLS.web}/r/${id}#k=${inviteKey}`);
+      await enter(guest, "guest");
+    }
+    const variants = async (): Promise<(number | undefined)[]> => {
+      const furniture = v.parse(v.nullable(saved), await handle(guest, "layout"))?.furniture ?? [];
+      return ["frame", "garland"].map((k) => furniture.find((f) => f.kind === k)?.variant);
+    };
+    await expect.poll(variants).toEqual([2, 3]);
+    const kinds = async (): Promise<boolean[]> => {
+      const keys = await drawn(guest);
+      return ["recolour/frame/2/furniture/frame/dusk/", "recolour/garland/3/furniture/garland/warm/"].map((prefix) => keys.some((k) => k.startsWith(prefix)));
+    };
+    await expect.poll(kinds).toEqual([true, true]);
+  }
+});
