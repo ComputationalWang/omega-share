@@ -1,12 +1,12 @@
-// The accessory row (OME-1391): none plus the four head accessories (OME-1388) in a radiogroup, named for screen
+// The accessory row (OME-1391): none plus the eight head accessories (OME-1388, OME-1530) in a radiogroup, named for screen
 // readers, keyed like the tint row. The landing ships it as static markup under the tint row (index.html); the People
 // panel builds the same markup. The glyphs are text, so neither the landing nor the panel fetches the accessories sheet.
 import { ACCESSORY_COUNT } from "@omega/shared";
 import { bindRadioRow, type RadioRow } from "./tint-row";
 
-/** Accessory 0..4 on the wire. */
-const NAMES = ["None", "Party hat", "Crown", "Headphones", "Beanie"] as const;
-const GLYPHS = ["∅", "🎉", "👑", "🎧", "🧶"] as const;
+/** Accessory 0..8 on the wire. */
+const NAMES = ["None", "Party hat", "Crown", "Headphones", "Beanie", "Cap", "Flower", "Bow", "Halo"] as const;
+const GLYPHS = ["∅", "🎉", "👑", "🎧", "🧶", "🧢", "🌸", "🎀", "😇"] as const;
 
 /** The row's markup (the landing's is the same, in index.html). */
 export function buildAccessoryRow(): HTMLElement {

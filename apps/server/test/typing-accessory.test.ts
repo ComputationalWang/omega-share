@@ -147,6 +147,17 @@ describe("accessory (OME-1387)", () => {
     expect(late.snapshot.room.members.find((m) => m.id === b.snapshot.self)?.accessory).toBe(ACCESSORY_COUNT - 1);
   });
 
+  binaryOnly("accessories 5..8 (OME-1532): join takes 8, set-accessory 5 relays; 9 is bad_message", async () => {
+    t = start();
+    const a = await join("alice", { accessory: 8 });
+    expect(a.snapshot.room.members.find((m) => m.id === a.snapshot.self)?.accessory).toBe(8);
+    a.client.send({ type: "set-accessory", accessory: 5 });
+    expect(await a.client.next("accessory-changed")).toEqual({ type: "accessory-changed", memberId: a.snapshot.self, accessory: 5 });
+    a.client.send({ type: "set-accessory", accessory: 9 });
+    expect((await a.client.next("error")).code).toBe("bad_message");
+    await a.client.none("accessory-changed", 100);
+  });
+
   binaryOnly("out of bounds is bad_message on set-accessory and on join; nothing is relayed", async () => {
     t = start();
     const a = await join("alice");

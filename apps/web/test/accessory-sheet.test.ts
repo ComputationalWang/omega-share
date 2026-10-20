@@ -19,8 +19,8 @@ for (const f of ["avatars", "motion", "expressions"]) {
 }
 
 describe("accessories sheet", () => {
-  test("accessory 1..4 are the sheet's four, in the wire order (0 is none)", () => {
-    expect(ACCESSORY_IDS).toEqual(["partyhat", "crown", "headphones", "beanie"]);
+  test("accessory 1..8 are the sheet's eight, in the wire order (0 is none; 5..8 OME-1532)", () => {
+    expect(ACCESSORY_IDS).toEqual(["partyhat", "crown", "headphones", "beanie", "cap", "flower", "bow", "halo"]);
     expect(ACCESSORY_COUNT - 1).toBe(ACCESSORY_IDS.length);
     expect(Object.keys(sheet.meta.omega.accessories).sort()).toEqual([...ACCESSORY_IDS].sort());
   });
@@ -69,6 +69,8 @@ describe("bare heads under an accessory", () => {
     expect(wearsBare(2, 3)).toBe(true);
     expect(wearsBare(1, 4)).toBe(false);
     expect(wearsBare(0, 2)).toBe(false);
+    // OME-1532: the cap and the bow too; not the flower or the halo.
+    expect([5, 6, 7, 8].map((a) => wearsBare(1, a))).toEqual([true, false, true, false]);
   });
   test("the bare frames are keyed as the body frames they stand in for: every one of Pip's and Mo's, no one else's", () => {
     const rects = bareRects(bare);

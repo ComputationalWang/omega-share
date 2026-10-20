@@ -13,8 +13,8 @@ export const DICE_MAX_SIDES = 100;
 export const AVATAR_COUNT = 4;
 /** Shirt tints a member can pick (ADR 0053); tint 0 is the avatar's own colours. */
 export const TINT_COUNT = 6;
-/** Avatar accessories a member can pick (ADR 0053, OME-1387); accessory 0 is none. */
-export const ACCESSORY_COUNT = 5;
+/** Avatar accessories a member can pick (ADR 0053, OME-1387; 5..8 OME-1532); accessory 0 is none. */
+export const ACCESSORY_COUNT = 9;
 /** Hair colours a member can pick (ADR 0053, OME-1435); hair 0 is the avatar's own. */
 export const HAIR_COUNT = 6;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */

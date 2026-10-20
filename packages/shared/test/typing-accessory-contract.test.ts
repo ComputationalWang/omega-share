@@ -19,8 +19,8 @@ function rejects(schema: v.GenericSchema, input: unknown): void {
 }
 
 describe("constants", () => {
-  test("typing is 1/s with a burst of 2 and times out after 5 s; five accessories, 0 none", () => {
-    expect([TYPING_BURST, TYPING_REFILL_MS, TYPING_TIMEOUT_MS, ACCESSORY_COUNT]).toEqual([2, 1000, 5000, 5]);
+  test("typing is 1/s with a burst of 2 and times out after 5 s; nine accessories, 0 none (OME-1532)", () => {
+    expect([TYPING_BURST, TYPING_REFILL_MS, TYPING_TIMEOUT_MS, ACCESSORY_COUNT]).toEqual([2, 1000, 5000, 9]);
   });
 });
 
@@ -53,7 +53,7 @@ describe("client set-accessory", () => {
     const join = { type: "join" as const, nickname: "alice", avatar: 0 };
     expect(parseClientMessage(JSON.stringify({ ...join, accessory: 4 }))).toEqual({ ...join, accessory: 4 });
     expect(parseClientMessage(JSON.stringify(join))).toEqual(join);
-    rejects(ClientMessageSchema, { ...join, accessory: 5 });
+    rejects(ClientMessageSchema, { ...join, accessory: 9 });
     rejects(ClientMessageSchema, { ...join, accessory: null });
   });
 });
@@ -69,13 +69,13 @@ describe("server typing-changed and accessory-changed", () => {
 
   test("accessory-changed carries a bounded accessory", () => {
     expect(parseServerMessage(JSON.stringify({ type: "accessory-changed", memberId: "m1", accessory: 4 }))).toEqual({ type: "accessory-changed", memberId: "m1", accessory: 4 });
-    rejects(ServerMessageSchema, { type: "accessory-changed", memberId: "m1", accessory: 5 });
+    rejects(ServerMessageSchema, { type: "accessory-changed", memberId: "m1", accessory: 9 });
   });
 
   test("a member may carry an accessory (absent means 0) and never a typing flag", () => {
     const member = { id: "m1", nickname: "alice", avatar: 0 };
     expect(v.parse(MemberSchema, { ...member, accessory: 2 })).toEqual({ ...member, accessory: 2 });
-    rejects(MemberSchema, { ...member, accessory: 5 });
+    rejects(MemberSchema, { ...member, accessory: 9 });
     expect(v.parse(MemberSchema, { ...member, typing: true })).toEqual(member);
   });
 });

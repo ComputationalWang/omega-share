@@ -1,5 +1,5 @@
 [
-{"input":"ACCESSORY_COUNT","ok":true,"output":5},
+{"input":"ACCESSORY_COUNT","ok":true,"output":9},
 {"input":"AVATAR_COUNT","ok":true,"output":4},
 {"input":"CHAT_MAX_LENGTH","ok":true,"output":280},
 {"input":"CHAT_MAX_MARK_RUN","ok":true,"output":3},

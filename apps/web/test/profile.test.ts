@@ -60,7 +60,8 @@ describe("profile storage", () => {
     const store = memory({ "omega.tint": "2" });
     expect(saveAccessory(store, 3)).toBe(true);
     expect(loadProfile(store)).toEqual({ nickname: null, avatar: 0, tint: 2, accessory: 3, hair: 0 });
-    for (const bad of ["5", "-1", "1.5", "x"]) expect(loadProfile(memory({ "omega.accessory": bad })).accessory).toBe(0);
+    for (const bad of ["9", "-1", "1.5", "x"]) expect(loadProfile(memory({ "omega.accessory": bad })).accessory).toBe(0);
+    expect(loadProfile(memory({ "omega.accessory": "8" })).accessory).toBe(8);
     expect(saveAccessory(throwing, 1)).toBe(false);
   });
   test("round-trips a hair colour (OME-1438); a tampered one reads as the avatar's own", () => {

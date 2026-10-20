@@ -83,7 +83,7 @@ export interface RoomView {
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: EmoteKind): void;
   /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint and hair drawn, for e2e checks. */
-  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; hair: number; accessory: number; bare: boolean } | undefined;
+  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; hair: number; accessory: number; bare: boolean; hatAnchored: boolean } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
   setDimmed(id: MemberId, dimmed: boolean): void;
   /** A member is away (OME-911): draw the avatar dimmed (or not). One alpha write and one draw per change; the seat stays. */
@@ -406,7 +406,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     if (entry.hat === null) {
       entry.hat = new Sprite({ texture, label: `hat:${entry.node.label}`, visible: false });
       objectLayer.addChild(entry.hat);
-    } else if (entry.hat.texture !== texture) entry.hat.texture = texture;
+    } else if (entry.hat.texture !== texture) {
+      entry.hat.texture = texture;
+      // A texture swap keeps the old anchor; each hat and frame has its own.
+      entry.hat.anchor.copyFrom(texture.defaultAnchor ?? { x: 0, y: 0 });
+    }
     entry.hat.position.copyFrom(entry.node.position);
     // Just over its own avatar and under whatever sorts next (depths are whole numbers).
     entry.hat.zIndex = entry.node.zIndex + 0.5;
@@ -1082,6 +1086,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         hair: drawn ? e.hair : 0,
         accessory: own !== undefined && own === e.hat?.texture ? e.accessory : 0,
         bare: e.frame !== null && e.node instanceof Sprite && bare !== null && wearsBare(e.avatar, e.accessory) && e.node.texture === bare.texture(e.frame, e.avatar, e.tint, e.hair),
+        // The hat sits where its frame says: its anchor is its texture's (QA OME-1538).
+        hatAnchored: e.hat?.visible === true && e.hat.anchor.x === (e.hat.texture.defaultAnchor?.x ?? 0) && e.hat.anchor.y === (e.hat.texture.defaultAnchor?.y ?? 0),
       };
     },
     position(id) {
