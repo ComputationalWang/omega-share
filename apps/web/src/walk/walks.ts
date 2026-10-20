@@ -35,6 +35,8 @@ export interface WalkTarget {
   readonly seatFacing: Dir | null;
   /** A jog (OME-1464, `walked.run`): the same path and frames at half the frame time. */
   readonly run?: boolean;
+  /** Sitting on the floor of their cell (OME-1501): the sit frames there, facing their last walk. */
+  readonly floorSit?: boolean;
 }
 
 /** Where to draw someone now. Filled in place by `sample`. */
@@ -111,7 +113,8 @@ const stepClock = (now: number): number => Math.ceil(now / WALK_FRAME_MS) * WALK
 /** Walk time rounded down to the step being shown; 0 before the walk starts. */
 const stepTime = (t: number): number => (t <= 0 ? 0 : Math.floor(t / WALK_FRAME_MS) * WALK_FRAME_MS);
 
-const sameTarget = (a: WalkTarget, b: WalkTarget): boolean => a.at.x === b.at.x && a.at.y === b.at.y && a.z === b.z && a.seatFacing === b.seatFacing;
+const samePoint = (a: WalkTarget, b: WalkTarget): boolean => a.at.x === b.at.x && a.at.y === b.at.y;
+const sameTarget = (a: WalkTarget, b: WalkTarget): boolean => samePoint(a, b) && a.z === b.z && a.seatFacing === b.seatFacing && a.floorSit === b.floorSit;
 
 export function createWalks(opts: WalksOptions): Walks {
   const route = opts.route ?? findPath;
@@ -205,7 +208,7 @@ export function createWalks(opts: WalksOptions): Walks {
     out.z = tg.z;
     out.dir = tg.seatFacing ?? e.restDir ?? standFacing(cellAt(tg.at));
     out.walking = false;
-    out.sitting = tg.seatFacing !== null;
+    out.sitting = tg.seatFacing !== null || tg.floorSit === true;
     out.step = 0;
     out.restMs = now - e.restAt;
   }
@@ -237,9 +240,10 @@ export function createWalks(opts: WalksOptions): Walks {
         // A jog to where they're already walking (a double-click's second click) re-times the rest of the way.
         if (sameTarget(e.target, t) && (e.rate === rateOf(t) || walkEnd(e) <= now)) continue;
         if (snap) {
+          // Sitting down or getting up in place keeps the facing (OME-1501).
+          if (!samePoint(e.target, t)) e.restDir = null;
           e.target = t;
           e.rate = 1;
-          e.restDir = null;
           e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
           e.start = e.restAt = now;
           continue;

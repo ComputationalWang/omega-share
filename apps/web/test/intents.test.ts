@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_POSITION_S, WALK_REFILL_MS, type PlaybackState, type RoomState } from "@omega/shared";
-import { chatIntent, createWalkGate, playerIntent, seatViews, seekIntent, sitIntent, DOUBLE_TAP_MS, doubleTap, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
+import { chatIntent, createWalkGate, floorSitIntent, playerIntent, seatViews, seekIntent, sitIntent, DOUBLE_TAP_MS, doubleTap, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
 import { TILE_MS } from "../src/walk/walks";
 import { initialState, reduce, type ViewState } from "../src/state";
 
@@ -15,6 +15,22 @@ const room: RoomState = {
   embed: null,
 };
 const open: ViewState = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "a", room }, now: 0 });
+
+// OME-1501: /sit, "Sit here" and S toggle sitting on the floor of my cell; with no cell there's nothing to sit on.
+describe("floorSitIntent", () => {
+  const withMe = (patch: object): ViewState => reduce(open, { type: "server", msg: { type: "snapshot", self: "a", room: { ...room, seats: [null, null, null, null, null, null, null, null], members: [{ id: "a", nickname: "alice", avatar: 0, ...patch }] } }, now: 0 });
+  test("standing on a cell sits me down; sitting there gets me up", () => {
+    expect(floorSitIntent(withMe({ cell: { x: 3, y: 8 } }))).toEqual({ type: "floor-sit", on: true });
+    expect(floorSitIntent(withMe({ cell: { x: 3, y: 8 }, floorSit: true }))).toEqual({ type: "floor-sit", on: false });
+  });
+  test("no cell (a seat or a standing spot) is \"no-cell\"", () => {
+    expect(floorSitIntent(open)).toBe("no-cell");
+    expect(floorSitIntent(withMe({}))).toBe("no-cell");
+  });
+  test("nothing while not connected", () => {
+    expect(floorSitIntent(reduce(withMe({ cell: { x: 3, y: 8 } }), { type: "disconnected" }))).toBeNull();
+  });
+});
 
 describe("sitIntent", () => {
   test("a free seat sends sit", () => {

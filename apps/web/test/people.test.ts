@@ -25,13 +25,15 @@ async function setup(members: readonly Member[] = [ada, bo, kit], self: MemberId
   const hidden = createHiddenMembers({ getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) }, "lobby");
   const changes: [MemberId, boolean][] = [];
   const walked: MemberId[] = [];
-  const people = createPeople({ hidden, onChange: (id, on) => changes.push([id, on]), walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null), follow: () => undefined });
+  const sits: number[] = [];
+  const people = createPeople({ hidden, onChange: (id, on) => changes.push([id, on]), walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null), follow: () => undefined, sit: () => void sits.push(1) });
   document.body.replaceChildren(people.key, people.panel, people.status);
   people.update(members, self);
   const row = (id: string): HTMLElement | null => people.panel.querySelector<HTMLElement>(`[data-member="${id}"]`);
   const button = (id: string): HTMLButtonElement | null => row(id)?.querySelector("[data-testid=people-toggle]") ?? null;
   const walkKey = (id: string): HTMLButtonElement | null => row(id)?.querySelector("[data-testid=people-walk-over]") ?? null;
-  return { people, hidden, changes, row, button, walkKey, walked };
+  const sitKey = (id: string): HTMLButtonElement | null => row(id)?.querySelector("[data-testid=people-sit]") ?? null;
+  return { people, hidden, changes, row, button, walkKey, walked, sits, sitKey };
 }
 
 describe("people list", () => {
@@ -143,5 +145,18 @@ describe("walk over", () => {
     walkKey("b")?.click();
     expect(walked).toEqual(["b"]);
     expect(walkKey("k")?.disabled).toBe(true);
+  });
+
+  // OME-1501: my own row is my menu: "Sit here" sits me on the floor of my cell, "Stand up" gets me up.
+  test("my row has Sit here (only mine); it flips to Stand up while I sit on the floor", async () => {
+    const { people, sitKey, sits } = await setup([{ ...ada, cell: { x: 3, y: 8 } }, bo]);
+    expect(sitKey("b")).toBeNull();
+    expect(sitKey("a")?.textContent).toBe("Sit here");
+    sitKey("a")?.click();
+    expect(sits).toEqual([1]);
+    people.update([{ ...ada, cell: { x: 3, y: 8 }, floorSit: true }, bo], "a");
+    expect(sitKey("a")?.textContent).toBe("Stand up");
+    people.update([ada, bo], "a");
+    expect(sitKey("a")?.textContent).toBe("Sit here");
   });
 });

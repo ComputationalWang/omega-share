@@ -31,6 +31,14 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   return occupant === state.self ? { type: "sit", seat: null } : null;
 }
 
+/** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell, or get up; "no-cell" on a seat or a standing spot. */
+export function floorSitIntent(state: ViewState): ClientMessage | "no-cell" | null {
+  if (state.status !== "open" || state.room === null) return null;
+  const me = state.room.members.find((m) => m.id === state.self);
+  if (me?.cell === undefined) return "no-cell";
+  return { type: "floor-sit", on: me.floorSit !== true };
+}
+
 /**
  * Clicking or tapping a floor cell (ADR 0053): walk to free floor, "blocked" under a solid piece (seats too: they sit),
  * nothing for my own cell. `run` jogs (OME-1464), even to my own cell: a double-click's first click already walks there.

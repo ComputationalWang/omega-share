@@ -76,8 +76,9 @@ describe("what it says", () => {
     const labelledBy = help.dialog.getAttribute("aria-labelledby") ?? "";
     expect(document.getElementById(labelledBy)?.textContent).toMatch(/help|how/i);
     const all = text(help.dialog);
-    for (const k of ["T", "1–8", "F", "Enter", "Esc", "?"]) expect(shown(help.dialog, "kbd").map(text)).toContain(k);
+    for (const k of ["S", "T", "1–8", "F", "Enter", "Esc", "?"]) expect(shown(help.dialog, "kbd").map(text)).toContain(k);
     expect(all).toMatch(/click a seat/i);
+    expect(all).toMatch(/sit on the floor/i);
     expect(all).toMatch(/touch/i);
     expect(all).toMatch(/tap a seat/i);
   });

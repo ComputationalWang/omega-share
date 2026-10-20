@@ -37,6 +37,8 @@ export interface AvatarPlacement {
   readonly seatFacing: Dir | null;
   /** They jog there (OME-1464, walk/walks.ts). */
   readonly run?: boolean;
+  /** Sitting on the floor of their cell (OME-1501, walk/walks.ts). */
+  readonly floorSit?: boolean;
 }
 
 export interface RoomViewOptions {

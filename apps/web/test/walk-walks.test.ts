@@ -13,6 +13,7 @@ const id = (s: string): MemberId => s;
 const grid = walkGrid(DEFAULT_LAYOUT);
 
 const sitAt = (who: string, col: number, row: number, facing: Dir = col < row ? "ne" : "nw", z = 999): WalkTarget => ({ id: id(who), at: cellCenter(col, row), z, seatFacing: facing });
+const standFacingOf = (col: number, row: number): Dir => (col < row ? "ne" : "nw");
 const standAt = (who: string, col: number, row: number): WalkTarget => {
   const at = cellCenter(col, row);
   return { id: id(who), at, z: standDepth(at), seatFacing: null };
@@ -341,6 +342,39 @@ function sitAtFor(who: string): WalkTarget {
 }
 
 // OME-1464: a jog walks the same path with the same frames at half the frame time, on both tiers (ADR 0037).
+// OME-1501: sitting on the floor of a cell takes the sit frames there, facing the last walk; no walk, no transition.
+describe("floor sit", () => {
+  const floorAt = (who: string, col: number, row: number, floorSit = true): WalkTarget => ({ ...standAt(who, col, row), floorSit });
+
+  test("a floor sitter sits on their cell facing their last walk, and gets up facing it too", () => {
+    const { walks, sample, routes } = setup();
+    walks.place([standAt("a", 5, 6)], 0);
+    walks.place([standAt("a", 8, 6)], 0);
+    const there = 3 * TILE_MS;
+    expect(sample("a", there)).toMatchObject({ dir: "se", sitting: false });
+    const before = routes();
+    walks.place([floorAt("a", 8, 6)], there);
+    expect(sample("a", there)).toMatchObject({ ...cellCenter(8, 6), walking: false, sitting: true, dir: "se" });
+    expect(walks.walking(there)).toBe(false);
+    walks.place([floorAt("a", 8, 6, false)], there + 1000);
+    expect(sample("a", there + 1000)).toMatchObject({ ...cellCenter(8, 6), walking: false, sitting: false, dir: "se" });
+    expect(routes() - before).toBeLessThanOrEqual(2);
+  });
+
+  test("with no walk seen, a floor sitter faces the TV like a stander", () => {
+    const { walks, sample } = setup();
+    walks.place([floorAt("a", 2, 7)], 0);
+    expect(sample("a", 0)).toMatchObject({ sitting: true, dir: "ne" });
+  });
+
+  test("reduced motion: sitting down keeps the facing and shows the pose at once", () => {
+    const { walks, sample } = setup({ reduced: true });
+    walks.place([standAt("a", 5, 6)], 0);
+    walks.place([floorAt("a", 5, 6)], 100);
+    expect(sample("a", 100)).toMatchObject({ walking: false, sitting: true, dir: standFacingOf(5, 6) });
+  });
+});
+
 describe("jog", () => {
   const jogAt = (who: string, col: number, row: number): WalkTarget => ({ ...standAt(who, col, row), run: true });
 

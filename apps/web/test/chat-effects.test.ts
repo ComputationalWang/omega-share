@@ -37,6 +37,18 @@ describe("slashCommand", () => {
     expect(slashCommand("/rolling")).toBeNull();
   });
 
+  // OME-1501: /sit toggles sitting on the floor.
+  test("/sit is the floor sit toggle, any case, spaces around ignored; /sitting is chat", () => {
+    expect(slashCommand("/sit")).toEqual({ type: "sit" });
+    expect(slashCommand("  /SIT ")).toEqual({ type: "sit" });
+    expect(slashCommand("/sitting")).toBeNull();
+    expect(slashCommand("/sit down")).toBeNull();
+  });
+
+  test("/help names /sit", () => {
+    expect(HELP_LINE.verb).toContain("/sit");
+  });
+
   test("/help names /roll", () => {
     expect(HELP_LINE.verb).toContain("/roll");
   });
