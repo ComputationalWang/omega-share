@@ -296,6 +296,34 @@ test("/conga: B follows A, C follows B; when B stops, C follows A", async ({ bro
   await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-3")), { timeout: 15_000 }).toBe(true);
 });
 
+// OME-1573 (QA OME-1566): someone who joins after the line formed gets it from the snapshot, and their /conga puts
+// them at the back on their own client too.
+test("/conga: a late joiner sees the line and joins at its back", async ({ browser }) => {
+  const roomUrl = testRoom("walk", "conga-late").url;
+  clients = await joinRoom(browser, { roomUrl, count: 3, nicknamePrefix: "late" });
+  const [a, b, c] = clients;
+  if (a === undefined || b === undefined || c === undefined) throw new Error("need three clients");
+  await a.page.waitForTimeout(6000);
+  for (const [p, n] of [[a.page, 1], [b.page, 2], [c.page, 3]] as const) {
+    await p.locator(site.chatInput).fill("/conga");
+    await p.locator(site.chatInput).press("Enter");
+    for (const q of [a.page, b.page, c.page]) await expect(q.locator(site.chatLogLine).filter({ hasText: "/conga" })).toHaveCount(n);
+  }
+  await expect(c.page.locator(site.followChip)).toContainText("Following late-2");
+  const [d] = await joinRoom(browser, { roomUrl, count: 1, nicknamePrefix: "lateD" });
+  if (d === undefined) throw new Error("no fourth client");
+  clients.push(d);
+  await expect(d.page.locator(site.chatLogLine).filter({ hasText: "/conga" }), "no chat history").toHaveCount(0);
+  await d.page.locator(site.peopleKey).click();
+  await expect(d.page.locator(site.peopleConga)).toHaveCount(3);
+  await d.page.locator(site.peopleKey).click();
+  await expect(d.page.locator(site.peoplePanel)).toBeHidden();
+  await d.page.locator(site.chatInput).fill("/conga");
+  await d.page.locator(site.chatInput).press("Enter");
+  await expect(a.page.locator(site.chatLogLine).filter({ hasText: "/conga" })).toHaveCount(4);
+  await expect(d.page.locator(site.followChip)).toContainText("Following late-3");
+});
+
 // OME-1570: a resume stops Follow while the line stays the same; the follower picks the line back up.
 test("/conga: a follower whose socket drops keeps following after the resume", async ({ browser }) => {
   const drops: (() => void)[] = [];
