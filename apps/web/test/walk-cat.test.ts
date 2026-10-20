@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { FLOOR_CELLS, type RoomLayout } from "@omega/shared";
-import { CAT_RANGE, catRest, catSeed, catTarget } from "../src/walk/cat";
+import { CAT_RANGE, CAT_SLOT_MS, catRest, catSeed, catSlot, catTarget, catWait } from "../src/walk/cat";
 import { cellOf, findPath, walkGrid } from "../src/walk/path";
 
 // OME-1520: the room cat wanders with no wire. Every client works out the same resting cell from the room id, the
@@ -93,5 +93,22 @@ describe("catRest", () => {
     };
     const grid = walkGrid(walled);
     for (let slot = 0; slot < 300; slot++) expect(rest(grid, slot)).not.toBe(cellOf(8, 8));
+  });
+});
+
+describe("the slot timer (OME-1526)", () => {
+  // The clock sync refines the server offset after the timer is armed, so it can fire a hair before the boundary.
+  test("a timer armed for slot 611 that fires 0.25 ms early still shows slot 611", () => {
+    expect(catSlot(611 * CAT_SLOT_MS - 0.25, 611)).toBe(611);
+  });
+  test("then it waits for slot 612, not a whole extra slot", () => {
+    expect(catWait(611 * CAT_SLOT_MS - 0.25, 611)).toBe(CAT_SLOT_MS + 1.25);
+  });
+  test("a late timer shows the slot it lands in", () => {
+    expect(catSlot(613 * CAT_SLOT_MS + 5, 611)).toBe(613);
+  });
+  test("with no timer, the slot of now; the wait lands 1 ms into the next one", () => {
+    expect(catSlot(611 * CAT_SLOT_MS + 7)).toBe(611);
+    expect(catWait(611 * CAT_SLOT_MS + 7, 611)).toBe(CAT_SLOT_MS - 6);
   });
 });

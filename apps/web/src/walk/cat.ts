@@ -6,6 +6,18 @@ import { FLOOR_CELLS } from "@omega/shared";
 import { colOf, findPath, rowOf } from "./path";
 
 export const CAT_SLOT_MS = 20_000;
+/** The slot shown at server time `now` by a timer armed for slot `due`. */
+export function catSlot(now: number, due = -Infinity): number {
+  void due;
+  return Math.floor(now / CAT_SLOT_MS);
+}
+
+/** Ms from `now` until the slot after `slot` starts. */
+export function catWait(now: number, slot: number): number {
+  void slot;
+  return CAT_SLOT_MS - (now % CAT_SLOT_MS) + 1;
+}
+
 /** How far from home a target may be, in cells along each axis. */
 export const CAT_RANGE = 3;
 
