@@ -2,7 +2,7 @@
 // or move one (Move up/down, Alt+Arrow on a row's key; OME-1250) or play the next now. Everything here is text: titles come from the parsed embed's ids, names from `members`, and no
 // row ever loads anything (a generic item stays click-to-load on the TV, ADR 0024). The list is rebuilt only when the queue,
 // the members or who may act change: room.ts calls `update` once per state change, and an unchanged input costs a few compares.
-import { QUEUE_MAX, canonicalizeAnyEmbed, isSyncedEmbed, normalizeHostname, type AnyEmbed, type ClientMessage, type ErrorCode, type MemberId, type QueueItem } from "@omega/shared";
+import { QUEUE_MAX, canonicalizeAnyEmbed, isSyncedEmbed, normalizeHostname, type AnyEmbed, type ClientMessage, type ErrorCode, type Member, type MemberId, type QueueItem } from "@omega/shared";
 import { controlHeld, type ViewState } from "../state";
 import { el, sprite } from "./dom";
 
@@ -36,6 +36,17 @@ const OWN_SITE = "That's a link to this site. Paste a video page's link.";
 /** An error this long after an add, with no answer seen, isn't taken as the add's (the server answers in milliseconds). */
 const ADD_ANSWER_MS = 5000;
 const NO_ITEMS: readonly QueueItem[] = [];
+const NO_MEMBERS: readonly Member[] = [];
+
+/** Each row's adder as drawn (name and head), so an unchanged one is the same string; an empty queue builds none. */
+function addersKey(queue: readonly QueueItem[], members: readonly Member[]): string {
+  let k = "";
+  for (const it of queue) {
+    const m = it.by === null ? undefined : members.find((x) => x.id === it.by);
+    k += m === undefined ? "\n" : `${m.id}\t${m.nickname}\t${String(m.avatar)}\n`;
+  }
+  return k;
+}
 const FULL_TEXT = `The queue is full (${String(QUEUE_MAX)}). Remove one to add another.`;
 
 /** The server's answers to a `queue-add`, said under the field. Anything else isn't about the add. */
@@ -117,7 +128,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
 
   let state: ViewState | null = null;
   let drawnQueue: readonly QueueItem[] | undefined;
-  let drawnMembers: unknown;
+  let drawnAdders = "";
   let drawnKey = "";
   let renders = 0;
   let shownError: ViewState["lastError"] = null;
@@ -260,10 +271,12 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
       const queue = s.room?.queue ?? NO_ITEMS;
       const held = controlHeld(s);
       const key = `${String(held)}|${String(s.owner)}|${s.self ?? ""}`;
-      if (queue !== drawnQueue || s.room?.members !== drawnMembers || key !== drawnKey) {
+      // What the rows show of `members`: a walk or a seat change makes a new array, and must not rebuild them (OME-1542).
+      const adders = addersKey(queue, s.room?.members ?? NO_MEMBERS);
+      if (queue !== drawnQueue || adders !== drawnAdders || key !== drawnKey) {
         const queueChanged = queue !== drawnQueue;
         drawnQueue = queue;
-        drawnMembers = s.room?.members;
+        drawnAdders = adders;
         drawnKey = key;
         renders++;
         const canRemove = (by: MemberId | null): boolean => !held && (s.owner || (by !== null && by === s.self));

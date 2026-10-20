@@ -11,12 +11,14 @@
 // shows another preset, `default` the default layout. The room's own layout stays the default one (its snapshots are
 // rewritten in the observer's page), so bots walk the cells free in both. With bar the bots in the hammock seats (4–7)
 // sway them, a bot at the piano's front plays it and the playing video lights the fireplace: every batch 6 loop runs.
+// Then Smooth again with every member wearing an accessory (OME-1542): bot n wears 1 + n % 8, the observer the halo, so
+// the walk25.accessories.<metric>.<profile> rows hold the overlay on all 25.
 // OMEGA_PERF_WALK_RUN=1 (OME-1464): the bots jog (`walk.run`) instead, for the same rows with 25 joggers.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, RoomLayoutSchema, isStandable } from "@omega/shared";
+import { ACCESSORY_COUNT, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, RoomLayoutSchema, isStandable } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { socketUrl } from "../e2e/support/bots";
 import { watchCsp } from "../e2e/support/csp";
@@ -38,6 +40,9 @@ const PROFILES = ["desktop", "phone"] as const;
 const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
+interface Pass { readonly tier: Tier; readonly worn: boolean }
+/** Each tier bare, then Smooth with everyone wearing an accessory. */
+const PASSES: readonly Pass[] = [...TIERS.map((tier) => ({ tier, worn: false })), { tier: "smooth", worn: true }];
 const BOT_PREFIX = "w25-bot";
 const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "cafe";
 const RUN = process.env["OMEGA_PERF_WALK_RUN"] === "1";
@@ -48,7 +53,8 @@ const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => (
   (c) => isStandable(DEFAULT_LAYOUT, c) && (SHOWN_LAYOUT === null || isStandable(SHOWN_LAYOUT, c)),
 );
 
-const ids = (p: Profile, t: Tier): string[] => [`walk25.frameP95.${p}.${t}`, `walk25.workP95.${p}.${t}`, `walk25.missedVsync.${p}.${t}`];
+const rowId = (m: string, p: Profile, pass: Pass): string => (pass.worn ? `walk25.accessories.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
+const ids = (p: Profile, pass: Pass): string[] => ["frameP95", "workP95", "missedVsync"].map((m) => rowId(m, p, pass));
 
 interface WalkerStats {
   readonly members: number;
@@ -61,12 +67,12 @@ interface WalkerStats {
 }
 
 /** 24 raw-socket bots on a page of the site origin, sitting on free seats and standing up again, one change per tick, and free-walking standing bots. */
-async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
+async function startWalkers(browser: Browser, roomId: string, worn: boolean): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
   const context = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
   await page.evaluate(
-    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run }) => {
+    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run, accessories }) => {
       interface Bot { ws: WebSocket; self: string }
       const all: Bot[] = [];
       /** seats[i] is the member id holding seat i, from the server's snapshot / seat-changed / member-left stream. */
@@ -83,7 +89,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
           const ws = new WebSocket(url);
           const bot: Bot = { ws, self: "" };
           ws.addEventListener("open", () => {
-            ws.send(JSON.stringify({ type: "join", nickname: `${prefix}-${String(n + 1)}`, avatar: n % 4 }));
+            ws.send(JSON.stringify({ type: "join", nickname: `${prefix}-${String(n + 1)}`, avatar: n % 4, ...(accessories > 0 ? { accessory: 1 + (n % (accessories - 1)) } : {}) }));
           });
           ws.addEventListener("message", (ev: MessageEvent<unknown>) => {
             const msg: unknown = typeof ev.data === "string" ? JSON.parse(ev.data) : null;
@@ -159,7 +165,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
         },
       });
     },
-    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN },
+    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN, accessories: worn ? ACCESSORY_COUNT : 0 },
   );
   const call = async (fn: "stats" | "mark" | "stop"): Promise<WalkerStats> => {
     const raw: unknown = await page.evaluate((f): unknown => {
@@ -201,14 +207,14 @@ const botTags = (page: Page): Promise<Record<string, string>> =>
   );
 
 for (const profile of PROFILES) {
-  test(`walk tiers: 25 members walking, ${profile}, Basic then Smooth (video playing)`, async ({ browser, request }) => {
+  test(`walk tiers: 25 members walking, ${profile}, Basic, Smooth, Smooth with accessories (video playing)`, async ({ browser, request }) => {
     const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
     if (why !== null) {
-      for (const t of TIERS) for (const id of ids(profile, t)) recordMetric({ id, pending: why });
+      for (const pass of PASSES) for (const id of ids(profile, pass)) recordMetric({ id, pending: why });
       test.skip(true, why);
       return;
     }
-    test.setTimeout(240_000);
+    test.setTimeout(360_000);
     // The same seeded room as the pop-out room perf (specs run one after the other on one worker, each leaving it empty).
     const room = testRoom("popout-room-perf", "frames");
     await expect
@@ -225,17 +231,22 @@ for (const profile of PROFILES) {
       )
       .toBe(true);
     const phone: BrowserContextOptions | undefined = profile === "phone" ? { ...devices["Pixel 7"] } : undefined;
-    const results: { tier: Tier; p95: number; missedPct: number; workP95: number; walking: number }[] = [];
-    for (const tier of TIERS) {
+    const results: { row: string; p95: number; missedPct: number; workP95: number; walking: number }[] = [];
+    for (const pass of PASSES) {
+      const { tier, worn } = pass;
       const clients = await joinRoom(browser, {
         roomUrl: room.url,
         count: 1,
         nicknamePrefix: `w25-${profile}`,
         contextOptions: () => phone,
         setup: async (context) => {
-          await context.addInitScript((t) => {
-            localStorage.setItem("omega.motion", t);
-          }, tier);
+          await context.addInitScript(
+            ({ t, accessory }) => {
+              localStorage.setItem("omega.motion", t);
+              if (accessory > 0) localStorage.setItem("omega.accessory", String(accessory));
+            },
+            { t: tier, accessory: worn ? ACCESSORY_COUNT - 1 : 0 },
+          );
           if (SHOWN_LAYOUT !== null) {
             // In the page, not through routeWebSocket: a routed socket hands every frame over the driver, which cost the
             // observer ~1 ms on its worst frames and made a furnished room look dearer than it is (OME-1448).
@@ -267,7 +278,7 @@ for (const profile of PROFILES) {
           }
         },
       });
-      const walkers = await startWalkers(browser, room.id);
+      const walkers = await startWalkers(browser, room.id, worn);
       try {
         const [observer] = clients;
         if (observer === undefined) throw new Error("no observer");
@@ -302,20 +313,20 @@ for (const profile of PROFILES) {
         const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
-        recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
-        recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
-        recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
+        recordMetric({ id: rowId("frameP95", profile, pass), value: f.p95, note: `${f.note}; ${what}` });
+        recordMetric({ id: rowId("workP95", profile, pass), value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
+        recordMetric({ id: rowId("missedVsync", profile, pass), value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
         expect(s.members).toBe(MAX_ROOM_MEMBERS);
         expect(walking, `the window measures walking: ${what}`).toBeGreaterThanOrEqual(MIN_WALKERS);
-        results.push({ tier, p95: f.p95, missedPct: f.missedPct, workP95, walking });
+        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
       } finally {
         await walkers.stop();
         await leaveAll(clients);
       }
     }
     for (const r of results) {
-      const k = `${profile}.${r.tier}`;
+      const k = r.row;
       expect(r.p95, `${k} frame p95`).toBeLessThanOrEqual(VSYNC_MS + 1e-6);
       expect(r.missedPct, `${k} missed vsyncs %`).toBeLessThanOrEqual(1);
       expect(r.workP95, `${k} main-thread work p95`).toBeLessThanOrEqual(8);
