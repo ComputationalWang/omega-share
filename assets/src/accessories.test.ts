@@ -14,8 +14,8 @@ const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expr
   .flatMap((f) => Object.keys((JSON.parse(read(f).toString("utf8")) as Atlas).frames))
   .filter((k) => !k.startsWith("emote/"));
 
-test("four accessories, each with a hat for every avatar frame key", () => {
-  expect(Object.keys(a.meta.omega.accessories).sort()).toEqual(["beanie", "crown", "headphones", "partyhat"]);
+test("eight accessories, each with a hat for every avatar frame key", () => {
+  expect(Object.keys(a.meta.omega.accessories).sort()).toEqual(["beanie", "bow", "cap", "crown", "flower", "halo", "headphones", "partyhat"]);
   for (const [id, h] of Object.entries(a.meta.omega.accessories)) {
     expect(h.prefix).toBe(`${id}/hat/`);
     expect(avatarKeys.filter((k) => !a.frames[`${h.prefix}${k}`])).toEqual([]);
@@ -41,7 +41,7 @@ test("bare-head frames for Pip and Mo, every frame key, in the avatar cell shape
   const { prefix, avatars, accessories } = bare.meta.omega.bare;
   expect(prefix).toBe("bare/");
   expect(avatars).toEqual(["pip", "mo"]);
-  expect(accessories).toEqual(["partyhat", "crown", "headphones"]);
+  expect(accessories).toEqual(["partyhat", "crown", "headphones", "cap", "bow"]);
   const keys = avatarKeys.filter((k) => /(^|\/)(pip|mo)\//.test(k));
   expect(keys.length).toBe(208);
   expect(keys.filter((k) => !bare.frames[`${prefix}${k}`])).toEqual([]);
@@ -56,4 +56,13 @@ test("the bare sheet is PNG-8 and small", () => {
   const png = read("accessories/bare.png");
   expect([png[24], png[25]]).toEqual([8, 3]);
   expect(png.length).toBeLessThan(16 * 1024);
+});
+
+// OME-1530: the web swaps each avatar's tint and hair slots in its hat overlays, so the new four keep off those ramps.
+test("cap, flower, bow and halo use no swatch or hair ramp", async () => {
+  const { ACCESSORIES } = await import("./accessories");
+  const { AVATARS } = await import("./avatars");
+  const swapped = new Set(AVATARS.flatMap((x) => [x.swatch, ...Object.values(x.roles).filter((r) => r.ramp.startsWith("hair")).map((r) => r.ramp)]));
+  const used = ACCESSORIES.slice(4).flatMap((x) => Object.values(x.hat.roles).map((r) => r.ramp));
+  expect(used.filter((r) => swapped.has(r))).toEqual([]);
 });

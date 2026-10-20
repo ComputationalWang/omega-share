@@ -33,7 +33,7 @@ assets/
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
-  accessories/accessories.png|json  # OME-1388 (lazy): 256×256 PNG-8, four head accessories, each a hat per avatar frame (theme hat format)
+  accessories/accessories.png|json  # OME-1388 + OME-1530 (lazy): 256×256 PNG-8, eight head accessories, each a hat per avatar frame (theme hat format)
   accessories/bare.png|json         # OME-1409 (lazy): 1024×512 PNG-8, Pip and Mo bare-headed for every avatar frame key (32×64 cells)
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
@@ -908,7 +908,7 @@ Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per th
 
 ## Head accessories (`accessories/accessories.json`, OME-1388, lazy)
 
-Four cosmetics in one lazy 256×256 indexed PNG-8, fetched only when someone in the room wears one. Each is a hat in exactly the holiday
+Eight cosmetics (OME-1388's four, OME-1530's four) in one lazy 256×256 indexed PNG-8, fetched only when someone in the room wears one. Each is a hat in exactly the holiday
 theme format above: one overlay for **every** avatar frame key (416 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`,
 `yawn`, all four dirs; dance reuses the walk frames, so it is covered), anchored at the avatar's floor point, drawn as the avatar's next sibling.
 
@@ -921,8 +921,19 @@ the theme hat loader works per accessory: the overlay for avatar frame `K` is `<
 | `crown` (`crown/hat/`) | Small gold crown: three points with pearls; a rust gem between two teal ones on the front | `false` | 20 |
 | `headphones` (`headphones/hat/`) | Lilac band over the top (parts from dark hair), teal cups; the far cup peeks past the face | `false` | 74 |
 | `beanie` (`beanie/hat/`) | Navy knit with a ribbed cuff and a mustard pom (never red and white like the Santa hat); takes off Pip's beanie and Mo's bucket hat like the Santa hat | `true` | 17 |
+| `cap` (`cap/hat/`, OME-1530) | Olive ball cap, cream front panel, darker brim pointing the way the face does, cream button | `false` | 24 |
+| `flower` (`flower/hat/`, OME-1530) | Cream daisy with a ginger heart and an olive leaf above the near ear: in Juno's and Kiki's hair, on Pip's teal beanie band, on Mo's hat band | `false` | 22 |
+| `bow` (`bow/hat/`, OME-1530) | Big velvet hair bow with a pink knot, perched on top | `false` | 8 |
+| `halo` (`halo/hat/`, OME-1530) | Pale glowing ring floating 3 px above the hair or headwear; never touches the head | `false` | 7 |
 
-Each value also carries **`bare`** (OME-1409): `true` for `partyhat`, `crown` and `headphones`, `false` for `beanie`.
+OME-1530's four use no avatar's swatch ramp (mustard, teal, rust, lilac) or hair ramp: the web swaps those slots in the hat overlays
+too (`walk/tint-sheets.ts`), so the cap, flower, bow and halo keep their colours under any shirt tint and hair colour (`accessories.test.ts`).
+
+Each value also carries **`bare`** (OME-1409): `true` for `partyhat`, `crown`, `headphones`, `cap` and `bow`, `false` for `beanie`,
+`flower` and `halo`. The rule per OME-1530 accessory: the **cap** is fitted to the head (over a beanie or a bucket hat it reads as a stack of
+hats), so Pip and Mo go bare. The **bow** sits on the hair, so they go bare (on Pip's pom or Mo's brim it would perch on headwear). The **flower**
+is pinned at the side and looks right on Pip's beanie band and Mo's hat band, so nobody goes bare. The **halo** floats clear of everything, so
+nobody goes bare. `bare.png` doesn't change: the new `bare` accessories reuse its frames.
 
 ### Bare heads under an accessory (`accessories/bare.json`, OME-1409, lazy)
 
@@ -930,7 +941,7 @@ An overlay can't erase pixels, so a hat worn over Pip's beanie or Mo's bucket ha
 Pip and Mo take their headwear off: Pip shows a messy ginger mop with two cowlick spikes, and Mo shows a short dark crop (beard and sideburn stay).
 Their overlays in `accessories.json` are drawn for those bare heads.
 
-`meta.omega.bare` = `{ prefix: "bare/", avatars: ["pip", "mo"], accessories: ["partyhat", "crown", "headphones"] }`. Frame `bare/K` exists
+`meta.omega.bare` = `{ prefix: "bare/", avatars: ["pip", "mo"], accessories: ["partyhat", "crown", "headphones", "cap", "bow"] }`. Frame `bare/K` exists
 for every avatar frame key `K` of Pip and Mo (104 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, all four
 dirs; dance reuses walk). Each frame is a full 32×64 cell with the avatar sheets' anchor (`16/32`, `61/64`), so it swaps in for the texture
 directly. Keys carry only `frame` + `anchor`. Identical cells share a rect (200 rects for 208 keys).
@@ -943,8 +954,12 @@ overlay `<X prefix>K` as usual. In every other case (Juno, Kiki, the beanie, no 
   anchor, and PNG-8 under 16 KB. The contact sheet `preview/accessories@4x.png` shows Pip and Mo on their bare frames.
 
 - Bytes: `accessories.png` 4 234 + `accessories.json` 8 460 gz = **12 694 B**, all lazy (OME-1409 refitted Pip's and Mo's overlays to their bare heads: +243 B). Each key carries only `frame` + `anchor` (all the hat loader reads), minified: 201 KB raw to parse.
-- Previews: `preview/accessories@4x.png` (contact sheet: a row per avatar; per accessory idle SE, idle NW, walk SW, sit SE, sit NE) and
-  `preview/accessories-sheet@2x.png`. Source: `src/accessories.ts`; `src/accessories.test.ts` checks keys, PNG-8 and the size cap.
+- OME-1530 (cap, flower, bow, halo) adds **8 947 B** (all lazy): `accessories.png` 4 257 → 5 666 (+1 409, still 256×256: the new hats
+  are small and share rects across frames, 61 rects for 1 664 keys), `accessories.json` 8 443 → 15 963 gz (+7 520: 1 664 more keys; 388 KB raw to parse,
+  was 199 KB), `bare.json` +18 gz (the two new ids in `meta.omega.bare.accessories`).
+- Previews: `preview/accessories@4x.png` (OME-1388's four) and `preview/accessories-b@4x.png` (OME-1530's four, plus a mixed row:
+  each cell another avatar in another shirt tint and hair colour) are contact sheets with a row per avatar; per accessory idle SE, idle NW,
+  walk SW, sit SE, sit NE. Also `preview/accessories-sheet@2x.png`. Source: `src/accessories.ts`; `src/accessories.test.ts` checks keys, PNG-8 and the size cap.
 
 ## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
 
@@ -1240,11 +1255,11 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `themes/christmas/christmas.png` + `.json` (OME-1187, lazy) | 2 280 + 3 309 gz |
 | `themes/valentines/valentines.png` + `.json` (OME-1187, lazy) | 1 117 + 3 224 gz |
 | `themes/easter/easter.png` + `.json` (OME-1187, lazy) | 2 890 + 3 532 gz |
-| `accessories/accessories.png` + `.json` (OME-1388, lazy) | 4 234 + 8 460 gz |
+| `accessories/accessories.png` + `.json` (OME-1388 + OME-1530, lazy) | 5 666 + 15 963 gz |
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 255 904 B (≈ 249.9 KB) of 300 KB**, eager 99 734, lazy 156 170 (OME-1409) (`bun assets/src/build.ts`). Rows not named below are
+**Measured total now: 303 752 B (≈ 296.6 KB) of 300 KB**, eager 104 314, lazy 199 438 (OME-1530: +8 947 lazy; 3 448 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

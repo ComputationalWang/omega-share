@@ -33,9 +33,9 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
-import { hairSheet, hairsTable } from "./hairs";
+import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
-import { contactSheet, tintsTable } from "./tints";
+import { applyRemap, contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
@@ -1968,7 +1968,7 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
     const s = specs.get(k);
     return avatarImages.get(k) ?? (s && render(composeMotion(s.avatar, s.pose, s.dir, s.motion), s.avatar.roles));
   };
-  const rows = AVATARS.map((a) => ACCESSORIES.flatMap((acc) => [`${a.id}/idle/se/0`, `${a.id}/idle/nw/0`, `walk/${a.id}/sw/1`, `${a.id}/sit/se/0`, `${a.id}/sit/ne/0`].map((k) => {
+  const worn = (acc: (typeof ACCESSORIES)[number], k: string): string => {
     const b = (acc.bare ? bareImages.get(k) : undefined) ?? baseOf(k);
     const h = byKey.get(`${acc.id}/hat/${k}`);
     if (!b || !h) throw new Error(`missing ${acc.id} on ${k}`);
@@ -1977,8 +1977,27 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
     blitAt(out, CELL.w, CH, h.img, h.w, h.h, FLOOR.x - h.ax, FLOOR.y + 12 - h.ay);
     sprites.set(`${acc.id}:${k}`, { img: out, w: CELL.w, h: CH });
     return `${acc.id}:${k}`;
-  })));
-  strip("accessories@4x.png", 20, rows, sprites, CELL.w, CH, true);
+  };
+  const poses = (id: string): string[] => [`${id}/idle/se/0`, `${id}/idle/nw/0`, `walk/${id}/sw/1`, `${id}/sit/se/0`, `${id}/sit/ne/0`];
+  // One sheet per batch of four, so each stays 20 columns: OME-1388's four, then OME-1530's with a mixed tint × hair row.
+  const [first, second] = [ACCESSORIES.slice(0, 4), ACCESSORIES.slice(4)];
+  strip("accessories@4x.png", 20, AVATARS.map((a) => first.flatMap((acc) => poses(a.id).map((k) => worn(acc, k)))), sprites, CELL.w, CH, true);
+  const rows = AVATARS.map((a) => second.flatMap((acc) => poses(a.id).map((k) => worn(acc, k))));
+  // Mixed row: cell n = avatar n % 4 in accessory ⌊n / 5⌋, pose n % 5, hair 1 + n % 5, tint 5 − n % 6 (every cell a non-default look).
+  const W = 20 * CELL.w, H = (rows.length + 1) * CH;
+  const img = new Uint8Array(W * H).fill(colorIndex("wall", 1));
+  const cells: { img: Uint8Array; col: number; row: number }[] = rows.flatMap((r, row) => r.map((key, col) => ({ img: sprites.get(key)?.img ?? new Uint8Array(0), col, row })));
+  for (let n = 0; n < 20; n++) {
+    const a = AVATARS[n % 4], acc = second[Math.floor(n / 5)];
+    if (!a || !acc) throw new Error("mixed row");
+    const key = worn(acc, poses(a.id)[n % 5] ?? "");
+    cells.push({ img: applyRemap(sprites.get(key)?.img ?? new Uint8Array(0), lookRemap(a, 1 + (n % 5), 5 - (n % 6))), col: n, row: rows.length });
+  }
+  for (const c of cells) {
+    floorMark(img, W, c.col * CELL.w + FLOOR.x, c.row * CH + 12 + FLOOR.y);
+    blitAt(img, W, H, c.img, CELL.w, CH, c.col * CELL.w, c.row * CH);
+  }
+  writeFileSync(join(ROOT, "preview", "accessories-b@4x.png"), encodeIndexedPng(W * 4, H * 4, upscale(img, W, H, 4), HAIR_PALETTE));
 }
 
 /** `accessories/bare.png` + `.json` (OME-1409, lazy): Pip and Mo without their beanie / bucket hat, for every avatar frame key, in the
