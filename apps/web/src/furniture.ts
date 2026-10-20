@@ -128,7 +128,7 @@ export function standingPoints(layout: RoomLayout): Point[] {
 const FRONT_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign", "door", "piano"]);
 /** A teleport pad (OME-1548) is lit while someone stands on its own cell. */
 const ON_KINDS: ReadonlySet<FurnitureKind> = new Set(["pad"]);
-const SEATED_KINDS:ReadonlySet<FurnitureKind> = new Set(["hammock"]);
+const SEATED_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock"]);
 const PLAYING_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
 /** A one-frame "loop" never steps; the frame time only has to be a valid one. */
 const OPEN_MS = 3_600_000;
