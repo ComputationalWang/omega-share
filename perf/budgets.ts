@@ -84,6 +84,14 @@ const WALK25: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, p
     { id: `walk25.missedVsync.${p}.${t}`, area: "Site", metric: `Missed vsyncs with 25 members walking, ${pl}, ${tl}`, docMetric: "Missed vsyncs with 25 members walking", unit: "%", limit: 1, comparator: "<=" },
   ]),
 );
+// OME-1542: Smooth again with every member wearing an accessory (an overlay sprite on all 25), at the same budgets.
+const WALK25_ACCESSORIES: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, pl]): Budget[] =>
+  WALK25.filter((b) => b.id.endsWith(`.${p}.smooth`)).map((b) => ({
+    ...b,
+    id: b.id.replace(/^walk25\.(\w+)\..*$/, `walk25.accessories.$1.${p}`),
+    metric: `${b.metric.replace(`, ${pl}, Smooth tier`, "")}, every member wearing an accessory, ${pl}, Smooth tier`,
+  })),
+);
 
 // OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
 const LANDING: readonly Budget[] = [
@@ -110,6 +118,7 @@ export const BUDGETS: readonly Budget[] = [
   ...POPOUT,
   ...POPOUT_ROOM,
   ...WALK25,
+  ...WALK25_ACCESSORIES,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.
