@@ -56,6 +56,7 @@ const valid: Raw[] = [
   js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, accessory: 8 }), js({ ...JOIN, tint: 2, accessory: 3 }),
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
+  js({ ...JOIN, via: "lobby" }), js({ ...JOIN, via: "a".repeat(32) }), js({ ...JOIN, via: "film-club", hair: 2 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
   js({ type: "walk", cell: { x: 9, y: 0 }, teleport: true }), js({ type: "walk", cell: { x: 9, y: 0 }, teleport: false }), js({ type: "walk", cell: { x: 9, y: 0 }, run: true, teleport: true }),
   js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, { kind: "pad", col: 9, row: 1, facing: "se" }, { kind: "pad", col: 1, row: 9, facing: "se", variant: 1 }] } }),
@@ -184,6 +185,8 @@ const invalid: Raw[] = [
   ...[9, -1, 0.5, "1", null, true].map((accessory) => js({ type: "set-accessory", accessory })), js({ ...JOIN, accessory: 9 }), js({ ...JOIN, accessory: null }),
   // set-hair, join hair (OME-1435)
   ...[6, -1, 0.5, "1", null, true].map((hair) => js({ type: "set-hair", hair })), js({ ...JOIN, hair: 6 }), js({ ...JOIN, hair: null }),
+  // join via (OME-1556)
+  ...["Lobby", "", "a".repeat(33), "lobby/x", "https://evil.example/", null, 3, ["lobby"]].map((via) => js({ ...JOIN, via })),
   // floor-sit, layout mood (OME-1499)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "floor-sit", on })), js({ type: "floor-sit" }),
   ...["dark", "Warm", "none ", "", null, 0, true, [], {}].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
