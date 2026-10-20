@@ -26,7 +26,7 @@ import { el } from "../controls/dom";
 import { atlasId, coloursOf } from "./colours";
 import { cellCenter } from "../layout";
 import { loadRoomSecrets } from "../room-secrets";
-import { TRAY_TABS, defaultFacing, doorCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
+import { TRAY_TABS, defaultFacing, doorCount, needsSecondPad, padCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { createMoodPicker } from "./mood";
 import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
@@ -95,7 +95,7 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   barcounter: "Bar counter",
   piano: "Upright piano",
   fireplace: "Fireplace",
-  pad: "Teleport pad",
+  pad: "Teleport pads (pair)",
 };
 
 const DELETED = "Room deleted.";
@@ -281,8 +281,10 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
         say(c === null ? `The ${NAMES[held.kind].toLowerCase()} can't go there.` : "That spot is taken or off the floor.");
         return;
       }
-      held = null;
-      setDraft(next, next.furniture.length - 1);
+      // A pad comes as a pair (OME-1548): the same pad stays in hand for the second.
+      const second = held.kind === "pad" && needsSecondPad(next);
+      held = second ? held : null;
+      setDraft(next, second ? null : next.furniture.length - 1);
       return;
     }
     const at = indexAt(draft, s);
@@ -546,7 +548,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       b.hidden = !kinds.includes(kind);
       b.ariaPressed = String(held?.kind === kind);
       const capped = kind === "door" && doors >= MAX_DOORS;
-      b.ariaDisabled = String(full || capped);
+      b.ariaDisabled = String(full || capped || (kind === "pad" && padCount(draft) >= 2));
       b.title = capped ? `A room has at most ${String(MAX_DOORS)} doors` : NAMES[kind];
     }
     doorsLine.textContent = `Doors ${String(doors)}/${String(MAX_DOORS)}`;
@@ -557,6 +559,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     pickedName.textContent =
       picking
         ? "Door: pick where it leads, then place it"
+        : held?.kind === "pad" && needsSecondPad(draft)
+        ? "Place the second teleport pad"
         : held !== null
         ? `${NAMES[held.kind]}: click the room, or use the arrow keys and Enter there, to place it`
         : piece !== undefined

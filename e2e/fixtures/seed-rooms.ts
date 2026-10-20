@@ -7,7 +7,8 @@ import { openDatabase } from "../../apps/server/src/store/db";
 import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
 import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
-import { TEST_ROOM_IDS } from "../support/test-rooms";
+import { TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
+import { PADS } from "./layouts";
 
 const path = process.argv[2];
 if (path === undefined || path === ":memory:") throw new Error("usage: seed-rooms.ts <db file path>");
@@ -16,7 +17,7 @@ for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: t
 const db = openDatabase(path);
 const store = new RoomStore(db);
 for (const [i, id] of [DEFAULT_ROOM_ID, ...TEST_ROOM_IDS].entries()) {
-  store.createRoom({ id, title: id === DEFAULT_ROOM_ID ? "Lobby" : "", createdAt: i + 1, layout: DEFAULT_LAYOUT });
+  store.createRoom({ id, title: id === DEFAULT_ROOM_ID ? "Lobby" : "", createdAt: i + 1, layout: id === testRoomId("teleport", "pads") ? PADS : DEFAULT_LAYOUT });
 }
 const MIN = 60_000;
 // The QA rooms specs' rooms (OME-417): private, unpinned (so the owner can delete them), with known secrets. The GC

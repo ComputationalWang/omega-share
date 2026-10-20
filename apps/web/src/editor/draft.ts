@@ -46,7 +46,7 @@ export function fits(layout: Layout, piece: Furniture, skip?: number): boolean {
 }
 
 export function place(layout: Layout, piece: Furniture): Layout | null {
-  if (layout.furniture.length >= MAX_FURNITURE || !fits(layout, piece)) return null;
+  if (layout.furniture.length >= MAX_FURNITURE || !fits(layout, piece) || (piece.kind === "pad" && padCount(layout) >= 2)) return null;
   return { ...layout, furniture: [...layout.furniture, piece] };
 }
 
@@ -75,8 +75,10 @@ export function rotate(layout: Layout, index: number): Layout | null {
   return null;
 }
 
+/** Removing a pad removes its pair too (OME-1548): a layout holds 0 or 2. */
 export function remove(layout: Layout, index: number): Layout {
-  return { ...layout, furniture: layout.furniture.filter((_, i) => i !== index) };
+  const pad = layout.furniture[index]?.kind === "pad";
+  return { ...layout, furniture: layout.furniture.filter((f, i) => i !== index && !(pad && f.kind === "pad")) };
 }
 
 /** Index of the piece under a floor cell: objects first, then floor pieces, then a wall piece anchored there. Later pieces win. */
@@ -97,9 +99,9 @@ export function pieceAt(layout: Layout, col: number, row: number): number | null
 }
 
 /** How many teleport pads (OME-1548) the draft has: a saved layout holds 0 or 2. */
-export const padCount = (_layout: Layout): number => 0;
+export const padCount = (layout: Layout): number => layout.furniture.filter((f) => f.kind === "pad").length;
 /** One pad is down and its pair is still to place. */
-export const needsSecondPad = (_layout: Layout): boolean => false;
+export const needsSecondPad = (layout: Layout): boolean => padCount(layout) === 1;
 
 export function defaultFacing(kind: FurnitureKind, col: number, row: number): Facing {
   const spec = FURNITURE[kind];
@@ -142,6 +144,7 @@ export function problems(layout: Layout): Problem[] {
   const seats = layoutSeats(layout).length;
   if (seats !== SEAT_COUNT) out.push({ code: "seats", have: seats, need: SEAT_COUNT });
   if (overlaps(f)) out.push({ code: "overlap" });
+  if (needsSecondPad(layout)) out.push({ code: "pad" });
   if (out.length === 0 || f.some((p) => !v.safeParse(FurnitureSchema, p).success)) out.push({ code: "invalid" });
   return out;
 }
@@ -173,8 +176,7 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-// shortcut: the pad (OME-1545) has no art yet, so the tray leaves it out; the teleport web issue adds it.
-const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => k !== "pad" && pick(k));
+const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter(pick);
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */
 export function parseDoorTarget(text: string, origin: string, current: RoomId): { readonly ok: true; readonly id: RoomId } | { readonly ok: false; readonly error: string } {

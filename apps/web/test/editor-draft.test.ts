@@ -299,8 +299,8 @@ describe("the room mood in the draft", () => {
 // OME-1548: teleport pads come as a pair; a saved layout holds 0 or 2 (OME-1545).
 describe("teleport pads in the draft", () => {
   const pad = (col: number, row: number) => ({ kind: "pad", col, row, facing: "se" }) as const;
-  const one = (): RoomLayout => place(L, pad(3, 3)) ?? L;
-  const two = (): RoomLayout => place(one(), pad(6, 6)) ?? L;
+  const one = (): RoomLayout => place(L, pad(8, 1)) ?? L;
+  const two = (): RoomLayout => place(one(), pad(8, 8)) ?? L;
 
   test("the first pad leaves a second to place; the draft can't be saved with one", () => {
     expect(padCount(L)).toBe(0);
@@ -316,7 +316,7 @@ describe("teleport pads in the draft", () => {
     expect(problems(two())).toEqual([]);
   });
   test("a third pad is refused", () => {
-    expect(place(two(), pad(8, 2))).toBeNull();
+    expect(place(two(), pad(0, 9))).toBeNull();
   });
   test("removing either pad removes both", () => {
     const l = two();

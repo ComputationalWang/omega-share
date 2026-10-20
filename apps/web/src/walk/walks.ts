@@ -243,7 +243,9 @@ export function createWalks(opts: WalksOptions): Walks {
         }
         // A jog to where they're already walking (a double-click's second click) re-times the rest of the way.
         if (sameTarget(e.target, t) && (e.rate === rateOf(t) || walkEnd(e) <= now)) continue;
-        if (snap) {
+        if (snap || t.teleport === true) {
+          // A teleport (OME-1548) lands without a walk, and sparkles at both pads unless motion is reduced.
+          if (t.teleport === true && !samePoint(e.target, t) && !opts.reducedMotion()) opts.onTeleport?.(e.target.at, t.at);
           // Sitting down or getting up in place keeps the facing (OME-1501).
           if (!samePoint(e.target, t)) e.restDir = null;
           e.target = t;

@@ -1,5 +1,14 @@
 // Test room layouts (OME-278, OME-281). SET_G is valid (one TV, eight seat cells) and uses set (g) pieces only for its seats.
-import type { RoomLayout } from "@omega/shared";
+import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
+
+/** The default room plus a teleport pad pair (OME-1548) off the rug: (8, 1) and (8, 8). */
+export const PADS: RoomLayout = {
+  furniture: [
+    ...DEFAULT_LAYOUT.furniture,
+    { kind: "pad", col: 8, row: 1, facing: "se" },
+    { kind: "pad", col: 8, row: 8, facing: "se", variant: 1 },
+  ],
+};
 
 /** Two sofas and a couch take seats 0–5, then a wingback and a beanbag; plus a runner, a print, a bookcase and props. */
 export const SET_G: RoomLayout = {
