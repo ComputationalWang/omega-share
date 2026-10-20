@@ -219,6 +219,8 @@ VIEWPORTS.forEach((vp, i) => {
       const skipped: string[] = [];
       await page.goto(testRoom("a11y-sweep", ROOMS[i] ?? "w1280").url);
       await enter(page, `sweep${String(i)}`);
+      // The camera key (OME-1565) is in the room bar at every viewport, so "guest rest" audits it.
+      await expect(page.locator(site.snapKey)).toBeVisible();
       await audit(page, vp.name, "guest rest");
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
       await step(page, vp, "report", skipped, async () => (await visibleClick(page, site.reportKey)) && (await page.locator(site.reportDialog).isVisible()));

@@ -16,6 +16,14 @@ describe("slashCommand", () => {
     expect(slashCommand("/help")).toEqual({ type: "help" });
   });
 
+  // OME-1565: /snap saves a photo of the room, locally.
+  test("/snap is snap, any case; /snapshot is chat; /help names /snap", () => {
+    expect(slashCommand("/snap")).toEqual({ type: "snap" });
+    expect(slashCommand(" /SNAP ")).toEqual({ type: "snap" });
+    expect(slashCommand("/snapshot")).toBeNull();
+    expect(HELP_LINE.verb).toContain("/snap");
+  });
+
   // OME-1426: /roll dice, 2..100 sides; a d6 by default.
   test("/roll is a d6; /roll 20 and /roll d20 roll that many sides, any case, spaces around ignored", () => {
     expect(slashCommand("/roll")).toEqual({ type: "roll", sides: 6 });
