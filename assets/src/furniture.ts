@@ -1253,6 +1253,48 @@ function rugPaint(x: number, y: number, w: number, h: number, field: RampName, a
   return [field, (Math.floor(x) + Math.floor(y)) % 7 === 0 ? 0 : 1];
 }
 
+// ---------------------------------------------------------------- teleport pad (OME-1546): the runner's flat floor cast, the "found" sparkle
+
+/** Teleport pad, 1×1 on the floor layer: a round plate 2 px thick with a dark rim and eight brass studs, a cream ring and a
+ *  `field` dish holding a four-point cream sparkle with a mustard heart (the site's "found" sparkle). `field` is the only ramp
+ *  that changes with the colour, so every colour is a palette remap of any other. Active (n = 1, someone stands on it): the
+ *  dish brightens, the ring and studs light in glow and mustard, and the sparkle grows out to the ring. */
+function padImage(field: RampName, n = 0, s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const img = new Uint8Array(cv.w * cv.h);
+  const on = n === 1, R = 7.5, T = 2;
+  const star = (x: number, y: number, len: number, w: number): boolean => {
+    // Arms along the floor diagonals, so they point straight up, down, left and right on screen.
+    const p = Math.abs(x + y) / Math.SQRT2, q = Math.abs(x - y) / Math.SQRT2;
+    return Math.max(p, q) < len && Math.min(p, q) < w * (1 - Math.max(p, q) / len);
+  };
+  const top = (x: number, y: number): Paint | null => {
+    const r = Math.hypot(x, y);
+    if (r >= R) return null;
+    if (r >= R - 1.3) {
+      const a = ((Math.atan2(y, x) / (Math.PI / 4)) % 1 + 1) % 1;
+      return Math.min(a, 1 - a) < 0.12 ? ["mustard", on ? 0 : 2] : [field, 2];
+    }
+    if (r >= R - 2.4) return on ? ["glow", 0] : ["cream", 1];
+    if (r < (on ? 1.5 : 1.1)) return ["mustard", on ? 0 : 1];
+    if (star(x, y, on ? 5.2 : 3.9, on ? 1.4 : 1.1)) return ["cream", 0];
+    if (r >= R - 3) return on ? ["glow", 1] : [field, 2];
+    return [field, on ? 0 : 1];
+  };
+  for (let py = 0; py < cv.h; py++) {
+    for (let px = 0; px < cv.w; px++) {
+      const sx = (px + 0.5 - cv.ax) / s, sy = (py + 0.5 - cv.ay) / s;
+      const at = (z: number): { x: number; y: number } => ({ x: (sy + z + sx / 2) / 2, y: (sy + z - sx / 2) / 2 });
+      const t = at(T);
+      let p = top(t.x, t.y);
+      // The plate's edge below the top: rim colour, darker toward the floor.
+      for (let z = T - 1; !p && z >= 0; z--) { const b = at(z); if (Math.hypot(b.x, b.y) < R) p = [field, 2]; }
+      if (p) img[py * cv.w + px] = colorIndex(p[0], p[1]);
+    }
+  }
+  addOutline(img, cv.w, cv.h);
+  return img;
+}
+
 // ---------------------------------------------------------------- catalogue
 
 export interface PieceMeta {
@@ -1303,7 +1345,8 @@ export interface PieceDef {
   /** Has an "open" frame: build gets n = 1 for it. */
   open?: true;
   build?: (k: Kit, colour: string, n: number) => void;
-  image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas) => Uint8Array;
+  /** `n`: the use frame (1..use.frames), as for `build`; 0 = idle. */
+  image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas, n?: number) => Uint8Array;
   /** Walk loop, sit and empty-bed frames (see PieceMeta.walk). */
   walk?: { frames: number; ms: number; draw: (dir: FurnDir, colour: string, back: { x0: number; y0: number; w: number; h: number }) => RoomFrame[] };
 }
@@ -1348,12 +1391,14 @@ export const PIECES: readonly PieceDef[] = [
   { id: "barcounter", label: "Bar counter", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 2, rows: 1, build: (k) => { barCounter(k); } },
   { id: "piano", label: "Upright piano", kind: "fun", colours: ["wood", "charcoal"], dirs: ["se", "sw"], cols: 2, rows: 1, use: { frames: 2, ms: 300 }, build: (k, c, n) => { piano(k, asRamp(c), n); } },
   { id: "fireplace", label: "Fireplace", kind: "fun", colours: ["stone"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 4, ms: 120 }, build: (k, _c, n) => { fireplace(k, n); } },
+  // Batch 12 (OME-1546), packed into the v4 sheet. Round, so one facing (the contract's `se`); the active frame is its one-frame "in use" loop.
+  { id: "pad", label: "Teleport pad", kind: "fun", layer: "floor", colours: ["teal", "lilac"], dirs: ["se"], cols: 1, rows: 1, walkable: true, use: { frames: 1, ms: 1000 }, image: (_d, c, s, cv, n) => padImage(asRamp(c), n, s, cv) },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
 export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
 /** Batch 6 (OME-1437): a third lazy atlas, `furniture/furniture-v4.json`, same schema. */
-export const CATALOGUE_V4: ReadonlySet<string> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace"]);
+export const CATALOGUE_V4: ReadonlySet<string> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace", "pad"]);
 
 export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
@@ -1382,7 +1427,7 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   const base = `furniture/${def.id}/${colour}/${dir}`;
   if (def.image) {
     const back = crop(`${base}/back`, def.image(dir, colour));
-    return [back, ...(def.walk?.draw(dir, colour, back.rect) ?? [])];
+    return [back, ...useFrames(def, colour, dir, back.rect), ...(def.walk?.draw(dir, colour, back.rect) ?? [])];
   }
   const k = new Kit(dir);
   def.build?.(k, colour, 0);
@@ -1422,13 +1467,17 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect)];
 }
 
+function kitImage(def: PieceDef, colour: string, dir: FurnDir, n: number): Uint8Array {
+  const k = new Kit(dir);
+  def.build?.(k, colour, n);
+  return renderSolids(k.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+}
+
 /** The "in use" loop of a back-only piece, cut to the idle frame's rect (so one anchor), checked to move only inside it. */
 function useFrames(def: PieceDef, colour: string, dir: FurnDir, rect: { x0: number; y0: number; w: number; h: number }): RoomFrame[] {
   const out: RoomFrame[] = [];
   for (let n = 1; n <= (def.use?.frames ?? 0); n++) {
-    const k = new Kit(dir);
-    def.build?.(k, colour, n);
-    const img = renderSolids(k.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+    const img = def.image ? def.image(dir, colour, 1, CANVAS, n) : kitImage(def, colour, dir, n);
     const key = `furniture/${def.id}/${colour}/use/${dir}/${String(n - 1)}`;
     const f = crop(key, img, rect);
     const r = crop(`${key}/all`, img).rect;

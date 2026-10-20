@@ -602,8 +602,8 @@
   },
   "swatch/brass": {
    "frame": {
-    "x": 166,
-    "y": 735,
+    "x": 105,
+    "y": 736,
     "w": 10,
     "h": 10
    },
@@ -626,8 +626,8 @@
   },
   "swatch/charcoal": {
    "frame": {
-    "x": 177,
-    "y": 735,
+    "x": 116,
+    "y": 736,
     "w": 10,
     "h": 10
    },
@@ -649,78 +649,6 @@
    }
   },
   "swatch/cream": {
-   "frame": {
-    "x": 86,
-    "y": 736,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/dusk": {
-   "frame": {
-    "x": 97,
-    "y": 736,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/frost": {
-   "frame": {
-    "x": 108,
-    "y": 736,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/ginger": {
    "frame": {
     "x": 224,
     "y": 736,
@@ -744,7 +672,7 @@
     "y": 0.5
    }
   },
-  "swatch/lilac": {
+  "swatch/dusk": {
    "frame": {
     "x": 235,
     "y": 736,
@@ -768,7 +696,7 @@
     "y": 0.5
    }
   },
-  "swatch/meadow": {
+  "swatch/frost": {
    "frame": {
     "x": 246,
     "y": 736,
@@ -792,7 +720,7 @@
     "y": 0.5
    }
   },
-  "swatch/mustard": {
+  "swatch/ginger": {
    "frame": {
     "x": 59,
     "y": 737,
@@ -816,7 +744,7 @@
     "y": 0.5
    }
   },
-  "swatch/navy": {
+  "swatch/lilac": {
    "frame": {
     "x": 70,
     "y": 737,
@@ -840,9 +768,9 @@
     "y": 0.5
    }
   },
-  "swatch/olive": {
+  "swatch/meadow": {
    "frame": {
-    "x": 188,
+    "x": 197,
     "y": 738,
     "w": 10,
     "h": 10
@@ -864,9 +792,9 @@
     "y": 0.5
    }
   },
-  "swatch/painted": {
+  "swatch/mustard": {
    "frame": {
-    "x": 199,
+    "x": 208,
     "y": 738,
     "w": 10,
     "h": 10
@@ -888,31 +816,7 @@
     "y": 0.5
    }
   },
-  "swatch/party": {
-   "frame": {
-    "x": 210,
-    "y": 738,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/peach": {
+  "swatch/navy": {
    "frame": {
     "x": 0,
     "y": 740,
@@ -936,10 +840,106 @@
     "y": 0.5
    }
   },
-  "swatch/pink": {
+  "swatch/olive": {
    "frame": {
     "x": 38,
     "y": 742,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/painted": {
+   "frame": {
+    "x": 11,
+    "y": 743,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/party": {
+   "frame": {
+    "x": 22,
+    "y": 743,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/peach": {
+   "frame": {
+    "x": 105,
+    "y": 747,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/pink": {
+   "frame": {
+    "x": 116,
+    "y": 747,
     "w": 10,
     "h": 10
    },
@@ -986,8 +986,8 @@
   },
   "swatch/rust": {
    "frame": {
-    "x": 11,
-    "y": 743,
+    "x": 219,
+    "y": 747,
     "w": 10,
     "h": 10
    },
@@ -1010,8 +1010,8 @@
   },
   "swatch/sunset": {
    "frame": {
-    "x": 22,
-    "y": 743,
+    "x": 230,
+    "y": 747,
     "w": 10,
     "h": 10
    },
@@ -1034,8 +1034,8 @@
   },
   "swatch/teal": {
    "frame": {
-    "x": 166,
-    "y": 746,
+    "x": 241,
+    "y": 747,
     "w": 10,
     "h": 10
    },
@@ -1058,8 +1058,8 @@
   },
   "swatch/tide": {
    "frame": {
-    "x": 177,
-    "y": 746,
+    "x": 49,
+    "y": 748,
     "w": 10,
     "h": 10
    },
@@ -1082,8 +1082,8 @@
   },
   "swatch/velvet": {
    "frame": {
-    "x": 81,
-    "y": 747,
+    "x": 60,
+    "y": 748,
     "w": 10,
     "h": 10
    },
@@ -1106,8 +1106,8 @@
   },
   "swatch/warm": {
    "frame": {
-    "x": 92,
-    "y": 747,
+    "x": 71,
+    "y": 748,
     "w": 10,
     "h": 10
    },
@@ -1130,8 +1130,8 @@
   },
   "swatch/wood": {
    "frame": {
-    "x": 103,
-    "y": 747,
+    "x": 127,
+    "y": 749,
     "w": 10,
     "h": 10
    },
@@ -1824,6 +1824,54 @@
     "y": 0.47368421052631576
    }
   },
+  "thumb/pad/lilac": {
+   "frame": {
+    "x": 128,
+    "y": 735,
+    "w": 24,
+    "h": 13
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 13
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 13
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.46153846153846156
+   }
+  },
+  "thumb/pad/teal": {
+   "frame": {
+    "x": 153,
+    "y": 735,
+    "w": 24,
+    "h": 13
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 13
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 13
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.46153846153846156
+   }
+  },
   "thumb/piano/charcoal": {
    "frame": {
     "x": 194,
@@ -2114,7 +2162,7 @@
   },
   "thumb/stool/teal": {
    "frame": {
-    "x": 128,
+    "x": 178,
     "y": 735,
     "w": 18,
     "h": 13
@@ -2138,8 +2186,8 @@
   },
   "thumb/stool/wood": {
    "frame": {
-    "x": 147,
-    "y": 735,
+    "x": 86,
+    "y": 736,
     "w": 18,
     "h": 13
    },

@@ -29,7 +29,7 @@ assets/
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×1024 indexed PNG-8 (512×512 until OME-1424), 7 more pieces + catalogue v3's 6 (OME-1348) + the door (OME-1424)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
   furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner, a runtime PLTE swap table (no sheet changes)
-  furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops
+  furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops, teleport pad (OME-1546)
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
@@ -1059,6 +1059,15 @@ The hammock's sitter isn't moved by the loop. The swing is at most 1 px at a sea
 Previews: `preview/furniture-v4-room@1x.png` / `@2x` (every piece, both facings, people seated and free), `preview/furniture-v4-seats@2x.png`,
 `preview/furniture-v4-atlas@2x.png`, and `preview/furniture-v4-use@4x.png` (`src/contact-use.sh assets/furniture <out> <gif-dir> furniture-v4`).
 
+**Teleport pad (OME-1546, batch 12), packed into the v4 sheet** (still 256×1024). `pad`: 1×1, `layer: "floor"`, `walkable`, one facing
+(`se`, the contract's, OME-1545; it's round), colours `teal` and `lilac`. Built like the kilim runner (a flat floor cast, plum outline), plus a 2 px plate edge: a dark
+rim with eight brass studs, a cream ring, and a dish holding the site's "found" sparkle (cream, mustard heart). Only the dish/rim ramp
+changes with the colour, so `lilac` is `teal` with that ramp remapped, index for index (`src/pad.test.ts`). **Active frame** =
+its one-frame "in use" loop, `furniture/pad/<colour>/use/se/0` (`use: { frames: 1, ms: 1000 }`, same rect and anchor as `back`): the ring
+lights in glow, the studs and the heart in bright mustard, the dish brightens and the sparkle grows out to the ring. Show it while someone
+stands on the pad's cell, `back` otherwise. Floor layer, so it draws under the avatar like a rug. Contact sheet:
+`preview/furniture-pad-contact.png` (idle and active, 1× and 4×, then the v4 room at 2×: mo on a lit teal pad, idle pads, a lit lilac pad).
+
 **Frame key:** `furniture/<id>/<colour>/<dir>/<back|front>`. Every key starts with `furniture/`, so nothing collides with the
 room's `armchair`, `plant` or `lamp` in Pixi's texture cache.
 
@@ -1247,7 +1256,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
 | `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops + door, lazy) | 23 415 |
 | `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
-| `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437, lazy) | 18 733 + 1 772 gz |
+| `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437; + pad, OME-1546; lazy) | 19 477 + 1 915 gz |
 | `furniture/recolours.json` (OME-1462, recolour table, ships with the web bundle) | 3 223 raw / 756 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
@@ -1294,6 +1303,9 @@ Batch 6 (OME-1437) adds **22 384 B (≈ 21.9 KB)** against `main` (265 085 → 2
 18 733 + `furniture-v4.json` 1 772 gz, `edit.png` +1 460 and `edit.json` +229 gz (8 thumbnails). Eager: `reference.css` +208 gz (the new
 `.ui-thumb-*` rules). The v1 and v2 sheets are byte-identical. To fit the budget the hammock ships in one colour (a teal one cost 6.5 KB with its
 loop) and the piano loop has 2 frames.
+
+The teleport pad (OME-1546) adds **1 130 B** (304 093 → 305 223 of 307 200), all lazy but `reference.css`: `furniture-v4.png` 18 733 →
+19 477 (+744, 4 frames), `edit.png` +180 (2 thumbnails), `furniture-v4.json` / `edit.json` / `reference.css` +206 gz together.
 
 Bare heads (OME-1409) add **17 154 B (≈ 16.8 KB)** as `bun assets/src/build.ts` measures it (255 904 of 307 200 on its own; 261 418 measured on top of OME-1405), all lazy:
 `bare.png` 15 445 + `bare.json` 1 488 gz, and `accessories.png` +264 / `.json` −19 gz for the refitted Pip and Mo overlays.
