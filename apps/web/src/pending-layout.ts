@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { RoomLayoutSchema, canonicalizeAnyEmbed, type ClientMessage, type RoomId, type RoomLayout } from "@omega/shared";
+import { RoomIdSchema, RoomLayoutSchema, canonicalizeAnyEmbed, type ClientMessage, type RoomId, type RoomLayout } from "@omega/shared";
 
 // A saved layout chosen at room creation (OME-910): the room is made as the "empty" preset, then the owner's first
 // join sends this one `layout-set`. It lives in sessionStorage for the hop from the home page to the room page.
@@ -86,12 +86,29 @@ export function takePendingShare(store: Pick<PendingStore, "getItem" | "removeIt
   }
 }
 
+// Go on a door chip (OME-1558) takes the same hop: the room I left, for the door's room to send as `join.via`. Keyed by
+// that room, so only its join reads it; this tab only, never in the URL.
 export const pendingViaKey = (roomId: RoomId): string => `omega.via.${roomId}`;
 
-export function stashVia(_store: Pick<PendingStore, "setItem">, _target: RoomId, _from: RoomId): boolean {
-  return false;
+export function stashVia(store: Pick<PendingStore, "setItem">, target: RoomId, from: RoomId): boolean {
+  try {
+    store.setItem(pendingViaKey(target), from);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function takeVia(_store: Pick<PendingStore, "getItem" | "removeItem">, _roomId: RoomId): RoomId | null {
-  return null;
+/** Reads, re-parses (storage is untrusted) and removes the key. Never throws. */
+export function takeVia(store: Pick<PendingStore, "getItem" | "removeItem">, roomId: RoomId): RoomId | null {
+  const key = pendingViaKey(roomId);
+  try {
+    const raw = store.getItem(key);
+    if (raw === null) return null;
+    store.removeItem(key);
+    const r = v.safeParse(RoomIdSchema, raw);
+    return r.success ? r.output : null;
+  } catch {
+    return null;
+  }
 }

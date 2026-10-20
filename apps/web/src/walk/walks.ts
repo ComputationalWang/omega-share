@@ -238,7 +238,10 @@ export function createWalks(opts: WalksOptions): Walks {
         if (e === undefined) {
           const fresh = at(t, now, now - jitter(t.id));
           entries.set(t.id, fresh);
-          if (!snap) {
+          // Through a door (OME-1558): there at once, my own first snapshot too; a sparkle unless motion is reduced.
+          if (t.door === true) {
+            if (!opts.reducedMotion()) opts.onDoorway?.(t.at);
+          } else if (!snap) {
             const door = centerOf(DOOR);
             walk(fresh, t, door.x, door.y, DOOR, -1, now);
             if (fresh.ts.length > 0) opts.onDoor?.();

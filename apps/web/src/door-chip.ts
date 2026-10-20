@@ -24,7 +24,7 @@ export function createDoorChip(o: DoorChipOptions): DoorChip {
   /** The door I stand in front of; a repeat of it (Stay, then another render) changes nothing. */
   let current: RoomId | null = null;
   goKey.addEventListener("click", () => {
-    if (current !== null) o.go(`/r/${current}`);
+    if (current !== null) o.go(`/r/${current}`, current);
   });
   stayKey.addEventListener("click", () => {
     root.hidden = true;

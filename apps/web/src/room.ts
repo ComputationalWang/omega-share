@@ -22,7 +22,7 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { chatIntent, createWalkGate, floorSitIntent, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
 import { doorAt, layoutOf } from "./furniture";
 import { createDoorChip } from "./door-chip";
-import { createPendingApplier } from "./pending-layout";
+import { createPendingApplier, stashVia, takeVia } from "./pending-layout";
 import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Point, type Rect } from "./layout";
 import { createRoomLayout } from "./room-layout";
 import { createStage, type Stage } from "./stage";
@@ -285,6 +285,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const clip = el("div", { className: "stage-clip" }, "room-window");
   // Doors (OME-1425): standing in front of one (not sitting) offers "Go to <room> · Stay". The title is the saved one, read
   // on arrival; the cell is only looked at when my cell or the layout changes.
+  // The `sessionStorage` getter itself throws when storage is blocked; stashVia and takeVia catch it.
+  const viaStore = {
+    getItem: (k: string) => sessionStorage.getItem(k),
+    setItem: (k: string, value: string) => {
+      sessionStorage.setItem(k, value);
+    },
+    removeItem: (k: string) => {
+      sessionStorage.removeItem(k);
+    },
+  };
   const doorChip = createDoorChip({
     titleOf: (id) => {
       try {
@@ -293,7 +303,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         return null;
       }
     },
-    go: (path) => {
+    go: (path, target) => {
+      // The room I leave, for the door's room to put me at its door back here (OME-1558); never in the URL.
+      stashVia(viaStore, target, opts.roomId);
       location.assign(path);
     },
   });
@@ -1017,7 +1029,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
-    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair),
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair, takeVia(viaStore, opts.roomId)),
     durable: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,

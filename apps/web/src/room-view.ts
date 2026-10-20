@@ -42,6 +42,8 @@ export interface AvatarPlacement {
   readonly floorSit?: boolean;
   /** Arrived by a teleport pad (OME-1548): snapped, with a sparkle at both pads. */
   readonly teleport?: boolean;
+  /** Walked in through the door they stand in front of (OME-1558): there at once, with a sparkle. */
+  readonly door?: boolean;
 }
 
 export interface RoomViewOptions {
@@ -462,8 +464,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       arrive();
     },
     onTeleport: (from, to) => {
-      padSparkle(from);
-      padSparkle(to);
+      spotSparkle(from);
+      spotSparkle(to);
+    },
+    onDoorway: (at) => {
+      spotSparkle(at);
     },
   });
   let motion: MotionAtlas | null = null;
@@ -838,19 +843,20 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   function arrive(): void {
     sparkle.fire();
   }
-  // The same sparkle at a teleport's two pads (OME-1548), one burst per pad position, made at the first teleport; a
-  // layout with other pads replaces them (at most 2 pads a layout, so at most 2 canvases).
-  let padSparkles = new Map<string, Burst>();
-  const padSparkle = (at: Point): void => {
+  // The same sparkle at a teleport's two pads (OME-1548) and in front of a door someone came through (OME-1558), one
+  // burst per spot, made at its first use; past MAX_SPOT_SPARKLES spots they are all replaced, so canvases stay few.
+  const MAX_SPOT_SPARKLES = 4;
+  let spotSparkles = new Map<string, Burst>();
+  const spotSparkle = (at: Point): void => {
     const key = `${String(at.x)},${String(at.y)}`;
-    let b = padSparkles.get(key);
+    let b = spotSparkles.get(key);
     if (b === undefined) {
-      if (padSparkles.size >= 2) {
-        for (const old of padSparkles.values()) old.remove();
-        padSparkles = new Map();
+      if (spotSparkles.size >= MAX_SPOT_SPARKLES) {
+        for (const old of spotSparkles.values()) old.remove();
+        spotSparkles = new Map();
       }
       b = makeSparkle(at);
-      padSparkles.set(key, b);
+      spotSparkles.set(key, b);
     }
     b.fire();
   };
@@ -1132,7 +1138,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       fxObserver.disconnect();
       fxCanvas.remove();
       sparkle.remove();
-      for (const b of padSparkles.values()) b.remove();
+      for (const b of spotSparkles.values()) b.remove();
       confetti.remove();
       animator.dispose();
       app.destroy(true, { children: true });

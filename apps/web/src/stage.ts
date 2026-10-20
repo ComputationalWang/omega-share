@@ -8,7 +8,7 @@ import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
+import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -400,7 +400,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const placements: AvatarPlacement[] = [];
       const everyone = s.room?.members ?? [];
       const at = new Map<MemberId, Point>();
+      const before = placedAt;
       placedAt = at;
+      // Someone new (in my first snapshot, only me) on a door's front cell walked in through it (OME-1558, `join.via`).
+      const throughDoor = (id: MemberId, cell: FloorCell): boolean => !before.has(id) && (before.size > 0 || id === s.self) && doorAt(nextLayout, cell.x, cell.y) !== null;
       for (const v of views) {
         const p = seats[v.index];
         if (v.member !== null && p !== undefined) {
@@ -412,7 +415,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const m of everyone) {
         if (m.cell === undefined || at.has(m.id)) continue;
         const p = cellCenter(m.cell.x, m.cell.y);
-        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id), floorSit: m.floorSit === true, ...(teleporting.has(m.id) ? { teleport: true } : {}) });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id), floorSit: m.floorSit === true, ...(teleporting.has(m.id) ? { teleport: true } : {}), ...(throughDoor(m.id, m.cell) ? { door: true } : {}) });
         at.set(m.id, p);
       }
       // Sitting down or getting up in place moves no pixel, so no onMove: drop or lift their bubbles and badge here.
