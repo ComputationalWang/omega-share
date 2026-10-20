@@ -9,7 +9,7 @@ import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator, type FurnitureLoop } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
-import { CAT_SLOT_MS, catRest } from "./walk/cat";
+import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
 import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
 import { createWalks, emptyPose, type Dir } from "./walk/walks";
 import { wearsBare, wornHat } from "./accessory/hat";
@@ -566,22 +566,23 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     const at = centerOf(c.cell);
     return { id: c.id, at, z: standDepth(at), seatFacing: null };
   };
-  /** This slot's walks, timed from the slot's start on my clock so every client's cats step together; or everyone home. */
-  const moveCats = (home: boolean): void => {
+  /** This slot's walks (`due`: the slot a timer fired for), timed from the slot's start on my clock so every client's cats step together; or everyone home. Returns the slot. */
+  const moveCats = (home: boolean, due?: number): number => {
     const s = serverNow();
-    const slot = Math.floor(s / CAT_SLOT_MS);
+    const slot = catSlot(s, due);
     for (const c of cats) c.cell = home ? c.w.home : catRest(catGrid, c.w.home, opts.roomId ?? "", c.w.piece, slot, catTaken);
-    catWalks.place(cats.map(catTarget), performance.now() - (s - slot * CAT_SLOT_MS));
+    catWalks.place(cats.map(catTarget), performance.now() - Math.max(0, s - slot * CAT_SLOT_MS));
     animator.wake();
+    return slot;
   };
-  const scheduleCats = (): void => {
+  /** Arms the timer for the slot after `slot` (by default the slot of now). */
+  const scheduleCats = (slot = catSlot(serverNow())): void => {
     clearTimeout(catTimer);
     catTimer = undefined;
     if (cats.length === 0 || destroyed || !wanders()) return;
     catTimer = setTimeout(() => {
-      moveCats(!wanders());
-      scheduleCats();
-    }, CAT_SLOT_MS - (serverNow() % CAT_SLOT_MS) + 1);
+      scheduleCats(moveCats(!wanders(), slot + 1));
+    }, catWait(serverNow(), slot));
   };
   /** The scene's cats, put on this slot's resting cell like on every other client. */
   const setCats = (found: readonly { readonly w: CatWalker; readonly bedSprite: Sprite; readonly asleep: Texture }[], sheets: readonly (Sheet | null)[], grid: Uint8Array): void => {
