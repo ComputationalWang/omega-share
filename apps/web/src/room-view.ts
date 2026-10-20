@@ -406,7 +406,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     if (entry.hat === null) {
       entry.hat = new Sprite({ texture, label: `hat:${entry.node.label}`, visible: false });
       objectLayer.addChild(entry.hat);
-    } else if (entry.hat.texture !== texture) entry.hat.texture = texture;
+    } else if (entry.hat.texture !== texture) {
+      entry.hat.texture = texture;
+      // A texture swap keeps the old anchor; each hat and frame has its own.
+      entry.hat.anchor.copyFrom(texture.defaultAnchor ?? { x: 0, y: 0 });
+    }
     entry.hat.position.copyFrom(entry.node.position);
     // Just over its own avatar and under whatever sorts next (depths are whole numbers).
     entry.hat.zIndex = entry.node.zIndex + 0.5;
