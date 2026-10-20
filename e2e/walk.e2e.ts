@@ -287,8 +287,11 @@ test("/conga: B follows A, C follows B; when B stops, C follows A", async ({ bro
   await expect(b.page.locator(site.followChip)).toBeHidden();
   await expect(c.page.locator(site.followChip)).toContainText("Following conga-1");
   await expect(a.page.locator(site.peopleConga)).toHaveCount(2);
-  await a.page.keyboard.press("Escape");
+  // The key, not Escape: focus is on the key, outside the panel, and the open panel shrinks the stage under the click.
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peoplePanel)).toBeHidden();
   await clickCell(a.page, 3, 8);
+  await expect.poll(() => tagAt(a.page, "conga-1"), { timeout: 10_000 }).toBe(restOn(3, 8));
   const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
   await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-3")), { timeout: 15_000 }).toBe(true);
 });
@@ -321,8 +324,10 @@ test("/conga: a follower whose socket drops keeps following after the resume", a
   // The chip keeps its text when hidden, so visible is the check.
   await expect(b.page.locator(site.followChip), "B follows A again").toBeVisible();
   await expect(b.page.locator(site.followChip)).toContainText("Following conga-1");
-  await a.page.keyboard.press("Escape");
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peoplePanel)).toBeHidden();
   await clickCell(a.page, 3, 8);
+  await expect.poll(() => tagAt(a.page, "conga-1"), { timeout: 10_000 }).toBe(restOn(3, 8));
   const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
   await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-2")), { timeout: 15_000 }).toBe(true);
 });
