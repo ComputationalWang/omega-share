@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, FURNITURE, FURNITURE_KINDS, MAX_FURNITURE, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import * as v from "valibot";
-import { TRAY_TABS, defaultFacing, fits, layoutKey, move, parseDoorTarget, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
+import { TRAY_TABS, defaultFacing, needsSecondPad, padCount, fits, layoutKey, move, parseDoorTarget, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
 
 // OME-1425: a door's room is picked from a link or an id; the link is this site's own, never another origin's.
 describe("parseDoorTarget", () => {
@@ -209,8 +209,8 @@ describe("defaultFacing", () => {
 describe("TRAY_TABS", () => {
   test("every kind, catalogue v2 and the door (OME-1425) too, is in exactly one tab", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
-    // the pad (OME-1545) joins the tray with its art, in the teleport web issue
-    expect([...all].sort()).toEqual(FURNITURE_KINDS.filter((k) => k !== "pad").sort());
+    expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
+    expect(TRAY_TABS.find((t) => t.id === "floor")?.kinds).toContain("pad");
     expect(TRAY_TABS.find((t) => t.id === "decor")?.kinds).toContain("door");
   });
   test("tab contents follow the catalogue", () => {
@@ -293,5 +293,38 @@ describe("the room mood in the draft", () => {
     expect(sameLayout(N, { ...L, mood: "warm" })).toBe(false);
     expect(sameLayout(L, { ...L, mood: "none" })).toBe(true);
     expect(sameLayout(N, { ...L, mood: "night" })).toBe(true);
+  });
+});
+
+// OME-1548: teleport pads come as a pair; a saved layout holds 0 or 2 (OME-1545).
+describe("teleport pads in the draft", () => {
+  const pad = (col: number, row: number) => ({ kind: "pad", col, row, facing: "se" }) as const;
+  const one = (): RoomLayout => place(L, pad(3, 3)) ?? L;
+  const two = (): RoomLayout => place(one(), pad(6, 6)) ?? L;
+
+  test("the first pad leaves a second to place; the draft can't be saved with one", () => {
+    expect(padCount(L)).toBe(0);
+    expect(needsSecondPad(L)).toBe(false);
+    expect(padCount(one())).toBe(1);
+    expect(needsSecondPad(one())).toBe(true);
+    expect(problems(one())).toContainEqual({ code: "pad" });
+    expect(problemText({ code: "pad" })).toMatch(/second/i);
+  });
+  test("two pads make a legal layout and need nothing more", () => {
+    expect(padCount(two())).toBe(2);
+    expect(needsSecondPad(two())).toBe(false);
+    expect(problems(two())).toEqual([]);
+  });
+  test("a third pad is refused", () => {
+    expect(place(two(), pad(8, 2))).toBeNull();
+  });
+  test("removing either pad removes both", () => {
+    const l = two();
+    const at = l.furniture.findIndex((f) => f.kind === "pad");
+    expect(remove(l, at).furniture.filter((f) => f.kind === "pad")).toHaveLength(0);
+    expect(remove(l, l.furniture.length - 1).furniture).toHaveLength(L.furniture.length);
+  });
+  test("removing another piece keeps the pair", () => {
+    expect(remove(two(), 10).furniture.filter((f) => f.kind === "pad")).toHaveLength(2);
   });
 });

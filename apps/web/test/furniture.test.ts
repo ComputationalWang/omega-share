@@ -372,6 +372,12 @@ describe("catalogue v2", () => {
 // OME-1407: arcade, turntable, aquarium and neon sign play their "in use" loop while someone stands at their front.
 describe("piecesInUse", () => {
   const cells = (...cs: [number, number][]): Set<number> => new Set(cs.map(([c, r]) => cellOf(c, r)));
+  test("a teleport pad (OME-1548) shows its active frame while someone stands on its cell", () => {
+    const l: RoomLayout = { furniture: [{ kind: "pad", col: 3, row: 3, facing: "se" }, { kind: "pad", col: 6, row: 6, facing: "se" }] };
+    expect(piecesInUse(l, cells([3, 3]), false)).toEqual(new Set([0]));
+    expect(piecesInUse(l, cells([6, 6]), false)).toEqual(new Set([1]));
+    expect(piecesInUse(l, cells([4, 3]), false)).toEqual(new Set());
+  });
   // Not parsed (no seats; and the catalogue only lets these pieces face the camera, but the rule holds for every facing).
   const arcade = (facing: "ne" | "nw" | "se" | "sw", col = 4, row = 4): RoomLayout => ({ furniture: [{ kind: "arcade", col, row, facing }] });
 

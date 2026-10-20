@@ -37,6 +37,8 @@ export interface WalkTarget {
   readonly run?: boolean;
   /** Sitting on the floor of their cell (OME-1501): the sit frames there, facing their last walk. */
   readonly floorSit?: boolean;
+  /** Arrived by a teleport pad (OME-1548, `walked.teleport`): snapped there, no walk. */
+  readonly teleport?: boolean;
 }
 
 /** Where to draw someone now. Filled in place by `sample`. */
@@ -62,6 +64,8 @@ export interface WalksOptions {
   /** Path finder (path.ts); a seam for counting calls. */
   /** Someone just walked in through the door (OME-1376: the arrival sparkle). */
   readonly onDoor?: () => void;
+  /** Someone teleported (OME-1548): the pad they left and the one they reached, as floor points; not called under reduced motion. */
+  readonly onTeleport?: (from: Point, to: Point) => void;
   readonly route?: (grid: Uint8Array, from: number, to: number) => number[] | null;
 }
 

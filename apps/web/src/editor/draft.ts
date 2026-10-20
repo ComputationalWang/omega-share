@@ -96,6 +96,11 @@ export function pieceAt(layout: Layout, col: number, row: number): number | null
   );
 }
 
+/** How many teleport pads (OME-1548) the draft has: a saved layout holds 0 or 2. */
+export const padCount = (_layout: Layout): number => 0;
+/** One pad is down and its pair is still to place. */
+export const needsSecondPad = (_layout: Layout): boolean => false;
+
 export function defaultFacing(kind: FurnitureKind, col: number, row: number): Facing {
   const spec = FURNITURE[kind];
   const first: Facing = spec.facings[0] ?? "se";
@@ -109,6 +114,7 @@ export type Problem =
   | { readonly code: "seats"; readonly have: number; readonly need: number }
   | { readonly code: "tv"; readonly have: number }
   | { readonly code: "overlap" }
+  | { readonly code: "pad" }
   | { readonly code: "too-many"; readonly have: number; readonly max: number }
   | { readonly code: "invalid" };
 
@@ -152,6 +158,8 @@ export function problemText(p: Problem): string {
       return "The room needs exactly one TV";
     case "overlap":
       return "Some pieces overlap";
+    case "pad":
+      return "Place the second teleport pad";
     case "too-many":
       return `Too many pieces (${String(p.have)} of ${String(p.max)})`;
     case "invalid":
