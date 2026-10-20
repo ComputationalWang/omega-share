@@ -209,7 +209,8 @@ describe("defaultFacing", () => {
 describe("TRAY_TABS", () => {
   test("every kind, catalogue v2 and the door (OME-1425) too, is in exactly one tab", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
-    expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
+    // the pad (OME-1545) joins the tray with its art, in the teleport web issue
+    expect([...all].sort()).toEqual(FURNITURE_KINDS.filter((k) => k !== "pad").sort());
     expect(TRAY_TABS.find((t) => t.id === "decor")?.kinds).toContain("door");
   });
   test("tab contents follow the catalogue", () => {

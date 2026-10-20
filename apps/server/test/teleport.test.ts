@@ -57,7 +57,7 @@ describe("teleport pads (OME-1545)", () => {
     t = start();
     const { id, owner, guest } = await padRoom();
     owner.client.send({ type: "walk", cell: A });
-    await guest.client.next("walked");
+    for (const c of [owner.client, guest.client]) await c.next("walked");
     owner.client.send({ type: "walk", cell: B, teleport: true });
     for (const c of [owner.client, guest.client]) expect(await c.next("walked")).toEqual({ type: "walked", memberId: owner.snapshot.self, cell: B, teleport: true });
     const late = await join("carol", {}, id);

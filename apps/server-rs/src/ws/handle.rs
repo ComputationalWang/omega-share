@@ -299,7 +299,11 @@ fn handle(
                 },
             );
         }
-        ClientMessage::Walk { cell, run } => match inner.room.walk(member, cell) {
+        ClientMessage::Walk { cell, run, teleport } => match if teleport == Some(true) {
+            inner.room.teleport(member, cell)
+        } else {
+            inner.room.walk(member, cell)
+        } {
             WalkResult::Blocked => send_error(inner, conn.id, ErrorCode::BadCell, "you can't stand there"),
             WalkResult::NotMember => {}
             WalkResult::Walked { stood_up } => {
@@ -319,6 +323,7 @@ fn handle(
                         member_id: member.clone(),
                         cell: Some(cell),
                         run,
+                        teleport,
                     },
                 );
             }

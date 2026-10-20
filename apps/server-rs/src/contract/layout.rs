@@ -81,9 +81,10 @@ pub enum Kind {
     Barcounter,
     Piano,
     Fireplace,
+    Pad,
 }
 
-pub const KINDS: [Kind; 35] = [
+pub const KINDS: [Kind; 36] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -119,6 +120,7 @@ pub const KINDS: [Kind; 35] = [
     Kind::Barcounter,
     Kind::Piano,
     Kind::Fireplace,
+    Kind::Pad,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -202,6 +204,7 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1),
         Kind::Piano => Spec::new(Object, CAMERA, 2, 1).variants(2),
         Kind::Fireplace => Spec::new(Object, CAMERA, 1, 1).backed(),
+        Kind::Pad => Spec::new(Floor, FIXED, 1, 1).variants(2),
     }
 }
 
@@ -321,6 +324,7 @@ fn layout_ok(furniture: &[Furniture]) -> bool {
     furniture.len() <= MAX_FURNITURE
         && furniture.iter().filter(|f| f.kind == Kind::Tv).count() == 1
         && furniture.iter().filter(|f| f.kind == Kind::Door).count() <= MAX_DOORS
+        && matches!(furniture.iter().filter(|f| f.kind == Kind::Pad).count(), 0 | 2)
         && layout_seats(furniture).len() == SEAT_COUNT
         && disjoint(furniture, Layer::Object)
         && disjoint(furniture, Layer::Floor)
@@ -488,6 +492,16 @@ impl RoomLayout {
             .furniture
             .iter()
             .any(|f| spec(f.kind).layer == Layer::Object && footprint_cells(f).contains(&at))
+    }
+
+    /// `canTeleport`: `from` is one pad's cell, `cell` the other's, and nothing solid covers it (OME-1545).
+    pub fn can_teleport(&self, from: Option<FloorCell>, cell: FloorCell) -> bool {
+        let is_pad = |c: FloorCell| {
+            self.furniture
+                .iter()
+                .any(|f| f.kind == Kind::Pad && u32::from(f.col) == u32::from(c.x.get()) && u32::from(f.row) == u32::from(c.y.get()))
+        };
+        from.is_some_and(|from| from != cell && is_pad(from)) && is_pad(cell) && self.standable(cell)
     }
 
     /// The canonical JSON: what the TS server's `JSON.stringify(parsed)` writes.

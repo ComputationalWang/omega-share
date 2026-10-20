@@ -319,6 +319,17 @@ impl Room {
         WalkResult::Walked { stood_up }
     }
 
+    /// `walk` with `teleport` (OME-1545): from the pad `member` stands on to the other pad, `cell`.
+    pub fn teleport(&mut self, member: &MemberId, cell: FloorCell) -> WalkResult {
+        let Some(rec) = self.member(member) else {
+            return WalkResult::NotMember;
+        };
+        if !self.layout.can_teleport(rec.cell, cell) {
+            return WalkResult::Blocked;
+        }
+        self.walk(member, cell)
+    }
+
     /// Sets `member`'s shirt tint; false if unchanged or not a member. Tint 0 is stored as absent (ADR 0053).
     pub fn set_tint(&mut self, member: &MemberId, tint: Tint) -> bool {
         let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {

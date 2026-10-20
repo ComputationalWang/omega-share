@@ -71,14 +71,14 @@ describe("teleport", () => {
 
   test("walk takes an optional boolean teleport", () => {
     for (const teleport of [true, false]) {
-      const msg = { type: "walk", cell: { x: 1, y: 9 }, teleport };
+      const msg = { type: "walk" as const, cell: { x: 1, y: 9 }, teleport };
       expect(parseClientMessage(JSON.stringify(msg))).toEqual(msg);
     }
     for (const teleport of [1, "true", null]) rejects(ClientMessageSchema, { type: "walk", cell: { x: 1, y: 9 }, teleport });
   });
 
   test("walked relays it", () => {
-    const msg = { type: "walked", memberId: "m1", cell: { x: 1, y: 9 }, teleport: true };
+    const msg = { type: "walked" as const, memberId: "m1", cell: { x: 1, y: 9 }, teleport: true };
     expect(parseServerMessage(JSON.stringify(msg))).toEqual(msg);
     rejects(ServerMessageSchema, { ...msg, teleport: "yes" });
   });
