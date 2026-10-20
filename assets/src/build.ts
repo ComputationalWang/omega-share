@@ -1393,6 +1393,8 @@ interface Placement {
   sitters?: string[];
   /** Set (h): the piece is in the owner's hand, not placed yet. */
   ghost?: boolean;
+  /** Draws "in use" frame n in place of `back` (a floor piece someone stands on: the teleport pad, OME-1546). */
+  use?: number;
   /** OME-1424: draw the piece's open frame instead of `back`. */
   open?: boolean;
 }
@@ -1551,6 +1553,11 @@ function showroomV4(): { placements: Placement[]; standing: [string, number, num
       { id: "hammock", colour: "rust", dir: "sw", col: 3, row: 6, sitters: ["pip", ""] },
       { id: "hammock", colour: "rust", dir: "nw", col: 7, row: 5, sitters: ["", "mo"] },
       { id: "hammock", colour: "rust", dir: "se", col: 6, row: 8 },
+      // Teleport pads (OME-1546): mo stands on a lit one; the others wait, one lilac pad lit with nobody on it for comparison.
+      { id: "pad", colour: "teal", dir: "ne", col: 7, row: 2, use: 0 },
+      { id: "pad", colour: "teal", dir: "ne", col: 3, row: 2 },
+      { id: "pad", colour: "lilac", dir: "ne", col: 3, row: 4 },
+      { id: "pad", colour: "lilac", dir: "ne", col: 8, row: 7, use: 0 },
     ],
     standing: [["mo/idle/sw/0", 7, 2]],
   };
@@ -1629,7 +1636,8 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   const drawLayer = (layer: "floor" | "wall"): void => {
     for (const p of plan.placements.filter((q) => meta(q.id).layer === layer)) {
       const a = cellAt(p.col, p.row);
-      (p.ghost === true ? ghost : draw)(`furniture/${p.id}/${p.colour}/${p.dir}/back`, a.x, a.y);
+      const key = p.use === undefined ? `furniture/${p.id}/${p.colour}/${p.dir}/back` : `furniture/${p.id}/${p.colour}/use/${p.dir}/${String(p.use)}`;
+      (p.ghost === true ? ghost : draw)(key, a.x, a.y);
     }
   };
   const floorKey = (key: string, c: number, r: number): string => (plan.rug === false && key.startsWith("rug/") ? `floor/${String((c * 3 + r) % 2)}` : key);

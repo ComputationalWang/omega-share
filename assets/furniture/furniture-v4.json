@@ -768,6 +768,102 @@
     "y": 0.5238095238095238
    }
   },
+  "furniture/pad/lilac/ne/back": {
+   "frame": {
+    "x": 178,
+    "y": 610,
+    "w": 44,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5384615384615384
+   }
+  },
+  "furniture/pad/lilac/use/ne/0": {
+   "frame": {
+    "x": 178,
+    "y": 637,
+    "w": 44,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5384615384615384
+   }
+  },
+  "furniture/pad/teal/ne/back": {
+   "frame": {
+    "x": 178,
+    "y": 664,
+    "w": 44,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5384615384615384
+   }
+  },
+  "furniture/pad/teal/use/ne/0": {
+   "frame": {
+    "x": 178,
+    "y": 691,
+    "w": 44,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5384615384615384
+   }
+  },
   "furniture/piano/charcoal/se/back": {
    "frame": {
     "x": 0,
@@ -1059,7 +1155,7 @@
   "furniture/stool/teal/ne/back": {
    "frame": {
     "x": 178,
-    "y": 610,
+    "y": 718,
     "w": 36,
     "h": 25
    },
@@ -1083,7 +1179,7 @@
   "furniture/stool/teal/nw/back": {
    "frame": {
     "x": 215,
-    "y": 610,
+    "y": 718,
     "w": 36,
     "h": 25
    },
@@ -1107,7 +1203,7 @@
   "furniture/stool/teal/se/back": {
    "frame": {
     "x": 178,
-    "y": 636,
+    "y": 744,
     "w": 36,
     "h": 25
    },
@@ -1131,7 +1227,7 @@
   "furniture/stool/teal/sw/back": {
    "frame": {
     "x": 215,
-    "y": 636,
+    "y": 744,
     "w": 36,
     "h": 25
    },
@@ -1155,7 +1251,7 @@
   "furniture/stool/wood/ne/back": {
    "frame": {
     "x": 178,
-    "y": 688,
+    "y": 796,
     "w": 34,
     "h": 23
    },
@@ -1179,7 +1275,7 @@
   "furniture/stool/wood/nw/back": {
    "frame": {
     "x": 213,
-    "y": 688,
+    "y": 796,
     "w": 34,
     "h": 23
    },
@@ -1203,7 +1299,7 @@
   "furniture/stool/wood/se/back": {
    "frame": {
     "x": 178,
-    "y": 662,
+    "y": 770,
     "w": 35,
     "h": 25
    },
@@ -1227,7 +1323,7 @@
   "furniture/stool/wood/sw/back": {
    "frame": {
     "x": 214,
-    "y": 662,
+    "y": 770,
     "w": 35,
     "h": 25
    },
@@ -1301,6 +1397,12 @@
    "furniture/fireplace/stone/use/sw/1",
    "furniture/fireplace/stone/use/sw/2",
    "furniture/fireplace/stone/use/sw/3"
+  ],
+  "furniture/pad/teal/use/ne": [
+   "furniture/pad/teal/use/ne/0"
+  ],
+  "furniture/pad/lilac/use/ne": [
+   "furniture/pad/lilac/use/ne/0"
   ]
  },
  "meta": {
@@ -1705,6 +1807,46 @@
      "use": {
       "frames": 4,
       "ms": 120
+     }
+    },
+    {
+     "id": "pad",
+     "label": "Teleport pad",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "floor",
+     "colours": [
+      "teal",
+      "lilac"
+     ],
+     "dirs": [
+      "ne"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 1,
+      "ms": 1000
      }
     }
    ]
