@@ -1,5 +1,5 @@
 // /conga (OME-1564): a party line built on Follow. Every client derives the same line from the relayed `/conga` and
-// `/stop` chat lines (server time `at`) and the room state; nothing new goes on the wire.
+// `/stop` chat lines (server time `at`) and the room state; a late joiner starts from the snapshot's line (OME-1573).
 import { CONGA_CAP, CONGA_WINDOW_MS, type MemberId, type ServerMessage } from "@omega/shared";
 import type { ViewState } from "../state";
 
@@ -45,6 +45,11 @@ export function congaAhead(line: Conga, id: MemberId | null): MemberId | null {
 }
 
 /** The line after a server message: a snapshot's own (OME-1573), a relayed `/conga` or `/stop`; anything else keeps it. */
-export function congaServer(line: Conga, _msg: ServerMessage): Conga {
-  return line;
+export function congaServer(line: Conga, msg: ServerMessage): Conga {
+  if (msg.type === "snapshot") return msg.conga ?? NO_CONGA;
+  if (msg.type !== "chat") return line;
+  const c = congaText(msg.text);
+  if (c === "stop") return congaLeave(line, msg.memberId);
+  const joined = c === "conga" ? congaJoin(line, msg.memberId, msg.at) : line;
+  return joined === "full" ? line : joined;
 }
