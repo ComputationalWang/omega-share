@@ -286,6 +286,24 @@ VIEWPORTS.forEach((vp, i) => {
         await expect(owner.locator(site.editorTray)).toBeVisible();
         return true;
       });
+      // OME-1502: the darkest mood, saved, under the owner's tags and bubbles (the editor open over it).
+      await step(owner, vp, "night mood", skipped, async () => {
+        // No editor at this viewport (portrait), so no mood to pick.
+        if (skipped.includes("editor")) return false;
+        // The editor step may have left it open (Edit room is a toggle).
+        if (!(await owner.locator(site.editorTray).isVisible())) {
+          const settings = owner.locator(id("portrait-settings"));
+          if (await settings.isVisible()) await settings.click();
+          if (!(await visibleClick(owner, site.editRoom))) return false;
+        }
+        await owner.locator(`${site.editorMood}[data-mood="night"]`).click();
+        await owner.locator(site.editorSave).click();
+        await expect(owner.locator(site.editorMessage)).toHaveText("Saved.");
+        await expect(guest.locator(site.roomTint)).toHaveAttribute("data-mood", "night");
+        await guest.locator(site.chatInput).fill("a bubble in the night");
+        await guest.locator(site.chatInput).press("Enter");
+        return true;
+      });
       expect(skipped, "surfaces with no opener at this viewport").toEqual(OWNER_SKIPS[vp.name] ?? []);
     });
   });
@@ -299,9 +317,9 @@ const GUEST_SKIPS: Record<string, string[]> = {
 };
 const OWNER_SKIPS: Record<string, string[]> = {
   "1280x800": ["owner settings"],
-  "390x844-touch": ["editor"],
+  "390x844-touch": ["editor", "night mood"],
   "844x390-touch": ["owner settings"],
-  "320x640": ["editor"],
+  "320x640": ["editor", "night mood"],
 };
 
 async function extAudit(page: Page, surface: string, width: number, height: number): Promise<void> {

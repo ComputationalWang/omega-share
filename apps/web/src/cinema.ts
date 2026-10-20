@@ -1,6 +1,8 @@
 // Cinema dim (OME-1406): while the video plays, one fixed rgba layer over the room's canvas (under the tags, bubbles and
 // controls) dims the room so the screen stands out. It lifts on pause, on end and while the editor is open. Only a class
 // flips on playback or editor changes; the fade is CSS (room.css). The setting is this device's, never on the wire.
+// The room's mood (OME-1502) tints the same layer (a data attribute, room.css), so the dim stacks on it without a second layer.
+import type { RoomMood } from "@omega/shared";
 import { el } from "./controls/dom";
 
 export const CINEMA_KEY = "omega.cinema";
@@ -17,6 +19,7 @@ export interface CinemaDim {
   on(): boolean;
   set(on: boolean): void;
   update(playing: boolean, editing: boolean): void;
+  mood(mood: RoomMood): void;
 }
 
 export function createCinemaDim(store: CinemaStore): CinemaDim {
@@ -50,6 +53,11 @@ export function createCinemaDim(store: CinemaStore): CinemaDim {
       playing = p;
       editing = e;
       render();
+    },
+    mood(m) {
+      if ((layer.dataset["mood"] ?? "none") === m) return;
+      if (m === "none") delete layer.dataset["mood"];
+      else layer.dataset["mood"] = m;
     },
   };
 }

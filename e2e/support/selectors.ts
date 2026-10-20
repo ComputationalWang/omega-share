@@ -109,6 +109,9 @@ export const site = {
   editorCursor: id("editor-cursor"),
   editorMessage: id("editor-message"),
   editorSave: id("editor-save"),
+  // OME-1502: the room mood radios (data-mood) and the one layer that shows the mood and the cinema dim.
+  editorMood: id("editor-mood"),
+  roomTint: ".cinema-dim",
   editorProblems: id("editor-problems"),
   editorTitle: id("editor-title"),
   editorRename: id("editor-rename"),

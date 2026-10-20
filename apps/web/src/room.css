@@ -36,9 +36,15 @@
 .generic-strip-unlock:disabled { opacity: 0.6; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
 /* Cinema dim (OME-1406, cinema.ts): one fixed rgba layer over the canvas, under the floor, seats, tags and bubbles. A class
- * flips on play/pause/editor; the 400 ms fade is a one-off composited opacity transition, not a running animation. */
-.cinema-dim { position: absolute; inset: 0; pointer-events: none; background: rgb(8 6 18 / 0.45); opacity: 0; transition: opacity 400ms ease; }
-.cinema-dim.is-on { opacity: 1; }
+ * flips on play/pause/editor; the 400 ms fade is a one-off background-colour transition of one flat layer, not a running
+ * animation. The room mood (OME-1502) is a fixed tint on the same layer, multiplied into the canvas; multiply commutes, so
+ * the dim (the background colour, under the tint image) stacks on it and looks as it does with no mood. */
+.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); transition: background-color 400ms ease; }
+.cinema-dim.is-on { background-color: rgb(8 6 18 / 0.45); }
+.cinema-dim[data-mood] { mix-blend-mode: multiply; }
+.cinema-dim[data-mood="warm"] { background-image: linear-gradient(rgb(255 176 96 / 0.25) 0 0); }
+.cinema-dim[data-mood="cool"] { background-image: linear-gradient(rgb(120 170 255 / 0.25) 0 0); }
+.cinema-dim[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5) 0 0); }
 @media (prefers-reduced-motion: reduce) { .cinema-dim { transition: none; } }
 /* A seat is the 52×26 floor diamond: a 26√2 square turned 45° and squashed to half height (stage.ts places it with the
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
@@ -156,7 +162,9 @@
 .editor { display: grid; gap: 8px; margin: 8px 0; }
 .editor .ui-slot { cursor: pointer; }
 .editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
-.editor-piece, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.editor-mood-options { display: flex; gap: 4px; }
+.editor-mood .ui-button[aria-checked="true"] { outline: 2px solid var(--ui-text); outline-offset: -2px; }
+.editor-piece, .editor-mood, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .editor-picked, .editor-count, .editor-message { margin: 0; }
 .editor-count { color: var(--muted); }
 .editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }

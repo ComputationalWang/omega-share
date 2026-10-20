@@ -47,12 +47,12 @@ export function fits(layout: Layout, piece: Furniture, skip?: number): boolean {
 
 export function place(layout: Layout, piece: Furniture): Layout | null {
   if (layout.furniture.length >= MAX_FURNITURE || !fits(layout, piece)) return null;
-  return { furniture: [...layout.furniture, piece] };
+  return { ...layout, furniture: [...layout.furniture, piece] };
 }
 
 function replaceAt(layout: Layout, index: number, piece: Furniture): Layout | null {
   if (!fits(layout, piece, index)) return null;
-  return { furniture: layout.furniture.map((f, i) => (i === index ? piece : f)) };
+  return { ...layout, furniture: layout.furniture.map((f, i) => (i === index ? piece : f)) };
 }
 
 export function move(layout: Layout, index: number, col: number, row: number): Layout | null {
@@ -76,7 +76,7 @@ export function rotate(layout: Layout, index: number): Layout | null {
 }
 
 export function remove(layout: Layout, index: number): Layout {
-  return { furniture: layout.furniture.filter((_, i) => i !== index) };
+  return { ...layout, furniture: layout.furniture.filter((_, i) => i !== index) };
 }
 
 /** Index of the piece under a floor cell: objects first, then floor pieces, then a wall piece anchored there. Later pieces win. */
@@ -196,8 +196,8 @@ export const TRAY_TABS: readonly TrayTab[] = [
   { id: "floor", label: "Floor & wall", kinds: kindsWhere((k) => !isSeat(k) && isFlat(k)) },
 ];
 
-/** Same content, by `layoutKey`. */
-export const sameLayout = (a: Layout, b: Layout): boolean => a === b || layoutKey(a) === layoutKey(b);
+/** Same content, by `layoutKey`, and the same mood (absent is none; not in the key, which only the furniture's scene uses). */
+export const sameLayout = (a: Layout, b: Layout): boolean => a === b || (layoutKey(a) === layoutKey(b) && (a.mood ?? "none") === (b.mood ?? "none"));
 
 /**
  * The room's saved layout became `next` while the owner edits `draft` (`saving`: we sent a `layout-set` not yet answered).
