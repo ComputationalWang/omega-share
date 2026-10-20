@@ -33,6 +33,7 @@
 {"input":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":0}","ok":true,"output":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":0}"},
 {"input":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":2}","ok":true,"output":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":2}"},
 {"input":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":4}","ok":true,"output":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":4}"},
+{"input":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":8}","ok":true,"output":"{\"type\":\"accessory-changed\",\"memberId\":\"m1\",\"accessory\":8}"},
 {"input":"{\"type\":\"member-joined\",\"member\":{\"id\":\"m2\",\"nickname\":\"Bob 2\",\"avatar\":3,\"standingSlot\":1,\"tint\":2,\"accessory\":4,\"hair\":5}}","ok":true,"output":"{\"type\":\"member-joined\",\"member\":{\"id\":\"m2\",\"nickname\":\"Bob 2\",\"avatar\":3,\"standingSlot\":1,\"tint\":2,\"accessory\":4,\"hair\":5}}"},
 {"input":"{\"type\":\"hair-changed\",\"memberId\":\"m1\",\"hair\":0}","ok":true,"output":"{\"type\":\"hair-changed\",\"memberId\":\"m1\",\"hair\":0}"},
 {"input":"{\"type\":\"hair-changed\",\"memberId\":\"m1\",\"hair\":3}","ok":true,"output":"{\"type\":\"hair-changed\",\"memberId\":\"m1\",\"hair\":3}"},

@@ -15,7 +15,7 @@ const Hat = v.object({ prefix: v.string(), bare: v.boolean() });
 /** assets/README.md "Head accessories": frames, then `meta.omega.accessories[id]` with the theme manifest's `hat` shape. */
 export const AccessoryManifestSchema = v.object({
   frames: v.record(v.string(), v.object({ frame: v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() }), anchor: XY })),
-  meta: v.object({ omega: v.object({ accessories: v.object({ partyhat: Hat, crown: Hat, headphones: Hat, beanie: Hat }) }) }),
+  meta: v.object({ omega: v.object({ accessories: v.object({ partyhat: Hat, crown: Hat, headphones: Hat, beanie: Hat, cap: Hat, flower: Hat, bow: Hat, halo: Hat }) }) }),
 });
 
 export interface AccessoryAtlas extends Pick<TintableSheets, "ready" | "loadTint"> {
