@@ -54,13 +54,14 @@ function composed(facing: "se" | "sw", steps: HandSteps | null): number[][] {
   return rows;
 }
 
-/** The dark hand pixels on the face, relative to the hub (the face's only light-mustard pixel). */
+/** The dark hand pixels on the face, relative to the hub (the light-mustard pixel ringed by face and hands). */
 function hands(rows: number[][]): { hub: [number, number]; dark: [number, number][] } {
   let hub: [number, number] = [-1, -1];
   const face = new Set<string>();
   rows.forEach((r, y) => {
     r.forEach((c, x) => {
-      if (c === 0xf7d36b && (rows[y]?.[x - 1] === 0xfff7ea || rows[y]?.[x + 1] === 0xfff7ea || rows[y]?.[x - 1] === OUTLINE || rows[y]?.[x + 1] === OUTLINE)) hub = [x, y];
+      const faceOrHand = (c?: number): boolean => c === 0xfff7ea || c === OUTLINE;
+      if (c === 0xf7d36b && faceOrHand(r[x - 1]) && faceOrHand(r[x + 1]) && faceOrHand(rows[y - 1]?.[x]) && faceOrHand(rows[y + 1]?.[x])) hub = [x, y];
       if (c === 0xfff7ea) face.add(`${String(x)},${String(y)}`);
     });
   });
@@ -111,14 +112,16 @@ describe("clockFace: the hands drawn over the clock's own face", () => {
         const { dark } = hands(composed(facing, { hour: h, minute: m }));
         const hour = screenDir(facing, (h * Math.PI) / 6);
         const minute = screenDir(facing, (m * Math.PI) / 30);
-        const along = (d: [number, number], [x, y]: [number, number]): number => (x * d[0] + y * d[1]) / Math.hypot(d[0], d[1]);
+        // How far along a hand, in the art's units (a unit along the wall is 2 px across, a unit up 1 px).
+        const along = (d: [number, number], [x, y]: [number, number]): number => (x * d[0] + y * d[1]) / (d[0] * d[0] + d[1] * d[1]);
         const off = (d: [number, number], [x, y]: [number, number]): number => Math.abs(x * d[1] - y * d[0]) / Math.hypot(d[0], d[1]);
         const onHour = dark.filter((p) => along(hour, p) > 0 && off(hour, p) <= 1.2);
         const onMinute = dark.filter((p) => along(minute, p) > 0 && off(minute, p) <= 1.2);
-        expect(dark.filter((p) => !onHour.includes(p) && !onMinute.includes(p))).toEqual([]);
-        // The minute hand reaches further than the hour hand.
-        expect(Math.max(...onMinute.map((p) => along(minute, p)))).toBeGreaterThan(Math.max(...onHour.map((p) => along(hour, p))));
-        expect(Math.max(...onHour.map((p) => along(hour, p)))).toBeGreaterThanOrEqual(2);
+        // The hub pixel sits a little off the face's true centre, so the pixels touching it count as the hands' roots.
+        expect(dark.filter(([x, y]) => Math.max(Math.abs(x), Math.abs(y)) > 1 && !onHour.some((p) => p[0] === x && p[1] === y) && !onMinute.some((p) => p[0] === x && p[1] === y))).toEqual([]);
+        // The minute hand reaches at least as far as the hour hand (6:30 and 9:45 overlap them).
+        expect(Math.max(...onMinute.map((p) => along(minute, p))) + 1e-9).toBeGreaterThanOrEqual(Math.max(...onHour.map((p) => along(hour, p))));
+        expect(Math.max(...onHour.map((p) => along(hour, p)))).toBeGreaterThanOrEqual(1.5);
       });
     }
   }
