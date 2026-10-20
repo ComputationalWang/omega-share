@@ -17,7 +17,7 @@ test.afterEach(async () => {
   clients = [];
 });
 
-const Frames = v.nullable(v.object({ avatar: v.nullable(v.string()), accessory: v.number(), bare: v.exactOptional(v.boolean()) }));
+const Frames = v.nullable(v.object({ avatar: v.nullable(v.string()), accessory: v.number(), bare: v.exactOptional(v.boolean()), hatAnchored: v.exactOptional(v.boolean()) }));
 const Hats = v.object({ hats: v.number() });
 
 /** Read `window.__omega.room[name](...args)`, the dev handle (apps/web/src/main.ts). */
@@ -155,7 +155,8 @@ test("Pip and Mo go bare-headed under a crown, Juno doesn't; under the beanie no
 });
 
 // OME-1532: all eight drawn in the room at 1x, Pip bare-headed under the ones marked bare (cap and bow among the new four).
-// A screenshot per accessory goes into the report for QA's look.
+// Each hat keeps its own anchor after a swap from the one before (QA OME-1538: the halo and flower sat low). A screenshot
+// per accessory goes into the report for QA's look.
 test("all eight accessories draw in the room at 1x, Pip bare under the party hat, crown, headphones, cap and bow", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("accessory", "eight").url, count: 2, nicknamePrefix: "acc8", contextOptions: () => ({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 }) });
   const [juno, pip] = clients;
@@ -171,7 +172,7 @@ test("all eight accessories draw in the room at 1x, Pip bare under the party hat
     await radios.nth(a).click();
     await expect
       .poll(async () => v.parse(Frames, await handle(juno.page, "avatarFrames", pipId)), { timeout: 15_000 })
-      .toMatchObject({ accessory: a, bare: bareUnder[a - 1] });
+      .toMatchObject({ accessory: a, bare: bareUnder[a - 1], hatAnchored: true });
     await test.info().attach(`accessory-${String(a)}-1x.png`, { body: await juno.page.screenshot(), contentType: "image/png" });
   }
 });
