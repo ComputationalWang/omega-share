@@ -1,0 +1,36 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "at": "2026-10-20T02:04:18.905Z",
+  "rows": [
+    {
+      "check": "hide chat in full screen: C hides strip + controls",
+      "ok": true,
+      "detail": "strip + chat input hidden, toggle pressed"
+    },
+    {
+      "check": "guest message shows as a bubble and fades",
+      "ok": true,
+      "detail": "bubble visible then gone"
+    },
+    {
+      "check": "leaving full screen restores the layout",
+      "ok": true,
+      "detail": "chat input visible again"
+    },
+    {
+      "check": "wheel zoom over the room zooms, Fit restores",
+      "ok": true,
+      "detail": "fit 0.485 -> 0.970 -> 0.485"
+    },
+    {
+      "check": "facing: B stands after walking left vs right; A's picture of B differs",
+      "ok": true,
+      "detail": "images differ (11160 vs 11218 bytes)"
+    },
+    {
+      "check": "no page errors on A, B",
+      "ok": false,
+      "detail": "[\"SecurityError: getLayoutMap() must be called from a top-level browsing context or allowed by the permission policy.\"]"
+    }
+  ]
+}
