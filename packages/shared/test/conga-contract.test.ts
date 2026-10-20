@@ -15,11 +15,13 @@ test("12 people, a 2-minute window", () => {
 describe("snapshot conga", () => {
   test("carries the line, leader first, and the server time of the last join", () => {
     const conga = { ids: ["m1", "m2", "m3"], last: 1_800_000_000_000 };
-    expect<unknown>(parseServerMessage(JSON.stringify(snap({ conga })))).toEqual(snap({ conga }));
+    const got: unknown = parseServerMessage(JSON.stringify(snap({ conga })));
+    expect(got).toEqual(snap({ conga }));
   });
 
   test("absent means no line", () => {
-    expect<unknown>(parseServerMessage(JSON.stringify(snap({})))).toEqual(snap({}));
+    const got: unknown = parseServerMessage(JSON.stringify(snap({})));
+    expect(got).toEqual(snap({}));
   });
 
   const ids = (n: number) => Array.from({ length: n }, (_, i) => `m${String(i)}`);
