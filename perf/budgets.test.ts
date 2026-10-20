@@ -65,6 +65,17 @@ describe("budgets", () => {
     expect(FRAME_PROVIDERS).toEqual(["youtube", "twitchVod", "twitchLive", "vimeo", "generic"]);
   });
 
+  test("walk25 has frame, work and missed-vsync rows on Smooth with every member wearing an accessory, at the plain walk25 budgets (OME-1542)", () => {
+    for (const p of ["desktop", "phone"]) {
+      for (const m of ["frameP95", "workP95", "missedVsync"]) {
+        const plain = BUDGETS.find((x) => x.id === `walk25.${m}.${p}.smooth`);
+        const b = BUDGETS.find((x) => x.id === `walk25.accessories.${m}.${p}`);
+        expect(b, `walk25.accessories.${m}.${p}`).toBeDefined();
+        expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual([plain?.area, plain?.docMetric, plain?.unit, plain?.limit, "<="]);
+      }
+    }
+  });
+
   test("each provider has frame, work and missed-vsync rows with a chat burst, at the plain room's budgets (OME-594)", () => {
     const rows = [
       { base: "chat.frameP95", plain: "site.frameP95.generic", docMetric: "Frame rate with a chat burst, 8 avatars + video playing" },
