@@ -63,7 +63,7 @@ describe("the log line", () => {
     const members = [{ id: "a", nickname: me, avatar: 0 }, { id: "b", nickname: "bob", avatar: 0 }];
     const room = { id: "lobby", seats: [null, null, null, null, null, null, null, null], members, embed: null };
     const open = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "a", room }, now: 0 });
-    const e = { type: "server" as const, msg: { type: "chat" as const, memberId: from, text }, now: 0 };
+    const e = { type: "server" as const, msg: { type: "chat" as const, memberId: from, text, at: 0 }, now: 0 };
     return logEntries(open, reduce(open, e), e);
   };
 

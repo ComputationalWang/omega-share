@@ -28,7 +28,7 @@ const SystemLineSchema = v.strictObject({
 
 // Typed as the log's entry: a change to one that the other can't carry fails the build here.
 const ChatLogEntrySchema: v.GenericSchema<ChatLogEntry> = v.variant("kind", [
-  v.strictObject({ kind: v.literal("chat"), nickname: Text, text: Text, self: v.boolean() }),
+  v.strictObject({ kind: v.literal("chat"), nickname: Text, text: Text, self: v.boolean(), mention: v.exactOptional(v.boolean()) }),
   v.strictObject({ kind: v.literal("system"), line: SystemLineSchema }),
 ]);
 

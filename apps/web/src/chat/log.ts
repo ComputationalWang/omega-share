@@ -15,7 +15,7 @@ export const SETTLE_MS = 6000;
 export const FADE_MS = 20_000;
 
 export type ChatLogEntry =
-  | { readonly kind: "chat"; readonly nickname: string; readonly text: string; readonly self: boolean; readonly mention?: boolean }
+  | { readonly kind: "chat"; readonly nickname: string; readonly text: string; readonly self: boolean; /** It names me (OME-1531). */ readonly mention?: boolean }
   | { readonly kind: "system"; readonly line: SystemLine };
 
 /** "settle": lines stop at settled (room page, pop-out, phone). "fade": they go on to faded (full-screen strip). */
@@ -61,7 +61,7 @@ function lineEl(entry: ChatLogEntry): HTMLDivElement {
   const action = meAction(entry.text);
   const thought = thinkText(entry.text);
   const kind = action !== null ? " is-action" : thought !== null ? " is-think" : "";
-  const line = el("div", { className: `ui-fs-line chat-log-line${entry.self ? " self" : ""}${kind}` }, "chat-log-line");
+  const line = el("div", { className: `ui-fs-line chat-log-line${entry.self ? " self" : ""}${entry.mention === true ? " is-mention" : ""}${kind}` }, "chat-log-line");
   line.append(el("b", { textContent: entry.nickname }), ` ${action ?? (thought === null ? entry.text : `thinks: ${thought}`)}`);
   return line;
 }
