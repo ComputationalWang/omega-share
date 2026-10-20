@@ -8,14 +8,14 @@
 //! member's record: no per-member sets, no string clones on the relay path.
 
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, RoomState, RoomSummary};
+use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, RoomState, RoomSummary, ServerTime};
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
@@ -204,6 +204,11 @@ pub struct Room {
     title: Option<RoomTitle>,
     /// Who controls playback (ADR 0030 section 4); the owner changes it with `control-policy`.
     control_policy: ControlPolicy,
+    /// The /conga line (OME-1574), leader first, kept by the rules every client derives it with
+    /// (`apps/web/src/chat/conga.ts`), so a late joiner's snapshot matches what the others see.
+    conga: Vec<MemberId>,
+    /// Server time of the last join; `None` before the first.
+    conga_last: Option<u64>,
 }
 
 /// `Map.get(key)` of an expiry map, then the "live" rule: the entry runs while `now < until`; an expired one is dropped.
@@ -264,6 +269,8 @@ impl Room {
             rev,
             holds: HashMap::new(),
             holds_until: 0,
+            conga: Vec::new(),
+            conga_last: None,
             layout: init.layout.unwrap_or_else(default_layout),
             title: init.title,
             control_policy: init.control_policy.unwrap_or(DEFAULT_CONTROL_POLICY),
@@ -390,15 +397,55 @@ impl Room {
             return FloorSitResult::Unchanged;
         }
         rec.member.floor_sit = next;
+        self.prune_conga();
         FloorSitResult::Changed
     }
 
     /// A relayed chat line from `member` at server time `at`: `/conga` joins the line, `/stop` leaves it (OME-1574).
-    pub fn conga_chat(&mut self, _member: &MemberId, _text: &str, _at: u64) {}
+    /// Like the client, a `/conga` from someone seated joins (or starts a new line) and the prune then drops them.
+    pub fn conga_chat(&mut self, member: &MemberId, text: &str, at: u64) {
+        let text = text.trim_start();
+        let conga = text.as_bytes().get(..6).is_some_and(|p| p.eq_ignore_ascii_case(b"/conga"))
+            && text
+                .get(6..)
+                .is_some_and(|rest| rest.chars().next().is_none_or(char::is_whitespace));
+        if text.trim_end().eq_ignore_ascii_case("/stop") {
+            self.conga.retain(|m| m != member);
+        } else if conga {
+            if self.conga_last.is_none_or(|last| at.saturating_sub(last) > CONGA_WINDOW_MS) {
+                self.conga = vec![member.clone()];
+            } else if !self.conga.contains(member) {
+                if self.conga.len() >= CONGA_CAP {
+                    return;
+                }
+                self.conga.push(member.clone());
+            }
+            self.conga_last = Some(at);
+            self.prune_conga();
+        }
+    }
 
     /// The /conga line for the snapshot; `None` when nobody is in it.
     pub fn conga(&self) -> Option<Conga> {
-        None
+        let last = self.conga_last?;
+        (!self.conga.is_empty()).then(|| Conga {
+            ids: self.conga.clone(),
+            last: ServerTime(last),
+        })
+    }
+
+    /// Drops whoever left, sits on a seat or sits on the floor, as `congaPrune` does on every client.
+    fn prune_conga(&mut self) {
+        let (index, slots, seats) = (&self.index, &self.slots, &self.seats);
+        self.conga.retain(|id| {
+            index.get(id).is_some_and(|&slot| {
+                !seats.contains(&Some(slot))
+                    && slots
+                        .get(usize::from(slot))
+                        .and_then(Option::as_ref)
+                        .is_some_and(|r| r.member.floor_sit != Some(true))
+            })
+        });
     }
 
     /// Sets whether `member` is typing; false if unchanged or not a member (OME-1387).
@@ -619,6 +666,7 @@ impl Room {
         let Some(slot) = self.index.remove(member) else { return };
         self.free(slot);
         self.order.retain(|&s| s != slot);
+        self.conga.retain(|m| m != member);
         let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::take) else {
             return;
         };
@@ -668,6 +716,7 @@ impl Room {
         if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
             rec.member.cell = None;
         }
+        self.prune_conga();
         SitResult::Ok
     }
 
@@ -931,7 +980,7 @@ impl Rec {
 mod tests {
     use super::*;
     use crate::contract::confusables::nickname_key;
-    use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
     use crate::contract::embed::canonicalize_embed;
     use crate::contract::generic_embed::canonicalize_generic_embed;
     use crate::contract::state::{PlaybackAction, Rev};
@@ -2014,7 +2063,9 @@ mod tests {
     }
 
     fn line(r: &Room) -> Vec<String> {
-        r.conga().map(|c| c.ids.iter().map(|m| m.as_str().to_owned()).collect()).unwrap_or_default()
+        r.conga()
+            .map(|c| c.ids.iter().map(|m| m.as_str().to_owned()).collect())
+            .unwrap_or_default()
     }
 
     #[test]
@@ -2047,7 +2098,11 @@ mod tests {
             r.conga_chat(m, "/conga", 1_000 + i as u64);
         }
         assert_eq!(line(&r).len(), CONGA_CAP, "past the cap a /conga is ignored");
-        assert_eq!(r.conga().map(|c| c.last.0), Some(1_000 + CONGA_CAP as u64 - 1), "nor does it refresh the window");
+        assert_eq!(
+            r.conga().map(|c| c.last.0),
+            Some(1_000 + CONGA_CAP as u64 - 1),
+            "nor does it refresh the window"
+        );
         let last = 1_000 + CONGA_CAP as u64 - 1;
         r.conga_chat(&ms[13], "/conga", last + CONGA_WINDOW_MS);
         assert_eq!(line(&r).len(), CONGA_CAP, "still inside the window");

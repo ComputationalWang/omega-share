@@ -13,7 +13,7 @@ use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
 use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PollCount, SeatIndex, Tint};
 use super::state::{
-    EmoteKind, Member, PingId, PlaybackState, Poll, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed,
+    Conga, EmoteKind, Member, PingId, PlaybackState, Poll, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed,
     poll_counts_are_valid, present, queue_is_valid,
 };
 use super::text::{ChatText, PollOption, PollQuestion, RoomTitle};
@@ -174,6 +174,9 @@ server_messages! {
         /// The room's open poll (OME-1452), to everyone who joins while it is open.
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         poll: Option<Poll>,
+        /// The /conga line (OME-1574), so a late joiner sees who is in it.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        conga: Option<Conga>,
     }
     "member-joined" MemberJoined MemberJoinedWire { member: Member }
     "member-left" MemberLeft MemberLeftWire {

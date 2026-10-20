@@ -1,10 +1,7 @@
 // /conga (OME-1564): a party line built on Follow. Every client derives the same line from the relayed `/conga` and
 // `/stop` chat lines (server time `at`) and the room state; nothing new goes on the wire.
-import type { MemberId } from "@omega/shared";
+import { CONGA_CAP, CONGA_WINDOW_MS, type MemberId } from "@omega/shared";
 import type { ViewState } from "../state";
-
-export const CONGA_WINDOW_MS = 120_000;
-export const CONGA_CAP = 12;
 
 export interface Conga {
   /** Leader first. */

@@ -347,6 +347,7 @@ fn resume(app: &App, inner: &mut RoomInner, conn: &mut Conn, token: &ResumeToken
         resumed: Some(true),
         owner: session.owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
+        conga: inner.room.conga(),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);
@@ -494,6 +495,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         resumed: None,
         owner: owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
+        conga: inner.room.conga(),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);

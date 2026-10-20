@@ -16,6 +16,8 @@
 {"input":"close.HANDED_OFF","ok":true,"output":4008},
 {"input":"close.ADMISSION_FAILED","ok":true,"output":4401},
 {"input":"close.SESSION_REVOKED","ok":true,"output":4403},
+{"input":"CONGA_CAP","ok":true,"output":12},
+{"input":"CONGA_WINDOW_MS","ok":true,"output":120000},
 {"input":"DEFAULT_ROOM_ID","ok":true,"output":"lobby"},
 {"input":"DICE_MAX_SIDES","ok":true,"output":100},
 {"input":"DICE_MIN_SIDES","ok":true,"output":2},
