@@ -442,6 +442,36 @@ describe("sceneOf: in-use loops (OME-1407)", () => {
   });
 });
 
+// OME-1520: the cat's back frame carries what it needs to wander: its home cell, walk and sit frames, and the empty bed.
+describe("sceneOf: the wandering cat (OME-1520)", () => {
+  const l: RoomLayout = {
+    furniture: [
+      { kind: "tv", col: 0, row: 0, facing: "se" },
+      { kind: "speaker", col: 6, row: 6, facing: "se" },
+      { kind: "cat", col: 4, row: 7, facing: "sw", variant: 1 },
+    ],
+  };
+  const scene = sceneOf(l, [v2]);
+
+  test("the cat carries its piece index, home cell and frames; other pieces don't", () => {
+    const walk = (dir: string): string[] => [0, 1, 2, 3].map((n) => `furniture/cat/charcoal/walk/${dir}/${String(n)}`);
+    expect(sprite(scene, "furniture/cat/charcoal/sw/back").walker).toEqual({
+      piece: 2,
+      home: cellOf(4, 7),
+      walk: { se: walk("se"), sw: walk("sw") },
+      sit: { se: "furniture/cat/charcoal/sit/se", sw: "furniture/cat/charcoal/sit/sw" },
+      bed: "furniture/cat/charcoal/bed/sw",
+      ms: 150,
+    });
+    expect(sprite(scene, "furniture/speaker/wood/se/back").walker).toBeUndefined();
+  });
+
+  test("every cat frame is in the v2 sheet", () => {
+    const w = sprite(scene, "furniture/cat/charcoal/sw/back").walker;
+    for (const k of [...(w?.walk.se ?? []), ...(w?.walk.sw ?? []), w?.sit.se, w?.sit.sw, w?.bed]) expect(k === undefined ? undefined : v2.frames[k]).toBeDefined();
+  });
+});
+
 // OME-1425: a door opens while anyone stands in front of it, and my arrival there offers the way through.
 describe("doors (OME-1425)", () => {
   const cells = (...cs: [number, number][]): Set<number> => new Set(cs.map(([c, r]) => cellOf(c, r)));

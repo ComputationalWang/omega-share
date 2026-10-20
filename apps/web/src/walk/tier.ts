@@ -52,8 +52,11 @@ const STATIC = 0;
 const PROBING = 1;
 const SMOOTH = 2;
 
+/** A weak device (Save-Data, under 4 cores or under 4 GB): gated to Basic unless forced. */
+export const weakDevice = (h: TierHints): boolean => h.saveData || (h.hardwareConcurrency ?? 4) < 4 || (h.deviceMemory ?? 4) < 4;
+
 export function createTier(h: TierHints): Tier {
-  const gated = h.reducedMotion || h.saveData || (h.hardwareConcurrency ?? 4) < 4 || (h.deviceMemory ?? 4) < 4;
+  const gated = h.reducedMotion || weakDevice(h);
   let state = h.forced !== null || gated ? STATIC : PROBING;
   let smooth = h.forced === "smooth";
 

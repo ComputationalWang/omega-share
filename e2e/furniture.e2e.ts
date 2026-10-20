@@ -370,3 +370,84 @@ test.describe("furniture in use", () => {
     }
   });
 });
+
+// OME-1520: the cat wanders with no wire. Every client works out its walk from the room id, the piece's index and the
+// 20 s slot of server time, so every client, a late joiner too, draws it on the same cell at every slot boundary; reduced motion keeps it home.
+test.describe("the wandering cat", () => {
+  test.fixme(!available.web, PENDING.web);
+  test.fixme(!available.server, PENDING.server);
+
+  const SLOT_MS = 20_000;
+  /** A valid room (eight seats) with two cats. */
+  const CATS: RoomLayout = {
+    furniture: [...V2_BENCHES.furniture, { kind: "cat", col: 3, row: 3, facing: "sw" }, { kind: "cat", col: 7, row: 7, facing: "se", variant: 1 }],
+  };
+  const HOMES = ["3,3", "7,7"];
+
+  interface Cat { readonly cell: string; readonly walking: boolean; readonly slot: number }
+  /** Each cat as drawn now (room-view.ts `cats`): its cell "col,row", whether it walks, and the slot it is in. */
+  const cats = (page: Page): Promise<Cat[]> =>
+    page.evaluate(() => {
+      const debug: unknown = Reflect.get(window, "__omega");
+      const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+      const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "cats") : null;
+      return typeof fn === "function" ? (Reflect.apply(fn, room, []) as Cat[]) : [];
+    });
+  const cells = (cs: readonly Cat[]): string[] => cs.map((c) => c.cell);
+
+  test("every client draws each cat on the same cell at every slot boundary, a late joiner standing on its way too; reduced motion keeps it home", async ({ browser }) => {
+    test.setTimeout(3 * SLOT_MS + 60_000);
+    const roomUrl = `${URLS.web}/r/${testRoomId("furniture", "cat")}`;
+    const open = async (nickname: string, reduced: boolean): Promise<{ page: Page; close: () => Promise<void> }> => {
+      const context = await watchCsp(await browser.newContext(reduced ? { reducedMotion: "reduce" } : {}));
+      await stubExternalNetwork(context);
+      await context.addInitScript(() => {
+        localStorage.setItem("omega.motion", "smooth");
+      });
+      const page = await context.newPage();
+      await withLayout(page, { layout: CATS });
+      await enter(page, nickname, roomUrl);
+      return { page, close: () => context.close() };
+    };
+    const a = await open("cat-a", false);
+    const b = await open("cat-b", false);
+    const still = await open("cat-still", true);
+    const clients = [a, b, still];
+    try {
+      await expect.poll(async () => (await cats(a.page)).length).toBe(2);
+      await expect.poll(async () => (await cats(b.page)).length).toBe(2);
+      // QA OME-1525: a 4th member joins mid-slot and takes the 4th standing spot, (7,6), on cat 2's way out of home.
+      const first = (await cats(a.page))[0]?.slot ?? 0;
+      await expect.poll(async () => (await cats(a.page))[0]?.slot, { timeout: SLOT_MS + 5000, intervals: [250] }).toBe(first + 1);
+      await a.page.waitForTimeout(5000);
+      const late = await open("cat-late", false);
+      clients.push(late);
+      await expect.poll(async () => (await cats(late.page)).length).toBe(2);
+      const seen = new Set<string>();
+      for (let boundary = 0; boundary < 2; boundary++) {
+        const slot = (await cats(a.page))[0]?.slot ?? 0;
+        await expect.poll(async () => (await cats(a.page))[0]?.slot, { timeout: SLOT_MS + 5000, intervals: [250] }).toBe(slot + 1);
+        // Arrived (a walk within 3 cells takes a few seconds), still in the same slot on both clients.
+        const settled = async (page: Page): Promise<Cat[]> => {
+          let now: Cat[] = [];
+          await expect.poll(async () => {
+            now = await cats(page);
+            return now.every((c) => !c.walking && c.slot === slot + 1);
+          }, { timeout: 10_000 }).toBe(true);
+          return now;
+        };
+        const onA = await settled(a.page);
+        const onB = await settled(b.page);
+        const onLate = await settled(late.page);
+        expect(cells(onB)).toEqual(cells(onA));
+        expect(cells(onLate)).toEqual(cells(onA));
+        for (const c of onA) seen.add(c.cell);
+        expect(cells(await cats(still.page))).toEqual(HOMES);
+      }
+      // Over two slots, two cats leave their placed cells at least once (each slot's target is one of up to 49 cells).
+      expect([...seen].some((c) => !HOMES.includes(c))).toBe(true);
+    } finally {
+      await Promise.all(clients.map((c) => c.close()));
+    }
+  });
+});

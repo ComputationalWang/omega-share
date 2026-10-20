@@ -16,6 +16,8 @@ async function start(root: HTMLElement, roomId: RoomId, tab: string): Promise<vo
   let atlasFrame = 0;
   const stage = await createStage({
     reducedMotion: globalThis.matchMedia("(prefers-reduced-motion: reduce)"),
+    // shortcut: the local clock, not the tab's server offset; the pop-out's cat may be a step off the tab's.
+    roomId,
     // The furniture atlas arrived: draw the room as last shown, on the next frame.
     requestRender: () => {
       if (atlasFrame !== 0) return;

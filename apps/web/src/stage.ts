@@ -51,6 +51,9 @@ export interface StageOptions {
   readonly onSit?: () => void;
   /** A layer right over the canvas, under the floor, seats, tags and bubbles: the cinema dim (OME-1406). */
   readonly dim?: HTMLElement;
+  /** The room and server time (OME-1520): every client's cats wander alike from them (room-view.ts). */
+  readonly roomId?: string;
+  readonly serverNow?: () => number;
 }
 
 export interface Stage {
@@ -154,6 +157,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
   // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
+    ...(o.roomId === undefined ? {} : { roomId: o.roomId }),
+    ...(o.serverNow === undefined ? {} : { serverNow: o.serverNow }),
     onMove: (id, x, y) => {
       const head = y - liftOf(id);
       badges.move(id, x, head);
@@ -443,6 +448,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       drawnPlaying = playing;
       view.setInUse(piecesInUse(nextLayout, standCells, playing, sitCells));
     }
+    // A cat waits rather than walk into someone standing; the editor keeps it home. Cheap: it acts on a freeze change only.
+    view.setCatRules(standCells, editing);
     if (floorHit !== null) {
       const tab = s.status === "open" ? 0 : -1;
       if (floorHit.tabIndex !== tab) floorHit.tabIndex = tab;

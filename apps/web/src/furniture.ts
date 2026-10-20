@@ -42,6 +42,8 @@ export const FurnitureManifestSchema = v.object({
           use: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
           /** A door (OME-1424): an open frame, `furniture/<id>/<colour>/open/<dir>`, same rect and anchor as the closed back frame. */
           open: v.optional(v.boolean()),
+          /** A piece that wanders (the cat, OME-1520): its walk loop; frames `meta.omega.walkKey`, `sitKey`, and `bedKey` for the empty bed. */
+          walk: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
         }),
       ),
     }),
@@ -167,6 +169,16 @@ export function doorAt(layout: RoomLayout, col: number, row: number): RoomId | n
   return null;
 }
 
+/** The cat's frames (OME-1520): its art has se and sw only, so ne walks use se and nw use sw. */
+export interface CatWalker {
+  readonly piece: number;
+  readonly home: number;
+  readonly walk: { readonly se: readonly string[]; readonly sw: readonly string[] };
+  readonly sit: { readonly se: string; readonly sw: string };
+  readonly bed: string;
+  readonly ms: number;
+}
+
 export interface FurnitureSprite {
   /** Frame key in the furniture atlas. */
   readonly key: string;
@@ -178,6 +190,8 @@ export interface FurnitureSprite {
   readonly z: number;
   /** An "in use" loop (OME-1407): the furniture index, the loop's frame keys and its frame time. */
   readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
+  /** A piece that wanders (the cat, OME-1520): its furniture index, home cell, walk frames per drawn facing, sit frames, empty bed frame and walk frame time. */
+  readonly walker?: CatWalker;
 }
 
 export interface SceneSeat {
@@ -254,9 +268,16 @@ function pushSprites(
         ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms } }
         : part === "back" && piece.open === true
           ? { use: { piece: index, frames: [frame(`open/${f.facing}`)], ms: OPEN_MS } }
-          : {}),
+          : part === "back" && piece.walk !== undefined
+            ? { walker: walkerOf(frame, index, cellOf(f.col, f.row), f.facing, piece.walk) }
+            : {}),
     });
   }
+}
+
+function walkerOf(frame: (rest: string) => string, piece: number, home: number, facing: Facing, walk: { readonly frames: number; readonly ms: number }): CatWalker {
+  const loop = (dir: string): string[] => Array.from({ length: walk.frames }, (_, n) => frame(`walk/${dir}/${String(n)}`));
+  return { piece, home, walk: { se: loop("se"), sw: loop("sw") }, sit: { se: frame("sit/se"), sw: frame("sit/sw") }, bed: frame(`bed/${facing}`), ms: walk.ms };
 }
 
 /** The 7×7 rug's 9-slice part at offset (dc, dr): parts name the screen side of the rim (assets/README.md). */

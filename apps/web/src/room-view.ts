@@ -5,19 +5,20 @@ import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "
 import { AVATAR_COUNT, type EmoteKind, type FloorCell, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
-import type { Scene } from "./furniture";
+import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator, type FurnitureLoop } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
-import { createTier, createTierProbe, readTierHints } from "./walk/tier";
-import { createWalks, type Dir } from "./walk/walks";
+import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
+import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
+import { createWalks, emptyPose, type Dir } from "./walk/walks";
 import { wearsBare, wornHat } from "./accessory/hat";
 import type { TintableSheets } from "./walk/tint-sheets";
 import type { AccessoryAtlas } from "./accessory/accessories-sheet";
 import type { ThemeAtlas } from "./theme/atlas";
 import { decorSprites } from "./theme/decor";
 import { CONFETTI_MS, CONFETTI_SPRITES, EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, confettiMotion, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectMotion, type EffectPainter, type Particles } from "./theme/effect";
-import { DOOR, centerOf } from "./walk/path";
+import { DOOR, cellAt, centerOf, colOf, rowOf } from "./walk/path";
 import { resolveTheme } from "./theme/periods";
 import { livePieces, type LivePieces } from "./live-pieces";
 
@@ -46,6 +47,10 @@ export interface RoomViewOptions {
   readonly onMove?: (id: MemberId, x: number, y: number) => void;
   /** An avatar came to rest after a walk or a jump (stage px): the bubbles resolve overlap here, never per frame. */
   readonly onStop?: (id: MemberId, x: number, y: number) => void;
+  /** The room (OME-1520): with the slot of server time, it seeds where each cat wanders. */
+  readonly roomId?: string;
+  /** Server time now (clock.ts), so every client's cats change slot together; the local clock without one. */
+  readonly serverNow?: () => number;
 }
 
 export interface RoomView {
@@ -56,6 +61,10 @@ export interface RoomView {
   setInUse(pieces: ReadonlySet<number>): void;
   /** The furniture loops running now: each piece's idle frame key and the loop frame shown (-1 still), for e2e. */
   loops(): { key: string; frame: number }[];
+  /** The wandering cats (OME-1520), for e2e: each one's floor cell ("col,row"), whether it walks, and the 20 s slot it is in. */
+  cats(): { cell: string; walking: boolean; slot: number }[];
+  /** Where members stand (walk cells: a cat waits rather than walk into one), and the owner editor's freeze (cats home). Per change. */
+  setCatRules(taken: ReadonlySet<number>, frozen: boolean): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
   /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
@@ -411,7 +420,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Walking (OME-408): every client walks avatars to their spot itself; frames run only while someone walks.
   const reduced = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
   // The walk tier (ADR 0037), chosen at room start: forced by localStorage["omega.motion"], gated by the device, else probed.
-  const tier = createTier(readTierHints({ reducedMotion: reduced.matches, navigator: globalThis.navigator, storage: storage() }));
+  const hints = readTierHints({ reducedMotion: reduced.matches, navigator: globalThis.navigator, storage: storage() });
+  const tier = createTier(hints);
   const probe = createTierProbe(tier, {
     now: () => performance.now(),
     raf: (fn) => requestAnimationFrame(fn),
@@ -461,6 +471,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     reducedMotion: () => reduced.matches,
     smooth: tier.smooth,
+    drawProps: (now) => drawCats(now),
     rendered(start, walking) {
       probe.rendered(start, frameTs, walking);
       showTier();
@@ -521,6 +532,109 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     render,
   });
+
+  // The wandering cats (OME-1520): their own walks on the walkers' step clock, drawn on the animator's frames, moved
+  // once per 20 s slot of server time. Home on their placed cell under reduced motion, on a weak device's Basic, and
+  // while the owner edits.
+  interface Cat {
+    readonly id: string;
+    readonly w: CatWalker;
+    /** The piece's own sprite: the sleeping cat at home, its empty bed while it's out. */
+    readonly bedSprite: Sprite;
+    readonly asleep: Texture;
+    readonly bed: Texture;
+    readonly walk: { readonly se: readonly Texture[]; readonly sw: readonly Texture[] };
+    readonly sit: { readonly se: Texture; readonly sw: Texture };
+    /** The cat out of bed, walking or sitting. */
+    readonly sprite: Sprite;
+    /** Where this slot's walk ends (or ended). */
+    cell: number;
+  }
+  const catWalks = createWalks({ reducedMotion: () => reduced.matches, smooth: tier.smooth });
+  const catPose = emptyPose();
+  const serverNow = opts.serverNow ?? (() => Date.now());
+  const weak = weakDevice(hints);
+  let cats: Cat[] = [];
+  let catGrid: Uint8Array = new Uint8Array(0);
+  /** The cats' homes and grid as last set: an atlas rebuild of the same layout keeps them where they are. */
+  let catsKey = "";
+  let catTaken: ReadonlySet<number> = new Set<number>();
+  let catsFrozen = false;
+  let catTimer: ReturnType<typeof setTimeout> | undefined;
+  const wanders = (): boolean => !catsFrozen && !reduced.matches && !(weak && !tier.smooth());
+  const catTarget = (c: Cat): { id: string; at: Point; z: number; seatFacing: null } => {
+    const at = centerOf(c.cell);
+    return { id: c.id, at, z: standDepth(at), seatFacing: null };
+  };
+  /** This slot's walks (`due`: the slot a timer fired for), timed from the slot's start on my clock so every client's cats step together; or everyone home. Returns the slot. */
+  const moveCats = (home: boolean, due?: number): number => {
+    const s = serverNow();
+    const slot = catSlot(s, due);
+    for (const c of cats) c.cell = home ? c.w.home : catRest(catGrid, c.w.home, opts.roomId ?? "", c.w.piece, slot, catTaken);
+    catWalks.place(cats.map(catTarget), performance.now() - Math.max(0, s - slot * CAT_SLOT_MS));
+    animator.wake();
+    return slot;
+  };
+  /** Arms the timer for the slot after `slot` (by default the slot of now). */
+  const scheduleCats = (slot = catSlot(serverNow())): void => {
+    clearTimeout(catTimer);
+    catTimer = undefined;
+    if (cats.length === 0 || destroyed || !wanders()) return;
+    catTimer = setTimeout(() => {
+      scheduleCats(moveCats(!wanders(), slot + 1));
+    }, catWait(serverNow(), slot));
+  };
+  /** The scene's cats, put on this slot's resting cell like on every other client. */
+  const setCats = (found: readonly { readonly w: CatWalker; readonly bedSprite: Sprite; readonly asleep: Texture }[], sheets: readonly (Sheet | null)[], grid: Uint8Array): void => {
+    for (const c of cats) c.sprite.destroy();
+    const tex = (k: string): Texture | undefined => sheets.map((sh) => sh?.texture(k)).find((t) => t !== undefined);
+    const was = new Map(cats.map((c) => [c.id, c.cell]));
+    const key = `${found.map((f) => String(f.w.home)).join(",")}|${grid.join("")}`;
+    const keep = key === catsKey;
+    catsKey = key;
+    catGrid = grid;
+    cats = found.flatMap((f) => {
+      const walk = { se: f.w.walk.se.flatMap((k) => tex(k) ?? []), sw: f.w.walk.sw.flatMap((k) => tex(k) ?? []) };
+      const se = tex(f.w.sit.se);
+      const sw = tex(f.w.sit.sw);
+      const bed = tex(f.w.bed);
+      // Without all its frames (an older sheet) the cat just sleeps on its cell.
+      if (se === undefined || sw === undefined || bed === undefined || walk.se.length !== f.w.walk.se.length || walk.sw.length !== f.w.walk.sw.length) return [];
+      const id = `cat:${String(f.w.piece)}`;
+      const sprite = new Sprite({ texture: se, label: id, visible: false });
+      objectLayer.addChild(sprite);
+      return [{ id, w: f.w, bedSprite: f.bedSprite, asleep: f.asleep, bed, walk, sit: { se, sw }, sprite, cell: keep ? (was.get(id) ?? f.w.home) : f.w.home }];
+    });
+    catWalks.setGrid(grid);
+    if (keep) catWalks.place(cats.map(catTarget), performance.now());
+    else moveCats(!wanders());
+    scheduleCats();
+  };
+  /** Draws each cat at `now` (allocates nothing); true while one walks. */
+  function drawCats(now: number): boolean {
+    let walking = false;
+    for (const c of cats) {
+      if (!catWalks.sample(c.id, now, catPose)) continue;
+      const home = !catPose.walking && c.cell === c.w.home;
+      const bedTexture = home ? c.asleep : c.bed;
+      if (c.bedSprite.texture !== bedTexture) c.bedSprite.texture = bedTexture;
+      if (c.sprite.visible === home) c.sprite.visible = !home;
+      if (home) continue;
+      // The art has se and sw only: ne walks use se, nw sw.
+      const se = catPose.dir === "se" || catPose.dir === "ne";
+      const loop = se ? c.walk.se : c.walk.sw;
+      const t = catPose.walking ? (loop[Math.floor(catPose.step / 2) % loop.length] ?? c.sit.se) : se ? c.sit.se : c.sit.sw;
+      if (c.sprite.texture !== t) {
+        c.sprite.texture = t;
+        // A texture swap keeps the old anchor; walk and sit frames each have their own.
+        c.sprite.anchor.copyFrom(t.defaultAnchor ?? { x: 0, y: 0 });
+      }
+      c.sprite.position.set(catPose.x, catPose.y);
+      c.sprite.zIndex = catPose.z;
+      walking ||= catPose.walking;
+    }
+    return walking;
+  }
 
   // The theme's effect (ADR 0052): particles on a small overlay canvas over the effect's band only, at 1 px per stage px
   // (QA OME-1211), drawn without reading any canvas (OME-1212); a tick never renders the room (OME-1206). Its own rAF
@@ -777,6 +891,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       for (const m of markers) m?.destroy();
       furniture = [];
       looping = [];
+      const found: { w: CatWalker; bedSprite: Sprite; asleep: Texture }[] = [];
       pieceSprites = [];
       pieceLoops = [];
       // Floor tiles and rugs, then walls and wall pieces, then objects; the background keeps that order, objects sort by depth.
@@ -797,6 +912,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           live = textures.length === f.use.frames.length;
           if (live) looping.push({ sprite: s, piece: f.use.piece, idle: texture, textures, frames: textures.length, ms: f.use.ms });
         }
+        // The cat's bed swaps to empty while it's out (OME-1520): drawn live, like a loop.
+        if (f.walker !== undefined) {
+          live = true;
+          found.push({ w: f.walker, bedSprite: s, asleep: texture });
+        }
         (f.layer === "object" ? objectLayer : live ? liveWall : background).addChild(s);
         if (f.layer !== "object") continue;
         pieceSprites.push(s);
@@ -807,6 +927,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       shadows = new Set(pieceSprites);
       pinDirty = true;
       applyLoops();
+      setCats(found, sheets, walkGrid);
       // The room atlas's planks cover every cell: skip drawing the placeholder floor under them.
       floor.visible = !planks;
       bakeShell(background);
@@ -823,6 +944,22 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (pieces.size === inUse.size && [...pieces].every((p) => inUse.has(p))) return;
       inUse = pieces;
       applyLoops();
+    },
+    cats() {
+      const slot = Math.floor(serverNow() / CAT_SLOT_MS);
+      const now = performance.now();
+      return cats.flatMap((c) => {
+        if (!catWalks.sample(c.id, now, catPose)) return [];
+        const cell = cellAt(catPose);
+        return [{ cell: `${String(colOf(cell))},${String(rowOf(cell))}`, walking: catPose.walking, slot }];
+      });
+    },
+    setCatRules(taken, frozen) {
+      catTaken = taken;
+      if (frozen === catsFrozen) return;
+      catsFrozen = frozen;
+      moveCats(!wanders());
+      scheduleCats();
     },
     loops: () => running.map((l) => ({ key: l.sprite.label, frame: l.textures.indexOf(l.sprite.texture) })),
     update(seatTaken, avatars) {
@@ -962,6 +1099,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     confettiBursts: () => confettiBursts,
     destroy() {
       destroyed = true;
+      clearTimeout(catTimer);
       fxObserver.disconnect();
       fxCanvas.remove();
       sparkle.remove();

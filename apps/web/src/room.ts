@@ -109,6 +109,8 @@ export interface RoomHandle {
   readonly confetti: () => number;
   /** The furniture loops running now (room-view.ts `loops`, OME-1407), for e2e. */
   readonly furnitureLoops: () => ReturnType<Stage["view"]["loops"]>;
+  /** The wandering cats (room-view.ts `cats`, OME-1520), for e2e. */
+  readonly cats: () => ReturnType<Stage["view"]["cats"]>;
 }
 
 const NOTICE_MS = 3000;
@@ -168,6 +170,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }
   const roomStage: Stage = await createStage({
     reducedMotion,
+    roomId: opts.roomId,
+    serverNow: () => clock.serverNow(),
     dim: cinema.el,
     onMove: (id) => {
       if (id === state.self) closeWheel();
@@ -1169,5 +1173,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }
