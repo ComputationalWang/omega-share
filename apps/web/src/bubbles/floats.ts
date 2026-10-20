@@ -69,6 +69,8 @@ export interface FloatMessage {
   readonly accent?: string;
   /** My own bubble wears the mustard rim. */
   readonly self: boolean;
+  /** It names me (OME-1531): a ring, for me only. */
+  readonly mention?: boolean;
   /** The speaker's head (stage px): the tail's tip. */
   readonly at: Point;
   /** When it was said (ms on `now`'s clock), for a bubble adopted mid-life (the pop-out window); NaN: now. */
@@ -508,7 +510,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       const thought = thinkText(m.text);
       const text = action ?? thought ?? m.text;
       const shout = isShout(text);
-      s.p.className = `ui-float${m.self ? " is-self" : ""}${shout ? " is-shout" : ""}${action === null ? "" : " is-action"}${thought === null ? "" : " is-think"}`;
+      s.p.className = `ui-float${m.self ? " is-self" : ""}${m.mention === true ? " is-mention" : ""}${shout ? " is-shout" : ""}${action === null ? "" : " is-action"}${thought === null ? "" : " is-think"}`;
       s.p.style.setProperty("--tint", m.accent ?? "");
       // The twin measures the stacked size, so it wears the shout's weight too.
       s.twin.classList.toggle("is-shout", shout);

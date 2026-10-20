@@ -3,14 +3,13 @@
 import type { FloorCell, Member, MemberId } from "@omega/shared";
 import type { SystemLine } from "../controls/sysline";
 import type { ViewState } from "../state";
+import { foldName } from "./mention";
 
 export type MemberMatch = { readonly type: "match"; readonly id: MemberId; readonly nickname: string } | { readonly type: "none" } | { readonly type: "ambiguous" };
 
-/**
- * Case- and accent-folded (NFKD, marks dropped, lowercase). Not the UTS #39 skeleton: its table is server-only (ADR 0022,
- * kept out of the web bundle), and the server already keeps confusable twins out of one room.
- */
-const fold = (s: string): string => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
+// Folded like a mention (OME-1531). Not the full UTS #39 skeleton: its table is server-only (ADR 0023), and the server
+// already keeps confusable twins out of one room.
+const fold = (s: string): string => foldName(s).trim();
 
 /** The member other than me called `name`. */
 export function matchMember(members: readonly Member[], self: MemberId | null, name: string): MemberMatch {

@@ -4,6 +4,7 @@
 import { gapLine, joinedLine, leftLine, removedLine, removedMeLine } from "../controls/sysline";
 import type { ViewEvent, ViewState } from "../state";
 import type { ChatLogEntry } from "./log";
+import { mentions } from "./mention";
 
 export function logEntries(prev: ViewState, next: ViewState, event: ViewEvent): ChatLogEntry[] {
   if (event.type === "kicked") return prev.status === "kicked" ? [] : [{ kind: "system", line: removedMeLine() }];
@@ -11,7 +12,11 @@ export function logEntries(prev: ViewState, next: ViewState, event: ViewEvent): 
   const msg = event.msg;
   if (msg.type === "chat") {
     const who = next.room?.members.find((m) => m.id === msg.memberId);
-    return who === undefined ? [] : [{ kind: "chat", nickname: who.nickname, text: msg.text, self: msg.memberId === next.self }];
+    if (who === undefined) return [];
+    const self = msg.memberId === next.self;
+    // OME-1531: a line of someone else's that names me.
+    const me = self ? undefined : next.room?.members.find((m) => m.id === next.self);
+    return [{ kind: "chat", nickname: who.nickname, text: msg.text, self, mention: me !== undefined && mentions(msg.text, me.nickname) }];
   }
   // OME-1426: the readable record of a roll; the bubble over the roller is aria-hidden.
   if (msg.type === "rolled") {

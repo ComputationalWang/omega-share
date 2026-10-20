@@ -35,6 +35,8 @@ import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
 import { DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { hugHint, hugStep, matchMember } from "./chat/hug";
+import { attachMentionComplete } from "./chat/complete";
+import { mentionOptions } from "./chat/mention";
 import type { SystemLine } from "./controls/sysline";
 import { createOutfitSlots } from "./outfits/slots";
 import { chatKey } from "./chat/enter";
@@ -394,7 +396,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   popKey.append(sprite("ui-icon-popout"));
   const popOut = el("span", { className: "pop-out", hidden: true });
   popOut.append(popKey);
-  chatForm.append(picker.root, chatInput, chatSend, popOut);
+  // @-completion (OME-1531): the members here but me.
+  const mentionList = attachMentionComplete(chatInput, (q) => mentionOptions(state.room?.members ?? [], state.self, q));
+  chatForm.append(picker.root, chatInput, chatSend, popOut, mentionList);
   const chatAway = el("div", { className: "ui-panel ui-away chat-away", role: "status", hidden: true }, "chat-away");
   const chatAwayText = el("p");
   chatAwayText.append(el("b", { textContent: "Chat is in its own window." }), el("br"), "Bubbles still show over the avatars here.");
@@ -821,8 +825,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The tab's title (OME-1238): others' chat while the tab is hidden counts in front. Written on chat, rename and status
   // changes only, never per frame (a hidden tab draws none anyway).
   let unread = 0;
+  // One of them named me (OME-1531): the title says (@) instead of the count.
+  let mentioned = false;
   const writeTitle = (s: ViewState): void => {
-    const t = screen(s).notFound ? NOT_FOUND_TITLE : roomPageTitle(s.title, unread);
+    const t = screen(s).notFound ? NOT_FOUND_TITLE : roomPageTitle(s.title, unread, mentioned);
     if (document.title !== t) document.title = t;
   };
   const dispatch = (e: ViewEvent): void => {
@@ -845,7 +851,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         const speaker = from === undefined || isHidden(from) ? undefined : next.room?.members.find((m) => m.id === from);
         if (speaker !== undefined) layout.fsChat.say(speaker.avatar, entry.nickname, entry.text);
         layout.missed();
-        if (document.visibilityState === "hidden") unread++;
+        if (document.visibilityState === "hidden") {
+          unread++;
+          if (entry.mention === true) mentioned = true;
+        }
       }
     }
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
@@ -1134,6 +1143,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       c.ensureConnected({ probe: true });
       if (unread !== 0) {
         unread = 0;
+        mentioned = false;
         writeTitle(state);
       }
     }

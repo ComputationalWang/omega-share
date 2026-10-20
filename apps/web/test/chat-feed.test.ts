@@ -23,8 +23,8 @@ const msg = (m: ServerMessage, now = 0): ViewEvent => ({ type: "server", msg: m,
 
 describe("logEntries", () => {
   test("a member's chat is one line with their name; mine is marked", () => {
-    expect(step(joined(), msg({ type: "chat", memberId: "k", text: "hi", at: 1 })).entries).toEqual([{ kind: "chat", nickname: "Kit", text: "hi", self: false }]);
-    expect(step(joined(), msg({ type: "chat", memberId: "a", text: "me", at: 1 })).entries).toEqual([{ kind: "chat", nickname: "Ada", text: "me", self: true }]);
+    expect(step(joined(), msg({ type: "chat", memberId: "k", text: "hi", at: 1 })).entries).toEqual([{ kind: "chat", nickname: "Kit", text: "hi", self: false, mention: false }]);
+    expect(step(joined(), msg({ type: "chat", memberId: "a", text: "me", at: 1 })).entries).toEqual([{ kind: "chat", nickname: "Ada", text: "me", self: true, mention: false }]);
   });
 
   // OME-1426: a roll is a log line anyone can read back, and a bubble over the roller (aria-hidden, like every bubble).

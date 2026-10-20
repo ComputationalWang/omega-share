@@ -24,6 +24,7 @@ import tintsJson from "../../../assets/avatars/tints.json";
 import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
+import { mentions } from "./chat/mention";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -516,12 +517,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     speaking.clear();
     for (const b of s.bubbles) speaking.add(b.memberId);
     floats.keep(speaking);
+    const me = s.self === null ? undefined : members.get(s.self);
     handoff.hand(s.bubbles, (b) => {
       const p = view.position(b.memberId) ?? placedAt.get(b.memberId);
       const m = members.get(b.memberId);
       if (p === undefined || m === undefined) return false;
       const accent = tintAccent(TINTS, m.avatar, m.tint ?? 0);
-      floats.say({ id: b.memberId, name: m.nickname, text: b.text, ...(accent === null ? {} : { accent }), self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
+      floats.say({ id: b.memberId, name: m.nickname, text: b.text, ...(accent === null ? {} : { accent }), self: b.memberId === s.self, mention: b.memberId !== s.self && me !== undefined && mentions(b.text, me.nickname), at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
       return true;
     });
 
