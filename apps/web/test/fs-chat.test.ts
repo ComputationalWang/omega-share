@@ -3,7 +3,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { fullscreenLayout } from "../src/layout";
 
 // OME-1491 (board OME-1488): full screen's "hide chat". The strip and the shelf go, the picture takes the wrapper, and
-// others' lines show as small bubbles over the picture's bottom-right corner: at most 4, oldest out first, ~6 s each.
+// others' lines show as small bubbles in a column beside the picture: at most 4, oldest out first, ~6 s each.
 
 beforeAll(() => {
   GlobalRegistrator.register();
