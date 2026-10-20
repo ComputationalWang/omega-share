@@ -205,6 +205,150 @@ function beanieRows(f: BeanieFit): HatRows {
 
 export const BEANIE: HatDef = { roles: BEANIE_ROLES, replaces: true, rows: (id) => beanieRows(fitOf(BEANIE_FITS, id, "beanie")) };
 
+
+// ---------------------------------------------------------------- batch 2 (OME-1530): cap, flower, bow, halo
+
+// The web swaps an avatar's shirt-tint and hair slots in its hat overlays too (walk/tint-sheets.ts), so these four stay off every
+// swatch ramp (mustard, teal, rust, lilac) and hair ramp: a tinted Pip keeps his bow's colour.
+
+// ---------------------------------------------------------------- cap
+
+/** A navy ball cap (not olive, so Mo's cap never reads as his own bucket hat): a cream front panel, a darker brim that points the way the face does, a cream button on top. Fitted to the head,
+ *  so Pip and Mo wear it bare-headed (a cap over a beanie or a bucket hat reads as a stack of hats). */
+const CAP_ROLES: RoleMap = {
+  K: { ramp: "navy", hi: true, group: "K" },
+  V: { ramp: "cream", tone: 1, group: "K" },
+  D: { ramp: "navy", tone: 2, group: "D" },
+  Q: { ramp: "cream", tone: 0, group: "Q" },
+};
+
+/** baseY: the band's bottom row; half: the crown's half-width at the band; height: crown rows above it. */
+interface CapFit {
+  baseY: number;
+  cx: number;
+  half: number;
+  height: number;
+}
+const CAP_FITS: Readonly<Record<string, CapFit>> = {
+  juno: { baseY: -2, cx: 7, half: 9, height: 5 },
+  pip: { baseY: 2, cx: 8, half: 9, height: 6 },
+  mo: { baseY: 2, cx: 8, half: 9, height: 5 },
+  kiki: { baseY: 0, cx: 8, half: 7, height: 5 },
+};
+
+function capRows(f: CapFit, view: "front" | "back"): HatRows {
+  const { put, span, rows } = pad();
+  const { baseY, cx, half, height } = f;
+  for (let k = 0; k < height; k++) {
+    const t = k / height;
+    const w = Math.round(half * Math.sqrt(1 - t * t));
+    for (let x = cx - w; x <= cx + w; x++) {
+      // Front view: the cream panel is the face-side half of the crown, below the top row.
+      const panel = view === "front" && x > cx && k > 0 && k < height - 1;
+      put(x, baseY - k, panel ? "V" : "K");
+    }
+  }
+  span(baseY - height, cx - 1, cx + 1, "Q");
+  // Brim: sticks out on the face side (template-right) facing SE; from behind only its tip shows past the crown.
+  if (view === "front") {
+    span(baseY + 1, cx + 1, cx + half + 4, "D");
+    span(baseY, cx + half - 1, cx + half + 3, "D");
+  } else {
+    span(baseY, cx + half - 1, cx + half + 2, "D");
+  }
+  return rows();
+}
+
+export const CAP: HatDef = { roles: CAP_ROLES, replaces: false, rows: (id, view) => capRows(fitOf(CAP_FITS, id, "cap"), view) };
+
+// ---------------------------------------------------------------- flower
+
+/** A pink bloom with a ginger heart and an olive leaf, tucked above the near ear: in Juno's hair, on Pip's cream beanie, on Mo's olive
+ *  hat, on Kiki's cream hair band (pink would sink into her pink hair).
+ *  Worn over the avatar's own headwear, so nobody goes bare-headed. */
+const FLOWER_ROLES: RoleMap = {
+  K: { ramp: "pink", hi: true, group: "K" },
+  N: { ramp: "ginger", tone: 1, group: "N" },
+  J: { ramp: "olive", tone: 1, group: "J" },
+};
+const BLOOM = [".KK.K.", "KKKKKK", ".KNNKK", "KKNNK.", "KKKKKK", ".K.KK."];
+/** Bloom's top-left in head coordinates, per avatar (front view; the back view mirrors it onto the near ear at x 11–12). */
+const FLOWER_FITS: Readonly<Record<string, { x: number; y: number }>> = {
+  juno: { x: 0, y: -1 },
+  pip: { x: 0, y: -1 },
+  mo: { x: 0, y: -3 },
+  kiki: { x: -1, y: -3 },
+};
+
+function flowerRows(at: { x: number; y: number }, view: "front" | "back"): HatRows {
+  const { put, rows } = pad();
+  const x0 = view === "front" ? at.x : 15 - at.x - (BLOOM[0]?.length ?? 0) + 1;
+  BLOOM.forEach((r, y) => {
+    for (let i = 0; i < r.length; i++) if (r.charAt(i) !== ".") put(x0 + i, at.y + y, r.charAt(i));
+  });
+  // Leaf: a 3 px sprig poking out below, toward the back of the head.
+  const lx = view === "front" ? x0 - 1 : x0 + 6, dx = view === "front" ? -1 : 1;
+  put(lx, at.y + 4, "J");
+  put(lx, at.y + 5, "J");
+  put(lx + dx, at.y + 5, "J");
+  return rows();
+}
+
+export const FLOWER: HatDef = { roles: FLOWER_ROLES, replaces: false, rows: (id, view) => flowerRows(fitOf(FLOWER_FITS, id, "flower"), view) };
+
+// ---------------------------------------------------------------- bow
+
+/** A big velvet hair bow (deep berry parts from pink, ginger and dark hair) with a pink knot, perched on top toward the back of the head.
+ *  On Pip's pom or Mo's hat it would perch on headwear, so they wear it bare-headed. */
+const BOW_ROLES: RoleMap = {
+  K: { ramp: "velvet", hi: true, group: "K" },
+  D: { ramp: "velvet", tone: 2, group: "K" },
+  Q: { ramp: "pink", tone: 0, group: "Q" },
+};
+const BOW = ["KKK.....KKK", "KDKK.Q.KKDK", "KDDKQQQKDDK", "KDKKQQQKKDK", "KKK..Q..KKK"];
+
+function bowRows(f: BandFit, view: "front" | "back"): HatRows {
+  const { put, rows } = pad();
+  // Bottom two rows sink into the hair, so it sits rather than floats; from behind the crown reads lower, so one more.
+  const x0 = f.cx - 7, y0 = f.topY - (view === "front" ? 3 : 2);
+  BOW.forEach((r, y) => {
+    for (let i = 0; i < r.length; i++) if (r.charAt(i) !== ".") put(x0 + i, y0 + y, r.charAt(i));
+  });
+  return rows();
+}
+
+export const BOW_DEF: HatDef = { roles: BOW_ROLES, replaces: false, rows: (id, view) => bowRows(fitOf(FITS, id, "bow"), view) };
+
+// ---------------------------------------------------------------- halo
+
+/** A warm gold ring (ginger, not Juno's mustard swatch) floating above whatever is on the head: a 1 px far rim in shade, a 2 px near rim
+ *  with a bright cream core, so it holds up at 1×.
+ *  It never touches the head, so it goes over every look as is (no bare heads). */
+const HALO_ROLES: RoleMap = {
+  K: { ramp: "ginger", tone: 0, group: "K" },
+  D: { ramp: "ginger", tone: 2, group: "K" },
+  Q: { ramp: "cream", tone: 0, group: "K" },
+};
+/** The ring's bottom row per avatar: 3 px clear of the top of the hair or headwear (Pip's pom tops out at y -9, Kiki's buns at -6). */
+const HALO_FITS: Readonly<Record<string, { y: number; cx: number }>> = {
+  juno: { y: -9, cx: 7 },
+  pip: { y: -13, cx: 9 },
+  mo: { y: -7, cx: 8 },
+  kiki: { y: -9, cx: 8 },
+};
+
+const RING = ["...DDDDDDD...", ".DD.......DD.", "K...........K", "KQ.........QK", ".KQQ.....QQK.", "...KKQQQKK..."];
+
+function haloRows(f: { y: number; cx: number }): HatRows {
+  const { put, rows } = pad();
+  RING.forEach((r, k) => {
+    for (let i = 0; i < r.length; i++) if (r.charAt(i) !== ".") put(f.cx - 6 + i, f.y - RING.length + 1 + k, r.charAt(i));
+  });
+  return rows();
+}
+
+export const HALO: HatDef = { roles: HALO_ROLES, replaces: false, rows: (id) => haloRows(fitOf(HALO_FITS, id, "halo")) };
+
 /** The sheet's order; each id is also its frame-key prefix (`<id>/hat/<avatar frame key>`). `bare`: worn over the head, so Pip and
  *  Mo wear it bare-headed (their frames come from accessories/bare.png); the beanie replaces their headwear itself. */
 export const ACCESSORIES: readonly { id: string; hat: HatDef; bare: boolean }[] = [
@@ -212,4 +356,8 @@ export const ACCESSORIES: readonly { id: string; hat: HatDef; bare: boolean }[] 
   { id: "crown", hat: CROWN, bare: true },
   { id: "headphones", hat: HEADPHONES, bare: true },
   { id: "beanie", hat: BEANIE, bare: false },
+  { id: "cap", hat: CAP, bare: true },
+  { id: "flower", hat: FLOWER, bare: false },
+  { id: "bow", hat: BOW_DEF, bare: true },
+  { id: "halo", hat: HALO, bare: false },
 ];
