@@ -9,7 +9,7 @@ import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator, type FurnitureLoop } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
-import { CAT_SLOT_MS, catMove, catSeed } from "./walk/cat";
+import { CAT_SLOT_MS, catRest } from "./walk/cat";
 import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
 import { createWalks, emptyPose, type Dir } from "./walk/walks";
 import { wearsBare, wornHat } from "./accessory/hat";
@@ -558,7 +558,6 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let catGrid: Uint8Array = new Uint8Array(0);
   /** The cats' homes and grid as last set: an atlas rebuild of the same layout keeps them where they are. */
   let catsKey = "";
-  let catsSeen = false;
   let catTaken: ReadonlySet<number> = new Set<number>();
   let catsFrozen = false;
   let catTimer: ReturnType<typeof setTimeout> | undefined;
@@ -571,7 +570,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const moveCats = (home: boolean): void => {
     const s = serverNow();
     const slot = Math.floor(s / CAT_SLOT_MS);
-    for (const c of cats) c.cell = home ? c.w.home : (catMove(catGrid, c.w.home, c.cell, catSeed(opts.roomId ?? "", c.w.piece, slot), catTaken).at(-1) ?? c.w.home);
+    for (const c of cats) c.cell = home ? c.w.home : catRest(catGrid, c.w.home, opts.roomId ?? "", c.w.piece, slot, catTaken);
     catWalks.place(cats.map(catTarget), performance.now() - (s - slot * CAT_SLOT_MS));
     animator.wake();
   };
@@ -584,7 +583,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       scheduleCats();
     }, CAT_SLOT_MS - (serverNow() % CAT_SLOT_MS) + 1);
   };
-  /** The scene's cats: a new layout sends them home; the first I see are put where this slot's walk took them. */
+  /** The scene's cats, put on this slot's resting cell like on every other client. */
   const setCats = (found: readonly { readonly w: CatWalker; readonly bedSprite: Sprite; readonly asleep: Texture }[], sheets: readonly (Sheet | null)[], grid: Uint8Array): void => {
     for (const c of cats) c.sprite.destroy();
     const tex = (k: string): Texture | undefined => sheets.map((sh) => sh?.texture(k)).find((t) => t !== undefined);
@@ -607,8 +606,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     });
     catWalks.setGrid(grid);
     if (keep) catWalks.place(cats.map(catTarget), performance.now());
-    else moveCats(catsSeen || !wanders());
-    if (cats.length > 0) catsSeen = true;
+    else moveCats(!wanders());
     scheduleCats();
   };
   /** Draws each cat at `now` (allocates nothing); true while one walks. */
@@ -959,7 +957,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       catTaken = taken;
       if (frozen === catsFrozen) return;
       catsFrozen = frozen;
-      moveCats(true);
+      moveCats(!wanders());
       scheduleCats();
     },
     loops: () => running.map((l) => ({ key: l.sprite.label, frame: l.textures.indexOf(l.sprite.texture) })),

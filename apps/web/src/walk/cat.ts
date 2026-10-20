@@ -1,6 +1,6 @@
-// The room cat wanders (OME-1520), with no wire: every client works out the same walk from the room id, the piece's
-// index and the 20 s slot of server time. A slot's target is its home or a free cell within 3 of it that home reaches;
-// a member on the target or the way makes it wait out the slot where it is (no re-roll, so clients stay in step).
+// The room cat wanders (OME-1520), with no wire: every client works out the same resting cell from the room id, the
+// piece's index and the 20 s slot of server time. A slot's target is its home or a free cell within 3 of it that home
+// reaches; a member on the target or the way makes it wait on the last target (no re-roll, so clients stay in step).
 // Runs once per cat per slot, never per frame.
 import { FLOOR_CELLS } from "@omega/shared";
 import { colOf, findPath, rowOf } from "./path";
@@ -25,11 +25,8 @@ function mix(seed: number): number {
   return (t ^ (t >>> 14)) >>> 0;
 }
 
-/**
- * The cat's walk this slot: from `from` (where it rests) to its target, both included, or `[from]` when a member
- * (`taken`, walk cells) stands on the target or the way. `grid` is the layout's walk grid (home is the cat's own solid cell).
- */
-export function catMove(grid: Uint8Array, home: number, from: number, seed: number, taken: ReadonlySet<number>): number[] {
+/** The slot's target: home or a free cell within CAT_RANGE of it that home reaches, picked by `seed`. */
+export function catTarget(grid: Uint8Array, home: number, seed: number): number {
   const hc = colOf(home);
   const hr = rowOf(home);
   const cells: number[] = [];
@@ -39,18 +36,18 @@ export function catMove(grid: Uint8Array, home: number, from: number, seed: numb
       if (cell === home || (grid[cell] === 0 && findPath(grid, home, cell) !== null)) cells.push(cell);
     }
   }
-  const target = cells[mix(seed) % cells.length] ?? home;
-  const path = findPath(grid, from, target);
-  if (path === null || path.slice(1).some((c) => taken.has(c))) return [from];
-  return path;
+  return cells[mix(seed) % cells.length] ?? home;
 }
 
-/** The slot's target: home or a free cell within CAT_RANGE of it that home reaches. */
-export function catTarget(_grid: Uint8Array, home: number, _seed: number): number {
-  return home;
-}
-
-/** Where the cat rests in `slot`. */
-export function catRest(_grid: Uint8Array, home: number, _roomId: string, _piece: number, _slot: number, _taken: ReadonlySet<number>): number {
-  return home;
+/**
+ * Where the cat rests in `slot`: this slot's target, or the last slot's when a member (`taken`, walk cells) stands on the
+ * target or the way between them. No per-client history (QA OME-1525), so a late joiner, the editor closing and a new
+ * layout all agree with everyone else, at the next slot at the latest (`taken` is read when each client computes).
+ * `grid` is the layout's walk grid (home is the cat's own solid cell).
+ */
+export function catRest(grid: Uint8Array, home: number, roomId: string, piece: number, slot: number, taken: ReadonlySet<number>): number {
+  const from = catTarget(grid, home, catSeed(roomId, piece, slot - 1));
+  const to = catTarget(grid, home, catSeed(roomId, piece, slot));
+  const path = findPath(grid, from, to);
+  return path === null || path.slice(1).some((c) => taken.has(c)) ? from : to;
 }
