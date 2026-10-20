@@ -61,6 +61,7 @@ export const SPEC_ROOMS = {
   roll: ["two"],
   poll: ["three"],
   hug: ["walk"],
+  mention: ["two"],
   outfit: ["wear"],
   "desk-zoom": ["main"],
 } as const;

@@ -84,6 +84,13 @@ describe("chat log: structure and accessibility", () => {
     expect(lines().map((l) => l.classList.contains("self"))).toEqual([true, false]);
   });
 
+  test("a line that mentions me wears the mention highlight (OME-1531)", async () => {
+    const { log, lines } = await setup();
+    log.append({ kind: "chat", nickname: "Kit", text: "hi @ada", self: false, mention: true });
+    log.append({ kind: "chat", nickname: "Kit", text: "hi", self: false, mention: false });
+    expect(lines().map((l) => l.classList.contains("is-mention"))).toEqual([true, false]);
+  });
+
   test("a system line renders like the caption rail's (glyph, actor, verb, only-you bar)", async () => {
     const { log, lines } = await setup();
     log.append({ kind: "system", line: { glyph: "chat-mute", actor: "The host", verb: "muted your chat", time: null, self: true } });

@@ -251,7 +251,7 @@ VIEWPORTS.forEach((vp, i) => {
       expect(skipped, "surfaces with no opener at this viewport").toEqual(GUEST_SKIPS[vp.name] ?? []);
     });
 
-    test("room as owner: rest, share sheet, member menu, settings, editor", async ({ browser }) => {
+    test("room as owner: rest, poll, mention list, share sheet, member menu, settings, editor", async ({ browser }) => {
       const { id: roomId, ownerToken, inviteKey } = ownedRoom(OWNED[i] ?? "sweepa");
       const owner = await newPage(browser, vp, JSON.stringify({ v: 1, rooms: { [roomId]: { ownerToken, inviteKey } } }));
       const skipped: string[] = [];
@@ -269,6 +269,16 @@ VIEWPORTS.forEach((vp, i) => {
       await audit(owner, vp.name, "owner poll");
       await poll.locator("button.poll-close").click();
       await expect(poll).toBeHidden();
+      // OME-1531: the @mention completion list over the composer, with kit to pick.
+      await step(owner, vp, "mention list", skipped, async () => {
+        const input = owner.locator(site.chatInput);
+        if (!(await input.isVisible())) return false;
+        await input.focus();
+        await input.pressSequentially("@");
+        await expect(owner.getByRole("listbox", { name: "Mention someone" })).toBeVisible();
+        return true;
+      });
+      await owner.locator(site.chatInput).fill("");
       await step(owner, vp, "owner share sheet", skipped, async () => (await visibleClick(owner, id("portrait-link"))) || (await owner.locator(site.inviteLink).isVisible()));
       await step(owner, vp, "member menu", skipped, async () => {
         // In portrait the tags may live in the People list instead.
