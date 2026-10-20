@@ -170,6 +170,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }
   const roomStage: Stage = await createStage({
     reducedMotion,
+    roomId: opts.roomId,
+    serverNow: () => clock.serverNow(),
     dim: cinema.el,
     onMove: (id) => {
       if (id === state.self) closeWheel();

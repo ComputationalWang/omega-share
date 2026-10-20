@@ -42,6 +42,8 @@ export const FurnitureManifestSchema = v.object({
           use: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
           /** A door (OME-1424): an open frame, `furniture/<id>/<colour>/open/<dir>`, same rect and anchor as the closed back frame. */
           open: v.optional(v.boolean()),
+          /** A piece that wanders (the cat, OME-1520): its walk loop; frames `meta.omega.walkKey`, `sitKey`, and `bedKey` for the empty bed. */
+          walk: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
         }),
       ),
     }),
@@ -266,9 +268,16 @@ function pushSprites(
         ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms } }
         : part === "back" && piece.open === true
           ? { use: { piece: index, frames: [frame(`open/${f.facing}`)], ms: OPEN_MS } }
-          : {}),
+          : part === "back" && piece.walk !== undefined
+            ? { walker: walkerOf(frame, index, cellOf(f.col, f.row), f.facing, piece.walk) }
+            : {}),
     });
   }
+}
+
+function walkerOf(frame: (rest: string) => string, piece: number, home: number, facing: Facing, walk: { readonly frames: number; readonly ms: number }): CatWalker {
+  const loop = (dir: string): string[] => Array.from({ length: walk.frames }, (_, n) => frame(`walk/${dir}/${String(n)}`));
+  return { piece, home, walk: { se: loop("se"), sw: loop("sw") }, sit: { se: frame("sit/se"), sw: frame("sit/sw") }, bed: frame(`bed/${facing}`), ms: walk.ms };
 }
 
 /** The 7×7 rug's 9-slice part at offset (dc, dr): parts name the screen side of the rim (assets/README.md). */

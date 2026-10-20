@@ -89,6 +89,8 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let nextLoop = Infinity;
   /** Set by drawAll: someone danced in it, so the next frame is on the walkers' clock. */
   let dancing = false;
+  /** Set by drawAll: a prop (the cat, OME-1520) walked in it; same clock. */
+  let propWalking = false;
 
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
     if (frames === null) return null;
@@ -107,6 +109,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     nextEmote = Infinity;
     dancing = false;
     nextLoop = Infinity;
+    propWalking = o.drawProps?.(now) ?? false;
     if (loops.length > 0) {
       // Basic steps every loop on the walkers' 150 ms clock; Smooth gives each its own frame time. Still: frame -1.
       const smooth = o.smooth();
@@ -178,7 +181,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     const now = o.now();
     const next = drawAll(now);
     o.render();
-    const walking = o.walks.walking(now) || dancing;
+    const walking = o.walks.walking(now) || dancing || propWalking;
     o.rendered?.(now, walking && o.smooth());
     schedule(now, next, walking);
   };
@@ -226,7 +229,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       if (paused) return;
       const now = o.now();
       const next = drawAll(now);
-      schedule(now, next, o.walks.walking(now) || dancing);
+      schedule(now, next, o.walks.walking(now) || dancing || propWalking);
     },
     setLoops(next) {
       loops = next;
@@ -258,7 +261,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       }
       requestFrame();
     },
-    wake() {},
+    wake: requestFrame,
     pause(next) {
       if (next === paused || disposed) return;
       paused = next;

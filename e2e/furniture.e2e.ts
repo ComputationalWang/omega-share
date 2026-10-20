@@ -378,14 +378,11 @@ test.describe("the wandering cat", () => {
   test.fixme(!available.server, PENDING.server);
 
   const SLOT_MS = 20_000;
+  /** A valid room (eight seats) with two cats. */
   const CATS: RoomLayout = {
-    furniture: [
-      { kind: "tv", col: 0, row: 0, facing: "se" },
-      { kind: "cat", col: 5, row: 4, facing: "sw" },
-      { kind: "cat", col: 3, row: 7, facing: "se", variant: 1 },
-    ],
+    furniture: [...V2_BENCHES.furniture, { kind: "cat", col: 3, row: 3, facing: "sw" }, { kind: "cat", col: 7, row: 7, facing: "se", variant: 1 }],
   };
-  const HOMES = ["5,4", "3,7"];
+  const HOMES = ["3,3", "7,7"];
 
   interface Cat { readonly cell: string; readonly walking: boolean; readonly slot: number }
   /** Each cat as drawn now (room-view.ts `cats`): its cell "col,row", whether it walks, and the slot it is in. */

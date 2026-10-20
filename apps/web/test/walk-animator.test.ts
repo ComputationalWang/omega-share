@@ -800,14 +800,15 @@ describe("animator: walking props (the cat)", () => {
     expect(s.frame(0)).toBe(true);
     let t = 0;
     for (let i = 0; i < 10 && s.timers.length > 0; i++) {
-      const timer = s.timers.pop();
+      const timer = s.timers.at(-1);
       if (timer === undefined) break;
+      s.timers.length = 0;
       t += timer.ms;
       timer.fn();
       expect(s.frame(t)).toBe(true);
     }
     expect(drawn).toEqual([0, 0, 150, 300, 450, 600]);
-    expect(s.timers.length).toBe(0);
+    expect(s.timers.length).toBe(0); // at rest: nothing scheduled
     expect(s.rafs.length).toBe(0);
   });
 
