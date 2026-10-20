@@ -543,7 +543,8 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
 /* The camera key (OME-1565) would wrap a long title off the portrait bar and push the room out; /snap still works. */
-.room-portrait .snap-key { display: none; }
+.room-portrait .room-top > .snap-key { display: none; }
+.room-portrait .room-top > .snap-key + .ui-button { margin-left: auto; }
 .room-portrait > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .room-portrait > .status:empty, .room-portrait > .editor-panel:empty, .room-portrait > .room-bar:empty { display: none; }
 .room-portrait > .chat-log { height: 76px; max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }

@@ -58,7 +58,7 @@ async function snapWith(page: Page, act: "key" | "slash"): Promise<Download> {
 }
 
 /** Decode the PNG in the page: its size, and how many photo pixels differ from the canvas copy at 2×. */
-async function check(page: Page, download: Download): Promise<{ w: number; h: number; cw: number; ch: number; diff: number; band: boolean }> {
+async function check(page: Page, download: Download): Promise<{ w: number; h: number; cw: number; ch: number; diff: number; room: number; band: boolean }> {
   const path = await download.path();
   const png = (await readFile(path)).toString("base64");
   return page.evaluate(
@@ -76,11 +76,15 @@ async function check(page: Page, download: Download): Promise<{ w: number; h: nu
       ctx.drawImage(bmp, 0, 0);
       const got = ctx.getImageData(0, 0, out.width, out.height).data;
       const want = rctx.getImageData(0, 0, ref.width, ref.height).data;
+      // The room's own pixels (the canvas is transparent around it, where the photo shows the page's backdrop).
       let diff = 0;
+      let room = 0;
       for (let y = 0; y < ref.height * 2; y++) {
         for (let x = 0; x < ref.width * 2; x++) {
           const g = ((border + y) * out.width + border + x) * 4;
           const r = ((y >> 1) * ref.width + (x >> 1)) * 4;
+          if (want[r + 3] !== 255) continue;
+          room++;
           for (let c = 0; c < 4; c++) if (got[g + c] !== want[r + c]) {
             diff++;
             break;
@@ -91,7 +95,7 @@ async function check(page: Page, download: Download): Promise<{ w: number; h: nu
       const strip = ctx.getImageData(0, out.height - band, out.width, band).data;
       let dark = 0;
       for (let i = 0; i < strip.length; i += 4) if ((strip[i] ?? 255) < 128) dark++;
-      return { w: bmp.width, h: bmp.height, cw: ref.width, ch: ref.height, diff, band: dark > 50 && (strip[0] ?? 0) > 200 };
+      return { w: bmp.width, h: bmp.height, cw: ref.width, ch: ref.height, diff, room, band: dark > 50 && (strip[0] ?? 0) > 200 };
     },
     [png, BORDER, BAND] as const,
   );
@@ -103,11 +107,8 @@ for (const act of ["key", "slash"] as const) {
     const [a] = clients;
     if (a === undefined) throw new Error("need a client");
     if (act === "key") {
-      const key = a.page.locator(site.snapKey);
-      await expect(key).toHaveAccessibleName(/photo/i);
-      const box = await key.boundingBox();
-      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      // Its 44 px touch target (reference.css, under .ui-touch) is audited by the a11y sweep at 844x390-touch.
+      await expect(a.page.locator(site.snapKey)).toHaveAccessibleName(/photo/i);
     }
     await say(a.page, "cheese");
     const download = await snapWith(a.page, act);
@@ -116,6 +117,7 @@ for (const act of ["key", "slash"] as const) {
     expect(r.cw).toBeGreaterThan(0);
     expect({ w: r.w, h: r.h }).toEqual({ w: r.cw * 2 + BORDER * 2, h: r.ch * 2 + BORDER + BAND });
     // Pixel for pixel the canvas: the DOM layers over it (tags, the "cheese" bubble) and the video aren't in it.
+    expect(r.room).toBeGreaterThan(r.cw * r.ch);
     expect(r.diff).toBe(0);
     expect(r.band).toBe(true);
     // /snap is a command, not chat: no line went out.

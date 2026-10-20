@@ -43,6 +43,15 @@ export function polaroidLayout(w: number, h: number): PolaroidLayout {
   };
 }
 
+/** The first painted background colour behind `e`. */
+function backdrop(e: Element): string {
+  for (let n: Element | null = e; n !== null; n = n.parentElement) {
+    const c = getComputedStyle(n).backgroundColor;
+    if (c !== "" && c !== "transparent" && c !== "rgba(0, 0, 0, 0)") return c;
+  }
+  return "#000";
+}
+
 /** Frame the canvas as it is now and save it as `omega-<date>.png`. */
 export function snapRoom(scene: HTMLCanvasElement, title: string, now: Date): void {
   const l = polaroidLayout(scene.width, scene.height);
@@ -53,6 +62,9 @@ export function snapRoom(scene: HTMLCanvasElement, title: string, now: Date): vo
   if (ctx === null) return;
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, l.width, l.height);
+  // The canvas is transparent around the room: the photo keeps the backdrop the page shows there.
+  ctx.fillStyle = backdrop(scene);
+  ctx.fillRect(l.photo.x, l.photo.y, l.photo.w, l.photo.h);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(scene, l.photo.x, l.photo.y, l.photo.w, l.photo.h);
   const font = getComputedStyle(document.body).fontFamily;
