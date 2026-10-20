@@ -93,6 +93,15 @@ const WALK25_ACCESSORIES: readonly Budget[] = Object.entries(WALK25_PROFILES).fl
   })),
 );
 
+// OME-1578: Smooth again with a 12-person /conga line (12 walks relayed in one tick, every 360 ms), at the same budgets.
+const WALK25_CONGA: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, pl]): Budget[] =>
+  WALK25.filter((b) => b.id.endsWith(`.${p}.smooth`)).map((b) => ({
+    ...b,
+    id: b.id.replace(/^walk25\.(\w+)\..*$/, `walk25.conga.$1.${p}`),
+    metric: `${b.metric.replace(`, ${pl}, Smooth tier`, "")}, a 12-person /conga line, ${pl}, Smooth tier`,
+  })),
+);
+
 // OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
 const LANDING: readonly Budget[] = [
   { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
@@ -119,6 +128,7 @@ export const BUDGETS: readonly Budget[] = [
   ...POPOUT_ROOM,
   ...WALK25,
   ...WALK25_ACCESSORIES,
+  ...WALK25_CONGA,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.

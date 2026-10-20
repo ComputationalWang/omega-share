@@ -56,7 +56,7 @@ import { createHairSection, createTintSection } from "./controls/tint-section";
 import { saveAccessory, saveHair, saveTint } from "./profile";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import { followStep } from "./walk/follow";
-import { NO_CONGA, congaAhead, congaJoin, congaPrune, congaServer, congaText } from "./chat/conga";
+import { NO_CONGA, congaAhead, congaJoin, congaStep, congaText } from "./chat/conga";
 import { createPads } from "./walk/pad";
 import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
@@ -943,7 +943,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (step === "stop") stopFollow();
       else if (step === "walk") walkOver(following)?.();
     }
-    const line = congaPrune(e.type === "server" ? congaServer(conga, e.msg) : conga, next);
+    const line = congaStep(conga, e.type === "server" ? e.msg : null, prevState, next);
     if (line !== conga) {
       conga = line;
       people.conga(line.ids);

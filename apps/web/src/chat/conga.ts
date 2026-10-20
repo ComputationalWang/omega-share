@@ -54,7 +54,24 @@ export function congaServer(line: Conga, msg: ServerMessage): Conga {
   return joined === "full" ? line : joined;
 }
 
-/** The line after an event (`msg` null for a local one). Stub (OME-1578 red). */
+/** Same seats, same members in the same order, nobody's floor sit changed: nobody can have left the line. */
+function sameLineup(a: ViewState["room"], b: ViewState["room"]): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (a.seats !== b.seats || a.members.length !== b.members.length) return false;
+  for (let i = 0; i < a.members.length; i++) {
+    const m = a.members[i];
+    const n = b.members[i];
+    if (m !== n && (m?.id !== n?.id || m?.floorSit !== n?.floorSit)) return false;
+  }
+  return true;
+}
+
+/**
+ * The line after an event (`msg` null for a local one): the server's change, then the prune. A walk or a chat line keeps
+ * the line and the lineup, so it skips the rescan, which was most of a `walked` relay's cost with a 12-person line (OME-1578).
+ */
 export function congaStep(line: Conga, msg: ServerMessage | null, prev: ViewState, next: ViewState): Conga {
-  return congaPrune(line, msg === null ? prev : next);
+  const changed = msg === null ? line : congaServer(line, msg);
+  return changed === line && sameLineup(prev.room, next.room) ? line : congaPrune(changed, next);
 }
