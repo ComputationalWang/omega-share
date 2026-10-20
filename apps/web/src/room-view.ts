@@ -21,6 +21,7 @@ import { CONFETTI_MS, CONFETTI_SPRITES, EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPAR
 import { DOOR, cellAt, centerOf, colOf, rowOf } from "./walk/path";
 import { resolveTheme } from "./theme/periods";
 import { livePieces, type LivePieces } from "./live-pieces";
+import { clockFace, handSteps, minuteTicks, type HandSteps } from "./wall-clock";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
@@ -237,7 +238,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
   let lastTaken: (boolean | null)[] = [];
-  let furniture: Sprite[] = [];
+  let furniture: Container[] = [];
   /** The object pieces' live copies, by `live` index; `shadows` the same as a set, to tell them from avatars and hats. */
   let pieceSprites: Sprite[] = [];
   /** By the same index: the piece loops, so it has no baked copy and always draws live. */
@@ -252,6 +253,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let looping: Loop[] = [];
   let running: Loop[] = [];
   let inUse: ReadonlySet<number> = new Set<number>();
+  /** Wall clocks' faces (OME-1557), in the baked shell over their sprites: repainted on the minute, never per frame. */
+  let clocks: { readonly g: Graphics; readonly facing: "se" | "sw" }[] = [];
+  let clockSteps: HandSteps | null = null;
+  let stopClocks: (() => void) | null = null;
   const pool = new Map<MemberId, Entry>();
 
   /** Members drawn dimmed (OME-769); a member's node takes it on when made or swapped for a sprite. */
@@ -898,6 +903,22 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       });
   }
 
+  const paintClocks = (s: HandSteps): void => {
+    for (const c of clocks) {
+      c.g.clear();
+      for (const p of clockFace(c.facing, s)) c.g.rect(p.x, p.y, 1, 1).fill(p.color);
+    }
+  };
+  /** A minute tick: a new time repaints the faces and re-bakes the shell once. */
+  const tickClocks = (now: Date): void => {
+    const s = handSteps(now);
+    if (clockSteps !== null && s.hour === clockSteps.hour && s.minute === clockSteps.minute) return;
+    clockSteps = s;
+    paintClocks(s);
+    bakeShell(background);
+    render();
+  };
+
   /** Hand the in-use loops to the animator; pieces no longer in use go back to their idle frame. */
   const applyLoops = (): void => {
     const was = running.length;
@@ -918,6 +939,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       for (const m of markers) m?.destroy();
       furniture = [];
       looping = [];
+      clocks = [];
       const found: { w: CatWalker; bedSprite: Sprite; asleep: Texture }[] = [];
       pieceSprites = [];
       pieceLoops = [];
@@ -945,11 +967,27 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           found.push({ w: f.walker, bedSprite: s, asleep: texture });
         }
         (f.layer === "object" ? objectLayer : live ? liveWall : background).addChild(s);
+        const [, kind, , facing] = f.key.split("/");
+        if (kind === "wallclock" && (facing === "se" || facing === "sw") && !live) {
+          // Same depth, added after the sprite: the shell's stable sort keeps it right over its clock.
+          const g = new Graphics({ label: `${f.key}/hands`, x: f.x, y: f.y, zIndex: f.z });
+          furniture.push(g);
+          background.addChild(g);
+          clocks.push({ g, facing });
+        }
         if (f.layer !== "object") continue;
         pieceSprites.push(s);
         pieceLoops.push(live);
         // A loop's frames change: it has no baked copy.
         if (!live) baked.addChild(new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z }));
+      }
+      if (clocks.length > 0) {
+        clockSteps = handSteps(new Date());
+        paintClocks(clockSteps);
+        stopClocks ??= minuteTicks({ now: () => new Date(), setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (h) => { clearTimeout(h as ReturnType<typeof setTimeout>); }, document, onTick: tickClocks });
+      } else {
+        stopClocks?.();
+        stopClocks = null;
       }
       shadows = new Set(pieceSprites);
       pinDirty = true;
@@ -1129,6 +1167,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     destroy() {
       destroyed = true;
       clearTimeout(catTimer);
+      stopClocks?.();
       fxObserver.disconnect();
       fxCanvas.remove();
       sparkle.remove();
