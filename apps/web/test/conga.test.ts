@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CONGA_CAP, CONGA_WINDOW_MS, type RoomState } from "@omega/shared";
-import { NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaText, type Conga } from "../src/chat/conga";
+import { NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaServer, congaText, type Conga } from "../src/chat/conga";
 import { initialState, reduce } from "../src/state";
 import { HELP_LINE } from "../src/chat/effects";
 
@@ -79,5 +79,26 @@ describe("the conga line", () => {
     expect(congaPrune(join(abc, "d", 2500), s).ids).toEqual(["a"]);
     const kept = join(NO_CONGA, "a", 0);
     expect(congaPrune(kept, s)).toBe(kept);
+  });
+});
+
+// OME-1573
+describe("congaServer", () => {
+  const at = 5000;
+  const chat = (memberId: string, text: string) => ({ type: "chat" as const, memberId, text, at });
+  test("a snapshot hands over the server's line, or none", () => {
+    const snapshot = { type: "snapshot" as const, self: "d", room: { id: "lobby", seats: Array.from({ length: 8 }, () => null), members: [], embed: null } };
+    expect(congaServer(NO_CONGA, { ...snapshot, conga: { ids: ["a", "b", "c"], last: 2000 } })).toEqual({ ids: ["a", "b", "c"], last: 2000 });
+    expect(congaServer(abc, snapshot)).toBe(NO_CONGA);
+  });
+
+  test("a /conga line joins, a /stop line leaves, a full line and other messages change nothing", () => {
+    expect(congaServer(abc, chat("d", "/conga")).ids).toEqual(["a", "b", "c", "d"]);
+    expect(congaServer(abc, chat("b", "/stop")).ids).toEqual(["a", "c"]);
+    expect(congaServer(abc, chat("d", "hi"))).toBe(abc);
+    expect(congaServer(abc, { type: "member-left", memberId: "a" })).toBe(abc);
+    let full = NO_CONGA;
+    for (let i = 0; i < CONGA_CAP; i++) full = join(full, `m${String(i)}`, i);
+    expect(congaServer(full, chat("x", "/conga"))).toBe(full);
   });
 });
