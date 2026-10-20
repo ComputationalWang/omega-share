@@ -23,29 +23,29 @@ async function setup(checked = 0) {
 }
 
 describe("accessory row", () => {
-  test("five named options in a labelled radiogroup, the current one checked and the one tab stop", async () => {
+  test("nine named options in a labelled radiogroup, the current one checked and the one tab stop", async () => {
     const { group, radios } = await setup(2);
     expect(group.getAttribute("role")).toBe("radiogroup");
     expect(group.getAttribute("aria-label")).toBe("Accessory");
-    expect(radios.map((r) => r.getAttribute("aria-label"))).toEqual(["None", "Party hat", "Crown", "Headphones", "Beanie"]);
-    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false", "true", "false", "false"]);
-    expect(radios.map((r) => r.tabIndex)).toEqual([-1, -1, 0, -1, -1]);
+    expect(radios.map((r) => r.getAttribute("aria-label"))).toEqual(["None", "Party hat", "Crown", "Headphones", "Beanie", "Cap", "Flower", "Bow", "Halo"]);
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false", "true", "false", "false", "false", "false", "false", "false"]);
+    expect(radios.map((r) => r.tabIndex)).toEqual([-1, -1, 0, -1, -1, -1, -1, -1, -1]);
   });
 
   test("a click picks that accessory; the checked one again sends nothing", async () => {
     const { radios, picked } = await setup();
-    radios[4]?.click();
-    radios[4]?.click();
-    expect(picked).toEqual([4]);
-    expect(radios[4]?.getAttribute("aria-checked")).toBe("true");
+    radios[8]?.click();
+    radios[8]?.click();
+    expect(picked).toEqual([8]);
+    expect(radios[8]?.getAttribute("aria-checked")).toBe("true");
   });
 
   test("arrows move the choice and wrap, focus follows", async () => {
     const { group, radios, picked } = await setup();
     radios[0]?.focus();
     group.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
-    expect(picked).toEqual([4]);
-    expect(document.activeElement).toBe(radios[4] ?? null);
+    expect(picked).toEqual([8]);
+    expect(document.activeElement).toBe(radios[8] ?? null);
   });
 
   test("the landing's static row is the same markup (index.html, no layout shift)", async () => {

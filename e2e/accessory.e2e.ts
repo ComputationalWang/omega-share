@@ -1,4 +1,4 @@
-// Head accessories (OME-1391): a 5-option row (none + 4) under the landing tint row (sent with `join`) and in the People
+// Head accessories (OME-1391, 5..8 OME-1532): a 9-option row (none + 8) under the landing tint row (sent with `join`) and in the People
 // panel (sends `set-accessory`). The overlay is drawn where a theme hat goes, and a member's own accessory wins over the
 // theme's hat. The sheet loads only once someone in the room wears one. Sheet parsing and the hat choice are unit tests
 // (apps/web/test/accessory-sheet.test.ts).
@@ -58,13 +58,14 @@ const sheetRequests = (page: Page): string[] => {
   return seen;
 };
 
-test("landing: five named options under the tints, 44 px to a finger, the pick saved; the sheet never loads there", async ({ browser }) => {
+test("landing: nine named options under the tints, 44 px to a finger, the pick saved; the sheet never loads there", async ({ browser }) => {
   const context = await watchCsp(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }));
   const page = await context.newPage();
   const requests = sheetRequests(page);
   await page.goto(URLS.web);
   const options = page.getByRole("radiogroup", { name: "Accessory" }).getByRole("radio");
-  await expect(options).toHaveCount(5);
+  await expect(options).toHaveCount(9);
+  await expect(options.last()).toHaveAttribute("aria-label", "Halo");
   await expect(options.first()).toHaveAttribute("aria-label", "None");
   for (const box of await Promise.all((await options.all()).map((s) => s.boundingBox()))) {
     expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
@@ -151,4 +152,26 @@ test("Pip and Mo go bare-headed under a crown, Juno doesn't; under the beanie no
   await pip.page.getByTestId("people-key").click();
   await pip.page.getByTestId("accessory-menu").getByRole("radio", { name: "Beanie" }).click();
   await expect.poll(() => bareOn(ids[1]), { timeout: 3000, intervals: [50] }).toBe("4:false");
+});
+
+// OME-1532: all eight drawn in the room at 1x, Pip bare-headed under the ones marked bare (cap and bow among the new four).
+// A screenshot per accessory goes into the report for QA's look.
+test("all eight accessories draw in the room at 1x, Pip bare under the party hat, crown, headphones, cap and bow", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("accessory", "eight").url, count: 2, nicknamePrefix: "acc8", contextOptions: () => ({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 }) });
+  const [juno, pip] = clients;
+  if (juno === undefined || pip === undefined) throw new Error("need two clients");
+  const pipId = await self(pip.page);
+  await pip.page.getByTestId("people-key").click();
+  const radios = pip.page.getByTestId("accessory-menu").getByRole("radio");
+  await expect(radios).toHaveCount(9);
+  const bareUnder = [true, true, true, false, true, false, true, false];
+  for (let a = 1; a <= 8; a++) {
+    // set-accessory shares the emote bucket (3, then 1/s): one pick a second never trips it.
+    if (a > 3) await pip.page.waitForTimeout(1000);
+    await radios.nth(a).click();
+    await expect
+      .poll(async () => v.parse(Frames, await handle(juno.page, "avatarFrames", pipId)), { timeout: 15_000 })
+      .toMatchObject({ accessory: a, bare: bareUnder[a - 1] });
+    await test.info().attach(`accessory-${String(a)}-1x.png`, { body: await juno.page.screenshot(), contentType: "image/png" });
+  }
 });

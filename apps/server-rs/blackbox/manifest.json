@@ -428,6 +428,7 @@
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::a title the lobby hides (blocklist) gets the generic card too",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::the html pages still serve, with the site-wide card",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look",
+    "apps/server/test/typing-accessory.test.ts::accessory (OME-1387)::accessories 5..8 (OME-1532): join takes 8, set-accessory 5 relays; 9 is bad_message",
     "apps/server/test/typing-accessory.test.ts::accessory (OME-1387)::join sets it, set-accessory changes it for everyone, the snapshot carries it",
     "apps/server/test/typing-accessory.test.ts::accessory (OME-1387)::out of bounds is bad_message on set-accessory and on join; nothing is relayed",
     "apps/server/test/typing-accessory.test.ts::accessory (OME-1387)::set-accessory shares the emote bucket: 3 changes relay, the next is rate_limited",

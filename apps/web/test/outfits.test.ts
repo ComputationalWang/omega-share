@@ -33,6 +33,13 @@ describe("readOutfits", () => {
     expect(readOutfits(blocked)).toEqual([null, null, null]);
   });
 
+  test("accessories 0..8 load (OME-1532): old outfits unchanged, 5..8 kept, 9 ignored", () => {
+    const old = [0, 1, 4].map((accessory) => ({ ...fit, accessory }));
+    expect(readOutfits(store({ [KEY]: JSON.stringify(old) }))).toEqual(old);
+    const [cap, halo] = [{ ...fit, accessory: 5 }, { ...fit, accessory: 8 }];
+    expect(readOutfits(store({ [KEY]: JSON.stringify([cap, halo, { ...fit, accessory: 9 }]) }))).toEqual([cap, halo, null]);
+  });
+
   test("extra entries past three are dropped", () => {
     expect(readOutfits(store({ [KEY]: JSON.stringify([fit, fit, fit, fit]) }))).toEqual([fit, fit, fit]);
   });

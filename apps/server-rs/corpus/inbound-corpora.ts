@@ -52,8 +52,8 @@ const valid: Raw[] = [
   ...[0, 1, 2, 3, 4, 5].map((tint) => js({ type: "set-tint", tint })),
   js({ ...JOIN, tint: 0 }), js({ ...JOIN, tint: 5 }),
   js({ type: "typing", on: true }), js({ type: "typing", on: false }),
-  ...[0, 1, 2, 3, 4].map((accessory) => js({ type: "set-accessory", accessory })),
-  js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, tint: 2, accessory: 3 }),
+  ...[0, 1, 2, 3, 4, 5, 6, 7, 8].map((accessory) => js({ type: "set-accessory", accessory })),
+  js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, accessory: 8 }), js({ ...JOIN, tint: 2, accessory: 3 }),
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
@@ -176,7 +176,7 @@ const invalid: Raw[] = [
   ...[6, -1, 0.5, "1", null, true].map((tint) => js({ type: "set-tint", tint })), js({ ...JOIN, tint: 6 }), js({ ...JOIN, tint: null }),
   // typing, set-accessory, join accessory (OME-1387)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "typing", on })), js({ type: "typing" }),
-  ...[5, -1, 0.5, "1", null, true].map((accessory) => js({ type: "set-accessory", accessory })), js({ ...JOIN, accessory: 5 }), js({ ...JOIN, accessory: null }),
+  ...[9, -1, 0.5, "1", null, true].map((accessory) => js({ type: "set-accessory", accessory })), js({ ...JOIN, accessory: 9 }), js({ ...JOIN, accessory: null }),
   // set-hair, join hair (OME-1435)
   ...[6, -1, 0.5, "1", null, true].map((hair) => js({ type: "set-hair", hair })), js({ ...JOIN, hair: 6 }), js({ ...JOIN, hair: null }),
   // floor-sit, layout mood (OME-1499)
