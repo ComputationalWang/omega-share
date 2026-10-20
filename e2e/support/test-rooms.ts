@@ -64,6 +64,7 @@ export const SPEC_ROOMS = {
   mention: ["two"],
   outfit: ["wear"],
   "desk-zoom": ["main"],
+  teleport: ["pads"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

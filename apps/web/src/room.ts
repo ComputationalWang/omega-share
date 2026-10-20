@@ -55,6 +55,7 @@ import { createHairSection, createTintSection } from "./controls/tint-section";
 import { saveAccessory, saveHair, saveTint } from "./profile";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import { followStep } from "./walk/follow";
+import { createPads } from "./walk/pad";
 import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 
@@ -180,6 +181,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     onStop: (id) => {
       if (id === state.self && hug?.arrived === true) hugNow();
+      const room = state.room;
+      if (id === state.self && room?.layout !== undefined) pads.stopped(room.layout, room.members.find((m) => m.id === id)?.cell);
     },
     requestRender: () => {
       requestRender();
@@ -253,11 +256,30 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     walkOver(id)?.();
   }
   followStopKey.addEventListener("click", stopFollow);
-  const walkGate = createWalkGate({
+  // Teleport pads (OME-1548): the teleport itself goes out unthrottled (one per 400 ms stand); every walk of mine, held
+  // by the gate or not, takes a pending one back and arms the next stop.
+  const pads = createPads({
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+    },
+    send: (m) => send(m),
+  });
+  const gate = createWalkGate({
     now: () => performance.now(),
     send: (m) => send(m),
     setTimer: (fn, ms) => setTimeout(fn, ms),
   });
+  const walkGate = {
+    push(m: ClientMessage): void {
+      pads.walkSent();
+      gate.push(m);
+    },
+    cancel(): void {
+      pads.cancel();
+      gate.cancel();
+    },
+  };
   let lastStep = -Infinity;
   const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");
@@ -832,6 +854,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (document.title !== t) document.title = t;
   };
   const dispatch = (e: ViewEvent): void => {
+    if (e.type === "server" && e.msg.type === "walked" && e.msg.teleport === true) roomStage.teleported(e.msg.memberId);
     const next = reduce(state, e);
     if (next === state) return;
     const unreadBefore = unread;

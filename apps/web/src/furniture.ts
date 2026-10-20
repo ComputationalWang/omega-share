@@ -126,6 +126,8 @@ export function standingPoints(layout: RoomLayout): Point[] {
 /** The pieces with an "in use" loop (OME-1405, OME-1437 art, assets/README.md), by what sets it off: someone standing at
  * their front, someone sitting in them, a video playing. */
 const FRONT_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign", "door", "piano"]);
+/** A teleport pad (OME-1548) is lit while someone stands on its own cell. */
+const ON_KINDS: ReadonlySet<FurnitureKind> = new Set(["pad"]);
 const SEATED_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock"]);
 const PLAYING_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
 /** A one-frame "loop" never steps; the frame time only has to be a valid one. */
@@ -143,7 +145,9 @@ export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, p
   const out = new Set<number>();
   layout.furniture.forEach((f, i) => {
     if (playing && PLAYING_KINDS.has(f.kind)) out.add(i);
-    else if (SEATED_KINDS.has(f.kind) && footprintCells(f).some(([c, r]) => seated.has(cellOf(c, r)))) out.add(i);
+    else if (ON_KINDS.has(f.kind)) {
+      if (standing.has(cellOf(f.col, f.row))) out.add(i);
+    } else if (SEATED_KINDS.has(f.kind) && footprintCells(f).some(([c, r]) => seated.has(cellOf(c, r)))) out.add(i);
     else if (FRONT_KINDS.has(f.kind)) {
       const wall = FURNITURE[f.kind].layer === "wall";
       const [dc, dr] = wall ? [0, 0] : FRONT[f.facing];

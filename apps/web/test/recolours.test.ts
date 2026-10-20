@@ -107,10 +107,9 @@ describe("the editor offers every variant", () => {
 
   test("every kind with variants has one swatch per variant; the recoloured kinds' are frames of the edit kit", () => {
     for (const kind of FURNITURE_KINDS) {
-      // the pad (OME-1545) gets its swatches with its art, in the teleport web issue
-      if (FURNITURE[kind].variants > 1 && kind !== "pad") expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
+      if (FURNITURE[kind].variants > 1) expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
     }
-    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner", "frame", "garland"] as const) {
+    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner", "frame", "garland", "pad"] as const) {
       for (const c of coloursOf(kind)) expect(edit[`swatch/${c}`]).toBeDefined();
     }
   });

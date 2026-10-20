@@ -71,6 +71,8 @@ export interface Stage {
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  /** Their next move is a teleport (OME-1548, `walked.teleport`): marked before the state change that draws it. */
+  teleported(id: MemberId): void;
   /** The member started or stopped typing (OME-1390): the "…" over their head. */
   typing(id: MemberId, on: boolean): void;
   /** Everyone's dots go (a rejoin: the server doesn't say who is typing in a snapshot). */
@@ -155,6 +157,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let seated: readonly (MemberId | null)[] = [];
   /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
   let floorSat: ReadonlySet<MemberId> = new Set();
+  /** Who arrives by a teleport pad (OME-1548) in the next placement; cleared once placed. */
+  const teleporting = new Set<MemberId>();
   const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
   // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
@@ -408,7 +412,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const m of everyone) {
         if (m.cell === undefined || at.has(m.id)) continue;
         const p = cellCenter(m.cell.x, m.cell.y);
-        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id), floorSit: m.floorSit === true });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id), floorSit: m.floorSit === true, ...(teleporting.has(m.id) ? { teleport: true } : {}) });
         at.set(m.id, p);
       }
       // Sitting down or getting up in place moves no pixel, so no onMove: drop or lift their bubbles and badge here.
@@ -439,6 +443,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const id of away.on) view.setAway(id, true);
       awayIds = away.now;
       view.update(views.map((v) => v.member !== null), placements);
+      teleporting.clear();
       standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
       sitCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [] : [cellAt(p.at)])));
       inUseStale = true;
@@ -546,6 +551,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       }
       const p = view.position(id) ?? placedAt.get(id);
       if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+    },
+    teleported(id) {
+      teleporting.add(id);
     },
     typing: setTyping,
     stopTyping() {

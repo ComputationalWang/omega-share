@@ -40,6 +40,8 @@ export interface AvatarPlacement {
   readonly run?: boolean;
   /** Sitting on the floor of their cell (OME-1501, walk/walks.ts). */
   readonly floorSit?: boolean;
+  /** Arrived by a teleport pad (OME-1548): snapped, with a sparkle at both pads. */
+  readonly teleport?: boolean;
 }
 
 export interface RoomViewOptions {
@@ -459,6 +461,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     onDoor: () => {
       arrive();
     },
+    onTeleport: (from, to) => {
+      padSparkle(from);
+      padSparkle(to);
+    },
   });
   let motion: MotionAtlas | null = null;
   let motionLoad = false;
@@ -806,8 +812,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     };
   };
   /** A 5 px and a 3 px plus side by side. */
-  const sparkle = createBurst(
-    sparkleMotion(centerOf(DOOR)),
+  const makeSparkle = (at: Point): Burst => createBurst(
+    sparkleMotion(at),
     [
       { sx: 0, sy: 0, w: 5, h: 5, ox: 2, oy: 2 },
       { sx: 5, sy: 1, w: 3, h: 3, ox: 1, oy: 1 },
@@ -828,9 +834,26 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     SPARKLE_MS,
     100,
   );
+  const sparkle = makeSparkle(centerOf(DOOR));
   function arrive(): void {
     sparkle.fire();
   }
+  // The same sparkle at a teleport's two pads (OME-1548), one burst per pad position, made at the first teleport; a
+  // layout with other pads replaces them (at most 2 pads a layout, so at most 2 canvases).
+  let padSparkles = new Map<string, Burst>();
+  const padSparkle = (at: Point): void => {
+    const key = `${String(at.x)},${String(at.y)}`;
+    let b = padSparkles.get(key);
+    if (b === undefined) {
+      if (padSparkles.size >= 2) {
+        for (const old of padSparkles.values()) old.remove();
+        padSparkles = new Map();
+      }
+      b = makeSparkle(at);
+      padSparkles.set(key, b);
+    }
+    b.fire();
+  };
   /** Four 2 × 4 px paper chips, one colour each; a piece cycles through them as it tumbles. */
   const CONFETTI_COLORS = ["#ff5e7a", "#ffd75e", "#5ed3ff", "#7cff8a"];
   const confetti = createBurst(
@@ -1109,6 +1132,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       fxObserver.disconnect();
       fxCanvas.remove();
       sparkle.remove();
+      for (const b of padSparkles.values()) b.remove();
       confetti.remove();
       animator.dispose();
       app.destroy(true, { children: true });
