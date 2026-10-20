@@ -15,22 +15,34 @@ export interface Conga {
 
 export const NO_CONGA: Conga = { ids: [], last: Number.NEGATIVE_INFINITY };
 
-export function congaText(_text: string): "conga" | "stop" | null {
-  return null;
+/** A chat line `/conga …` joins the line, `/stop` leaves it; anything else is chat. */
+export function congaText(text: string): "conga" | "stop" | null {
+  if (/^\s*\/conga(?:\s|$)/i.test(text)) return "conga";
+  return /^\s*\/stop\s*$/i.test(text) ? "stop" : null;
 }
 
-export function congaJoin(line: Conga, _id: MemberId, _at: number): Conga | "full" {
-  return line;
+/** `id` sent `/conga` at `at`: the back of the line (a member keeps their place), a new line when the last join is over 2 min old, "full" past the cap. */
+export function congaJoin(line: Conga, id: MemberId, at: number): Conga | "full" {
+  if (at - line.last > CONGA_WINDOW_MS) return { ids: [id], last: at };
+  if (line.ids.includes(id)) return { ids: line.ids, last: at };
+  return line.ids.length >= CONGA_CAP ? "full" : { ids: [...line.ids, id], last: at };
 }
 
-export function congaLeave(line: Conga, _id: MemberId): Conga {
-  return line;
+/** `id` left the line; the one behind them now follows the one before them. */
+export function congaLeave(line: Conga, id: MemberId): Conga {
+  return line.ids.includes(id) ? { ids: line.ids.filter((m) => m !== id), last: line.last } : line;
 }
 
-export function congaPrune(line: Conga, _s: ViewState): Conga {
-  return line;
+/** Takes out whoever left the room or sat down (on a seat or the floor); the same line when nobody did. */
+export function congaPrune(line: Conga, s: ViewState): Conga {
+  const room = s.room;
+  if (line.ids.length === 0) return line;
+  const stays = (id: MemberId): boolean => room !== null && !room.seats.includes(id) && room.members.some((m) => m.id === id && m.floorSit !== true);
+  return line.ids.every(stays) ? line : { ids: line.ids.filter(stays), last: line.last };
 }
 
-export function congaAhead(_line: Conga, _id: MemberId | null): MemberId | null {
-  return null;
+/** Who `id` follows: the one before them; null for the leader or anyone not in the line. */
+export function congaAhead(line: Conga, id: MemberId | null): MemberId | null {
+  const i = id === null ? -1 : line.ids.indexOf(id);
+  return i > 0 ? (line.ids[i - 1] ?? null) : null;
 }
