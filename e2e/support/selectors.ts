@@ -167,6 +167,7 @@ export const site = {
   helpKey: id("help-key"),
   // "Hide for me" (OME-769, M9 W3): the room bar's People key, its list, each row's toggle and the status line.
   peopleKey: id("people-key"),
+  snapKey: id("snap-key"),
   peoplePanel: id("people-panel"),
   peopleRow: id("people-row"),
   peopleToggle: id("people-toggle"),

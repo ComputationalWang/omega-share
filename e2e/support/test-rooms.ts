@@ -57,6 +57,7 @@ export const SPEC_ROOMS = {
   reconnect: ["main"],
   tint: ["pick"],
   hair: ["pick"],
+  snap: ["key", "slash"],
   accessory: ["pick", "none", "theme", "bare", "eight"],
   roll: ["two"],
   poll: ["three"],

@@ -8,6 +8,7 @@ import type { SystemLine } from "../controls/sysline";
 export type SlashCommand =
   | { readonly type: "emote"; readonly kind: EmoteKind }
   | { readonly type: "help" }
+  | { readonly type: "snap" }
   | { readonly type: "sit" }
   | { readonly type: "roll"; readonly sides: number }
   | { readonly type: "roll-usage" }
@@ -28,7 +29,7 @@ function pollCommand(rest: string): SlashCommand {
 /** Fun aliases for the emotes (OME-1547): `/lol` is `/laugh`, and so on. */
 const ALIASES: Readonly<Partial<Record<EmoteKind, readonly string[]>>> = { heart: ["love"], laugh: ["lol"], question: ["hmm"], exclaim: ["wow"], wave: ["hi", "bye"], cheer: ["yay"], yawn: ["sleepy"] };
 
-/** `/wave` … `/exclaim` (each emote's own name or an alias), `/help`, `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
+/** `/wave` … `/exclaim` (each emote's own name or an alias), `/help`, `/snap` (OME-1565), `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
 export function slashCommand(text: string): SlashCommand | null {
   const hug = /^\s*\/(hug|highfive)(?:\s+(.*?))?\s*$/is.exec(text);
   if (hug !== null) {
@@ -37,6 +38,7 @@ export function slashCommand(text: string): SlashCommand | null {
   }
   const t = text.trim().toLowerCase();
   if (t === "/help") return { type: "help" };
+  if (t === "/snap") return { type: "snap" };
   if (t === "/sit") return { type: "sit" };
   if (t === "/roll") return { type: "roll", sides: 6 };
   if (t.startsWith("/roll ")) {
@@ -60,7 +62,7 @@ export function thinkText(text: string): string | null {
 }
 
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}${ALIASES[k] === undefined ? "" : ` (${ALIASES[k].map((a) => `/${a}`).join(" ")})`}`).join(" ")} · /me <action> · /think <thought> · /sit · /conga · /stop · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}${ALIASES[k] === undefined ? "" : ` (${ALIASES[k].map((a) => `/${a}`).join(" ")})`}`).join(" ")} · /me <action> · /think <thought> · /sit · /conga · /stop · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B · /snap`, time: null, self: true };
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };
