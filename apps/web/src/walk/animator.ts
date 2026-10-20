@@ -43,6 +43,8 @@ export interface AnimatorOptions {
   readonly drawEmote: (id: MemberId, frame: string | null, x: number, y: number) => void;
   /** Furniture loop `i` (setLoops) shows `frame`, or its still frame (-1). */
   readonly drawLoop: (i: number, frame: number) => void;
+  /** Draws the room's walking props (the cat, OME-1520) at `now`; true while one walks, so frames keep coming. */
+  readonly drawProps?: (now: number) => boolean;
   readonly render: () => void;
 }
 
@@ -61,6 +63,8 @@ export interface Animator {
   setFrames(frames: MotionFrames): void;
   /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
   emote(id: MemberId, kind: EmoteKind): void;
+  /** A prop started walking (OME-1520): draw on the next frame and keep going while it walks. */
+  wake(): void;
   /** Full screen hides the room (OME-597): paused, nothing is drawn or scheduled; on resume one frame draws everyone now. */
   pause(paused: boolean): void;
   /** The room is gone: drop any queued frame or timer and never draw again. */
@@ -254,6 +258,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       }
       requestFrame();
     },
+    wake() {},
     pause(next) {
       if (next === paused || disposed) return;
       paused = next;

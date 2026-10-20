@@ -21,7 +21,7 @@ const standAt = (who: string, col: number, row: number): WalkTarget => {
   return { id: id(who), at, z: standDepth(at), seatFacing: null };
 };
 
-function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
+function setup(opts: { reduced?: boolean; smooth?: () => boolean; props?: (now: number) => boolean } = {}) {
   let now = 0;
   const rafs: (() => void)[] = [];
   const timers: { fn: () => void; ms: number }[] = [];
@@ -61,6 +61,7 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
     draw: (who, _avatar, pose, frame) => draws.push({ id: who, pose: { ...pose }, frame }),
     drawEmote: (who, frame, x, y) => stickers.push({ id: who, frame, x, y }),
     drawLoop: (i, frame) => loopDraws.push([i, frame]),
+    ...(opts.props === undefined ? {} : { drawProps: opts.props }),
     render: () => {
       renders++;
     },
@@ -786,5 +787,37 @@ describe("animator: one-frame loops", () => {
     s.anim.setLoops([{ frames: 1, ms: 3_600_000 }, { frames: 3, ms: 160 }]);
     s.frame(0);
     expect(s.timers.at(-1)?.ms).toBe(150);
+  });
+});
+
+// OME-1520: the cat walks on the animator's loop, so it shares the walkers' renders instead of adding its own.
+describe("animator: walking props (the cat)", () => {
+  test("a walking cat with nobody else walking steps once per 150 ms on the shared clock, then stops scheduling", () => {
+    const drawn: number[] = [];
+    const s = setup({ props: (t) => (drawn.push(t), t < 600) });
+    s.anim.set([]);
+    s.anim.wake();
+    expect(s.frame(0)).toBe(true);
+    let t = 0;
+    for (let i = 0; i < 10 && s.timers.length > 0; i++) {
+      const timer = s.timers.pop();
+      if (timer === undefined) break;
+      t += timer.ms;
+      timer.fn();
+      expect(s.frame(t)).toBe(true);
+    }
+    expect(drawn).toEqual([0, 0, 150, 300, 450, 600]);
+    expect(s.timers.length).toBe(0);
+    expect(s.rafs.length).toBe(0);
+  });
+
+  test("Smooth: a walking cat asks for the next frame on every frame, like a walker", () => {
+    const s = setup({ smooth: () => true, props: (t) => t < 100 });
+    s.anim.set([]);
+    s.anim.wake();
+    expect(s.frame(0)).toBe(true);
+    expect(s.frame(16)).toBe(true);
+    expect(s.frame(120)).toBe(true);
+    expect(s.rafs.length).toBe(0);
   });
 });

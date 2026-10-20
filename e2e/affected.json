@@ -593,6 +593,7 @@
         "e2e/m8-walk-tiers.e2e.ts",
         "e2e/polish.e2e.ts",
         "e2e/accessory.e2e.ts",
+        "e2e/furniture.e2e.ts",
         "e2e/tint.e2e.ts",
         "e2e/walk.e2e.ts",
         "perf/polish.perf.ts",

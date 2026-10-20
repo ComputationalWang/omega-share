@@ -56,6 +56,8 @@ export interface RoomView {
   setInUse(pieces: ReadonlySet<number>): void;
   /** The furniture loops running now: each piece's idle frame key and the loop frame shown (-1 still), for e2e. */
   loops(): { key: string; frame: number }[];
+  /** The wandering cats (OME-1520), for e2e: each one's floor cell ("col,row"), whether it walks, and the 20 s slot it is in. */
+  cats(): { cell: string; walking: boolean; slot: number }[];
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
   /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
@@ -824,6 +826,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       inUse = pieces;
       applyLoops();
     },
+    cats: () => [],
     loops: () => running.map((l) => ({ key: l.sprite.label, frame: l.textures.indexOf(l.sprite.texture) })),
     update(seatTaken, avatars) {
       markers.forEach((g, i) => {

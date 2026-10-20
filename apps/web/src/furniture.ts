@@ -167,6 +167,16 @@ export function doorAt(layout: RoomLayout, col: number, row: number): RoomId | n
   return null;
 }
 
+/** The cat's frames (OME-1520): its art has se and sw only, so ne walks use se and nw use sw. */
+export interface CatWalker {
+  readonly piece: number;
+  readonly home: number;
+  readonly walk: { readonly se: readonly string[]; readonly sw: readonly string[] };
+  readonly sit: { readonly se: string; readonly sw: string };
+  readonly bed: string;
+  readonly ms: number;
+}
+
 export interface FurnitureSprite {
   /** Frame key in the furniture atlas. */
   readonly key: string;
@@ -178,6 +188,8 @@ export interface FurnitureSprite {
   readonly z: number;
   /** An "in use" loop (OME-1407): the furniture index, the loop's frame keys and its frame time. */
   readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
+  /** A piece that wanders (the cat, OME-1520): its furniture index, home cell, walk frames per drawn facing, sit frames, empty bed frame and walk frame time. */
+  readonly walker?: CatWalker;
 }
 
 export interface SceneSeat {
