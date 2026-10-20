@@ -367,7 +367,7 @@ test("the new colours (OME-1463): the editor offers them, they save, and a guest
 });
 
 test("the wall pieces' new colours (OME-1503): a meadow print and peach lights save, and a guest draws them, after a reload too", async ({ browser }) => {
-  const { id, ownerToken, inviteKey } = ownedRoom("wallcolour");
+  const { id, ownerToken, inviteKey } = ownedRoom("wallhue");
   const owner = await newPage(browser, []);
   await owner.addInitScript(
     ([key, value]) => {
