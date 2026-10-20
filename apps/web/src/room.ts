@@ -532,7 +532,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }));
 
   // The camera key (OME-1565): a polaroid of the room as it is now, saved locally (snap.ts). /snap does the same.
-  const snapKey = el("button", { type: "button", className: "ui-button secondary snap-key", textContent: "Photo", title: "Save a photo of the room" }, "snap-key");
+  const snapKey = el("button", { type: "button", className: "ui-button secondary snap-key", textContent: "Photo", title: "Save a photo of the room", hidden: true }, "snap-key");
   const snap = (): boolean => {
     snapRoom(roomStage.view.canvas, state.title ?? "omega-share", new Date());
     return true;
@@ -798,6 +798,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage;
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
+    snapKey.hidden = !shown.stage;
     if (shown.stage) people.update(s.room?.members ?? [], s.self);
     else people.close();
     if (!shown.stage) {
