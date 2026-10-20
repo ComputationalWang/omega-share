@@ -15,7 +15,7 @@ import {
   POLL_OPTION_MAX_LENGTH,
   POLL_QUESTION_MAX_LENGTH,
 } from "./constants";
-import { PollIdSchema } from "./ids";
+import { PollIdSchema, RoomIdSchema } from "./ids";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
@@ -128,6 +128,11 @@ export const ClientMessageSchema = v.variant("type", [
     accessory: v.optional(AccessorySchema),
     /** Hair colour (OME-1435); absent means 0. A resume keeps the member's own. */
     hair: v.optional(HairSchema),
+    /**
+     * The room this member came from (OME-1556, ADR 0054). A door of this room back to it, with nobody on the cell in
+     * front of it, is where they walk in; otherwise the default spot. Never stored or logged; a resume ignores it.
+     */
+    via: v.optional(RoomIdSchema),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */

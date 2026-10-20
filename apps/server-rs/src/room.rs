@@ -319,6 +319,20 @@ impl Room {
         WalkResult::Walked { stood_up }
     }
 
+    /// `join.via` (OME-1556, ADR 0054): stands a member who just joined in front of the door back to `via`, if that
+    /// cell is free of solid pieces and other members; otherwise they keep the default spot.
+    pub fn arrive_via(&mut self, member: &MemberId, via: &RoomId) {
+        let Some(front) = self.layout.door_front(via) else {
+            return;
+        };
+        if self.slots.iter().flatten().any(|rec| rec.member.cell == Some(front)) {
+            return;
+        }
+        if let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) {
+            rec.member.cell = Some(front);
+        }
+    }
+
     /// `walk` with `teleport` (OME-1545): from the pad `member` stands on to the other pad, `cell`.
     pub fn teleport(&mut self, member: &MemberId, cell: FloorCell) -> WalkResult {
         let Some(rec) = self.member(member) else {
@@ -1945,6 +1959,31 @@ mod tests {
         assert_eq!(r.set_layout(layout_plus(&[table(8, 8), table(9, 9)])), vec![(a.clone(), None)]);
         assert_eq!(r.member(&a).unwrap().cell, None);
         assert_eq!(r.set_layout(default_layout()), vec![]);
+    }
+
+    #[test]
+    fn arriving_via_a_room_stands_you_in_front_of_its_door_when_that_cell_is_free() {
+        let door = |col: u8, row: u8, target: &str| serde_json::json!({"kind":"door","col":col,"row":row,"facing": if row == 0 {"sw"} else {"se"},"target":target});
+        let mut r = room();
+        r.set_layout(layout_plus(&[door(3, 0, "lobby"), door(0, 6, "film-club")]));
+        let a = join(&mut r, "m1", "alice", None);
+        r.arrive_via(&a, &rid("lobby"));
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(3, 1)), "a row-0 door's front is one row in");
+        let b = join(&mut r, "m2", "bob", None);
+        r.arrive_via(&b, &rid("film-club"));
+        assert_eq!(r.member(&b).unwrap().cell, Some(cell(1, 6)), "a col-0 door's front is one col in");
+        // Taken by alice: bob's twin keeps the default spot, as does a room with no door back.
+        let c = join(&mut r, "m3", "carol", None);
+        r.arrive_via(&c, &rid("lobby"));
+        assert_eq!(r.member(&c).unwrap().cell, None);
+        r.arrive_via(&c, &rid("elsewhere"));
+        assert_eq!(r.member(&c).unwrap().cell, None);
+        // A solid piece on the front cell: the default spot.
+        r.set_layout(layout_plus(&[door(3, 0, "lobby"), table(3, 1)]));
+        let d = join(&mut r, "m4", "dave", None);
+        r.arrive_via(&d, &rid("lobby"));
+        assert_eq!(r.member(&d).unwrap().cell, None);
+        r.arrive_via(&mid("ghost"), &rid("lobby"));
     }
 
     #[test]

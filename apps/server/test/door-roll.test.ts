@@ -131,3 +131,52 @@ describe("roll (OME-1423)", () => {
     await owner.client.none("rolled", 100);
   });
 });
+
+// OME-1556: `join.via` names the room you came from; a door back to it is where you walk in.
+describe("join via (OME-1556)", () => {
+  async function roomWithDoorTo(target: string) {
+    const room = await ownRoom();
+    room.owner.client.send({ type: "layout-set", layout: withDoors(target) });
+    await room.owner.client.next("layout-changed");
+    return room;
+  }
+  const cellOf = (snapshot: { self: string; room: { members: readonly { id: string; cell?: unknown }[] } }) =>
+    snapshot.room.members.find((m) => m.id === snapshot.self)?.cell;
+
+  binaryOnly("via a room with a door back: you stand in front of that door, for everyone", async () => {
+    t = start();
+    const { id, owner } = await roomWithDoorTo("lobby");
+    const bob = await join("bob", { via: "lobby" }, id);
+    expect(cellOf(bob.snapshot)).toEqual({ x: 3, y: 1 });
+    expect((await owner.client.next("member-joined")).member.cell).toEqual({ x: 3, y: 1 });
+  });
+
+  binaryOnly("via a room with no door back: the default spot", async () => {
+    t = start();
+    const { id, owner } = await roomWithDoorTo("lobby");
+    const bob = await join("bob", { via: "film-club" }, id);
+    expect(cellOf(bob.snapshot)).toBeUndefined();
+    expect((await owner.client.next("member-joined")).member.cell).toBeUndefined();
+  });
+
+  binaryOnly("someone already stands in front of the door: the default spot", async () => {
+    t = start();
+    const { id, owner } = await roomWithDoorTo("lobby");
+    owner.client.send({ type: "walk", cell: { x: 3, y: 1 } });
+    await owner.client.next("walked");
+    const bob = await join("bob", { via: "lobby" }, id);
+    expect(cellOf(bob.snapshot)).toBeUndefined();
+  });
+
+  binaryOnly("a via that is not a room id is a bad_message and the socket stays unjoined", async () => {
+    t = start();
+    const { id } = await roomWithDoorTo("lobby");
+    for (const via of ["Lobby", "", "a".repeat(33), "https://evil.example/", null, 3]) {
+      const client = await Client.open(t.ws(id));
+      clients.push(client);
+      client.send({ type: "join", nickname: "bob", avatar: 0, via });
+      expect((await client.next("error")).code).toBe("bad_message");
+      await client.none("snapshot", 50);
+    }
+  });
+});
