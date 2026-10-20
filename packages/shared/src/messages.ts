@@ -139,8 +139,10 @@ export const ClientMessageSchema = v.variant("type", [
    * answered `error: bad_cell`. From a seat it stands up first (`seat-changed` null, then `walked`). Clients path
    * there themselves; send the destination only. Per member WALK_BURST / WALK_REFILL_MS, over it dropped silently.
    * `run` (absent: false) asks others to animate a jog; relayed in `walked` as sent, nothing else changes (OME-1461).
+   * `teleport: true` (OME-1545) goes from the pad the member stands on to the other pad, `cell` (see `canTeleport`);
+   * anything else is `error: bad_cell`. Relayed in `walked` as sent; same bucket.
    */
-  v.strictObject({ type: v.literal("walk"), cell: FloorCellInputSchema, run: v.optional(v.boolean()) }),
+  v.strictObject({ type: v.literal("walk"), cell: FloorCellInputSchema, run: v.optional(v.boolean()), teleport: v.optional(v.boolean()) }),
   /** Needs `join`. Change shirt tint; relayed as `tint-changed` (setting the current tint is a no-op). Shares the `emote` bucket. */
   v.strictObject({ type: v.literal("set-tint"), tint: TintSchema }),
   /** Needs `join`. Change accessory; relayed as `accessory-changed` (setting the current one is a no-op). Shares the `emote` bucket. */
@@ -304,8 +306,8 @@ export const ServerMessageSchema = v.variant("type", [
    * A member's standing cell changed (ADR 0053): a `walk`, or a layout change that covered their cell (sent after
    * `layout-changed`: to DOOR_CELL, or null, their standing spot, when the door is covered too). Path there locally.
    */
-  /** `run` as the `walk` sent it; absent (old clients, layout moves) means walking. */
-  v.object({ type: v.literal("walked"), memberId: MemberIdSchema, cell: v.nullable(FloorCellSchema), run: v.optional(v.boolean()) }),
+  /** `run` and `teleport` as the `walk` sent them; absent (old clients, layout moves) means walking. */
+  v.object({ type: v.literal("walked"), memberId: MemberIdSchema, cell: v.nullable(FloorCellSchema), run: v.optional(v.boolean()), teleport: v.optional(v.boolean()) }),
   /** A member changed shirt tint (ADR 0053). */
   v.object({ type: v.literal("tint-changed"), memberId: MemberIdSchema, tint: TintSchema }),
   /** A member changed accessory (OME-1387). */

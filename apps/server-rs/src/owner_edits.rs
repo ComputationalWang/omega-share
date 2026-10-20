@@ -47,6 +47,7 @@ pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberI
                 member_id,
                 cell,
                 run: None,
+                teleport: None,
             },
         );
     }
