@@ -6,8 +6,8 @@ import { el } from "./controls/dom";
 export interface DoorChipOptions {
   /** The saved title of a room this browser knows, or null. */
   readonly titleOf: (id: RoomId) => string | null;
-  /** Leave for `/r/<id>`. */
-  readonly go: (path: string) => void;
+  /** Leave for `/r/<id>`, the door's room `target`. */
+  readonly go: (path: string, target: RoomId) => void;
 }
 
 export interface DoorChip {
@@ -24,7 +24,7 @@ export function createDoorChip(o: DoorChipOptions): DoorChip {
   /** The door I stand in front of; a repeat of it (Stay, then another render) changes nothing. */
   let current: RoomId | null = null;
   goKey.addEventListener("click", () => {
-    if (current !== null) o.go(`/r/${current}`);
+    if (current !== null) o.go(`/r/${current}`, current);
   });
   stayKey.addEventListener("click", () => {
     root.hidden = true;

@@ -13,10 +13,17 @@ afterAll(async () => {
 async function setup() {
   const { createDoorChip } = await import("../src/door-chip");
   const went: string[] = [];
-  const chip = createDoorChip({ titleOf: (id) => (id === "film-club" ? "Film <b>club</b>" : null), go: (p) => went.push(p) });
+  const targets: string[] = [];
+  const chip = createDoorChip({
+    titleOf: (id) => (id === "film-club" ? "Film <b>club</b>" : null),
+    go: (p, target) => {
+      went.push(p);
+      targets.push(target);
+    },
+  });
   document.body.replaceChildren(chip.root);
   const button = (name: string): HTMLButtonElement | undefined => [...chip.root.querySelectorAll("button")].find((b) => b.textContent === name);
-  return { chip, went, button };
+  return { chip, went, targets, button };
 }
 
 describe("door chip", () => {
@@ -43,6 +50,13 @@ describe("door chip", () => {
     expect(went).toEqual([]);
     button("Go to Film <b>club</b>")?.click();
     expect(went).toEqual(["/r/film-club"]);
+  });
+
+  test("Go names the door's room, so the next room can be told where I came from (OME-1558)", async () => {
+    const { chip, targets, button } = await setup();
+    chip.at("film-club");
+    button("Go to Film <b>club</b>")?.click();
+    expect(targets).toEqual(["film-club"]);
   });
 
   test("Stay hides it, and it stays hidden while I stand there; leaving and arriving again shows it", async () => {

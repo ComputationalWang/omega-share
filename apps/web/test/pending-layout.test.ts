@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classic } from "./support/preset-layouts";
 import type { ClientMessage } from "@omega/shared";
-import { createPendingApplier, pendingLayoutKey, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
+import { createPendingApplier, pendingLayoutKey, pendingViaKey, stashVia, takeVia, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
 
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 const OWN = ["omega.example"];
@@ -168,5 +168,43 @@ describe("pending share (a #share= link from the extension, OME-1085)", () => {
     };
     expect(stashPendingShare(boom, ROOM, YT)).toBe(false);
     expect(takePendingShare(boom, ROOM, OWN)).toBeNull();
+  });
+});
+
+// OME-1558: Go on a door chip leaves the room I came from for the next room's join (`join.via`). It hops in
+// sessionStorage (this tab only), keyed by the room it is for, never in the URL, and is parsed again when taken.
+describe("via (the room I came through a door from)", () => {
+  const FROM = "e2e-doors-from";
+  test("stashed for the door's room, taken once by that room only", () => {
+    const s = new MemoryStore();
+    expect(stashVia(s, ROOM, FROM)).toBe(true);
+    expect(s.data.get(pendingViaKey(ROOM))).toBe(FROM);
+    expect(takeVia(s, "some-other-room")).toBeNull();
+    expect(takeVia(s, ROOM)).toBe(FROM);
+    expect(s.data.size).toBe(0);
+    expect(takeVia(s, ROOM)).toBeNull();
+  });
+  test("anything that is not a room id reads as null and is cleared", () => {
+    const s = new MemoryStore();
+    for (const raw of ["", "a b", "x".repeat(200), "../r/evil"]) {
+      s.data.set(pendingViaKey(ROOM), raw);
+      expect(takeVia(s, ROOM)).toBeNull();
+      expect(s.data.size).toBe(0);
+    }
+  });
+  test("blocked storage never throws", () => {
+    const blocked = {
+      getItem: (): string | null => {
+        throw new Error("blocked");
+      },
+      setItem: (): void => {
+        throw new Error("blocked");
+      },
+      removeItem: (): void => {
+        throw new Error("blocked");
+      },
+    };
+    expect(stashVia(blocked, ROOM, FROM)).toBe(false);
+    expect(takeVia(blocked, ROOM)).toBeNull();
   });
 });

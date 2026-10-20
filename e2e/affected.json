@@ -203,7 +203,8 @@
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
         "perf/walk-tiers.perf.ts",
-        "perf/wide.perf.ts"
+        "perf/wide.perf.ts",
+        "e2e/doors.e2e.ts"
       ],
       "why": "room core: stage, state, connection, layout, routes"
     },
@@ -448,7 +449,8 @@
         "e2e/owner-focus.e2e.ts",
         "e2e/room-presets.e2e.ts",
         "perf/editor.perf.ts",
-        "e2e/teleport.e2e.ts"
+        "e2e/teleport.e2e.ts",
+        "e2e/doors.e2e.ts"
       ]
     },
     {
@@ -603,7 +605,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/walk-tiers.perf.ts",
-        "e2e/teleport.e2e.ts"
+        "e2e/teleport.e2e.ts",
+        "e2e/doors.e2e.ts"
       ]
     },
     {

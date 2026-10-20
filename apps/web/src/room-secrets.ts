@@ -120,8 +120,8 @@ export function inviteLink(origin: string, id: RoomId, inviteKey?: InviteKey): s
   return `${origin}/r/${id}${inviteKey === undefined ? "" : `#k=${inviteKey}`}`;
 }
 
-/** `join` with the room's stored secrets, shirt tint, accessory and hair; absent ones (and tint, accessory or hair 0) are left out (the server's join is a strictObject). */
-export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0, accessory: Accessory = 0, hair: Hair = 0): Extract<ClientMessage, { type: "join" }> {
+/** `join` with the room's stored secrets, shirt tint, accessory, hair and the room I came through a door from (`via`); absent ones (and tint, accessory or hair 0) are left out (the server's join is a strictObject). */
+export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0, accessory: Accessory = 0, hair: Hair = 0, via: RoomId | null = null): Extract<ClientMessage, { type: "join" }> {
   const ownerToken: OwnerToken | undefined = secret?.ownerToken;
   const inviteKey: InviteKey | undefined = secret?.inviteKey;
   return {
@@ -133,5 +133,6 @@ export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecr
     ...(hair === 0 ? {} : { hair }),
     ...(ownerToken === undefined ? {} : { ownerToken }),
     ...(inviteKey === undefined ? {} : { inviteKey }),
+    ...(via === null ? {} : { via }),
   };
 }
