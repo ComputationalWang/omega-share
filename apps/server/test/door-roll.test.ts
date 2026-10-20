@@ -172,7 +172,7 @@ describe("join via (OME-1556)", () => {
     t = start();
     const { id } = await roomWithDoorTo("lobby");
     for (const via of ["Lobby", "", "a".repeat(33), "https://evil.example/", null, 3]) {
-      const client = await Client.open((t ?? fail()).ws(id));
+      const client = await Client.open(t.ws(id));
       clients.push(client);
       client.send({ type: "join", nickname: "bob", avatar: 0, via });
       expect((await client.next("error")).code).toBe("bad_message");

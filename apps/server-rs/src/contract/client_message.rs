@@ -8,7 +8,7 @@
 use super::constants::{
     MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS,
 };
-use super::ids::{InviteKey, MemberId, OwnerToken, PollId, QueueItemId, ResumeToken};
+use super::ids::{InviteKey, MemberId, OwnerToken, PollId, QueueItemId, ResumeToken, RoomId};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
 use super::room::{
@@ -97,6 +97,8 @@ pub enum ClientMessage {
         accessory: Option<Accessory>,
         #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         hair: Option<Hair>,
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
+        via: Option<RoomId>,
     },
     Leave {},
     Presence {
@@ -300,6 +302,8 @@ struct JoinW {
     accessory: Option<Accessory>,
     #[serde(default, deserialize_with = "present")]
     hair: Option<Hair>,
+    #[serde(default, deserialize_with = "present")]
+    via: Option<RoomId>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -601,6 +605,7 @@ fn convert(wire: Wire) -> ClientMessage {
             tint: m.tint,
             accessory: m.accessory,
             hair: m.hair,
+            via: m.via,
         },
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },

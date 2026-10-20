@@ -485,6 +485,19 @@ impl RoomLayout {
         self.furniture.iter().any(|f| f.target.as_ref() == Some(room))
     }
 
+    /// The floor cell in front of a door to `room` (OME-1556): a door faces sw on row 0 and se on col 0, so one step
+    /// out from its wall. `None` without such a door or when a solid piece covers that cell.
+    pub fn door_front(&self, room: &RoomId) -> Option<FloorCell> {
+        self.furniture
+            .iter()
+            .filter(|f| f.kind == Kind::Door && f.target.as_ref() == Some(room))
+            .find_map(|f| match f.facing {
+                Facing::Se => FloorCell::new(u64::from(f.col) + 1, u64::from(f.row)),
+                _ => FloorCell::new(u64::from(f.col), u64::from(f.row) + 1),
+            })
+            .filter(|&c| self.standable(c))
+    }
+
     /// `isStandable`: no solid piece covers `cell`. Seats are solid, so they need `sit` (ADR 0053).
     pub fn standable(&self, cell: FloorCell) -> bool {
         let at = (u32::from(cell.x.get()), u32::from(cell.y.get()));
