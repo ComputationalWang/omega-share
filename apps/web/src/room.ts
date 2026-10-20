@@ -13,6 +13,7 @@ import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { inviteLink, joinMessage, loadRoomSecrets, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
 import { el, sprite } from "./controls/dom";
+import { snapRoom } from "./snap";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createRoomTv, syncedOnly } from "./room-tv";
 import { qualityMemory } from "./controls/quality";
@@ -530,7 +531,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   }));
 
-  roomTop.append(title, popRoomKey, people.key, help.key);
+  // The camera key (OME-1565): a polaroid of the room as it is now, saved locally (snap.ts). /snap does the same.
+  const snapKey = el("button", { type: "button", className: "ui-button secondary snap-key", textContent: "Photo", title: "Save a photo of the room" }, "snap-key");
+  const snap = (): boolean => {
+    snapRoom(roomStage.view.canvas, state.title ?? "omega-share", new Date());
+    return true;
+  };
+  snapKey.addEventListener("click", snap);
+  roomTop.append(title, popRoomKey, snapKey, people.key, help.key);
   // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
   const firstHint = createFirstHint({
     // The `localStorage` getter itself throws when storage is blocked.
@@ -975,6 +983,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
     if (cmd.type === "hug") return startHug(cmd.kind, cmd.name);
     if (cmd.type === "sit") return floorSit();
+    if (cmd.type === "snap") return snap();
     hint(cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
     return true;
   };
