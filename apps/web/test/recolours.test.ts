@@ -114,3 +114,34 @@ describe("the editor offers every variant", () => {
     }
   });
 });
+
+describe("the wall pieces' new colours (OME-1503, art OME-1500)", () => {
+  const WALL: RoomLayout = v.parse(RoomLayoutSchema, {
+    furniture: [
+      ...NEW.furniture,
+      { kind: "frame", col: 2, row: 0, facing: "sw", variant: 2 },
+      { kind: "garland", col: 0, row: 2, facing: "se", variant: 3 },
+      { kind: "frame", col: 3, row: 0, facing: "sw", variant: 1 },
+    ],
+  });
+  const scene = sceneOf(WALL, [manifest, v2, v4], room);
+
+  test("a meadow frame and a peach garland draw from their recoloured copies", () => {
+    expect(keysOf(scene).some((k) => k.startsWith("recolour/frame/2/furniture/frame/dusk/"))).toBe(true);
+    expect(keysOf(scene).some((k) => k.startsWith("recolour/garland/3/furniture/garland/warm/"))).toBe(true);
+    for (const k of keysOf(scene).filter((x) => x.startsWith("recolour/"))) {
+      const src = recolourSource(k);
+      const r = src === null ? undefined : recolourOf(src.kind, src.variant);
+      expect(FRAMES[r?.sheet ?? ""]?.[src?.key ?? ""]).toBeDefined();
+    }
+    expect(recoloursIn(WALL).filter((x) => x.kind === "frame" || x.kind === "garland")).toEqual([
+      { kind: "frame", variant: 2 },
+      { kind: "garland", variant: 3 },
+    ]);
+  });
+
+  test("the editor lists their shipped colours, then meadow and sunset, frost and peach", () => {
+    expect(coloursOf("frame").slice(2)).toEqual(["meadow", "sunset"]);
+    expect(coloursOf("garland").slice(2)).toEqual(["frost", "peach"]);
+  });
+});
