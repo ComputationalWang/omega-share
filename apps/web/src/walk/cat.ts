@@ -44,3 +44,13 @@ export function catMove(grid: Uint8Array, home: number, from: number, seed: numb
   if (path === null || path.slice(1).some((c) => taken.has(c))) return [from];
   return path;
 }
+
+/** The slot's target: home or a free cell within CAT_RANGE of it that home reaches. */
+export function catTarget(_grid: Uint8Array, home: number, _seed: number): number {
+  return home;
+}
+
+/** Where the cat rests in `slot`. */
+export function catRest(_grid: Uint8Array, home: number, _roomId: string, _piece: number, _slot: number, _taken: ReadonlySet<number>): number {
+  return home;
+}

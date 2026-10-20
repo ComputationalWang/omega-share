@@ -372,7 +372,7 @@ test.describe("furniture in use", () => {
 });
 
 // OME-1520: the cat wanders with no wire. Every client works out its walk from the room id, the piece's index and the
-// 20 s slot of server time, so two clients draw it on the same cell at every slot boundary; reduced motion keeps it home.
+// 20 s slot of server time, so every client, a late joiner too, draws it on the same cell at every slot boundary; reduced motion keeps it home.
 test.describe("the wandering cat", () => {
   test.fixme(!available.web, PENDING.web);
   test.fixme(!available.server, PENDING.server);
@@ -395,8 +395,8 @@ test.describe("the wandering cat", () => {
     });
   const cells = (cs: readonly Cat[]): string[] => cs.map((c) => c.cell);
 
-  test("two clients draw each cat on the same cell at every slot boundary; reduced motion keeps it on its placed cell", async ({ browser }) => {
-    test.setTimeout(2 * SLOT_MS + 60_000);
+  test("every client draws each cat on the same cell at every slot boundary, a late joiner standing on its way too; reduced motion keeps it home", async ({ browser }) => {
+    test.setTimeout(3 * SLOT_MS + 60_000);
     const roomUrl = `${URLS.web}/r/${testRoomId("furniture", "cat")}`;
     const open = async (nickname: string, reduced: boolean): Promise<{ page: Page; close: () => Promise<void> }> => {
       const context = await watchCsp(await browser.newContext(reduced ? { reducedMotion: "reduce" } : {}));
@@ -412,9 +412,17 @@ test.describe("the wandering cat", () => {
     const a = await open("cat-a", false);
     const b = await open("cat-b", false);
     const still = await open("cat-still", true);
+    const clients = [a, b, still];
     try {
       await expect.poll(async () => (await cats(a.page)).length).toBe(2);
       await expect.poll(async () => (await cats(b.page)).length).toBe(2);
+      // QA OME-1525: a 4th member joins mid-slot and takes the 4th standing spot, (7,6), on cat 2's way out of home.
+      const first = (await cats(a.page))[0]?.slot ?? 0;
+      await expect.poll(async () => (await cats(a.page))[0]?.slot, { timeout: SLOT_MS + 5000, intervals: [250] }).toBe(first + 1);
+      await a.page.waitForTimeout(5000);
+      const late = await open("cat-late", false);
+      clients.push(late);
+      await expect.poll(async () => (await cats(late.page)).length).toBe(2);
       const seen = new Set<string>();
       for (let boundary = 0; boundary < 2; boundary++) {
         const slot = (await cats(a.page))[0]?.slot ?? 0;
@@ -430,14 +438,16 @@ test.describe("the wandering cat", () => {
         };
         const onA = await settled(a.page);
         const onB = await settled(b.page);
+        const onLate = await settled(late.page);
         expect(cells(onB)).toEqual(cells(onA));
+        expect(cells(onLate)).toEqual(cells(onA));
         for (const c of onA) seen.add(c.cell);
         expect(cells(await cats(still.page))).toEqual(HOMES);
       }
       // Over two slots, two cats leave their placed cells at least once (each slot's target is one of up to 49 cells).
       expect([...seen].some((c) => !HOMES.includes(c))).toBe(true);
     } finally {
-      await Promise.all([a.close(), b.close(), still.close()]);
+      await Promise.all(clients.map((c) => c.close()));
     }
   });
 });

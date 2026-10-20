@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { FLOOR_CELLS, type RoomLayout } from "@omega/shared";
-import { CAT_RANGE, catMove, catSeed } from "../src/walk/cat";
-import { cellOf, walkGrid } from "../src/walk/path";
+import { CAT_RANGE, catRest, catSeed, catTarget } from "../src/walk/cat";
+import { cellOf, findPath, walkGrid } from "../src/walk/path";
 
-// OME-1520: the room cat wanders with no wire. Every client works out the same target and path from the room id, the
-// piece's index and the 20 s slot of server time; a member in the way makes it wait for the slot, never re-roll.
+// OME-1520: the room cat wanders with no wire. Every client works out the same resting cell from the room id, the
+// piece's index, the 20 s slot of server time and who stands where now; a member in the way makes it wait, never re-roll.
 
 const col = (c: number): number => Math.floor(c / FLOOR_CELLS);
 const row = (c: number): number => c % FLOOR_CELLS;
@@ -20,14 +20,6 @@ const ROOM: RoomLayout = {
 const HOME = cellOf(5, 5);
 const NOBODY: ReadonlySet<number> = new Set();
 
-function connected(path: readonly number[]): boolean {
-  for (let i = 1; i < path.length; i++) {
-    const a = path[i - 1] ?? -1;
-    const b = path[i] ?? -1;
-    if (Math.abs(col(a) - col(b)) + Math.abs(row(a) - row(b)) !== 1) return false;
-  }
-  return true;
-}
 
 describe("catSeed", () => {
   test("the same room, piece and slot give the same seed; any of them changing gives another", () => {
@@ -37,50 +29,57 @@ describe("catSeed", () => {
   });
 });
 
-describe("catMove", () => {
-  test("two clients (each with its own grid) get the same path for the same seed", () => {
-    for (let slot = 0; slot < 50; slot++) {
-      const seed = catSeed("lobby", 1, slot);
-      const a = catMove(walkGrid(ROOM), HOME, HOME, seed, NOBODY);
-      const b = catMove(walkGrid(ROOM), HOME, HOME, seed, NOBODY);
-      expect(a).toEqual(b);
-    }
+describe("catRest", () => {
+  const rest = (grid: Uint8Array, slot: number, taken: ReadonlySet<number> = NOBODY): number => catRest(grid, HOME, "lobby", 1, slot, taken);
+  const target = (grid: Uint8Array, slot: number): number => catTarget(grid, HOME, catSeed("lobby", 1, slot));
+
+  test("two clients (each with its own grid) put the cat on the same cell for the same slot", () => {
+    for (let slot = 0; slot < 50; slot++) expect(rest(walkGrid(ROOM), slot)).toBe(rest(walkGrid(ROOM), slot));
   });
 
-  test("the path starts where the cat is, steps cell by cell, and ends on its home or a free cell within 3 of home", () => {
+  test("with nobody about it rests on the slot's target: home or a free cell within 3 of home", () => {
     const grid = walkGrid(ROOM);
     const ends = new Set<number>();
-    let from = HOME;
     for (let slot = 0; slot < 200; slot++) {
-      const path = catMove(grid, HOME, from, catSeed("lobby", 1, slot), NOBODY);
-      expect(path[0]).toBe(from);
-      expect(connected(path)).toBe(true);
-      const end = path.at(-1) ?? -1;
+      const end = rest(grid, slot);
+      expect(end).toBe(target(grid, slot));
       expect(Math.max(Math.abs(col(end) - 5), Math.abs(row(end) - 5))).toBeLessThanOrEqual(CAT_RANGE);
       expect(end === HOME || grid[end] === 0).toBe(true);
-      for (const c of path.slice(1, -1)) expect(grid[c]).toBe(0);
       ends.add(end);
-      from = end;
     }
     // It goes to many cells, never the lamp's.
     expect(ends.size).toBeGreaterThan(20);
     expect(ends.has(cellOf(6, 5))).toBe(false);
   });
 
-  test("a member on its target or its way: it waits where it is for the slot", () => {
+  test("a member on the way from the last slot's target to this one: it stays on the last target", () => {
     const grid = walkGrid(ROOM);
-    let slot = 0;
+    let slot = 1;
     let path: number[] = [];
     for (; slot < 500; slot++) {
-      path = catMove(grid, HOME, HOME, catSeed("lobby", 1, slot), NOBODY);
+      path = findPath(grid, target(grid, slot - 1), target(grid, slot)) ?? [];
       if (path.length >= 3) break;
     }
     expect(path.length).toBeGreaterThanOrEqual(3);
-    const seed = catSeed("lobby", 1, slot);
-    expect(catMove(grid, HOME, HOME, seed, new Set([path.at(-1) ?? -1]))).toEqual([HOME]);
-    expect(catMove(grid, HOME, HOME, seed, new Set([path[1] ?? -1]))).toEqual([HOME]);
+    const last = target(grid, slot - 1);
+    expect(rest(grid, slot, new Set([path.at(-1) ?? -1]))).toBe(last);
+    expect(rest(grid, slot, new Set([path[1] ?? -1]))).toBe(last);
     // Someone elsewhere doesn't stop it.
-    expect(catMove(grid, HOME, HOME, seed, new Set([cellOf(9, 0)]))).toEqual(path);
+    expect(rest(grid, slot, new Set([cellOf(9, 0)]))).toBe(target(grid, slot));
+  });
+
+  test("QA OME-1525: a member standing next to home never pins it home; where it rests needs no history", () => {
+    // Every client computes the slot from scratch (a late joiner, the editor closing, a new layout), so a member on
+    // the only way out of home holds it home only in slots whose last target was home.
+    const grid = walkGrid(ROOM);
+    const taken = new Set([cellOf(5, 4)]);
+    let away = 0;
+    for (let slot = 1; slot < 200; slot++) {
+      const end = rest(grid, slot, taken);
+      expect([target(grid, slot), target(grid, slot - 1)]).toContain(end);
+      if (end !== HOME) away++;
+    }
+    expect(away).toBeGreaterThan(100);
   });
 
   test("a cell within range it can't reach (walled in) is never its target", () => {
@@ -93,6 +92,6 @@ describe("catMove", () => {
       ],
     };
     const grid = walkGrid(walled);
-    for (let slot = 0; slot < 300; slot++) expect(catMove(grid, HOME, HOME, catSeed("lobby", 1, slot), NOBODY).at(-1)).not.toBe(cellOf(8, 8));
+    for (let slot = 0; slot < 300; slot++) expect(rest(grid, slot)).not.toBe(cellOf(8, 8));
   });
 });
