@@ -836,7 +836,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
       if (entry.kind === "chat" && !entry.self) {
-        // Chat hidden in full screen (OME-1491): the line floats over the picture, unless I hid its speaker.
+        // Chat hidden in full screen (OME-1491): the line shows beside the picture, unless I hid its speaker.
         const speaker = from === undefined || isHidden(from) ? undefined : next.room?.members.find((m) => m.id === from);
         if (speaker !== undefined) layout.fsChat.say(speaker.avatar, entry.nickname, entry.text);
         layout.missed();

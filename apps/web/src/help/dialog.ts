@@ -39,7 +39,7 @@ const KEYBOARD: readonly Row[] = [
   [["T"], "Open the emote wheel; arrows pick, Enter sends."],
   [["1–8"], "Send an emote straight away."],
   [["F"], "Full screen: the picture with the chat beside it."],
-  [["C"], "In full screen: hide the chat; new messages float over the picture."],
+  [["C"], "In full screen: hide the chat; new messages show beside the picture."],
   [["?"], "This help."],
 ];
 

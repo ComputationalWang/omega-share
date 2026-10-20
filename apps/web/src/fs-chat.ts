@@ -1,8 +1,9 @@
 // Full screen's "hide chat" (OME-1491, board OME-1488): a video-only view where people stay present as bubbles. While
 // full screen lasts and the viewer hid the chat, the strip and the shelf go (room-layout.ts, layout.ts "hidden") and each
-// line from someone else floats over the picture's bottom-right corner: the speaker's head (the landing's avatar sheet,
-// no new art), nickname and text, clamped to 2 lines. At most 4, the oldest out first, each gone after ~6 s. CSS does
-// the drift and the fade (transform/opacity, room.css); JS only adds and removes nodes, one timer per bubble.
+// line from someone else shows in a column beside the picture (the strip's box, at its right): the speaker's head (the
+// landing's avatar sheet, no new art), nickname and text, clamped to 2 lines. At most 4, the oldest out first, each gone
+// after ~6 s. CSS does the drift and the fade (transform/opacity, room.css); JS only adds and removes nodes, one timer
+// per bubble.
 import { el } from "./controls/dom";
 
 const STORAGE_KEY = "omega.fsChatHidden";
@@ -22,7 +23,7 @@ export interface FsChatOptions<H> {
 }
 
 export interface FsChat {
-  /** The bubbles' region, over the picture: polite, never takes the pointer. */
+  /** The bubbles' column, beside the picture: polite, never takes the pointer. */
   readonly bubbles: HTMLElement;
   /** The top-corner pill that holds the toggle while the chat is hidden. */
   readonly pill: HTMLElement;

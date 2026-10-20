@@ -92,7 +92,7 @@ export interface RoomLayoutOptions {
 
 export interface RoomLayout {
   readonly fs: Fullscreen;
-  /** Full screen's "hide chat" (OME-1491): its toggle and the bubbles over the picture. */
+  /** Full screen's "hide chat" (OME-1491): its toggle and the bubbles beside the picture. */
   readonly fsChat: FsChat;
   /** Full screen's chat strip: shown only in full screen, while the room is here. */
   readonly strip: HTMLElement;

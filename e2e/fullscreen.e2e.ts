@@ -293,7 +293,7 @@ test("CSS mode: Tab stays inside the wrapper, and after a reload it still enters
   await expect(root).not.toHaveClass(/is-pseudo-fs/);
 });
 
-// OME-1491: hide chat. The strip and the shelf go, the picture takes the wrapper, others' lines float over it for ~6 s.
+// OME-1491: hide chat. The strip and the shelf go, the picture takes the wrapper, others' lines show beside it for ~6 s.
 async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>): Promise<void> {
   const root = page.locator(site.fsRoot);
   await enter();
