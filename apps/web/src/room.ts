@@ -263,19 +263,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     stopFollow();
   });
   // /conga (OME-1564): the line every client derives from the relayed `/conga` and `/stop` lines; on mine, I Follow the
-  // one before me. Whom the line has me follow, so a re-derived line follows someone else.
+  // one before me. `congaFollows` is whom the line has me follow; `congaQuit`, a `/stop` of mine not back yet (sent once).
   let conga = NO_CONGA;
   let congaFollows: MemberId | null = null;
+  let congaQuit = false;
   function congaFollow(): void {
     const ahead = congaAhead(conga, state.self);
-    if (ahead === congaFollows) return;
+    if (ahead === null) congaQuit = false;
+    if (ahead === congaFollows || congaQuit) return;
     if (congaFollows !== null && following === congaFollows) stopFollow();
     congaFollows = ahead;
     if (ahead !== null) follow(ahead);
   }
   /** Walking off, a hug, another Follow or the chip's Stop: a follower leaves the line by a `/stop` line, so every client closes it up. */
   function quitConga(): void {
-    if (congaFollows !== null) send({ type: "chat", text: "/stop" });
+    if (congaFollows !== null && !congaQuit) congaQuit = send({ type: "chat", text: "/stop" });
   }
   // Teleport pads (OME-1548): the teleport itself goes out unthrottled (one per 400 ms stand); every walk of mine, held
   // by the gate or not, takes a pending one back and arms the next stop.
@@ -1009,7 +1011,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // /conga and /stop go out as chat lines; past the cap, or /stop out of the line, they stay here.
       const c = congaText(text);
       if (c === "conga" && state.self !== null && congaJoin(conga, state.self, clock.serverNow()) === "full") hint(CONGA_FULL_LINE);
-      else if (c === "stop" && !conga.ids.some((id) => id === state.self)) stopFollow();
+      else if (c === "stop" && (state.self === null || !conga.ids.includes(state.self))) stopFollow();
       else return null;
       return true;
     }
