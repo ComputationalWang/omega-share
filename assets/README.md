@@ -1060,10 +1060,10 @@ Previews: `preview/furniture-v4-room@1x.png` / `@2x` (every piece, both facings,
 `preview/furniture-v4-atlas@2x.png`, and `preview/furniture-v4-use@4x.png` (`src/contact-use.sh assets/furniture <out> <gif-dir> furniture-v4`).
 
 **Teleport pad (OME-1546, batch 12), packed into the v4 sheet** (still 256×1024). `pad`: 1×1, `layer: "floor"`, `walkable`, one facing
-(`ne`: it's round), colours `teal` and `lilac`. Built like the kilim runner (a flat floor cast, plum outline), plus a 2 px plate edge: a dark
+(`se`, the contract's, OME-1545; it's round), colours `teal` and `lilac`. Built like the kilim runner (a flat floor cast, plum outline), plus a 2 px plate edge: a dark
 rim with eight brass studs, a cream ring, and a dish holding the site's "found" sparkle (cream, mustard heart). Only the dish/rim ramp
 changes with the colour, so `lilac` is `teal` with that ramp remapped, index for index (`src/pad.test.ts`). **Active frame** =
-its one-frame "in use" loop, `furniture/pad/<colour>/use/ne/0` (`use: { frames: 1, ms: 1000 }`, same rect and anchor as `back`): the ring
+its one-frame "in use" loop, `furniture/pad/<colour>/use/se/0` (`use: { frames: 1, ms: 1000 }`, same rect and anchor as `back`): the ring
 lights in glow, the studs and the heart in bright mustard, the dish brightens and the sparkle grows out to the ring. Show it while someone
 stands on the pad's cell, `back` otherwise. Floor layer, so it draws under the avatar like a rug. Contact sheet:
 `preview/furniture-pad-contact.png` (idle and active, 1× and 4×, then the v4 room at 2×: mo on a lit teal pad, idle pads, a lit lilac pad).

@@ -1554,10 +1554,10 @@ function showroomV4(): { placements: Placement[]; standing: [string, number, num
       { id: "hammock", colour: "rust", dir: "nw", col: 7, row: 5, sitters: ["", "mo"] },
       { id: "hammock", colour: "rust", dir: "se", col: 6, row: 8 },
       // Teleport pads (OME-1546): mo stands on a lit one; the others wait, one lilac pad lit with nobody on it for comparison.
-      { id: "pad", colour: "teal", dir: "ne", col: 7, row: 2, use: 0 },
-      { id: "pad", colour: "teal", dir: "ne", col: 3, row: 2 },
-      { id: "pad", colour: "lilac", dir: "ne", col: 3, row: 4 },
-      { id: "pad", colour: "lilac", dir: "ne", col: 8, row: 7, use: 0 },
+      { id: "pad", colour: "teal", dir: "se", col: 7, row: 2, use: 0 },
+      { id: "pad", colour: "teal", dir: "se", col: 3, row: 2 },
+      { id: "pad", colour: "lilac", dir: "se", col: 3, row: 4 },
+      { id: "pad", colour: "lilac", dir: "se", col: 8, row: 7, use: 0 },
     ],
     standing: [["mo/idle/sw/0", 7, 2]],
   };

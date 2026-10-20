@@ -768,7 +768,7 @@
     "y": 0.5238095238095238
    }
   },
-  "furniture/pad/lilac/ne/back": {
+  "furniture/pad/lilac/se/back": {
    "frame": {
     "x": 178,
     "y": 610,
@@ -792,7 +792,7 @@
     "y": 0.5384615384615384
    }
   },
-  "furniture/pad/lilac/use/ne/0": {
+  "furniture/pad/lilac/use/se/0": {
    "frame": {
     "x": 178,
     "y": 637,
@@ -816,7 +816,7 @@
     "y": 0.5384615384615384
    }
   },
-  "furniture/pad/teal/ne/back": {
+  "furniture/pad/teal/se/back": {
    "frame": {
     "x": 178,
     "y": 664,
@@ -840,7 +840,7 @@
     "y": 0.5384615384615384
    }
   },
-  "furniture/pad/teal/use/ne/0": {
+  "furniture/pad/teal/use/se/0": {
    "frame": {
     "x": 178,
     "y": 691,
@@ -1398,11 +1398,11 @@
    "furniture/fireplace/stone/use/sw/2",
    "furniture/fireplace/stone/use/sw/3"
   ],
-  "furniture/pad/teal/use/ne": [
-   "furniture/pad/teal/use/ne/0"
+  "furniture/pad/teal/use/se": [
+   "furniture/pad/teal/use/se/0"
   ],
-  "furniture/pad/lilac/use/ne": [
-   "furniture/pad/lilac/use/ne/0"
+  "furniture/pad/lilac/use/se": [
+   "furniture/pad/lilac/use/se/0"
   ]
  },
  "meta": {
@@ -1820,27 +1820,27 @@
       "lilac"
      ],
      "dirs": [
-      "ne"
+      "se"
      ],
      "footprint": {
       "cols": 1,
       "rows": 1
      },
      "footprintByDir": {
-      "ne": {
+      "se": {
        "cols": 1,
        "rows": 1
       }
      },
      "sortByDir": {
-      "ne": {
+      "se": {
        "x": 0,
        "y": 0
       }
      },
      "walkable": true,
      "layersByDir": {
-      "ne": [
+      "se": [
        "back"
       ]
      },

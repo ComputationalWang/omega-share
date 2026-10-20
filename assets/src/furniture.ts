@@ -1391,8 +1391,8 @@ export const PIECES: readonly PieceDef[] = [
   { id: "barcounter", label: "Bar counter", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 2, rows: 1, build: (k) => { barCounter(k); } },
   { id: "piano", label: "Upright piano", kind: "fun", colours: ["wood", "charcoal"], dirs: ["se", "sw"], cols: 2, rows: 1, use: { frames: 2, ms: 300 }, build: (k, c, n) => { piano(k, asRamp(c), n); } },
   { id: "fireplace", label: "Fireplace", kind: "fun", colours: ["stone"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 4, ms: 120 }, build: (k, _c, n) => { fireplace(k, n); } },
-  // Batch 12 (OME-1546), packed into the v4 sheet. Round, so one facing; the active frame is its one-frame "in use" loop.
-  { id: "pad", label: "Teleport pad", kind: "fun", layer: "floor", colours: ["teal", "lilac"], dirs: ["ne"], cols: 1, rows: 1, walkable: true, use: { frames: 1, ms: 1000 }, image: (_d, c, s, cv, n) => padImage(asRamp(c), n, s, cv) },
+  // Batch 12 (OME-1546), packed into the v4 sheet. Round, so one facing (the contract's `se`); the active frame is its one-frame "in use" loop.
+  { id: "pad", label: "Teleport pad", kind: "fun", layer: "floor", colours: ["teal", "lilac"], dirs: ["se"], cols: 1, rows: 1, walkable: true, use: { frames: 1, ms: 1000 }, image: (_d, c, s, cv, n) => padImage(asRamp(c), n, s, cv) },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
