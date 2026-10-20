@@ -293,6 +293,40 @@ test("/conga: B follows A, C follows B; when B stops, C follows A", async ({ bro
   await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-3")), { timeout: 15_000 }).toBe(true);
 });
 
+// OME-1570: a resume stops Follow while the line stays the same; the follower picks the line back up.
+test("/conga: a follower whose socket drops keeps following after the resume", async ({ browser }) => {
+  const drops: (() => void)[] = [];
+  const setup = async (context: BrowserContext, i: number): Promise<void> => {
+    if (i !== 1) return;
+    await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
+      ws.connectToServer();
+      drops.push(() => void ws.close({ code: 4000, reason: "e2e drop" }));
+    });
+  };
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "conga").url, count: 2, nicknamePrefix: "conga", setup });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000);
+  for (const [p, n] of [[a.page, 1], [b.page, 2]] as const) {
+    await p.locator(site.chatInput).fill("/conga");
+    await p.locator(site.chatInput).press("Enter");
+    await expect(a.page.locator(site.chatLogLine).filter({ hasText: "/conga" })).toHaveCount(n);
+  }
+  await expect(b.page.locator(site.followChip)).toBeVisible();
+  drops[0]?.();
+  await expect.poll(() => drops.length, { timeout: 15_000 }).toBeGreaterThan(1);
+  await expect(b.page.locator(site.connectionStatus)).toHaveText("", { timeout: 20_000 });
+  await a.page.locator(site.peopleKey).click();
+  await expect(a.page.locator(site.peopleConga), "A still has B in the line").toHaveCount(2);
+  // The chip keeps its text when hidden, so visible is the check.
+  await expect(b.page.locator(site.followChip), "B follows A again").toBeVisible();
+  await expect(b.page.locator(site.followChip)).toContainText("Following conga-1");
+  await a.page.keyboard.press("Escape");
+  await clickCell(a.page, 3, 8);
+  const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
+  await expect.poll(async () => beside.includes(await tagAt(a.page, "conga-2")), { timeout: 15_000 }).toBe(true);
+});
+
 test("a held arrow key steps at most once a tile", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("walk", "keys").url, count: 1, nicknamePrefix: "keys" });
   const [a] = clients;
