@@ -17,6 +17,9 @@ export const TINT_COUNT = 6;
 export const ACCESSORY_COUNT = 9;
 /** Hair colours a member can pick (ADR 0053, OME-1435); hair 0 is the avatar's own. */
 export const HAIR_COUNT = 6;
+/** The /conga line (OME-1564, OME-1574): at most this many people; a `/conga` over this long after the last join starts a new line. */
+export const CONGA_CAP = 12;
+export const CONGA_WINDOW_MS = 120_000;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */
 export const MAX_ROOM_MEMBERS = 25;
 /** Room ids are `[a-z0-9-]`, 1 to this many characters. */

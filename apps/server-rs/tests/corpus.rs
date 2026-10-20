@@ -264,6 +264,8 @@ fn constant(name: &str) -> Option<Value> {
         "TINT_COUNT" => json!(TINT_COUNT),
         "ACCESSORY_COUNT" => json!(ACCESSORY_COUNT),
         "HAIR_COUNT" => json!(HAIR_COUNT),
+        "CONGA_CAP" => json!(CONGA_CAP),
+        "CONGA_WINDOW_MS" => json!(CONGA_WINDOW_MS),
         "TYPING_BURST" => json!(TYPING_BURST),
         "TYPING_REFILL_MS" => json!(TYPING_REFILL_MS),
         "TYPING_TIMEOUT_MS" => json!(TYPING_TIMEOUT_MS),

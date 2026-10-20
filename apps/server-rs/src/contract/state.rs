@@ -319,6 +319,15 @@ fn check_poll(p: &Poll) -> Result<(), &'static str> {
     }
 }
 
+wire_type!(
+    /// The /conga line (OME-1574): `CongaSchema`, in the snapshot. `ids` leader first; `last` the server time of the last join.
+    Conga, CongaWire, check = always_ok,
+    {
+        ids: Vec<MemberId>,
+        last: ServerTime,
+    }
+);
+
 /// `QueueSchema`'s array rules: at most `QUEUE_MAX`, distinct ids.
 pub fn queue_is_valid(queue: &[QueueItem]) -> bool {
     queue.len() <= QUEUE_MAX && queue.iter().map(|i| i.id.as_str()).collect::<HashSet<_>>().len() == queue.len()

@@ -15,7 +15,7 @@ use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Member, PlaybackState, QueueItem, RoomState, RoomSummary};
+use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, RoomState, RoomSummary};
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
@@ -391,6 +391,14 @@ impl Room {
         }
         rec.member.floor_sit = next;
         FloorSitResult::Changed
+    }
+
+    /// A relayed chat line from `member` at server time `at`: `/conga` joins the line, `/stop` leaves it (OME-1574).
+    pub fn conga_chat(&mut self, _member: &MemberId, _text: &str, _at: u64) {}
+
+    /// The /conga line for the snapshot; `None` when nobody is in it.
+    pub fn conga(&self) -> Option<Conga> {
+        None
     }
 
     /// Sets whether `member` is typing; false if unchanged or not a member (OME-1387).
@@ -923,7 +931,7 @@ impl Rec {
 mod tests {
     use super::*;
     use crate::contract::confusables::nickname_key;
-    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+    use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
     use crate::contract::embed::canonicalize_embed;
     use crate::contract::generic_embed::canonicalize_generic_embed;
     use crate::contract::state::{PlaybackAction, Rev};
@@ -2003,6 +2011,71 @@ mod tests {
             json(&r.snapshot().members[0]),
             r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
         );
+    }
+
+    fn line(r: &Room) -> Vec<String> {
+        r.conga().map(|c| c.ids.iter().map(|m| m.as_str().to_owned()).collect()).unwrap_or_default()
+    }
+
+    #[test]
+    fn conga_joins_at_the_back_keeps_a_place_and_leaves_on_stop() {
+        let mut r = room();
+        let [a, b, c] = [("m1", "alice"), ("m2", "bob"), ("m3", "carol")].map(|(id, n)| join(&mut r, id, n, None));
+        assert!(r.conga().is_none(), "no line, nothing to send");
+        r.conga_chat(&a, "/conga", 1_000);
+        r.conga_chat(&b, "hello /conga", 1_001);
+        r.conga_chat(&b, "/CONGA let's go", 1_002);
+        r.conga_chat(&c, "/congaline", 1_003);
+        r.conga_chat(&c, "/conga", 1_004);
+        r.conga_chat(&a, "/conga", 1_005);
+        assert_eq!(line(&r), ["m1", "m2", "m3"]);
+        assert_eq!(r.conga().map(|c| c.last.0), Some(1_005), "a repeat refreshes the window");
+        r.conga_chat(&b, "/stop now", 1_006);
+        assert_eq!(line(&r), ["m1", "m2", "m3"], "only a bare /stop leaves");
+        r.conga_chat(&b, " /Stop ", 1_007);
+        assert_eq!(line(&r), ["m1", "m3"]);
+        r.conga_chat(&a, "/stop", 1_008);
+        r.conga_chat(&c, "/stop", 1_009);
+        assert!(r.conga().is_none());
+    }
+
+    #[test]
+    fn conga_starts_a_new_line_after_the_window_and_stops_at_the_cap() {
+        let mut r = room();
+        let ms: Vec<MemberId> = (0..14).map(|i| join(&mut r, &format!("m{i}"), &format!("n{i}"), None)).collect();
+        for (i, m) in ms.iter().enumerate() {
+            r.conga_chat(m, "/conga", 1_000 + i as u64);
+        }
+        assert_eq!(line(&r).len(), CONGA_CAP, "past the cap a /conga is ignored");
+        assert_eq!(r.conga().map(|c| c.last.0), Some(1_000 + CONGA_CAP as u64 - 1), "nor does it refresh the window");
+        let last = 1_000 + CONGA_CAP as u64 - 1;
+        r.conga_chat(&ms[13], "/conga", last + CONGA_WINDOW_MS);
+        assert_eq!(line(&r).len(), CONGA_CAP, "still inside the window");
+        r.conga_chat(&ms[13], "/conga", last + CONGA_WINDOW_MS + 1);
+        assert_eq!(line(&r), ["m13"], "a new line");
+    }
+
+    #[test]
+    fn conga_drops_whoever_leaves_sits_or_sits_on_the_floor() {
+        let mut r = room();
+        let [a, b, c, d] = [("m1", "alice"), ("m2", "bob"), ("m3", "carol"), ("m4", "dave")].map(|(id, n)| join(&mut r, id, n, None));
+        for m in [&a, &b, &c, &d] {
+            r.conga_chat(m, "/conga", 1_000);
+        }
+        r.leave(&b, T0);
+        assert_eq!(line(&r), ["m1", "m3", "m4"]);
+        r.sit(&c, Some(seat(1)));
+        assert_eq!(line(&r), ["m1", "m4"]);
+        r.walk(&d, cell(3, 3));
+        assert_eq!(r.set_floor_sit(&d, true), FloorSitResult::Changed);
+        assert_eq!(line(&r), ["m1"]);
+        r.sit(&c, None);
+        r.set_floor_sit(&d, false);
+        assert_eq!(line(&r), ["m1"], "getting up doesn't put them back");
+        r.conga_chat(&c, "/conga", 1_001);
+        assert_eq!(line(&r), ["m1", "m3"]);
+        r.conga_chat(&mid("ghost"), "/conga", 1_002);
+        assert_eq!(line(&r), ["m1", "m3"], "not a member");
     }
 
     #[test]

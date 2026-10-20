@@ -353,6 +353,9 @@ const EDGE_TEXTS: string[] = [
   ...[0, 4, 5, 8, 9, -1, 0.5, "1", null].map((accessory) => JSON.stringify({ type: "accessory-changed", memberId: "m1", accessory })),
   ...[true, false, 1, "true", null, undefined].map((on) => JSON.stringify({ type: "typing-changed", memberId: "m1", on })),
   ...[[6, 0], [6, 7], [6, 6], [1, 1], [101, 1], [6.5, 1], [6, 2.5], [6, -1], ["6", 1], [6, null], [6, undefined]].map(([sides, value]) => JSON.stringify({ type: "rolled", memberId: "m1", sides, value })),
+  // the /conga line (OME-1574)
+  snap(ROOM(), { conga: { ids: ["m1", "m2"], last: AT } }), snap(ROOM(), { conga: { ids: Array.from({ length: 12 }, (_, i) => `m${String(i)}`), last: 0 } }),
+  ...[{ ids: [], last: AT }, { ids: Array.from({ length: 13 }, (_, i) => `m${String(i)}`), last: AT }, { ids: ["m1", "m1"], last: AT }, { ids: ["a b"], last: AT }, { ids: ["m1"], last: -1 }, { ids: ["m1"], last: 1.5 }, { ids: ["m1"] }, { last: AT }, { ids: "m1", last: AT }, null].map((conga) => snap(ROOM(), { conga })),
   snap(ROOM(), { poll: POLL }), snap(ROOM(), { owner: true, poll: POLL }), snap(ROOM(), { poll: null }), snap(ROOM(), { poll: { ...POLL, counts: [0] } }),
   ...[[0, 2], [0, 0, 0, 0], [0, -1, 0], [0, 0.5, 0], [0, 26, 0], [0, "1", 0], null].map((counts) => JSON.stringify({ type: "poll", ...POLL, counts })),
   ...[[], ["A"], ["A", "B", "C", "D", "E"], ["A", ""], ["A", "x".repeat(41)], ["A", "\u3164"], null].map((options) => JSON.stringify({ type: "poll", ...POLL, options, counts: options?.map(() => 0) ?? [] })),
