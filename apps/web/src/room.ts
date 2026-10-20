@@ -270,10 +270,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   function congaFollow(): void {
     const ahead = congaAhead(conga, state.self);
     if (ahead === null) congaQuit = false;
-    if (ahead === congaFollows || congaQuit) return;
-    if (congaFollows !== null && following === congaFollows) stopFollow();
+    if (congaQuit) return;
+    if (congaFollows !== null && ahead !== congaFollows && following === congaFollows) stopFollow();
     congaFollows = ahead;
-    if (ahead !== null) follow(ahead);
+    // Not only when the line changes: a resume stops Follow on an unchanged line (QA OME-1570). Leaving on purpose
+    // goes through quitConga or the prune.
+    if (ahead !== null && following !== ahead && state.status === "open") follow(ahead);
   }
   /** Walking off, a hug, another Follow or the chip's Stop: a follower leaves the line by a `/stop` line, so every client closes it up. */
   function quitConga(): void {
