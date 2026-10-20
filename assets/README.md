@@ -990,6 +990,22 @@ share one rect (their union), so one anchor: swap the texture in place (same sor
 `open` is not a layer: `layersByDir` still lists only `back`. Preview: `preview/furniture-door-room@1x.png` / `@2x` (both doors, both facings,
 one closed and one open per wall, beside a bookcase). Like v2, nothing reads it until the Lead adds `door` to `FURNITURE` in `packages/shared`. The taller sheet needs no loader change: Pixi reads `meta.size` and every frame rect from the JSON.
 
+**Cat walk (OME-1519), same v2 sheet.** The cat gets off its cushion. All frames are the cat alone (the loaf's role grid, roles and ramp,
+eyes open with a mustard glint), drawn facing `sw` and mirrored for `se`, in both colours (`ginger`, `charcoal`):
+
+| key | frames | what | anchor |
+|---|---|---|---|
+| `furniture/cat/<colour>/walk/<dir>/<0-3>` (`meta.omega.walkKey`) | 4 per dir | Contact (open stride) → passing (legs under, tail tip sways out) → contact (other pair) → passing (sway back). Body drops 1 px on contacts, near paws always on the last row. All four share one rect. | the feet's centre (29×21) |
+| `furniture/cat/<colour>/sit/<dir>` (`meta.omega.sitKey`) | 1 per dir | Sitting upright, tail round the front paws: the pause between walks. | the feet's centre (20×22) |
+| `furniture/cat/<colour>/bed/<dir>` (`meta.omega.bedKey`) | 1 per dir | The empty cushion it left. Same rect and anchor as `…/<dir>/back`: swap it in place. | as `back` |
+
+Pixi's `animations["furniture/cat/<colour>/walk/<dir>"]` lists the walk in order; the frame time is `meta.omega.pieces[].walk = { frames: 4, ms: 150 }`,
+the avatars' Basic walk clock (`avatars/motion.json` `meta.omega.walk.frameMs`), so step it with the same 8×4 px per frame and one tile per cycle.
+No Smooth in-betweens: at 1× a 75 ms cat stride reads the same. `layersByDir` still lists only `back`. Only `se` and `sw` exist (like the loaf):
+for `ne` moves use `se` and for `nw` moves `sw` (the same screen side). Preview: `preview/cat-walk@4x.png` (1× strip on top; columns loaf, walk 0–3, sit, bed) and
+`preview/cat-walk-<colour>-<dir>@4x.apng` at live speed (`bun assets/src/shoot-cat.ts`). Cost: **+1 969 B** (292 857 → 294 826 of 307 200):
+`furniture-v2.png` 23 433 → 25 009 (+1 576, still 512×1024), `furniture-v2.json` 2 967 → 3 360 gz (+393).
+
 | id | loop | frames | ms/frame |
 |---|---|---|---|
 | `turntable` | the record turns: a groove glint and a label dot step a quarter turn per frame | 4 | 120 |
@@ -1244,6 +1260,8 @@ packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-o
 
 Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 → 226 272 of 307 200): lazy +7 293 (`furniture-v2.png` +5 375,
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
+
+The cat walk (OME-1519) adds **1 969 B**: 292 857 → 294 826 of 307 200 (see "Cat walk").
 
 Wall decor recolours (OME-1500) add **401 B**: 292 456 → 292 857 of 307 200 (see "Furniture recolours").
 

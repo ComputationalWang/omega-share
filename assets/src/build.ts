@@ -1278,6 +1278,9 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
     for (const colour of p.use ? p.colours : []) {
       for (const d of p.dirs) animations[`furniture/${p.id}/${colour}/use/${d}`] = Array.from({ length: p.use?.frames ?? 0 }, (_, n) => `furniture/${p.id}/${colour}/use/${d}/${String(n)}`);
     }
+    for (const colour of p.walk ? p.colours : []) {
+      for (const d of p.dirs) animations[`furniture/${p.id}/${colour}/walk/${d}`] = Array.from({ length: p.walk?.frames ?? 0 }, (_, n) => `furniture/${p.id}/${colour}/walk/${d}/${String(n)}`);
+    }
   }
   const atlas = {
     frames: atlasFrames,
@@ -1296,6 +1299,8 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         key: "furniture/<id>/<colour>/<dir>/<back|front>",
         ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
         ...(pieces.some((p) => p.open === true) ? { openKey: "furniture/<id>/<colour>/open/<dir>" } : {}),
+        // OME-1519: frame time in `pieces[].walk.ms`, the avatars' Basic walk clock (`avatars/motion.json` meta.omega.walk.frameMs).
+        ...(pieces.some((p) => p.walk) ? { walkKey: "furniture/<id>/<colour>/walk/<dir>/<n>", sitKey: "furniture/<id>/<colour>/sit/<dir>", bedKey: "furniture/<id>/<colour>/bed/<dir>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
         pieces,
       },
