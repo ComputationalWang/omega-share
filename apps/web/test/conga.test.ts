@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { CONGA_CAP, CONGA_WINDOW_MS, type RoomState } from "@omega/shared";
-import { NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaServer, congaText, type Conga } from "../src/chat/conga";
+import { CONGA_CAP, CONGA_WINDOW_MS, type RoomState, type ServerMessage } from "@omega/shared";
+import { NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaServer, congaStep, congaText, type Conga } from "../src/chat/conga";
 import { initialState, reduce } from "../src/state";
 import { HELP_LINE } from "../src/chat/effects";
 
@@ -100,5 +100,40 @@ describe("congaServer", () => {
     let full = NO_CONGA;
     for (let i = 0; i < CONGA_CAP; i++) full = join(full, `m${String(i)}`, i);
     expect(congaServer(full, chat("x", "/conga"))).toBe(full);
+  });
+});
+
+// OME-1578: once per event, the server's change and then the prune.
+describe("congaStep", () => {
+  const room: RoomState = {
+    id: "lobby",
+    seats: [null, null],
+    members: ["a", "b", "c", "d"].map((id) => ({ id, nickname: id, avatar: 0, cell: { x: 1, y: 1 } })),
+    embed: null,
+  };
+  const s0 = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "a", room }, now: 0 });
+  const step = (line: Conga, msg: ServerMessage): Conga => congaStep(line, msg, s0, reduce(s0, { type: "server", msg, now: 0 }));
+
+  test("a walk, a chat line or a local event keep the very same line", () => {
+    expect(step(abc, { type: "walked", memberId: "b", cell: { x: 2, y: 2 } })).toBe(abc);
+    expect(step(abc, { type: "chat", memberId: "d", text: "hi", at: 2500 })).toBe(abc);
+    expect(congaStep(abc, null, s0, s0)).toBe(abc);
+  });
+
+  test("a /conga or /stop line changes it", () => {
+    expect(step(abc, { type: "chat", memberId: "d", text: "/conga", at: 2500 }).ids).toEqual(["a", "b", "c", "d"]);
+    expect(step(abc, { type: "chat", memberId: "b", text: "/stop", at: 2500 }).ids).toEqual(["a", "c"]);
+  });
+
+  test("taking a seat, sitting on the floor or leaving takes them out", () => {
+    expect(step(abc, { type: "seat-changed", memberId: "b", seat: 0 }).ids).toEqual(["a", "c"]);
+    expect(step(abc, { type: "floor-sat", memberId: "c", on: true }).ids).toEqual(["a", "b"]);
+    expect(step(abc, { type: "member-left", memberId: "a" }).ids).toEqual(["b", "c"]);
+  });
+
+  test("a /conga from someone seated doesn't put them in", () => {
+    const seated = reduce(s0, { type: "server", msg: { type: "seat-changed", memberId: "d", seat: 1 }, now: 0 });
+    const msg: ServerMessage = { type: "chat", memberId: "d", text: "/conga", at: 2500 };
+    expect(congaStep(abc, msg, seated, reduce(seated, { type: "server", msg, now: 0 })).ids).toEqual(["a", "b", "c"]);
   });
 });

@@ -13,12 +13,15 @@
 // sway them, a bot at the piano's front plays it and the playing video lights the fireplace: every batch 6 loop runs.
 // Then Smooth again with every member wearing an accessory (OME-1542): bot n wears 1 + n % 8, the observer the halo, so
 // the walk25.accessories.<metric>.<profile> rows hold the overlay on all 25.
+// Then Smooth again with a 12-person /conga line (OME-1578): bots 1–12 send `/conga`, then every 360 ms the leader walks
+// to a random cell and each of the others to where the one ahead last went, all in one tick (a Follow chain on a fast
+// network lands in one frame); the other 12 keep churning seats and free-walking. walk25.conga.<metric>.<profile>.
 // OMEGA_PERF_WALK_RUN=1 (OME-1464): the bots jog (`walk.run`) instead, for the same rows with 25 joggers.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import * as v from "valibot";
-import { ACCESSORY_COUNT, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, RoomLayoutSchema, isStandable } from "@omega/shared";
+import { ACCESSORY_COUNT, CONGA_CAP, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, RoomLayoutSchema, isStandable } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { socketUrl } from "../e2e/support/bots";
 import { watchCsp } from "../e2e/support/csp";
@@ -40,9 +43,12 @@ const PROFILES = ["desktop", "phone"] as const;
 const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
-interface Pass { readonly tier: Tier; readonly worn: boolean }
-/** Each tier bare, then Smooth with everyone wearing an accessory. */
-const PASSES: readonly Pass[] = [...TIERS.map((tier) => ({ tier, worn: false })), { tier: "smooth", worn: true }];
+interface Pass { readonly tier: Tier; readonly worn: boolean; readonly conga: boolean }
+/** Each tier bare, then Smooth with everyone wearing an accessory, then Smooth with a /conga line. */
+const PASSES: readonly Pass[] = [...TIERS.map((tier) => ({ tier, worn: false, conga: false })), { tier: "smooth", worn: true, conga: false }, { tier: "smooth", worn: false, conga: true }];
+/** Bots in the /conga pass's line (the cap, CONGA_CAP), and its leader's walk period in walker ticks. */
+const CONGA_LINE = CONGA_CAP;
+const CONGA_EVERY_TICKS = 3;
 const BOT_PREFIX = "w25-bot";
 const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "cafe";
 const RUN = process.env["OMEGA_PERF_WALK_RUN"] === "1";
@@ -53,7 +59,7 @@ const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => (
   (c) => isStandable(DEFAULT_LAYOUT, c) && (SHOWN_LAYOUT === null || isStandable(SHOWN_LAYOUT, c)),
 );
 
-const rowId = (m: string, p: Profile, pass: Pass): string => (pass.worn ? `walk25.accessories.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
+const rowId = (m: string, p: Profile, pass: Pass): string => (pass.worn ? `walk25.accessories.${m}.${p}` : pass.conga ? `walk25.conga.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
 const ids = (p: Profile, pass: Pass): string[] => ["frameP95", "workP95", "missedVsync"].map((m) => rowId(m, p, pass));
 
 interface WalkerStats {
@@ -67,12 +73,12 @@ interface WalkerStats {
 }
 
 /** 24 raw-socket bots on a page of the site origin, sitting on free seats and standing up again, one change per tick, and free-walking standing bots. */
-async function startWalkers(browser: Browser, roomId: string, worn: boolean): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
+async function startWalkers(browser: Browser, roomId: string, worn: boolean, conga: number): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
   const context = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
   await page.evaluate(
-    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run, accessories }) => {
+    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run, accessories, conga, congaEvery }) => {
       interface Bot { ws: WebSocket; self: string }
       const all: Bot[] = [];
       /** seats[i] is the member id holding seat i, from the server's snapshot / seat-changed / member-left stream. */
@@ -128,10 +134,28 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean): Pr
           all.push(bot);
         });
       for (let i = 0; i < bots; i++) await join(i);
+      // The /conga line (OME-1578): spaced past the chat bucket's refill, so every `/conga` is relayed.
+      const line = all.slice(0, conga);
+      for (const b of line) {
+        b.ws.send(JSON.stringify({ type: "chat", text: "/conga" }));
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const lastCell: ({ x: number; y: number } | undefined)[] = line.map((_, i) => cells[i]);
+      let tick = 0;
       const timer = window.setInterval(() => {
+        tick++;
+        if (line.length > 0 && tick % congaEvery === 0) {
+          const ahead = [...lastCell];
+          line.forEach((b, i) => {
+            const cell = i === 0 ? cells[Math.floor(Math.random() * cells.length)] : ahead[i - 1];
+            if (cell === undefined) return;
+            lastCell[i] = cell;
+            b.ws.send(JSON.stringify({ type: "walk", cell }));
+          });
+        }
         const free = seats.flatMap((s, i) => (s === null ? [i] : []));
-        const seated = all.filter((b) => seats.includes(b.self));
-        const standing = all.filter((b) => !seats.includes(b.self));
+        const seated = all.filter((b) => !line.includes(b) && seats.includes(b.self));
+        const standing = all.filter((b) => !line.includes(b) && !seats.includes(b.self));
         // Keep 2-6 of the 8 seats full: a sit or a stand, at random in between.
         const sit = seated.length < 2 || (seated.length < 6 && Math.random() < 0.5);
         if (sit) {
@@ -165,7 +189,7 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean): Pr
         },
       });
     },
-    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN, accessories: worn ? ACCESSORY_COUNT : 0 },
+    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN, accessories: worn ? ACCESSORY_COUNT : 0, conga, congaEvery: CONGA_EVERY_TICKS },
   );
   const call = async (fn: "stats" | "mark" | "stop"): Promise<WalkerStats> => {
     const raw: unknown = await page.evaluate((f): unknown => {
@@ -207,14 +231,14 @@ const botTags = (page: Page): Promise<Record<string, string>> =>
   );
 
 for (const profile of PROFILES) {
-  test(`walk tiers: 25 members walking, ${profile}, Basic, Smooth, Smooth with accessories (video playing)`, async ({ browser, request }) => {
+  test(`walk tiers: 25 members walking, ${profile}, Basic, Smooth, Smooth with accessories, Smooth with a /conga line (video playing)`, async ({ browser, request }) => {
     const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
     if (why !== null) {
       for (const pass of PASSES) for (const id of ids(profile, pass)) recordMetric({ id, pending: why });
       test.skip(true, why);
       return;
     }
-    test.setTimeout(360_000);
+    test.setTimeout(480_000);
     // The same seeded room as the pop-out room perf (specs run one after the other on one worker, each leaving it empty).
     const room = testRoom("popout-room-perf", "frames");
     await expect
@@ -233,7 +257,7 @@ for (const profile of PROFILES) {
     const phone: BrowserContextOptions | undefined = profile === "phone" ? { ...devices["Pixel 7"] } : undefined;
     const results: { row: string; p95: number; missedPct: number; workP95: number; walking: number }[] = [];
     for (const pass of PASSES) {
-      const { tier, worn } = pass;
+      const { tier, worn, conga } = pass;
       const clients = await joinRoom(browser, {
         roomUrl: room.url,
         count: 1,
@@ -278,7 +302,7 @@ for (const profile of PROFILES) {
           }
         },
       });
-      const walkers = await startWalkers(browser, room.id, worn);
+      const walkers = await startWalkers(browser, room.id, worn, conga ? CONGA_LINE : 0);
       try {
         const [observer] = clients;
         if (observer === undefined) throw new Error("no observer");
@@ -311,15 +335,17 @@ for (const profile of PROFILES) {
               });
         // Walked in the window: moved, or changed seat (a round trip to a stable slot ends where it began, ADR 0043).
         const walking = walkedInWindow(start, end, s.seatChanged);
+        const congaLines = await page.locator(site.chatLogLine).filter({ hasText: "/conga" }).count();
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${conga ? `, ${String(congaLines)}-person /conga line` : ""}${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
         recordMetric({ id: rowId("frameP95", profile, pass), value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: rowId("workP95", profile, pass), value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: rowId("missedVsync", profile, pass), value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
         expect(s.members).toBe(MAX_ROOM_MEMBERS);
+        expect(congaLines, `the observer saw the whole /conga line: ${what}`).toBe(conga ? CONGA_LINE : 0);
         expect(walking, `the window measures walking: ${what}`).toBeGreaterThanOrEqual(MIN_WALKERS);
-        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
+        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}${conga ? " with a /conga line" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
       } finally {
         await walkers.stop();
         await leaveAll(clients);

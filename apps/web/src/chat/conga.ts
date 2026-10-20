@@ -53,3 +53,8 @@ export function congaServer(line: Conga, msg: ServerMessage): Conga {
   const joined = c === "conga" ? congaJoin(line, msg.memberId, msg.at) : line;
   return joined === "full" ? line : joined;
 }
+
+/** The line after an event (`msg` null for a local one). Stub (OME-1578 red). */
+export function congaStep(line: Conga, msg: ServerMessage | null, prev: ViewState, next: ViewState): Conga {
+  return congaPrune(line, msg === null ? prev : next);
+}
