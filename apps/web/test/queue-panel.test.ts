@@ -121,6 +121,18 @@ describe("renders once per change, never per frame", () => {
     for (let i = 0; i < 60; i++) panel.update(state());
     expect(panel.renders()).toBe(base + 1);
   });
+
+  test("walks and seat changes leave the panel alone (OME-1542: each rebuilt the rows and forced a layout); the adder leaving redraws it", async () => {
+    const { panel, server, rows } = await setup(room({ queue: [item("a")] }));
+    const base = panel.renders();
+    server({ type: "walked", memberId: "kit", cell: { x: 2, y: 3 } });
+    server({ type: "seat-changed", memberId: "kit", seat: 1 });
+    server({ type: "walked", memberId: "me", cell: { x: 4, y: 4 } });
+    expect(panel.renders()).toBe(base);
+    server({ type: "member-left", memberId: "kit" });
+    expect(panel.renders()).toBe(base + 1);
+    expect(rows()[0]?.querySelector(".meta")?.textContent).toBe("someone");
+  });
 });
 
 test("a pre-M6 server (no queue in the room) still draws the panel once, not on every update", async () => {
