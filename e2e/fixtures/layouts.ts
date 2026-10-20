@@ -10,6 +10,9 @@ export const PADS: RoomLayout = {
   ],
 };
 
+/** The default room plus a door on the left wall at (0, 3), its front (1, 3), to `target` (OME-1558). */
+export const doorTo = (target: string): RoomLayout => ({ furniture: [...DEFAULT_LAYOUT.furniture, { kind: "door", col: 0, row: 3, facing: "se", target }] });
+
 /** Two sofas and a couch take seats 0–5, then a wingback and a beanbag; plus a runner, a print, a bookcase and props. */
 export const SET_G: RoomLayout = {
   furniture: [

@@ -6,8 +6,8 @@ import { el } from "./controls/dom";
 export interface DoorChipOptions {
   /** The saved title of a room this browser knows, or null. */
   readonly titleOf: (id: RoomId) => string | null;
-  /** Leave for `/r/<id>`. */
-  readonly go: (path: string) => void;
+  /** Leave for `/r/<id>`, the door's room `target`. */
+  readonly go: (path: string, target: RoomId) => void;
 }
 
 export interface DoorChip {

@@ -256,6 +256,10 @@ describe("joinMessage", () => {
   test("carries the stored owner token and invite key", () => {
     expect(joinMessage("zoe", 1, { ownerToken: OWNER, inviteKey: KEY })).toEqual({ type: "join", nickname: "zoe", avatar: 1, ownerToken: OWNER, inviteKey: KEY });
   });
+  test("carries the room I came through a door from as via (OME-1558), and leaves it out without one", () => {
+    expect(joinMessage("zoe", 1, undefined, 0, 0, 0, ROOM)).toEqual({ type: "join", nickname: "zoe", avatar: 1, via: ROOM });
+    expect("via" in joinMessage("zoe", 1, undefined, 0, 0, 0, null)).toBe(false);
+  });
   test("leaves absent secrets out entirely (join is a strictObject on the server)", () => {
     const m = joinMessage("zoe", 1, undefined);
     expect(m).toEqual({ type: "join", nickname: "zoe", avatar: 1 });

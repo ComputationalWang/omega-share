@@ -85,3 +85,13 @@ export function takePendingShare(store: Pick<PendingStore, "getItem" | "removeIt
     return null;
   }
 }
+
+export const pendingViaKey = (roomId: RoomId): string => `omega.via.${roomId}`;
+
+export function stashVia(_store: Pick<PendingStore, "setItem">, _target: RoomId, _from: RoomId): boolean {
+  return false;
+}
+
+export function takeVia(_store: Pick<PendingStore, "getItem" | "removeItem">, _roomId: RoomId): RoomId | null {
+  return null;
+}
