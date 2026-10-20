@@ -81,9 +81,10 @@ pub enum Kind {
     Barcounter,
     Piano,
     Fireplace,
+    Pad,
 }
 
-pub const KINDS: [Kind; 35] = [
+pub const KINDS: [Kind; 36] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -119,6 +120,7 @@ pub const KINDS: [Kind; 35] = [
     Kind::Barcounter,
     Kind::Piano,
     Kind::Fireplace,
+    Kind::Pad,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -202,6 +204,7 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1),
         Kind::Piano => Spec::new(Object, CAMERA, 2, 1).variants(2),
         Kind::Fireplace => Spec::new(Object, CAMERA, 1, 1).backed(),
+        Kind::Pad => Spec::new(Floor, FIXED, 1, 1).variants(2),
     }
 }
 
@@ -321,6 +324,7 @@ fn layout_ok(furniture: &[Furniture]) -> bool {
     furniture.len() <= MAX_FURNITURE
         && furniture.iter().filter(|f| f.kind == Kind::Tv).count() == 1
         && furniture.iter().filter(|f| f.kind == Kind::Door).count() <= MAX_DOORS
+        && matches!(furniture.iter().filter(|f| f.kind == Kind::Pad).count(), 0 | 2)
         && layout_seats(furniture).len() == SEAT_COUNT
         && disjoint(furniture, Layer::Object)
         && disjoint(furniture, Layer::Floor)
@@ -488,6 +492,16 @@ impl RoomLayout {
             .furniture
             .iter()
             .any(|f| spec(f.kind).layer == Layer::Object && footprint_cells(f).contains(&at))
+    }
+
+    /// `canTeleport`: `from` is one pad's cell, `cell` the other's, and nothing solid covers it (OME-1545).
+    pub fn can_teleport(&self, from: Option<FloorCell>, cell: FloorCell) -> bool {
+        let is_pad = |c: FloorCell| {
+            self.furniture
+                .iter()
+                .any(|f| f.kind == Kind::Pad && u32::from(f.col) == u32::from(c.x.get()) && u32::from(f.row) == u32::from(c.y.get()))
+        };
+        from.is_some_and(|from| from != cell && is_pad(from)) && is_pad(cell) && self.standable(cell)
     }
 
     /// The canonical JSON: what the TS server's `JSON.stringify(parsed)` writes.
@@ -1009,6 +1023,40 @@ mod tests {
 
     fn door(col: u8, row: u8, target: Value) -> Value {
         json!({"kind":"door","col":col,"row":row,"facing": if row == 0 {"sw"} else {"se"},"target":target})
+    }
+
+    // packages/shared/test/teleport-contract.test.ts (OME-1545)
+    #[test]
+    fn a_pad_is_a_fixed_floor_piece_with_2_variants_and_a_layout_holds_0_or_2() {
+        let s = spec(Kind::Pad);
+        assert_eq!(
+            (s.layer, s.facings, s.cols, s.rows, s.seats, s.variants, s.wall_backed),
+            (Layer::Floor, FIXED, 1, 1, false, 2, false)
+        );
+        let pad = |col: u8, row: u8| p("pad", col, row, "se");
+        assert!(RoomLayout::parse(base(vec![pad(9, 1), pad(1, 9)]).to_string().as_bytes()).is_ok());
+        assert!(RoomLayout::parse_input(base(vec![pad(9, 1), pad(1, 9)]).to_string().as_bytes()).is_ok());
+        for bad in [vec![pad(9, 1)], vec![pad(9, 1), pad(1, 9), pad(8, 9)], vec![pad(9, 1), pad(9, 1)]] {
+            assert!(RoomLayout::parse(base(bad.clone()).to_string().as_bytes()).is_err());
+            assert!(RoomLayout::parse_input(base(bad).to_string().as_bytes()).is_err());
+        }
+    }
+
+    // packages/shared/test/teleport-contract.test.ts (OME-1545)
+    #[test]
+    fn teleport_goes_from_one_pad_to_the_other_and_nowhere_else() {
+        let c = |x: u64, y: u64| FloorCell::new(x, y).unwrap();
+        let l = parse(&base(vec![p("pad", 9, 1, "se"), p("pad", 1, 9, "se")]));
+        assert!(l.can_teleport(Some(c(9, 1)), c(1, 9)));
+        assert!(l.can_teleport(Some(c(1, 9)), c(9, 1)));
+        assert!(!l.can_teleport(Some(c(9, 1)), c(9, 1)));
+        assert!(!l.can_teleport(Some(c(8, 1)), c(1, 9)));
+        assert!(!l.can_teleport(Some(c(9, 1)), c(2, 9)));
+        assert!(!l.can_teleport(None, c(1, 9)));
+        assert!(!parse(&base(vec![])).can_teleport(Some(c(9, 1)), c(1, 9)));
+        // the plant stands on (0, 9): a covered pad is no way out
+        let covered = parse(&base(vec![p("plant", 0, 9, "se"), p("pad", 9, 1, "se"), p("pad", 0, 9, "se")]));
+        assert!(!covered.can_teleport(Some(c(9, 1)), c(0, 9)));
     }
 
     // packages/shared/test/door-roll-contract.test.ts (OME-1423)

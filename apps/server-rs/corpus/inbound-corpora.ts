@@ -57,6 +57,8 @@ const valid: Raw[] = [
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
+  js({ type: "walk", cell: { x: 9, y: 0 }, teleport: true }), js({ type: "walk", cell: { x: 9, y: 0 }, teleport: false }), js({ type: "walk", cell: { x: 9, y: 0 }, run: true, teleport: true }),
+  js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, { kind: "pad", col: 9, row: 1, facing: "se" }, { kind: "pad", col: 1, row: 9, facing: "se", variant: 1 }] } }),
   ...["none", "warm", "cool", "night"].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
   ...[2, 3, 6, 20, 99, 100].map((sides) => js({ type: "roll", sides })),
   // polls (OME-1452)
@@ -173,6 +175,9 @@ const invalid: Raw[] = [
   ok('{"type":"walk","cell":{"x":1,"y":1e400}}'),
   // walk run (OME-1461)
   ...[true, false, 1, 0, "true", null, {}].map((run) => js({ type: "walk", cell: { x: 1, y: 1 }, run })),
+  // walk teleport (OME-1545)
+  ...[1, 0, "true", null, [], {}].map((teleport) => js({ type: "walk", cell: { x: 1, y: 1 }, teleport })),
+  ...[1, 3].map((n) => js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, ...[[9, 1], [1, 9], [8, 9]].slice(0, n).map(([col, row]) => ({ kind: "pad", col, row, facing: "se" }))] } })),
   ...[6, -1, 0.5, "1", null, true].map((tint) => js({ type: "set-tint", tint })), js({ ...JOIN, tint: 6 }), js({ ...JOIN, tint: null }),
   // typing, set-accessory, join accessory (OME-1387)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "typing", on })), js({ type: "typing" }),

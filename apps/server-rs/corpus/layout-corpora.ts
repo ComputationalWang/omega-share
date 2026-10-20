@@ -156,7 +156,21 @@ const doors = (): unknown[] => {
 const moods = (): unknown[] =>
   ["none", "warm", "cool", "night", "dark", "Warm", "none ", "", null, 0, true, [], {}].flatMap((mood) => [{ ...(base() as object), mood }, { ...DEFAULT_LAYOUT, mood }]);
 
-const inputs = (): unknown[] => [...shapes(), ...doors(), ...moods(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** Teleport pads (OME-1545): 0 or exactly 2; one fixed facing, 2 variants, a floor piece (walkable, may lie under objects, not on a rug). */
+const pads = (): unknown[] => {
+  const pad = (col: number, row: number, more: Piece = {}): Piece => ({ kind: "pad", col, row, facing: "se", ...more });
+  const PAIR = [pad(9, 1), pad(1, 9)];
+  return [
+    base(...PAIR), base(pad(9, 1)), base(...PAIR, pad(8, 9)), base(...PAIR, pad(9, 9), pad(8, 9)), base(pad(9, 1), pad(9, 1)),
+    ...[0, 1, 2, -1].map((variant) => base(pad(9, 1, { variant }), pad(1, 9))),
+    ...FACINGS.map((facing) => base(pad(9, 1, { facing }), pad(1, 9))),
+    base(pad(9, 1), pad(0, 9)), base(pad(9, 1), pad(3, 3)), base(pad(9, 1), pad(1, 9), { kind: "rug", col: 1, row: 1, facing: "se" }),
+    layout(TV, ...CHAIRS, { kind: "rug", col: 1, row: 1, facing: "se" }, pad(9, 1), pad(2, 2)),
+    base(pad(9, 1), pad(1, 9), { kind: "sidetable", col: 9, row: 1, facing: "se" }),
+  ];
+};
+
+const inputs = (): unknown[] => [...shapes(), ...doors(), ...moods(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));

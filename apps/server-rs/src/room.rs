@@ -319,6 +319,17 @@ impl Room {
         WalkResult::Walked { stood_up }
     }
 
+    /// `walk` with `teleport` (OME-1545): from the pad `member` stands on to the other pad, `cell`.
+    pub fn teleport(&mut self, member: &MemberId, cell: FloorCell) -> WalkResult {
+        let Some(rec) = self.member(member) else {
+            return WalkResult::NotMember;
+        };
+        if !self.layout.can_teleport(rec.cell, cell) {
+            return WalkResult::Blocked;
+        }
+        self.walk(member, cell)
+    }
+
     /// Sets `member`'s shirt tint; false if unchanged or not a member. Tint 0 is stored as absent (ADR 0053).
     pub fn set_tint(&mut self, member: &MemberId, tint: Tint) -> bool {
         let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
@@ -1862,6 +1873,27 @@ mod tests {
         );
         assert_eq!(r.walk(&a, cell(9, 9)), WalkResult::Walked { stood_up: false });
         assert_eq!(r.member(&a).unwrap().cell, Some(cell(9, 9)));
+    }
+
+    #[test]
+    fn a_teleport_needs_a_pad_under_you_and_the_other_pad_as_the_cell() {
+        let mut r = room();
+        let pad = |col: u8, row: u8| serde_json::json!({"kind":"pad","col":col,"row":row,"facing":"se"});
+        r.set_layout(layout_plus(&[pad(9, 1), pad(1, 9)]));
+        let a = join(&mut r, "m1", "alice", None);
+        assert_eq!(r.teleport(&a, cell(1, 9)), WalkResult::Blocked, "the standing spot is no pad");
+        r.walk(&a, cell(8, 1));
+        assert_eq!(r.teleport(&a, cell(1, 9)), WalkResult::Blocked, "off a pad");
+        r.walk(&a, cell(9, 1));
+        for c in [cell(8, 1), cell(9, 1), cell(0, 0)] {
+            assert_eq!(r.teleport(&a, c), WalkResult::Blocked);
+        }
+        assert_eq!(r.teleport(&a, cell(1, 9)), WalkResult::Walked { stood_up: false });
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(1, 9)));
+        assert_eq!(r.teleport(&a, cell(9, 1)), WalkResult::Walked { stood_up: false });
+        r.sit(&a, Some(seat(2)));
+        assert_eq!(r.teleport(&a, cell(1, 9)), WalkResult::Blocked, "seated");
+        assert_eq!(r.teleport(&mid("ghost"), cell(1, 9)), WalkResult::NotMember);
     }
 
     #[test]

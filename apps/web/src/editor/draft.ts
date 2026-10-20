@@ -165,7 +165,8 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter(pick);
+// shortcut: the pad (OME-1545) has no art yet, so the tray leaves it out; the teleport web issue adds it.
+const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => k !== "pad" && pick(k));
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */
 export function parseDoorTarget(text: string, origin: string, current: RoomId): { readonly ok: true; readonly id: RoomId } | { readonly ok: false; readonly error: string } {

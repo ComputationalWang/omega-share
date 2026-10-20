@@ -86,6 +86,8 @@ export const FURNITURE = {
   barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }),
   piano: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 2 }),
   fireplace: piece("object", CAMERA, ONE, { wallBacked: true }),
+  /** A teleport pad (OME-1545): a layout holds 0 or exactly 2, and a `walk` with `teleport` goes from one to the other. */
+  pad: piece("floor", FIXED, ONE, { variants: 2 }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;
@@ -176,6 +178,12 @@ export function isStandable(layout: { readonly furniture: readonly Placed[] }, c
   return !layout.furniture.some((f) => FURNITURE[f.kind].layer === "object" && footprintCells(f).some(([c, r]) => c === cell.x && r === cell.y));
 }
 
+/** A `walk` with `teleport` from `from` to `cell` (OME-1545): `from` is one pad's cell, `cell` the other's, and nothing solid covers it. */
+export function canTeleport(layout: { readonly furniture: readonly Placed[] }, from: FloorCell | undefined, cell: FloorCell): boolean {
+  const isPad = (c: FloorCell): boolean => layout.furniture.some((f) => f.kind === "pad" && f.col === c.x && f.row === c.y);
+  return from !== undefined && (from.x !== cell.x || from.y !== cell.y) && isPad(from) && isPad(cell) && isStandable(layout, cell);
+}
+
 /** Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). */
 export function layoutSeats(layout: { readonly furniture: readonly Placed[] }): Seat[] {
   const seats: Seat[] = [];
@@ -216,6 +224,7 @@ const roomLayout = (base: v.ObjectSchema<LayoutEntries, undefined> | v.StrictObj
     base,
     v.check((l) => l.furniture.filter((f) => f.kind === "tv").length === 1, "exactly one tv"),
     v.check((l) => l.furniture.filter((f) => f.kind === "door").length <= MAX_DOORS, "too many doors"),
+    v.check((l) => [0, 2].includes(l.furniture.filter((f) => f.kind === "pad").length), "0 or 2 pads"),
     v.check((l) => layoutSeats(l).length === SEAT_COUNT, "seat cells must total SEAT_COUNT"),
     v.check((l) => disjoint(l.furniture, "object"), "solid pieces overlap"),
     v.check((l) => disjoint(l.furniture, "floor"), "rugs overlap"),

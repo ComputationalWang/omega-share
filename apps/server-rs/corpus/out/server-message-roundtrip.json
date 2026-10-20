@@ -26,6 +26,8 @@
 {"input":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":null}","ok":true,"output":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":null}"},
 {"input":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":{\"x\":2,\"y\":2},\"run\":true}","ok":true,"output":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":{\"x\":2,\"y\":2},\"run\":true}"},
 {"input":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":null,\"run\":false}","ok":true,"output":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":null,\"run\":false}"},
+{"input":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":{\"x\":9,\"y\":1},\"teleport\":true}","ok":true,"output":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":{\"x\":9,\"y\":1},\"teleport\":true}"},
+{"input":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":{\"x\":9,\"y\":1},\"run\":true,\"teleport\":true}","ok":true,"output":"{\"type\":\"walked\",\"memberId\":\"m1\",\"cell\":{\"x\":9,\"y\":1},\"run\":true,\"teleport\":true}"},
 {"input":"{\"type\":\"tint-changed\",\"memberId\":\"m1\",\"tint\":0}","ok":true,"output":"{\"type\":\"tint-changed\",\"memberId\":\"m1\",\"tint\":0}"},
 {"input":"{\"type\":\"tint-changed\",\"memberId\":\"m1\",\"tint\":3}","ok":true,"output":"{\"type\":\"tint-changed\",\"memberId\":\"m1\",\"tint\":3}"},
 {"input":"{\"type\":\"tint-changed\",\"memberId\":\"m1\",\"tint\":5}","ok":true,"output":"{\"type\":\"tint-changed\",\"memberId\":\"m1\",\"tint\":5}"},

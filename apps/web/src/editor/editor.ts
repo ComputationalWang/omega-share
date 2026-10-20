@@ -95,6 +95,7 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   barcounter: "Bar counter",
   piano: "Upright piano",
   fireplace: "Fireplace",
+  pad: "Teleport pad",
 };
 
 const DELETED = "Room deleted.";
