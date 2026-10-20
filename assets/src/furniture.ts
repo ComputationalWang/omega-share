@@ -5,6 +5,7 @@
 // Local frame: x runs along the piece (width), the piece's front faces −y, z is up. One tile is 16×16 units,
 // the origin cell spans x, y ∈ [−8, 8), and wider pieces grow toward +x (the next col or row).
 import { SEAT_HEIGHT } from "./avatars";
+import { WALK_FRAMES, WALK_FRAME_MS } from "./motion";
 import { addOutline, box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
 import type { RoomFrame } from "./room";
@@ -1002,11 +1003,15 @@ const catRoles = (c: RampName): RoleMap => ({
   w: { ramp: "cream", tone: 1 },
 });
 
-function sleepyCat(dir: FurnDir, c: RampName, s = 1, cv: Canvas = CANVAS): Uint8Array {
+function sleepyCat(dir: FurnDir, c: RampName, s = 1, cv: Canvas = CANVAS, empty = false): Uint8Array {
   const k = new Kit(dir);
   const bed: LPaint = (p, f) => (f === "top" && Math.hypot(p.x, p.y) < 5.2 ? ["lilac", 2] : null);
   k.ell({ x: 0, y: 0, z: 0 }, { x: 7, y: 7, z: Infinity }, [-8, 8, -8, 8, 0, 3], "lilac", { paint: bed });
   const r = renderSolids(k.parts.map((q) => q.solid), cv.w, cv.h, cv.ax, cv.ay, "none", s);
+  if (empty) {
+    addOutline(r.img, cv.w, cv.h);
+    return r.img;
+  }
   const g0 = blank(CAT_SW[0]?.length ?? 0, CAT_SW.length);
   stamp(g0, CAT_SW, 0, 0);
   const g = dir === "sw" ? g0 : mirror(g0);
@@ -1023,6 +1028,111 @@ function sleepyCat(dir: FurnDir, c: RampName, s = 1, cv: Canvas = CANVAS): Uint8
   }
   addOutline(r.img, cv.w, cv.h);
   return r.img;
+}
+
+// The cat off its cushion (OME-1519): a 4-frame walk on the avatars' clock and a sit, same roles and ramp as the loaf, eyes open.
+// Drawn facing sw (head front-left) and mirrored for se, like the loaf. Feet always land on the grid's last row.
+/** Walk body without legs: the back rises to the right (the rump is the far end in iso); `E` is the eye's glint. */
+const CAT_WALK_BODY: readonly string[] = [
+  "...h.....h..................",
+  "..hph...hph.................",
+  "..hpph.hpph.................",
+  "..hhhhhhhhhh................",
+  ".hhhhhhhhhhhh...............",
+  ".hhEehhhhEehh...bbbbbbbb....",
+  ".hhhhhwnwhhhhobbbsbbbsbbb...",
+  ".hhhhwwwwwhhhobbbbsbbbsbbb..",
+  "..hhhhwwwhhhobbbbbsbbbsbbb..",
+  "...hhhhhhhhobbbbbbbbbbbbbb..",
+  "....owwwwwobbbbbbbbbbbbbbb..",
+  "....wwwwwwbbbbbbbbbbbbbbb...",
+  ".....wwwwbbbbbbbbbbbbbbb....",
+];
+/** Tail rows above/behind the rump, by sway (−1, 0, +1): it rises from the rump's top-right and hooks over at the tip. */
+const catTail = (sway: number): readonly [number, number][] => [
+  [24, 5], [25, 5], [25, 4], [26, 4], [25 + Math.min(sway, 0), 3], [26 + Math.min(sway, 0), 3],
+  [25 + sway, 2], [26 + sway, 2], [24 + sway, 1], [25 + sway, 1], [23 + sway, 0], [24 + sway, 0],
+];
+/** Per frame: body drop (contact frames sit 1 px lower) and each foot's x shift [near front, far front, near hind, far hind]. */
+const CAT_GAIT: readonly { drop: number; feet: readonly [number, number, number, number]; sway: number }[] = [
+  { drop: 1, feet: [-2, 1, 2, -1], sway: 0 },
+  { drop: 0, feet: [0, 0, 0, 0], sway: 1 },
+  { drop: 1, feet: [1, -2, -1, 2], sway: 0 },
+  { drop: 0, feet: [0, 0, 0, 0], sway: -1 },
+];
+const CAT_WALK_H = 19;
+/** Walk frame n (0..3) as a role grid facing sw. Far legs are drawn first in the shade tone (`o`, paw `W`), near legs over them. */
+function catWalkGrid(n: number): Grid {
+  const g = blank(CAT_WALK_BODY[0]?.length ?? 0, CAT_WALK_H);
+  const f = CAT_GAIT[n % 4] ?? { drop: 0, feet: [0, 0, 0, 0], sway: 0 };
+  const top = 11 + f.drop, foot = CAT_WALK_H - 1;
+  const leg = (x: number, dx: number, far: boolean): void => {
+    const end = far ? foot - 1 : foot;
+    for (let y = top; y <= end; y++) {
+      const lx = x + Math.round((dx * (y - top)) / (end - top));
+      const ch = y === end ? (far ? "W" : "w") : far ? "o" : "b";
+      stamp(g, [ch + ch], lx, y);
+    }
+  };
+  leg(8, f.feet[1], true);
+  leg(22, f.feet[3], true);
+  stamp(g, CAT_WALK_BODY, 0, f.drop);
+  for (const [x, y] of catTail(f.sway)) stamp(g, ["t"], x, y + f.drop);
+  leg(5, f.feet[0], false);
+  leg(19, f.feet[2], false);
+  return g;
+}
+/** Sitting upright facing sw: the loaf's head over a pear-shaped body, straight cream forelegs, tail curled round the front. */
+const CAT_SIT_SW: readonly string[] = [
+  "...h.....h.........",
+  "..hph...hph........",
+  "..hpph.hpph........",
+  "..hhhhhhhhhh.......",
+  ".hhhhhhhhhhhh......",
+  ".hhEehhhhEehh......",
+  ".hhhhhwnwhhhh......",
+  ".hhhhwwwwwhhh......",
+  "..hhhhwwwhhhobb....",
+  "...hhhhhhhhobbbb...",
+  "....owwwwwobbsbb...",
+  "....wwwwwwobbbsbb..",
+  "....wwwwwwobbbbsbb.",
+  "....wwwwwwobbbbsbb.",
+  "...bwwwwwwobbbbbsbb",
+  "...bbwwwwwobbbbbbbb",
+  "...bbwwbwwbbbbbbbbb",
+  "...bbwwbwwbbbbbbbb.",
+  "..ttwwttwwttttttbb.",
+  ".tttttttttttttttb..",
+];
+const walkRoles = (c: RampName): RoleMap => ({ ...catRoles(c), E: { ramp: "mustard", tone: 0 }, W: { ramp: "cream", tone: 2 } });
+
+/** One cat role grid (sw art) as a CANVAS image, mirrored for se, its feet's centre on the anchor. */
+function catPose(g0: Grid, dir: FurnDir, c: RampName, footX: number): Uint8Array {
+  const g = dir === "sw" ? g0 : mirror(g0);
+  const gw = g[0]?.length ?? 0, gh = g.length;
+  const cat = renderRoles(g, walkRoles(c));
+  const img = new Uint8Array(CANVAS.w * CANVAS.h);
+  const ox = CANVAS.ax - (dir === "sw" ? footX : gw - 1 - footX), oy = CANVAS.ay - gh + 1;
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) img[(oy + y) * CANVAS.w + ox + x] = cat[y * gw + x] ?? 0;
+  addOutline(img, CANVAS.w, CANVAS.h);
+  return img;
+}
+/** Walk loop (`furniture/cat/<colour>/walk/<dir>/<0..3>`, one shared rect so one anchor), the sit (`.../sit/<dir>`) and the
+ *  cushion it left (`.../bed/<dir>`, in `back`'s rect so it swaps in place). */
+function catMotion(colour: string, dir: FurnDir, back: { x0: number; y0: number; w: number; h: number }): RoomFrame[] {
+  const c = asRamp(colour);
+  const walk = Array.from({ length: WALK_FRAMES }, (_, n) => n).map((n) => catPose(catWalkGrid(n), dir, c, 14));
+  const both = new Uint8Array(CANVAS.w * CANVAS.h);
+  for (const w of walk) w.forEach((v, i) => { if (v !== 0) both[i] = v; });
+  const { rect } = crop("cat/walk/all", both);
+  const sit = blank(CAT_SIT_SW[0]?.length ?? 0, CAT_SIT_SW.length);
+  stamp(sit, CAT_SIT_SW, 0, 0);
+  return [
+    ...walk.map((img, n) => crop(`furniture/cat/${colour}/walk/${dir}/${String(n)}`, img, rect)),
+    crop(`furniture/cat/${colour}/sit/${dir}`, catPose(sit, dir, c, 9)),
+    crop(`furniture/cat/${colour}/bed/${dir}`, sleepyCat(dir, c, 1, CANVAS, true), back),
+  ];
 }
 
 // ---------------------------------------------------------------- monstera (role grid leaves on a ray-cast pot)
@@ -1169,6 +1279,10 @@ export interface PieceMeta {
   use?: { frames: number; ms: number };
   /** Has an "open" frame, drawn in place of `back` (same rect, so same anchor): `furniture/<id>/<colour>/open/<dir>`. */
   open?: true;
+  /** The piece walks off on its own (the cat): `furniture/<id>/<colour>/walk/<dir>/<0..frames-1>`, each shown `ms` (the avatars'
+   *  walk clock), rests in `furniture/<id>/<colour>/sit/<dir>` (both anchored on the feet's centre) and leaves
+   *  `furniture/<id>/<colour>/bed/<dir>` behind (the empty cushion, `back`'s rect and anchor). */
+  walk?: { frames: number; ms: number };
 }
 
 export interface PieceDef {
@@ -1190,6 +1304,8 @@ export interface PieceDef {
   open?: true;
   build?: (k: Kit, colour: string, n: number) => void;
   image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas) => Uint8Array;
+  /** Walk loop, sit and empty-bed frames (see PieceMeta.walk). */
+  walk?: { frames: number; ms: number; draw: (dir: FurnDir, colour: string, back: { x0: number; y0: number; w: number; h: number }) => RoomFrame[] };
 }
 
 const ALL: readonly FurnDir[] = ["ne", "nw", "se", "sw"];
@@ -1214,7 +1330,7 @@ export const PIECES: readonly PieceDef[] = [
   { id: "bench", label: "Storage bench", kind: "seat", colours: ["teal", "pink"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], build: (k, c) => { bench(k, asRamp(c)); } },
   { id: "turntable", label: "Record console", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 4, ms: 120 }, build: (k, _c, n) => { recordConsole(k, n); } },
   { id: "speaker", label: "Floor speaker", kind: "fun", colours: ["wood", "teal"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k, c) => { floorSpeaker(k, asRamp(c)); } },
-  { id: "cat", label: "Sleepy cat", kind: "fun", colours: ["ginger", "charcoal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c, s, cv) => sleepyCat(d, asRamp(c), s, cv) },
+  { id: "cat", label: "Sleepy cat", kind: "fun", colours: ["ginger", "charcoal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c, s, cv) => sleepyCat(d, asRamp(c), s, cv), walk: { frames: WALK_FRAMES, ms: WALK_FRAME_MS, draw: (d, c, r) => catMotion(c, d, r) } },
   { id: "wallshelf", label: "Wall shelf", kind: "wall", mount: "wall", layer: "wall", colours: ["wood"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallShelf(k); } },
   { id: "garland", label: "String lights", kind: "light", mount: "wall", layer: "wall", colours: ["warm", "party"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { garland(k, c); } },
   // Catalogue v3 (OME-1348), packed into the v2 sheet.
@@ -1264,7 +1380,10 @@ function crop(key: string, img: Uint8Array, box0?: { x0: number; y0: number; w: 
 /** Back (+ front, for seats) layers of one piece facing `dir`. Both layers share one crop rect, so one anchor. */
 export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
   const base = `furniture/${def.id}/${colour}/${dir}`;
-  if (def.image) return [crop(`${base}/back`, def.image(dir, colour))];
+  if (def.image) {
+    const back = crop(`${base}/back`, def.image(dir, colour));
+    return [back, ...(def.walk?.draw(dir, colour, back.rect) ?? [])];
+  }
   const k = new Kit(dir);
   def.build?.(k, colour, 0);
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
@@ -1330,7 +1449,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       for (const dir of def.dirs) {
         const fs = pieceFrames(def, colour, dir);
         frames.push(...fs);
-        layersByDir[dir] = fs.filter((f) => !f.key.includes("/use/") && !f.key.includes("/open/")).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
+        layersByDir[dir] = fs.filter((f) => !/\/(use|open|walk|sit|bed)\//.test(f.key)).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
       }
     }
     const footprintByDir: PieceMeta["footprintByDir"] = {};
@@ -1360,6 +1479,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     if (def.seats) meta.seatsByDir = seatsByDir;
     if (def.use) meta.use = { ...def.use };
     if (def.open) meta.open = true;
+    if (def.walk) meta.walk = { frames: def.walk.frames, ms: def.walk.ms };
     pieces.push(meta);
   }
   return { frames, pieces };
