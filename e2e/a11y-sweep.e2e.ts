@@ -288,6 +288,8 @@ VIEWPORTS.forEach((vp, i) => {
       });
       // OME-1502: the darkest mood, saved, under the owner's tags and bubbles (the editor open over it).
       await step(owner, vp, "night mood", skipped, async () => {
+        // No editor at this viewport (portrait), so no mood to pick.
+        if (skipped.includes("editor")) return false;
         // The editor step may have left it open (Edit room is a toggle).
         if (!(await owner.locator(site.editorTray).isVisible())) {
           const settings = owner.locator(id("portrait-settings"));
