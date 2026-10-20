@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { RoomState } from "@omega/shared";
-import { CONGA_CAP, CONGA_WINDOW_MS, NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaText, type Conga } from "../src/chat/conga";
+import { CONGA_CAP, CONGA_WINDOW_MS, type RoomState } from "@omega/shared";
+import { NO_CONGA, congaAhead, congaJoin, congaLeave, congaPrune, congaText, type Conga } from "../src/chat/conga";
 import { initialState, reduce } from "../src/state";
 import { HELP_LINE } from "../src/chat/effects";
 

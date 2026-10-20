@@ -8,8 +8,8 @@
 //! a JSON object only (never serde's array form), every schema rule re-checked.
 
 use super::constants::{
-    MAX_POSITION_S, MAX_ROOM_MEMBERS, PING_ID_MAX, PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, QUEUE_MAX,
-    SEAT_COUNT,
+    CONGA_CAP, MAX_POSITION_S, MAX_ROOM_MEMBERS, PING_ID_MAX, PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS,
+    QUEUE_MAX, SEAT_COUNT,
 };
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, RoomId};
@@ -314,6 +314,25 @@ fn check_poll(p: &Poll) -> Result<(), &'static str> {
         Err("2 to 4 options")
     } else if p.counts.len() != p.options.len() {
         Err("one count per option")
+    } else {
+        Ok(())
+    }
+}
+
+wire_type!(
+    /// The /conga line (OME-1574): `CongaSchema`, in the snapshot. `ids` leader first; `last` the server time of the last join.
+    Conga, CongaWire, check = check_conga,
+    {
+        ids: Vec<MemberId>,
+        last: ServerTime,
+    }
+);
+
+fn check_conga(c: &Conga) -> Result<(), &'static str> {
+    if c.ids.is_empty() || c.ids.len() > CONGA_CAP {
+        Err("1 to CONGA_CAP members")
+    } else if c.ids.iter().map(MemberId::as_str).collect::<HashSet<_>>().len() != c.ids.len() {
+        Err("duplicate member id")
     } else {
         Ok(())
     }

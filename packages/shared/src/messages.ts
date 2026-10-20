@@ -2,6 +2,7 @@ import * as v from "valibot";
 import {
   CHAT_MAX_LENGTH,
   CHAT_MAX_MARK_RUN,
+  CONGA_CAP,
   DICE_MAX_SIDES,
   DICE_MIN_SIDES,
   ERROR_MESSAGE_MAX_LENGTH,
@@ -96,6 +97,17 @@ export const PollSchema = v.pipe(
   v.check((p) => p.counts.length === p.options.length, "one count per option"),
 );
 export type Poll = v.InferOutput<typeof PollSchema>;
+/** The /conga line (OME-1574), in the snapshot for a late joiner: `ids` leader first, `last` the server time of the last join. */
+export const CongaSchema = v.object({
+  ids: v.pipe(
+    v.array(MemberIdSchema),
+    v.minLength(1),
+    v.maxLength(CONGA_CAP),
+    v.check((ids) => new Set(ids).size === ids.length, "duplicate member id"),
+  ),
+  last: ServerTimeSchema,
+});
+export type Conga = v.InferOutput<typeof CongaSchema>;
 export { PollIdSchema, type PollId } from "./ids";
 
 /**
@@ -302,6 +314,8 @@ export const ServerMessageSchema = v.variant("type", [
     owner: v.optional(v.boolean()),
     /** The room's open poll (OME-1452). Absent when there is none, or from a server without polls. */
     poll: v.optional(PollSchema),
+    /** The /conga line (OME-1574). Absent when nobody is in it, or from a server without it. */
+    conga: v.optional(CongaSchema),
   }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
   /** `reason` is absent from a pre-M6 server: read it as `left`. */

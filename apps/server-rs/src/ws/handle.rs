@@ -403,10 +403,11 @@ fn handle(
                 inner,
                 &ServerMessage::Chat {
                     member_id: member.clone(),
-                    text,
+                    text: text.clone(),
                     at,
                 },
             );
+            inner.room.conga_chat(member, text.as_str(), at.0);
         }
         ClientMessage::Roll { sides } => {
             if inner.room.is_muted(member) {
