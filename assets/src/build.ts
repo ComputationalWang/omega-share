@@ -36,7 +36,7 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
-import { CATALOGUE_V2, CATALOGUE_V4, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -1202,11 +1202,12 @@ function placePiece(meta: PieceMeta, colour: string, dir: FurnDir, ax: number, a
   const sort = meta.sortByDir[dir] ?? { x: 0, y: 0 };
   const sx = ax + sort.x, sy = ay + sort.y;
   const base = `furniture/${meta.id}/${colour}/${dir}`;
+  const lift = meta.seatLiftByColour?.[colour] ?? 0;
   const out: FurnItem[] = [{ key: `${base}/back`, x: ax, y: ay, sx, sy, layer: 2 }];
   (meta.seatsByDir?.[dir] ?? []).forEach((seat, i) => {
     const who = sitters[i];
     if (who === undefined || who === "") return; // "" = a free seat before a taken one
-    out.push({ key: `${who}/sit/${seat.dir}/0`, x: ax + (seat.col - seat.row) * 32, y: ay + (seat.col + seat.row) * 16, sx, sy, layer: 3 });
+    out.push({ key: `${who}/sit/${seat.dir}/0`, x: ax + (seat.col - seat.row) * 32, y: ay + (seat.col + seat.row) * 16 - lift, sx, sy, layer: 3 });
   });
   if (meta.layersByDir[dir]?.includes("front") === true) out.push({ key: `${base}/front`, x: ax, y: ay, sx, sy, layer: 4 });
   return out;
@@ -1221,10 +1222,10 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     seen.add(f.key);
   }
   // Catalogue v2 and batch 6 are their own lazy sheets with the same schema, so rooms that only use v1 pieces don't download them.
-  const sheetOf = (id: string): string => (CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
-  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256]] as const) {
+  const sheetOf = (id: string): string => (CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
+  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256]] as const) {
     const ids = new Set(pieces.filter((p) => sheetOf(p.id) === name).map((p) => p.id));
-    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4");
+    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4" || name === "furniture-v5");
   }
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
   for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
@@ -1238,6 +1239,8 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildFurnitureRoom(pieces, all, "furniture-v4-room", showroomV4());
   buildSeatContact(pieces, all, V2_SEATS, "furniture-v2-seats@2x.png");
   buildSeatContact(pieces, all, V4_SEATS, "furniture-v4-seats@2x.png");
+  buildFurnitureRoom(pieces, all, "theatre-room", theatreRoom());
+  buildSeatContact(pieces, all, ["theatrerow"], "theatre-seats@2x.png");
   return { frames, pieces, all };
 }
 
@@ -1433,6 +1436,31 @@ function showroom(): { placements: Placement[]; standing: [string, number, numbe
 const V2_SEATS: readonly string[] = ["floorcushion", "bench", "pouf"];
 const V4_SEATS: readonly string[] = ["hammock", "stool"];
 
+/** Theatre set v2 (OME-1639): the big screen between two curtains, two tiers of rows on carpet (front on the floor, back one
+ *  riser up), aisle lights down the middle and a full house. */
+function theatreRoom(): RoomPlan {
+  const carpet = (col: number, row: number): Placement => ({ id: "carpet", colour: "navy", dir: "se", col, row });
+  const light = (col: number, row: number, dir: FurnDir): Placement => ({ id: "aislelight", colour: "warm", dir, col, row });
+  return {
+    rug: false,
+    tv: false,
+    placements: [
+      { id: "bigscreen", colour: "charcoal", dir: "se", col: 0, row: 0 },
+      { id: "curtain", colour: "velvet", dir: "sw", col: 2, row: 0 },
+      { id: "curtain", colour: "velvet", dir: "se", col: 0, row: 2 },
+      carpet(1, 1), carpet(3, 1), carpet(5, 1), carpet(1, 3), carpet(3, 3), carpet(5, 3), carpet(1, 5), carpet(3, 5),
+      light(5, 5, "nw"), light(6, 6, "nw"), light(7, 7, "nw"), light(8, 8, "nw"),
+      { id: "theatrerow", colour: "floor", dir: "ne", col: 1, row: 4, sitters: ["juno", "pip"] },
+      { id: "theatrerow", colour: "floor", dir: "nw", col: 4, row: 1, sitters: ["mo", "kiki"] },
+      { id: "theatrerow", colour: "step", dir: "ne", col: 2, row: 5, sitters: ["kiki", "mo"] },
+      { id: "theatrerow", colour: "step", dir: "nw", col: 5, row: 2, sitters: ["pip", "juno"] },
+      { id: "popcorn", colour: "rust", dir: "se", col: 0, row: 8 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+    ],
+    standing: [["juno/idle/sw/0", 7, 8]],
+  };
+}
+
 /** `furniture-v2-seats@2x.png`: one row per v2 seat piece × colour × avatar, one column per facing (ne nw se sw); a 2-seat piece holds
  *  the same avatar on both seats, so every avatar is checked on every seat in every facing. Empty seats lead each piece's block. */
 function buildSeatContact(pieces: readonly PieceMeta[], all: FurnSprites, ids: readonly string[], name: string): void {
@@ -1448,7 +1476,8 @@ function buildSeatContact(pieces: readonly PieceMeta[], all: FurnSprites, ids: r
   rows.forEach((r, ri) => {
     const ay = 10 + ri * RH + 66;
     (["ne", "nw", "se", "sw"] as const).forEach((d, di) => {
-      const ax = 50 + di * CW;
+      if (!r.meta.dirs.includes(d)) return;
+      const ax = 50 + r.meta.dirs.filter((x) => (["ne", "nw", "se", "sw"] as const).indexOf(x) < di).length * CW;
       const fp = r.meta.footprintByDir[d] ?? { cols: 1, rows: 1 };
       for (let c = 0; c < fp.cols; c++) for (let rr = 0; rr < fp.rows; rr++) drawSprite(img, W, H, all, `floor/${String((c + rr) % 2)}`, ax + (c - rr) * 32, ay + (c + rr) * 16);
       const seats = r.meta.seatsByDir?.[d] ?? [];
@@ -1604,6 +1633,8 @@ interface RoomPlan {
   standing: [string, number, number][];
   /** Set (n): false draws bare planks where the default room has its big rug. */
   rug?: boolean;
+  /** False leaves the corner console out (a layout with the big screen instead, OME-1639). */
+  tv?: boolean;
 }
 
 function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: RoomPlan, hooks: RoomHooks = {}): void {
@@ -1651,7 +1682,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   draw("wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
   draw("wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
   draw("wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
-  draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
+  if (plan.tv !== false) draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
   // Floor layer (rugs) and wall layer (frames) go with the static background; everything else is depth-sorted.
   if (!hooks.floor) drawLayer("floor");
   hooks.wall?.(draw);
@@ -2052,12 +2083,12 @@ function buildBare(): Map<string, Uint8Array> {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/recolours.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", "furniture/recolours.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
