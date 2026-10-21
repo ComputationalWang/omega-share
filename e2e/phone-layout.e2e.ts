@@ -432,7 +432,11 @@ test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it a
     const cy = b.y + b.height / 2;
     expect(cx >= pane.x && cx <= pane.x + pane.width && cy >= pane.y && cy <= pane.y + pane.height, "seat centre in the room picture").toBe(true);
   }
-  await seats[0]?.tap();
+  // Tapping a seat sits (the avatar walks from the door), and the window then centres on it.
+  const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
+  await seat.focus();
+  await frames(page);
+  await seat.tap();
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(640);
   await page.getByTestId("portrait-chat").click();
