@@ -16,10 +16,11 @@ import {
   POLL_MIN_OPTIONS,
   POLL_OPTION_MAX_LENGTH,
   POLL_QUESTION_MAX_LENGTH,
+  REACTIONS_MAX,
 } from "./constants";
 import { PollIdSchema, RoomIdSchema } from "./ids";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
-import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
+import { MediaMsSchema, OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
   AccessorySchema,
@@ -119,6 +120,14 @@ export const EMOTE_KINDS = ["clap", "exclaim", "heart", "laugh", "question", "wa
 export const EmoteKindSchema = v.picklist(EMOTE_KINDS);
 export type EmoteKind = v.InferOutput<typeof EmoteKindSchema>;
 
+/** Timed reaction glyphs (OME-1625, ADR 0056), the Designer's set. Separate from emotes: they land on the video's timeline. */
+export const REACTION_KINDS = ["heart", "laugh", "wow", "clap"] as const;
+export const ReactionKindSchema = v.picklist(REACTION_KINDS);
+export type ReactionKind = v.InferOutput<typeof ReactionKindSchema>;
+/** One timed reaction: who, which glyph, and where in the current item the server's room clock was (`mediaMs`). */
+export const ReactionSchema = v.object({ memberId: MemberIdSchema, kind: ReactionKindSchema, mediaMs: MediaMsSchema });
+export type Reaction = v.InferOutput<typeof ReactionSchema>;
+
 // Client → server. Strict: unknown keys are rejected, not stripped.
 export const ClientMessageSchema = v.variant("type", [
   /**
@@ -209,6 +218,11 @@ export const ClientMessageSchema = v.variant("type", [
     url: v.pipe(v.string(), v.maxLength(MAX_EMBED_URL_LENGTH)),
     playing: v.boolean(),
     position: PositionSchema,
+    /**
+     * With `playing: true`, a shared 3-2-1 (OME-1625, ADR 0056): the server answers a `playback` whose `startAt` is
+     * COUNTDOWN_MS after `at`. Ignored with `playing: false` and for a live embed. Absent means false.
+     */
+    countdown: v.optional(v.boolean()),
   }),
   /**
    * Advisory catch-up flag (ADR 0019); never pauses the room. Needs `join`. Send only on
@@ -221,6 +235,12 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("title-set"), title: RoomTitleSchema }),
   /** Needs `join`. Rate-limited per member (EMOTE_BURST, EMOTE_REFILL_MS); never stored. */
   v.strictObject({ type: v.literal("emote"), kind: EmoteKindSchema }),
+  /**
+   * Needs `join`. A timed reaction (OME-1625, ADR 0056), relayed as `reacted` with the server's own `mediaMs`: the
+   * client sends no time. Spends from the `emote` bucket; over it dropped silently, like a `walk`. Without a synced
+   * current item (none, or generic) it is dropped silently.
+   */
+  v.strictObject({ type: v.literal("react"), kind: ReactionKindSchema }),
   /*
    * Owner moderation (ADR 0030). Each needs `join` with the owner token: the server checks joined,
    * then owner (`not_owner`), then the MODERATION_BURST bucket (`rate_limited`), then the target
@@ -319,6 +339,13 @@ const SingleServerMessageSchema = v.variant("type", [
     poll: v.optional(PollSchema),
     /** The /conga line (OME-1574). Absent when nobody is in it, or from a server without it. */
     conga: v.optional(CongaSchema),
+    /**
+     * The current item's timed reactions (OME-1625), oldest first, at most REACTIONS_MAX (the latest). Cleared when
+     * the item changes. Absent when there are none, or from a server without them.
+     */
+    reactions: v.optional(v.pipe(v.array(ReactionSchema), v.maxLength(REACTIONS_MAX))),
+    /** Most members in the room at once since the current item started (OME-1625, for the recap). Absent with no item. */
+    peakMembers: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(MAX_ROOM_MEMBERS))),
   }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
   /** `reason` is absent from a pre-M6 server: read it as `left`. */
@@ -382,6 +409,11 @@ const SingleServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("title-changed"), title: RoomTitleSchema, by: MemberIdSchema }),
   /** A member emoted (sender included). Fire-and-forget: not stored, never in a snapshot, so late joiners don't see it. */
   v.object({ type: v.literal("emoted"), memberId: MemberIdSchema, kind: EmoteKindSchema }),
+  /**
+   * A member reacted (OME-1625, sender included). `mediaMs` is the server's room clock for the current item when it
+   * arrived. Stored for the item (the snapshot's `reactions`), so late joiners can replay it.
+   */
+  v.object({ type: v.literal("reacted"), memberId: MemberIdSchema, kind: ReactionKindSchema, mediaMs: MediaMsSchema }),
   /** A member rolled a `sides`-faced die and got `value`, 1..sides (sender included). Fire-and-forget, like `emoted`. */
   v.pipe(
     v.object({ type: v.literal("rolled"), memberId: MemberIdSchema, sides: DiceSidesSchema, value: v.pipe(v.number(), v.integer(), v.minValue(1)) }),

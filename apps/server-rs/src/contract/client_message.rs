@@ -14,6 +14,7 @@ use super::layout::{RoomLayout, RoomLayoutInput};
 use super::room::{
     Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, PollOptionIndex, QueueIndex, SeatIndex, Tint,
 };
+use super::state::ReactionKind;
 use super::text::{ChatText, Nickname, PollOption, PollQuestion, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -156,6 +157,9 @@ pub enum ClientMessage {
         url: ControlUrl,
         playing: bool,
         position: Position,
+        /// A shared 3-2-1 start (OME-1625, ADR 0056); absent means false.
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
+        countdown: Option<bool>,
     },
     Status {
         catching: bool,
@@ -168,6 +172,10 @@ pub enum ClientMessage {
     },
     Emote {
         kind: EmoteKind,
+    },
+    /// A timed reaction (OME-1625): no client time, the server stamps `mediaMs`.
+    React {
+        kind: ReactionKind,
     },
     Kick {
         member_id: MemberId,
@@ -223,6 +231,7 @@ impl ClientMessage {
             Self::LayoutSet { .. } => "layout-set",
             Self::TitleSet { .. } => "title-set",
             Self::Emote { .. } => "emote",
+            Self::React { .. } => "react",
             Self::Kick { .. } => "kick",
             Self::Mute { .. } => "mute",
             Self::ControlPolicy { .. } => "control-policy",
@@ -417,6 +426,8 @@ struct ControlW {
     playing: bool,
     #[validate(range(min = 0.0, max = MAX_POSITION_S))]
     position: f64,
+    #[serde(default, deserialize_with = "present")]
+    countdown: Option<bool>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -442,6 +453,12 @@ struct TitleSetW {
 #[serde(deny_unknown_fields)]
 struct EmoteW {
     kind: EmoteKind,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct ReactW {
+    kind: ReactionKind,
 }
 
 #[derive(Deserialize, Validate)]
@@ -543,6 +560,8 @@ enum Wire {
     TitleSet(TitleSetW),
     #[serde(rename = "emote")]
     Emote(EmoteW),
+    #[serde(rename = "react")]
+    React(ReactW),
     #[serde(rename = "kick")]
     Kick(KickW),
     #[serde(rename = "mute")]
@@ -585,6 +604,7 @@ impl Validate for Wire {
             Self::LayoutSet(m) => m.validate(),
             Self::TitleSet(m) => m.validate(),
             Self::Emote(m) => m.validate(),
+            Self::React(m) => m.validate(),
             Self::Kick(m) => m.validate(),
             Self::Mute(m) => m.validate(),
             Self::ControlPolicy(m) => m.validate(),
@@ -642,11 +662,13 @@ fn convert(wire: Wire) -> ClientMessage {
             url: ControlUrl(m.url),
             playing: m.playing,
             position: Position(m.position),
+            countdown: m.countdown,
         },
         Wire::Status(m) => ClientMessage::Status { catching: m.catching },
         Wire::LayoutSet(m) => ClientMessage::LayoutSet { layout: m.layout.0.into() },
         Wire::TitleSet(m) => ClientMessage::TitleSet { title: m.title },
         Wire::Emote(m) => ClientMessage::Emote { kind: m.kind },
+        Wire::React(m) => ClientMessage::React { kind: m.kind },
         Wire::Kick(m) => ClientMessage::Kick { member_id: m.member_id },
         Wire::Mute(m) => ClientMessage::Mute {
             member_id: m.member_id,

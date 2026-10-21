@@ -137,6 +137,12 @@ export const QUEUE_ENDED_TOLERANCE_S = 5;
 export const ERROR_MESSAGE_MAX_LENGTH = 200;
 /** Longest seekable playback position we accept, in seconds (12 h). */
 export const MAX_POSITION_S = 12 * 60 * 60;
+/** Most timed reactions the snapshot carries for the current item (OME-1625, ADR 0056); the server keeps the latest. */
+export const REACTIONS_MAX = 256;
+/** A countdown `control` starts the room this long after the press (OME-1625, ADR 0056). */
+export const COUNTDOWN_MS = 3_000;
+/** A playback `startAt` is at most this long after its `at`. */
+export const COUNTDOWN_MAX_MS = 5_000;
 /** Shared playback rate range. Always 1 in M1b–M3; a range so a shared rate later doesn't break old clients. */
 export const PLAYBACK_RATE_MIN = 0.25;
 export const PLAYBACK_RATE_MAX = 2;

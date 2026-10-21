@@ -345,7 +345,7 @@ const shareBodies = (): Raw[] => [
   rr('{"url":"a","url":"b"}'), rr('{"url":"\\ud800"}'),
   // startSeconds (OME-1625): an integer in 0..MAX_POSITION_S
   ...[0, 1, 90, 43_199, 43_200, 43_201, -1, 1.5, "90", null, true].map((startSeconds) => js({ url: "https://youtu.be/dQw4w9WgXcQ", startSeconds })),
-  ok('{"url":"x","startSeconds":-0}'), rr('{"url":"x","startSeconds":90.0}'), rr('{"url":"x","startSeconds":9e1}'), rr('{"url":"x","startSeconds":1,"startSeconds":2}'),
+  rr('{"url":"x","startSeconds":-0}'), rr('{"url":"x","startSeconds":90.0}'), rr('{"url":"x","startSeconds":9e1}'), rr('{"url":"x","startSeconds":1,"startSeconds":2}'),
 ];
 const reportBodies = (): Raw[] => [
   ...["sexual", "violence", "hate", "spam", "danger", "other"].flatMap((reason) => [

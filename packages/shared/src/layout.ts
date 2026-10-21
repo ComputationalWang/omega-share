@@ -88,11 +88,24 @@ export const FURNITURE = {
   fireplace: piece("object", CAMERA, ONE, { wallBacked: true }),
   /** A teleport pad (OME-1545): a layout holds 0 or exactly 2, and a `walk` with `teleport` goes from one to the other. */
   pad: piece("floor", FIXED, ONE, { variants: 2 }),
+  // Theatre set (OME-1625 / OME-1639, `assets/furniture/furniture-v5.json`, lazy).
+  /** Two flip seats on a riser; the variant is the riser step (0 floor, 1 one step, 2 two steps). */
+  theatrerow: piece("object", ["ne", "nw"], { cols: 2, rows: 1 }, { seats: true, variants: 3 }),
+  /** A stage curtain; the facing picks the wall (se left, sw right). */
+  curtain: piece("wall", CAMERA, { cols: 0, rows: 0 }),
+  /** The 2× screen frame: a layout's screen, instead of the `tv` (see `SCREEN_KINDS`). */
+  bigscreen: piece("object", FIXED, ONE),
+  aislelight: piece("floor", ["ne", "nw"], ONE),
+  carpet: piece("floor", FIXED, { cols: 2, rows: 2 }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;
 export const FURNITURE_KINDS = Object.keys(FURNITURE) as [FurnitureKind, ...FurnitureKind[]];
 export const FurnitureKindSchema = v.picklist(FURNITURE_KINDS);
+
+/** The kinds that are a room's screen (ADR 0056): a layout holds exactly one of them. Treat them alike (glow, lights-down). */
+export const SCREEN_KINDS = ["tv", "bigscreen"] as const satisfies readonly FurnitureKind[];
+export const isScreen = (kind: FurnitureKind): boolean => kind === "tv" || kind === "bigscreen";
 
 /** Wall segments with a window, poster or sconce (the same on both walls); frames need a plain one. */
 export const WALL_FIXTURE_SEGMENTS: readonly number[] = [5, 6, 8];
@@ -222,7 +235,7 @@ type LayoutEntries = ReturnType<typeof layoutEntries>;
 const roomLayout = (base: v.ObjectSchema<LayoutEntries, undefined> | v.StrictObjectSchema<LayoutEntries, undefined>) =>
   v.pipe(
     base,
-    v.check((l) => l.furniture.filter((f) => f.kind === "tv").length === 1, "exactly one tv"),
+    v.check((l) => l.furniture.filter((f) => isScreen(f.kind)).length === 1, "exactly one screen"),
     v.check((l) => l.furniture.filter((f) => f.kind === "door").length <= MAX_DOORS, "too many doors"),
     v.check((l) => [0, 2].includes(l.furniture.filter((f) => f.kind === "pad").length), "0 or 2 pads"),
     v.check((l) => layoutSeats(l).length === SEAT_COUNT, "seat cells must total SEAT_COUNT"),

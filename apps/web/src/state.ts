@@ -320,6 +320,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
+    // Timed reactions (OME-1625): the moments strip and replay (OME-1628/1631) keep their own timeline.
+    case "reacted":
       return state;
     // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
     case "poll": {

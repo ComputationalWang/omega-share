@@ -120,7 +120,7 @@ describe("countdown", () => {
   const PLAY = { playing: true, position: 0, rate: 1, at: AT, rev: 2, action: "play", by: "m1" };
 
   test("control may ask for a countdown", () => {
-    const control = { type: "control", url: YT.url, playing: true, position: 0, countdown: true };
+    const control = { type: "control", url: YT.url, playing: true, position: 0, countdown: true } as const;
     expect(parseClientMessage(JSON.stringify(control))).toEqual(control);
     expect(parseClientMessage(JSON.stringify({ ...control, countdown: 1 }))).toBeNull();
   });

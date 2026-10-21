@@ -6,15 +6,17 @@
 //! are stripped like Valibot's `v.object`, every other rule is checked.
 
 use super::Obj;
-use super::constants::{BATCH_MAX_MESSAGES, ERROR_MESSAGE_MAX_LENGTH, MAX_SERVER_MESSAGE_BYTES, RETRY_AFTER_MAX_MS};
+use super::constants::{
+    BATCH_MAX_MESSAGES, ERROR_MESSAGE_MAX_LENGTH, MAX_ROOM_MEMBERS, MAX_SERVER_MESSAGE_BYTES, REACTIONS_MAX, RETRY_AFTER_MAX_MS,
+};
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
 use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PollCount, SeatIndex, Tint};
 use super::state::{
-    Conga, EmoteKind, Member, PingId, PlaybackState, Poll, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed,
-    poll_counts_are_valid, present, queue_is_valid,
+    Conga, EmoteKind, MediaMs, Member, PingId, PlaybackState, Poll, QueueItem, Reaction, ReactionKind, RoomState, ServerTime, layout,
+    nullable, playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
 };
 use super::text::{ChatText, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -198,6 +200,12 @@ server_messages! {
         /// The /conga line (OME-1574), so a late joiner sees who is in it.
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         conga: Option<Conga>,
+        /// The current item's timed reactions (OME-1625), oldest first, at most `REACTIONS_MAX`.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        reactions: Option<Vec<Reaction>>,
+        /// Most members at once since the current item started (OME-1625, for the recap).
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        peak_members: Option<u8>,
     }
     "member-joined" MemberJoined MemberJoinedWire { member: Member }
     "member-left" MemberLeft MemberLeftWire {
@@ -252,6 +260,8 @@ server_messages! {
     }
     "title-changed" TitleChanged TitleChangedWire { title: RoomTitle, by: MemberId }
     "emoted" Emoted EmotedWire { member_id: MemberId, kind: EmoteKind }
+    /// A timed reaction (OME-1625); `media_ms` is the server's room clock, never the client's.
+    "reacted" Reacted ReactedWire { member_id: MemberId, kind: ReactionKind, media_ms: MediaMs }
     "rolled" Rolled RolledWire { member_id: MemberId, sides: DiceSides, value: DieValue }
     "poll" PollChanged PollWire {
         poll_id: PollId,
@@ -313,6 +323,17 @@ impl ServerMessage {
                     Err("playback without a synced embed")
                 } else if item_id.is_some() && embed.is_none() {
                     Err("item id without an embed")
+                } else {
+                    Ok(())
+                }
+            }
+            Self::Snapshot {
+                reactions, peak_members, ..
+            } => {
+                if reactions.as_ref().is_some_and(|r| r.len() > REACTIONS_MAX) {
+                    Err("too many reactions")
+                } else if peak_members.is_some_and(|p| usize::from(p) > MAX_ROOM_MEMBERS) {
+                    Err("peak above MAX_ROOM_MEMBERS")
                 } else {
                     Ok(())
                 }
@@ -690,6 +711,7 @@ mod tests {
                     rev: Rev(2),
                     action: PlaybackAction::Play,
                     by: None,
+                    start_at: None,
                 },
             })
             .unwrap()
@@ -785,6 +807,7 @@ mod tests {
                 rev: Rev(2),
                 action: PlaybackAction::Seek,
                 by: None,
+                start_at: None,
             };
             encode(&ServerMessage::Playback { playback }).unwrap()
         };
