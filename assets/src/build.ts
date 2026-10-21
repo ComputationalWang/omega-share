@@ -63,6 +63,7 @@ import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
 import { ACCESSORIES, BARE } from "./accessories";
+import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, lieGrid, type LieStyle } from "./lying";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
@@ -1239,6 +1240,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildFurnitureRoom(pieces, all, "furniture-v4-room", showroomV4());
   buildSeatContact(pieces, all, V2_SEATS, "furniture-v2-seats@2x.png");
   buildSeatContact(pieces, all, V4_SEATS, "furniture-v4-seats@2x.png");
+  buildLying(pieces, all);
   return { frames, pieces, all };
 }
 
@@ -1673,6 +1675,141 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   return { img, W, H };
 }
 
+// ---------------------------------------------------------------- lying pose (OME-1687, lazy)
+
+const LYING_FILES = ["avatars/lying.png", "avatars/lying.json"];
+/** The facings each style ships in: `lie` for the sofas (all four), `curl` for the cat bed (the cat's two). */
+const LIE_STYLE_DIRS: Record<LieStyle, readonly Dir[]> = { lie: LIE_DIRS, curl: ["se", "sw"] };
+
+/** `avatars/lying.png` + `.json` (the lying pose: breathing loop × facing × avatar, lazy), and its previews: every facing on the
+ *  club sofa, the lounge couch and the cat bed for every avatar (`lying-pieces@2x.png`), the strip (`lying-strip@4x.png`) and
+ *  a room with all three taken (`lying-room@1x/2x.png`). */
+function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
+  const { w: CW, h: CH } = LIE_CELL;
+  const cells = LIE_STYLES.flatMap((st) => LIE_STYLE_DIRS[st].flatMap((d) => Array.from({ length: BREATH_FRAMES }, (_, n) => ({ st, d, n }))));
+  const sheetW = pow2(cells.length * CW), sheetH = pow2(AVATARS.length * CH);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const frames: Record<string, Frame> = {};
+  const anims: Record<string, Anim> = {};
+  const all: FurnSprites = new Map(all0);
+  AVATARS.forEach((a, i) => {
+    cells.forEach(({ st, d, n }, c) => {
+      const key = `${st}/${a.id}/${d}/${String(n)}`;
+      const img = render(lieGrid(a, d, st, n), a.roles);
+      assertInside(key, img, CW, CH);
+      blit(sheet, sheetW, img, CW, CH, c * CW, i * CH);
+      const ax = d === "sw" || d === "ne" ? CW - 1 - LIE_FLOOR.x : LIE_FLOOR.x;
+      frames[key] = {
+        frame: { x: c * CW, y: i * CH, w: CW, h: CH },
+        rotated: false,
+        trimmed: false,
+        spriteSourceSize: { x: 0, y: 0, w: CW, h: CH },
+        sourceSize: { w: CW, h: CH },
+        anchor: { x: ax / CW, y: LIE_FLOOR.y / CH },
+      };
+      all.set(key, { img, w: CW, h: CH, ax, ay: LIE_FLOOR.y });
+      if (n === 0) anims[`${st}/${a.id}/${d}`] = { frames: Array.from({ length: BREATH_FRAMES }, (_, m) => `${st}/${a.id}/${d}/${String(m)}`), ms: [...BREATH_MS], loop: true };
+    });
+  });
+  registerKeys("lying", Object.keys(frames));
+  writeFileSync(join(ROOT, "avatars", "lying.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const animations: Record<string, string[]> = {};
+  for (const [k, an] of Object.entries(anims)) animations[k] = an.frames;
+  const atlas = {
+    frames,
+    animations,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "lying.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        cell: LIE_CELL,
+        floorPoint: LIE_FLOOR,
+        dirs: LIE_STYLE_DIRS,
+        // Not listed in the eager hairs/tints tables (they stay frozen); the PLTE is the same, so their slots apply as is.
+        swaps: "tints.json and hairs.json: same PLTE slots as avatars.png, apply them to this sheet for that avatar's frames",
+        hats: "none: hide head accessories while lying",
+        anims,
+        pieces: LIE_ANCHORS,
+      },
+    },
+  };
+  writeFileSync(join(ROOT, "avatars", "lying.json"), JSON.stringify(atlas) + "\n");
+
+  // One lier on a piece: back, lier, front, as a sitter would be.
+  const meta = (id: string): PieceMeta => {
+    const m = pieces.find((p) => p.id === id);
+    if (!m) throw new Error(`no piece ${id}`);
+    return m;
+  };
+  const lieOn = (id: string, colour: string, dir: FurnDir, who: string, n: number, x: number, y: number): FurnItem[] => {
+    const an = LIE_ANCHORS[id], off = an?.dirs[dir];
+    if (!an || !off) throw new Error(`no lie anchor ${id}/${dir}`);
+    const m = meta(id);
+    const sort = m.sortByDir[dir] ?? { x: 0, y: 0 };
+    const sx = x + sort.x, sy = y + sort.y;
+    const base = `furniture/${id}/${colour}`;
+    const out: FurnItem[] = [
+      { key: an.frame === "bed" ? `${base}/bed/${dir}` : `${base}/${dir}/back`, x, y, sx, sy, layer: 2 },
+      { key: `${an.style}/${who}/${dir}/${String(n)}`, x: x + off.x, y: y + off.y, sx, sy, layer: 3 },
+    ];
+    if (m.layersByDir[dir]?.includes("front") === true) out.push({ key: `${base}/${dir}/front`, x, y, sx, sy, layer: 4 });
+    return out;
+  };
+
+  // Contact sheet: a row per avatar; sofa ne nw se sw, couch ne nw se sw, cat bed se sw. Breath frame 0, then a last row in frame 1.
+  const cols: [string, string, FurnDir][] = [
+    ...(["ne", "nw", "se", "sw"] as const).map((d): [string, string, FurnDir] => ["sofa", "velvet", d]),
+    ...(["ne", "nw", "se", "sw"] as const).map((d): [string, string, FurnDir] => ["couch", "cream", d]),
+    ["cat", "ginger", "se"], ["cat", "charcoal", "sw"],
+  ];
+  const rowsOf: [string, number][] = [...AVATARS.map((a): [string, number] => [a.id, 0]), ["kiki", 1]];
+  const PW = 140, RH = 84, W = PW * cols.length + 20, H = rowsOf.length * RH + 20;
+  const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+  rowsOf.forEach(([who, n], ri) => {
+    cols.forEach(([id, colour, d], ci) => {
+      const ax = 10 + ci * PW + 70, ay = 10 + ri * RH + 50;
+      const fp = meta(id).footprintByDir[d] ?? { cols: 1, rows: 1 };
+      for (let c = 0; c < fp.cols; c++) for (let r = 0; r < fp.rows; r++) drawSprite(img, W, H, all, `floor/${String((c + r) % 2)}`, ax + (c - r) * 32, ay + (c + r) * 16);
+      for (const it of lieOn(id, colour, d, who, n, ax, ay)) drawSprite(img, W, H, all, it.key, it.x, it.y);
+    });
+  });
+  writeFileSync(join(ROOT, "preview", "lying-pieces@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+
+  const strips = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  for (const [k, sp] of all) if (sp.w === CW && sp.h === CH) strips.set(k, { img: sp.img, w: sp.w, h: sp.h });
+  strip("lying-strip@4x.png", cells.length, AVATARS.map((a) => cells.map(({ st, d, n }) => `${st}/${a.id}/${d}/${String(n)}`)), strips, CW, CH, false);
+
+  // A lazy evening: pip on the velvet sofa, mo on the olive couch, kiki curled in the cat's bed while the cat wanders, juno sitting.
+  const lie: FurnItem[] = [
+    ...lieOn("sofa", "velvet", "ne", "pip", 0, cellAt(2, 5).x, cellAt(2, 5).y),
+    ...lieOn("couch", "olive", "nw", "mo", 0, cellAt(5, 2).x, cellAt(5, 2).y),
+    ...lieOn("cat", "ginger", "se", "kiki", 0, cellAt(7, 6).x, cellAt(7, 6).y),
+    ...lieOn("sofa", "navy", "sw", "juno", 1, cellAt(6, 8).x, cellAt(6, 8).y),
+  ];
+  const plan: RoomPlan = {
+    placements: [
+      { id: "wingback", colour: "ginger", dir: "ne", col: 4, row: 6 },
+      { id: "sidetable", colour: "wood", dir: "sw", col: 4, row: 4 },
+      { id: "arclamp", colour: "brass", dir: "se", col: 1, row: 4 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+    ],
+    standing: [["furniture/cat/ginger/walk/sw/1", 8, 3]],
+  };
+  const room = composeFurnitureRoom(pieces, all, plan, {
+    top: (draw) => {
+      lie.sort((p, q) => p.sy - q.sy || p.sx - q.sx || p.layer - q.layer);
+      for (const it of lie) draw(it.key, it.x, it.y);
+    },
+  });
+  writeFileSync(join(ROOT, "preview", "lying-room@1x.png"), encodeIndexedPng(room.W, room.H, room.img, PALETTE));
+  writeFileSync(join(ROOT, "preview", "lying-room@2x.png"), encodeIndexedPng(room.W * 2, room.H * 2, upscale(room.img, room.W, room.H, 2), PALETTE));
+}
+
 // ---------------------------------------------------------------- set (h): owner edit mode in the room (1×, Pixi)
 
 /** `owner-edit@1x/2x.png`: the sample room in edit mode, one of each marker state at once (a real session shows one held piece):
@@ -2079,12 +2216,12 @@ function buildReactions(): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
