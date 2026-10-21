@@ -31,6 +31,10 @@ interface Started {
   readonly kind: "osc" | "noise";
   readonly freq: number;
   readonly at: number;
+  /** Where in its buffer a noise source starts (s). */
+  readonly offset?: number;
+  /** The buffer a buffer source plays. */
+  readonly buffer?: unknown;
   stoppedAt: number | null;
 }
 
@@ -77,9 +81,9 @@ function fakeContext() {
         ...node(),
         buffer: null as { getChannelData(c: number): Float32Array; tag?: number } | null,
         loop: false,
-        start(at: number) {
+        start(at: number, offset?: number) {
           // A baked recipe's buffer carries the frequency it was rendered from (`tag`, fakeOffline).
-          s = { kind: "noise" as const, freq: this.buffer?.tag ?? 0, at, stoppedAt: null };
+          s = { kind: "noise" as const, freq: this.buffer?.tag ?? 0, at, ...(offset === undefined ? {} : { offset }), buffer: this.buffer, stoppedAt: null };
           started.push(s);
         },
         stop: (at: number) => {
@@ -241,7 +245,7 @@ describe("footfalls close together", () => {
 });
 
 describe("baked one-shots", () => {
-  test("each one-shot is rendered once after unlock; then a play is one buffer source, not a node graph per layer", async () => {
+  test("each one-shot is rendered after unlock; then a play is one buffer source, not a node graph per layer", async () => {
     const rendered: number[] = [];
     const t = setup({ makeOffline: fakeOffline(rendered) });
     t.sound.unlock();
@@ -249,11 +253,48 @@ describe("baked one-shots", () => {
     t.sound.play("ui.tick");
     expect(t.fake.started.map((s) => s.kind)).toEqual(["osc"]);
     await new Promise((r) => setTimeout(r, 0));
-    // Every one-shot, not the looping tones.
-    expect(rendered.sort()).toEqual([101, 102, 103, 201, 202, 301]);
+    // Every one-shot, not the looping tones, in 4 takes each (OME-1659).
+    expect(rendered.sort()).toEqual([101, 102, 103, 201, 202, 301].flatMap((f) => [f, f, f, f]));
     t.fake.ctx.currentTime = 1;
     t.sound.play("chair.sit");
     expect(t.fake.started.slice(1).map((s) => [s.kind, s.freq])).toEqual([["noise", 201]]);
+  });
+
+  test("plays cycle through the takes, so a long walk isn't one sample over and over (OME-1659)", async () => {
+    const t = setup({ makeOffline: fakeOffline([]) });
+    t.sound.unlock();
+    await new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < 4; i++) {
+      t.fake.ctx.currentTime = 1 + i;
+      t.sound.play("step.wood");
+    }
+    expect(new Set(t.fake.started.map((s) => s.buffer)).size).toBe(4);
+  });
+});
+
+describe("noise (OME-1659)", () => {
+  test("a noise layer starts at a random point in its looping buffer, one-shot or tone", () => {
+    const noisy: Recipes = {
+      version: 1,
+      sounds: {
+        "step.wood": { gain: 0.5, layers: [{ noise: "white", env: { a: 0.01, d: 0.05 } }] },
+        "tone.night": { gain: 0.1, loop: true, layers: [{ noise: "brown", env: { a: 1 } }] },
+      },
+    };
+    const t = setup({ recipes: noisy });
+    t.sound.unlock();
+    t.sound.tone("night");
+    for (let i = 0; i < 6; i++) {
+      t.fake.ctx.currentTime = i;
+      t.sound.play("step.wood");
+    }
+    const offsets = t.fake.started.map((s) => s.offset ?? -1);
+    expect(offsets).toHaveLength(7);
+    for (const o of offsets) {
+      expect(o).toBeGreaterThanOrEqual(0);
+      expect(o).toBeLessThan(2);
+    }
+    expect(new Set(offsets).size).toBeGreaterThan(1);
   });
 });
 
