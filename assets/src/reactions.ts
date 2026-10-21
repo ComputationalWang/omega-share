@@ -32,54 +32,90 @@ const sticker = (id: string): EmoteDef => {
   if (!e) throw new Error(`no emote ${id}`);
   return e;
 };
-const fromSticker = (id: "heart" | "laugh" | "clap", label: string, mini: readonly string[]): ReactionDef => {
+const fromSticker = (id: "heart" | "laugh", label: string, mini: readonly string[]): ReactionDef => {
   const e = sticker(id);
   return { id, label, roles: e.roles, pop: e.pop, art: e.art, accent: e.accent, mini };
 };
 
-/** Wow: a teal starburst with a gasp. Spiky where laugh is round, teal where laugh is mustard, so the two faces never merge. */
+/** Wow: a teal gasp. Tall dot eyes and a round "O" where laugh has shut eyes and a wide grin, teal where laugh is mustard. */
 const WOW: ReactionDef = {
   id: "wow",
   label: "Wow",
   roles: { W: { ramp: "teal", hi: true, group: "W" }, E: { ramp: "outline", tone: 1, group: "W" }, M: { ramp: "night", tone: 2, group: "W" } },
-  pop: ["....W....", ".W.WWW.W.", "..WWWWW..", ".WEWWWEW.", "WWEWWWEWW", ".WWWEWWW.", "..WWWWW..", ".W.WWW.W.", "....W...."],
+  pop: ["..WWWWW..", ".WWWWWWW.", "WWEWWWEWW", "WWWWWWWWW", "WWWWEWWWW", "WWWEMEWWW", ".WWWEWWW.", "..WWWWW.."],
   art: [
-    ".....W.....",
-    ".W..WWW..W.",
-    "..WWWWWWW..",
-    "..WWWWWWW..",
+    "...WWWWW...",
+    ".WWWWWWWWW.",
     ".WWEWWWEWW.",
     "WWWEWWWEWWW",
-    ".WWWWEWWWW.",
-    "..WWEMEWW..",
-    "..WWWEWWW..",
-    ".W..WWW..W.",
-    ".....W.....",
+    "WWWWWWWWWWW",
+    "WWWWEEEWWWW",
+    "WWWEMMMEWWW",
+    ".WWEMMMEWW.",
+    ".WWWEEEWWW.",
+    "...WWWWW...",
   ],
-  // The jolt: spikes shoot up and down, eyes go tall, the gasp opens wider.
+  // The jolt: two sparks fly off, the eyes go tall, the "O" opens wider.
   accent: [
-    ".....W.....",
-    ".....W.....",
-    ".W..WWW..W.",
-    "..WWWWWWW..",
-    "..WEWWWEW..",
+    "W.........W",
+    ".W.......W.",
+    "...WWWWW...",
+    ".WWEWWWEWW.",
     ".WWEWWWEWW.",
     "WWWEWWWEWWW",
-    ".WWWWEWWWW.",
-    "..WWEMEWW..",
-    "..WWEMEWW..",
-    "..WWWEWWW..",
-    ".W..WWW..W.",
-    ".....W.....",
+    "WWWWEEEWWWW",
+    "WWWEMMMEWWW",
+    "WWWEMMMEWWW",
+    ".WWEMMMEWW.",
+    ".WWWEEEWWW.",
+    "...WWWWW...",
   ],
-  mini: ["...W...", "..WWW..", ".WEWEW.", "WWWWWWW", ".WWEWW.", "..WWW..", "...W..."],
+  mini: [".WWWWW.", "WEWWWEW", "WEWWWEW", "WWWWWWW", "WWWEWWW", "WWEMEWW", ".WWEWW."],
+};
+
+/** Clap: two palms, fingers up, thumbs in, apart then together, with mustard impact marks. Own art, not the emote sticker's
+ *  V (it read as wings at 16 px). A wood rim under the cream holds it on the tan floor. */
+const CLAP: ReactionDef = {
+  id: "clap",
+  label: "Clap",
+  roles: { h: { ramp: "cream", hi: true, group: "h" }, r: { ramp: "wood", tone: 1, group: "h" }, y: { ramp: "mustard", tone: 1 } },
+  pop: ["h.h...h.h", "hhh.h.hhh", "rhh...hhr", ".rr...rr."],
+  art: [
+    "..y......y..",
+    "...y....y...",
+    "............",
+    "............",
+    "h.h.h..h.h.h",
+    "h.h.h..h.h.h",
+    "hhh.h..h.hhh",
+    "hhhhh..hhhhh",
+    "hhhhh..hhhhh",
+    "rhhhh..hhhhr",
+    ".rhhh..hhhr.",
+    "..rr....rr..",
+  ],
+  // Palms meet (one plum seam between them) and the marks burst out wider.
+  accent: [
+    "y....yy....y",
+    ".y........y.",
+    "............",
+    "............",
+    "...h.h.h.h..",
+    "...hhhhhhh..",
+    "...hhh.hhh..",
+    "...hhh.hhh..",
+    "...rhh.hhr..",
+    "....rh.hr...",
+    ".....r.r....",
+  ],
+  mini: ["...y...", "h.h.h.h", "hhh.hhh", "hhh.hhh", "rhh.hhr", ".rr.rr."],
 };
 
 export const REACTIONS: readonly ReactionDef[] = [
   fromSticker("heart", "Heart", [".HH.HH.", "HwHHHHH", "HHHHHHH", ".HHHHH.", "..HHH..", "...H..."]),
   fromSticker("laugh", "Laugh", ["..YYY..", ".YYYYY.", "YEYYYEY", "YYYYYYY", "YEEEEEY", ".YEdEY.", "..YYY.."]),
   WOW,
-  fromSticker("clap", "Clap", ["...y...", "hh...hh", "hhh.hhh", ".hh.hh.", ".hh.hh.", "..c.c.."]),
+  CLAP,
 ];
 
 /** [art, rise in px, ms, dither]. dither: 0 = solid, 2 = every other pixel, 4 = one in four. Total 820 ms. */
@@ -187,6 +223,17 @@ export function contrast(a: string, b: string): number {
   return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
 }
 
+/** Lights-down falloff: 12 smoothstep stops from the screen's tint to a flat dim, so no ellipse bands. Flat past 75 %, where the
+ *  seats sit, so every seat dims the same. */
+function lightsStops(): string {
+  const tint = `var(--ui-screen-tint, ${hex("glow", 1)})`;
+  return Array.from({ length: 12 }, (_, i) => {
+    const t = i / 11, e = t * t * (3 - 2 * t);
+    const glow = Math.round(16 * (1 - e)), dim = (0.66 * e).toFixed(3);
+    return `color-mix(in srgb, ${tint} ${String(glow)}%, rgb(43 29 47 / ${dim})) ${String(Math.round(75 * t))}%`;
+  }).join(", ");
+}
+
 /** `ui/moments.css`: lazy, loaded with the strip or the recap card. Sprites come from `reactions.png`, scaled by --ui-px. */
 export function momentsCss(at: ReadonlyMap<string, { x: number; y: number }>): string {
   const u = (n: number): string => `calc(${String(n)} * var(--ui-px))`;
@@ -232,10 +279,7 @@ ${keys}
 .ui-recap-close { grid-column: 2; grid-row: 1 / span 2; }
 
 .ui-lights-down { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 900ms steps(6);
-  background: radial-gradient(ellipse 70% 62% at var(--ui-screen-x, 50%) var(--ui-screen-y, 30%),
-    color-mix(in srgb, var(--ui-screen-tint, ${hex("glow", 1)}) 16%, transparent) 0 30%,
-    color-mix(in srgb, var(--ui-screen-tint, ${hex("glow", 1)}) 8%, rgb(43 29 47 / .3)) 30% 48%,
-    rgb(43 29 47 / .5) 48% 68%, rgb(43 29 47 / .66) 68%); }
+  background: radial-gradient(ellipse 72% 48% at var(--ui-screen-x, 50%) var(--ui-screen-y, 40%), ${lightsStops()}); }
 .ui-lights-down.is-on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ui-lights-down { transition: none; } }
 `;

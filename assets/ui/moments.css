@@ -39,9 +39,6 @@
 .ui-recap-close { grid-column: 2; grid-row: 1 / span 2; }
 
 .ui-lights-down { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 900ms steps(6);
-  background: radial-gradient(ellipse 70% 62% at var(--ui-screen-x, 50%) var(--ui-screen-y, 30%),
-    color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 16%, transparent) 0 30%,
-    color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 8%, rgb(43 29 47 / .3)) 30% 48%,
-    rgb(43 29 47 / .5) 48% 68%, rgb(43 29 47 / .66) 68%); }
+  background: radial-gradient(ellipse 72% 48% at var(--ui-screen-x, 50%) var(--ui-screen-y, 40%), color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 16%, rgb(43 29 47 / 0.000)) 0%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 16%, rgb(43 29 47 / 0.015)) 7%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 15%, rgb(43 29 47 / 0.058)) 14%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 13%, rgb(43 29 47 / 0.120)) 20%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 11%, rgb(43 29 47 / 0.198)) 27%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 9%, rgb(43 29 47 / 0.285)) 34%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 7%, rgb(43 29 47 / 0.375)) 41%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 5%, rgb(43 29 47 / 0.462)) 48%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 3%, rgb(43 29 47 / 0.540)) 55%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 1%, rgb(43 29 47 / 0.602)) 61%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 0%, rgb(43 29 47 / 0.645)) 68%, color-mix(in srgb, var(--ui-screen-tint, #b8e6f0) 0%, rgb(43 29 47 / 0.660)) 75%); }
 .ui-lights-down.is-on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ui-lights-down { transition: none; } }

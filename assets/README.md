@@ -808,9 +808,9 @@ into `preview/ui-moments-{room,frames,16,strip,recap,lights}@1x|2x.png`; the she
 
 | File | Size | Bytes | Loaded |
 |---|---|---|---|
-| `ui/reactions.png` | 128×128 indexed PNG-8, palette trimmed | 1 237 | with the reaction bar / first reaction |
+| `ui/reactions.png` | 128×128 indexed PNG-8, palette trimmed | 1 321 | with the reaction bar / first reaction |
 | `ui/reactions.json` | PixiJS v8 atlas | 595 gz | same |
-| `ui/moments.css` | the strip, the recap card, lights-down, the bar's key icons | 1 540 gz | with the strip or the card (needs `reference.css`) |
+| `ui/moments.css` | the strip, the recap card, lights-down, the bar's key icons | 1 649 gz | with the strip or the card (needs `reference.css`) |
 
 ### Reaction glyphs (`react/<heart|laugh|wow|clap>/<0..5>`, room scale, 1 art px = 1 stage px)
 
@@ -818,8 +818,10 @@ into `preview/ui-moments-{room,frames,16,strip,recap,lights}@1x|2x.png`; the she
   only: place the sprite once, no position tween. **Anchor (0.5, 27/28)** = bottom centre = the spawn point, just above the name tag.
 - **Sequence** (`animations["react/<id>"]`, `meta.omega.ms`): pop 80 · settle 120 · beat 200 · rise 180 · dither 50 % 120 · dither 25 % 120 ms =
   820 ms, one shot (`loop: false`). Glyphs are ≤ 15 px wide with the outline, so they read at 16 px.
-- Heart, laugh and clap are the motion atlas's emote-sticker pixels (pop / settle / accent), so reactions and emotes are one family.
-  **Wow** is new: a teal starburst with tall eyes and a gasp. Spiky where laugh is round, teal where laugh is mustard.
+- Heart and laugh are the motion atlas's emote-sticker pixels (pop / settle / accent), so reactions and emotes are one family.
+  **Wow** is new: a teal face with tall dot eyes and a round "O" (laugh: shut eyes, wide grin, mustard); its beat throws two sparks.
+  **Clap** is its own art (OME-1657; the sticker's V read as wings at 16 px): two cream palms, fingers up and thumbs in, a wood rim
+  under the cream so it holds on the tan floor, mustard impact marks above; the beat presses the palms together.
 - **Perf (engineering, OME-1631):** pool the sprites, `meta.omega.maxLive` = 12, off on Basic, drop on Smooth near the 8 ms frame.
 
 ### Moments strip and reaction bar (`ui/moments.css`, page chrome at `--ui-px`)
@@ -845,10 +847,11 @@ lilac on the panel 6.6 · cream on the panel 12.8 · cream on the hover row 10.5
 
 `<div class="ui-lights-down" aria-hidden="true">` inside the stage, under every DOM chrome layer and never over the player (ADR 0012); `.is-on`
 fades it in over 900 ms in 6 steps (none with reduced motion). Engineering sets `--ui-screen-x/-y` (the screen's centre) and `--ui-screen-tint`
-(the poster's average colour, never a video frame; default glow). Stepped rings round the screen, darker toward the room's edges.
+(the poster's average colour, never a video frame; default glow). A smooth falloff (12 smoothstep stops, OME-1657) from the tinted
+screen to a flat dim; flat from 75 % of the ellipse out, so every seat dims the same.
 
-**Bytes:** +3 414 B, all lazy (305 223 → 308 637 of 409 600), as `bun assets/src/build.ts` measures it: `reactions.png` 1 237, `reactions.json`
-595 gz, `moments.css` 1 582 gz. (`gzip -9c` reads 15 B more a file, the gzip header; README § Budget uses zlib level 9 with no header.)
+**Bytes:** +3 565 B, all lazy (305 223 → 308 788 of 409 600), as `bun assets/src/build.ts` measures it: `reactions.png` 1 321, `reactions.json`
+595 gz, `moments.css` 1 649 gz (OME-1657 polish: +151 B). (`gzip -9c` reads 15 B more a file, the gzip header; README § Budget uses zlib level 9 with no header.)
 Eager bytes are unchanged. The cap went from 300 KB to 400 KB for Movie night (ADR 0056, CEO on OME-1656).
 
 ## Motion atlas (`avatars/motion.json`, set d)
