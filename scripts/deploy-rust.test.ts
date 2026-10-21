@@ -69,9 +69,37 @@ describe("scripts/build-server-rs.sh", () => {
     try {
       fake(dir, "zig", 'echo 0.0.1');
       fake(dir, "cargo-zigbuild", `echo cargo-zigbuild ${pin("CARGO_ZIGBUILD_VERSION")}`);
-      const r = spawn(["bash", SCRIPT], { PATH: `${dir}:${process.env["PATH"] ?? ""}` });
+      const r = spawn(["bash", SCRIPT], { PATH: `${dir}:${process.env["PATH"] ?? ""}`, XDG_DATA_HOME: dir });
       expect(r.code).toBe(1);
       expect(r.out).toContain("zig");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("finds the pinned zig and cargo-zigbuild where install-server-rs-tools.sh puts them, with no PATH edit (OME-1606)", () => {
+    const dir = tmp();
+    try {
+      const zigDir = join(dir, `zig-${pin("ZIG_VERSION")}`);
+      const zbBin = join(dir, `cargo-zigbuild-${pin("CARGO_ZIGBUILD_VERSION")}`, "bin");
+      mkdirSync(zigDir);
+      mkdirSync(zbBin, { recursive: true });
+      fake(zigDir, "zig", `echo ${pin("ZIG_VERSION")}`);
+      fake(zbBin, "cargo-zigbuild", `echo cargo-zigbuild ${pin("CARGO_ZIGBUILD_VERSION")}`);
+      const r = spawn(["bash", SCRIPT, "--check-tools"], { PATH: process.env["PATH"] ?? "", XDG_DATA_HOME: dir });
+      expect(r.code, r.out).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("missing pinned tools fail with one line naming the install script (OME-1606)", () => {
+    const dir = tmp();
+    try {
+      const r = spawn(["bash", SCRIPT, "--check-tools"], { PATH: "/usr/bin:/bin", XDG_DATA_HOME: dir });
+      expect(r.code).toBe(1);
+      expect(r.out.trim().split("\n")).toHaveLength(1);
+      expect(r.out).toContain("scripts/install-server-rs-tools.sh");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -89,7 +117,7 @@ describe("scripts/build-server-rs.sh", () => {
         `echo "$@ RUSTFLAGS=$RUSTFLAGS" > "${dir}/args"\nmkdir -p "${target}/aarch64-unknown-linux-gnu/release"\necho bin > "${target}/aarch64-unknown-linux-gnu/release/omega-server"`,
       );
       const out = join(dir, "out-binary");
-      const r = spawn(["bash", SCRIPT, "--out", out], { PATH: `${dir}:${process.env["PATH"] ?? ""}`, CARGO_TARGET_DIR: target });
+      const r = spawn(["bash", SCRIPT, "--out", out], { PATH: `${dir}:${process.env["PATH"] ?? ""}`, CARGO_TARGET_DIR: target, XDG_DATA_HOME: dir });
       expect(r.code, r.out).toBe(0);
       expect(readFileSync(out, "utf8")).toBe("bin\n");
       expect(readFileSync(join(dir, "args"), "utf8")).toContain(`zigbuild --release --locked --target aarch64-unknown-linux-gnu.${pin("GLIBC")}`);
@@ -244,6 +272,22 @@ describe("deploy/deploy.sh --server", () => {
       expect(r.out).toContain("build-server-rs.sh");
       expect(r.out).not.toMatch(/bun install [^\n]*--production/);
       expect(r.out).toMatch(/releases\/[0-9a-f]{40}-rust\//);
+    });
+  });
+
+  test("a rust deploy checks the build tools before building the site; a dry run only warns (OME-1606)", () => {
+    withBun((path) => {
+      const empty = tmp();
+      try {
+        const r = spawn(["bash", SCRIPT, "--dry-run"], { PATH: path, DEPLOY_HOST: HOST, XDG_DATA_HOME: empty });
+        expect(r.code, r.out).toBe(0);
+        const warn = r.out.indexOf("scripts/install-server-rs-tools.sh");
+        expect(warn).toBeGreaterThan(-1);
+        expect(warn).toBeLessThan(r.out.indexOf("bun install"));
+        expect(r.out).toContain("a real deploy would refuse");
+      } finally {
+        rmSync(empty, { recursive: true, force: true });
+      }
     });
   });
 
