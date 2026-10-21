@@ -171,7 +171,7 @@ describe("meAction", () => {
   });
 
   test("/me is plain chat to the slash parser: it goes on the wire as a chat line", () => {
-    expect(slashCommand("/me waves")).toBeNull();
+    expect(slashCommand("/me waves")).toEqual({ type: "line" });
   });
 
   test("/help lists /me", () => {
@@ -219,7 +219,7 @@ describe("thinkText", () => {
   });
 
   test("/think is plain chat to the slash parser and not a /me action", () => {
-    expect(slashCommand("/think hmm")).toBeNull();
+    expect(slashCommand("/think hmm")).toEqual({ type: "line" });
     expect(meAction("/think hmm")).toBeNull();
   });
 
