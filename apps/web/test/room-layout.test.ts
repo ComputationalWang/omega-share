@@ -41,15 +41,16 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const queue = createQueuePanel({ send: () => true, ownHosts: ["omega.example"] });
   const notice = div();
   const roomAway = div();
+  const roomTop = div();
   const invite = div();
   const poll = div();
   const side = div();
   const ownerBar = div();
   const editorPanel = div();
-  root.append(wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
+  root.append(roomTop, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, invite, side, ownerBar, editorPanel,
+    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, roomTop, invite, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
@@ -63,7 +64,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, log, poll, form, notice, side, queue, invite, ownerBar, editorPanel };
+  return { layout, root, wrap, log, poll, form, notice, side, queue, roomTop, invite, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -91,6 +92,15 @@ describe("room layout", () => {
     expect(tall.queue.root.nextElementSibling).toBe(tall.ownerBar);
     const short = await setup({ wide: true, short: true });
     expect(short.ownerBar.nextElementSibling).toBe(short.editorPanel);
+  });
+
+  test("a short wide screen moves the head row, holding the invite, to the top of the chat column (OME-1595)", async () => {
+    const tall = await setup({ wide: true });
+    expect(tall.root.firstElementChild).toBe(tall.roomTop);
+    const short = await setup({ wide: true, short: true });
+    expect(short.roomTop.parentElement).toBe(short.side);
+    expect(short.invite.parentElement).toBe(short.roomTop);
+    expect(short.roomTop.nextElementSibling).toBe(short.queue.root);
   });
 
   test("the strip's collapse key is remembered on this device", async () => {

@@ -229,7 +229,7 @@ VIEWPORTS.forEach((vp, i) => {
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
       await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
       await step(page, vp, "report", skipped, async () => (await visibleClick(page, site.reportKey)) && (await page.locator(site.reportDialog).isVisible()));
-      await step(page, vp, "share sheet", skipped, async () => (await visibleClick(page, id("portrait-link"))) || (await page.locator(site.inviteLink).isVisible()));
+      await step(page, vp, "share sheet", skipped, async () => (await visibleClick(page, id("portrait-link"))) || (await page.locator(id("invite-copy")).isVisible()));
       await step(page, vp, "people", skipped, () => visibleClick(page, site.peopleKey));
       if (await page.locator(site.peoplePanel).isVisible()) await page.locator(site.peopleKey).click();
       await step(page, vp, "full screen", skipped, async () => {
@@ -286,7 +286,7 @@ VIEWPORTS.forEach((vp, i) => {
         return true;
       });
       await owner.locator(site.chatInput).fill("");
-      await step(owner, vp, "owner share sheet", skipped, async () => (await visibleClick(owner, id("portrait-link"))) || (await owner.locator(site.inviteLink).isVisible()));
+      await step(owner, vp, "owner share sheet", skipped, async () => (await visibleClick(owner, id("portrait-link"))) || (await owner.locator(id("invite-copy")).isVisible()));
       await step(owner, vp, "member menu", skipped, async () => {
         // In portrait the tags may live in the People list instead.
         if ((await owner.locator(`${site.nicknameTag}[role=button]`).filter({ hasText: "kit" }).count()) === 0) await visibleClick(owner, site.peopleKey);

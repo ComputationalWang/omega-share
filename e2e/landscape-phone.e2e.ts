@@ -43,7 +43,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "f844" | "f740" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`, setup,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -104,6 +104,25 @@ test("844×390 landscape with a notch: the room and the chat column keep clear o
     await inside(page.locator(l), 0, 390, inset, 844 - inset);
   }
 });
+
+// QA OME-1594 → OME-1595: the picture and its shelf filled the column and the floor was a ~20 px strip under them,
+// reachable only by finding the column's scroll; the fields showed their placeholder's first word.
+for (const [name, width, height] of [["f844", 844, 390], ["f740", 740, 360]] as const) {
+  test(`${String(width)}×${String(height)} landscape: a seat a finger can take is on screen unscrolled; the chat and link fields show 15 characters`, async ({ browser }) => {
+    const page = await open(browser, name, width, height);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
+    const seats = page.locator(`${site.seat}:not([inert])`);
+    await expect.poll(() => seats.count()).toBeGreaterThanOrEqual(1);
+    await inside(seats.first(), 0, height, 0, width);
+    for (const l of [site.chatInput, site.queueUrl]) {
+      const field = page.locator(l);
+      await field.fill("abcdefghijklmno");
+      expect(await field.evaluate((n) => n.scrollWidth <= n.clientWidth), l).toBe(true);
+      await field.fill("");
+    }
+  });
+}
 
 /** Three raw members each queue QUEUE_ADD_MEMBER_BURST (3) links: one plays, eight wait in Up next. */
 async function fillQueue(roomId: string, tag: string): Promise<() => void> {
