@@ -33,7 +33,7 @@ if (host.success && Number.isSafeInteger(tabId)) {
   byId("host-inline").textContent = name;
   byId("allow").addEventListener("click", () => {
     void browser.permissions
-      .request(unlockPermissions(name, import.meta.env.BROWSER === "firefox" ? "firefox" : "chrome"))
+      .request(unlockPermissions(name))
       .catch(() => false)
       // The grant can't tell this host's consent from the found indicator's https://*/* (OME-1042), so record it.
       .then(async (granted) => {
