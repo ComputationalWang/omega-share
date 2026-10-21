@@ -156,6 +156,7 @@
  * room's dither scrim. No motion: it appears and goes in one frame. */
 .room-foot { --ui-px: 1px; display: flex; justify-content: flex-end; align-items: center; margin-top: 8px; }
 .room-foot .report-key { font-size: 11px; }
+.ui-touch .room-foot .report-key { font-size: 12px; }
 .ui-button.report-key.is-disabled { border-image-source: url("../../../assets/ui/slices/button-primary-disabled.png"); color: var(--ui-disabled-text); cursor: default; }
 .report-dialog { --ui-px: 2px; margin: auto; background: transparent; width: min(calc(100vw - 16px), 480px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; }
 .report-dialog:has(> form[hidden]) { width: min(calc(100vw - 16px), 380px); }
@@ -174,6 +175,7 @@
 .editor { display: grid; gap: 8px; margin: 8px 0; }
 .editor .ui-slot { cursor: pointer; }
 .editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
+.ui-touch .editor-slot-name { font-size: 12px; }
 .editor-mood-options { display: flex; gap: 4px; }
 .editor-mood .ui-button[aria-checked="true"] { outline: 2px solid var(--ui-text); outline-offset: -2px; }
 .editor-piece, .editor-mood, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -435,7 +437,7 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
    * column's padding, an empty status line and the footer's second line give their height to the floor. */
   .room-wide { padding: 4px 8px 0 max(8px, env(safe-area-inset-left)); }
   .room-wide > .status:empty { display: none; }
-  body:has(> main > .room-wide) > .site-footer { height: 20px; padding-block: 0; font-size: 11px; white-space: nowrap; overflow: hidden; }
+  body:has(> main > .room-wide) > .site-footer { height: var(--room-foot); padding-block: 0; font-size: var(--room-foot-text); white-space: nowrap; overflow: hidden; }
   body:has(> main > .room-wide) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
   /* The head row with the invite's Copy key (Copy is how a phone shares the link; the label still describes the key). */
   .room-side { padding-inline: 4px max(4px, env(safe-area-inset-right)); }
@@ -590,10 +592,10 @@ body:has(> main > .room-portrait) { height: 100dvh; overflow: hidden; }
 /* A downward swipe in the room must not pull-to-refresh it mid-video (OME-1240); pinch zoom is unaffected. */
 :root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
 main:has(> .room-portrait) { max-width: none; padding: 0; }
-body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: 20px; font-size: 11px; }
+body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: var(--room-foot); font-size: var(--room-foot-text); }
 /* One 20 px line, never two (OME-1597: at 360 px the version wrapped below the viewport); it stays on the landing. */
 body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
-.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - 20px); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
+.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - var(--room-foot)); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
 /* The camera key (OME-1565) would wrap a long title off the portrait bar and push the room out; /snap still works. */
@@ -611,7 +613,7 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
 .room-portrait .portrait-keys { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; }
 .room-portrait .portrait-keys .ui-button { flex: 1; min-height: 44px; }
 .room-portrait > .portrait-stowed { display: none; }
-.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 20px; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px; overflow: hidden; }
+.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 var(--room-foot); margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px; overflow: hidden; }
 .portrait-sheet[open] { display: flex; flex-direction: column; }
 .portrait-sheet::backdrop { background: transparent; }
 .portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
@@ -633,7 +635,7 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
 .room-portrait.portrait-typing .stage-clip, .room-portrait.portrait-typing .controls { visibility: hidden; }
 .room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
 .room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
-.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top) - 20px); }
+.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top) - var(--room-foot)); }
 @media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
 
 .room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
@@ -710,3 +712,12 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
   .fs-bubble { animation-name: fs-bubble-still; }
   .fs-chat-pill { transition: none; }
 }
+
+/* OME-1596: the room's one-line footer, 44 px on a touch screen so its links are keys (style.css); 12 px text there.
+ * The report dialog's count and the help dialog's page links follow. */
+:root { --room-foot: 20px; --room-foot-text: 11px; }
+@media (pointer: coarse) {
+  :root { --room-foot: 44px; --room-foot-text: 12px; }
+  .ui-report .count { font-size: 12px; }
+}
+.ui-touch .help-pages a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }

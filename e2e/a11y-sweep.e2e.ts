@@ -6,6 +6,8 @@
 //  - no horizontal overflow (`scrollWidth > innerWidth`);
 //  - no focusable control off-screen or clipped by an ancestor (inside a scroller is fine: it scrolls into view);
 //  - under `.ui-touch`, every control at least 44 px each way, counting a `::before` hit area (CEO, OME-1326).
+//  - under `.ui-touch` or a coarse pointer, no visible text under 12 px, and no link list (a footer, a dialog) counted as
+//    running text: those links are targets too (OME-1596).
 // The tests of this file stay in one worker (no fullyParallel) and each viewport uses rooms of its own.
 import AxeBuilder from "@axe-core/playwright";
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
@@ -108,11 +110,25 @@ const measure = (page: Page): Promise<string[]> =>
     }
     if (was instanceof HTMLElement) was.focus();
     else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    // A touch screen also judges the site footer and the dialogs, which sit outside the room root.
+    const coarse = matchMedia("(pointer: coarse)").matches;
+    const judged = (el: Element): boolean => el.closest(coarse ? ".ui-touch, .site-footer, dialog, [role=dialog]" : ".ui-touch") !== null;
+    for (const el of document.body.querySelectorAll<HTMLElement>("*")) {
+      if (!judged(el) || el.closest("[inert], [hidden], dialog:not([open])") !== null) continue;
+      if (![...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "")) continue;
+      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+      const r = el.getBoundingClientRect();
+      // A visually hidden label (1 px, clipped) isn't visible text.
+      if (r.width <= 1 || r.height <= 1) continue;
+      const size = parseFloat(getComputedStyle(el).fontSize);
+      // font-size 0 hides a label the accessible name keeps (an icon-only key); it isn't visible text.
+      if (size > 0 && size < 11.5) out.push(`text under 12 px (touch): ${describe(el)} ${String(size)} px`);
+    }
     for (const el of els) {
-      if (el.closest(".ui-touch") === null) continue;
-      // WCAG 2.5.8 inline exception: a link in running text.
+      if (!judged(el)) continue;
+      // WCAG 2.5.8 inline exception: a link in running text. A footer's or a dialog's link list isn't running text.
       const parent = el.parentElement;
-      if (el.tagName === "A" && parent !== null && ["P", "LI", "DD", "SPAN", "SMALL", "TD"].includes(parent.tagName) && [...parent.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "")) continue;
+      if (el.tagName === "A" && el.closest("footer, dialog, [role=dialog]") === null && parent !== null && ["P", "LI", "DD", "SPAN", "SMALL", "TD"].includes(parent.tagName) && [...parent.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "")) continue;
       const target = el instanceof HTMLInputElement && (el.type === "radio" || el.type === "checkbox") ? (el.closest("label") ?? el) : el;
       const t = target.getBoundingClientRect();
       let [w, h] = [t.width, t.height];
@@ -121,7 +137,7 @@ const measure = (page: Page): Promise<string[]> =>
         w = Math.max(w, parseFloat(before.width) || 0);
         h = Math.max(h, parseFloat(before.height) || 0);
       }
-      if (w < 43.5 || h < 43.5) out.push(`target under 44 px (.ui-touch): ${describe(el)} ${String(Math.round(w))}x${String(Math.round(h))}`);
+      if (w < 43.5 || h < 43.5) out.push(`target under 44 px (touch): ${describe(el)} ${String(Math.round(w))}x${String(Math.round(h))}`);
     }
     return out;
   });

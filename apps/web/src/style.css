@@ -25,6 +25,11 @@ button, input { font: inherit; color: inherit; }
 .site-footer { max-width: 980px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); text-align: right; font-size: 0.85rem; }
 .site-footer a { color: var(--muted); }
 .site-footer a:hover, .site-footer a:focus-visible { color: var(--accent); }
+/* OME-1596: on a touch screen each footer link is a 44 px key and no footer text is under 12 px. */
+@media (pointer: coarse) {
+  .site-footer { font-size: max(12px, 0.85rem); }
+  .site-footer a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; vertical-align: middle; }
+}
 
 /* Skip link (OME-767): the first stop in tab order, out of sight until it has focus. */
 .skip-link { position: absolute; left: 8px; top: -200px; z-index: 100; padding: 8px 12px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; }
