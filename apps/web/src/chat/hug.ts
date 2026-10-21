@@ -21,7 +21,8 @@ export function matchMember(members: readonly Member[], self: MemberId | null, n
 }
 
 export interface PendingHug {
-  readonly target: MemberId;
+  /** Who I walk over to; null for the cat (OME-1669), who is no member. */
+  readonly target: MemberId | null;
   /** Where the walk over goes. */
   readonly cell: FloorCell;
 }
