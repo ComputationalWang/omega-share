@@ -45,6 +45,12 @@ pin="$(tr -d '[:space:]' < "$root/.bun-version")"
 have="$(bun --version)"
 [[ "$have" == "$pin" ]] || { echo "local bun $have does not match .bun-version $pin" >&2; exit 1; }
 
+# The cross-build tools, before the site build spends minutes (OME-1606).
+if [[ "$server" == rust ]] && ! "$root/scripts/build-server-rs.sh" --check-tools; then
+  (( dry_run )) || exit 1
+  echo "# (dry run) the build tools are missing; a real deploy would refuse" >&2
+fi
+
 sha="$(git -C "$root" rev-parse HEAD)"
 if [[ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]]; then
   (( dry_run )) || { echo "working tree has uncommitted changes: a release must be a commit" >&2; exit 1; }
