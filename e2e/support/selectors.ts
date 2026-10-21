@@ -165,7 +165,9 @@ export const site = {
   reportRetry: id("report-retry"),
   // M9 W2 (OME-768): the first-visit hint, the "?" help key and dialog, and "Room not found".
   firstHint: id("first-hint"),
-  firstHintClose: id("first-hint-close"),
+  hintNext: id("hint-next"),
+  hintSkip: id("hint-skip"),
+  helpTips: id("help-tips"),
   helpKey: id("help-key"),
   // "Hide for me" (OME-769, M9 W3): the room bar's People key, its list, each row's toggle and the status line.
   peopleKey: id("people-key"),

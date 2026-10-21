@@ -229,3 +229,24 @@ describe("the cinema dim toggle (OME-1406)", () => {
     expect(box.checked).toBe(true);
   });
 });
+
+describe("Show tips again (OME-1587)", () => {
+  test("a Show tips again key closes the dialog and starts the first-visit tour", async () => {
+    const { createHelp } = await import("../src/help/dialog");
+    let tips = 0;
+    const help = createHelp({
+      owner: () => false,
+      tips: () => {
+        tips += 1;
+      },
+    });
+    document.body.replaceChildren(help.key, help.dialog);
+    help.key.click();
+    const again = help.dialog.querySelector<HTMLButtonElement>('button[data-testid="help-tips"]');
+    expect(again?.textContent).toBe("Show tips again");
+    again?.click();
+    expect(tips).toBe(1);
+    expect(help.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(help.key);
+  });
+});

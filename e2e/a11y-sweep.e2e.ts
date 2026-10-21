@@ -222,6 +222,8 @@ VIEWPORTS.forEach((vp, i) => {
       // The camera key (OME-1565) is in the room bar but the portrait one (/snap there), so "guest rest" audits it.
       const portrait = await page.locator(".room-portrait").count();
       await expect(page.locator(site.snapKey)).toBeVisible({ visible: portrait === 0 });
+      // A first visit: the tour's first chip (OME-1587) is up during "guest rest", so the audit covers it.
+      await expect(page.locator(site.firstHint)).toBeVisible();
       await audit(page, vp.name, "guest rest");
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
       await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
