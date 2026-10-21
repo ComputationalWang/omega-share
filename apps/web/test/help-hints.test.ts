@@ -184,7 +184,7 @@ describe("the first-visit tour", () => {
     if (floor === null) throw new Error("no anchor");
     hints.show();
     expect(hints.root.style.visibility).toBe("");
-    expect(hints.root.style.top).toBe("208px");
+    expect(hints.root.style.top).toBe("192px");
     key("hint-next")?.focus();
     floor.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 0, height: 0 });
     window.dispatchEvent(new Event("resize"));

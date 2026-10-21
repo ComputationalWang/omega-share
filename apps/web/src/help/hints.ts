@@ -1,17 +1,18 @@
 // The first-visit tour (OME-1587; it replaces OME-768's one-card hint): three chips, one after another, each beside what it
 // talks about. "Got it" moves on, "Skip" (or Esc, via dismiss()) ends it. Seen once per device (`omega.hints`). A status,
 // never a modal: fixed over the page like the emote wheel, it takes no focus and blocks nothing but its own box. Idle
-// DOM: placed once per chip and on resize or scroll while it shows, no frame work.
+// DOM: placed once per chip and on resize or scroll while it shows, no frame work. The anchor is observed too: the room
+// shows the tour before its stage is laid out (390×844 portrait, OME-1601), and a chip placed then sits over the room bar.
 import * as v from "valibot";
 import { el } from "../controls/dom";
 
 export const HINTS_KEY = "omega.hints";
 
-/** Where a chip goes against its anchor: inside its top edge (the stage, under the TV), just above it, or just below it.
- * Inside the bottom edge put it on the composer on a phone, where the stage is a thin strip (a11y sweep, 320×640). */
-type Side = "inside" | "above" | "below";
+/** Where a chip goes against its anchor: just above it or just below it. Not on the stage: on a phone that's a thin strip
+ * and a chip there covers seats or, placed before layout, the room bar (a11y sweep 320×640, 390×844; OME-1601). */
+type Side = "above" | "below";
 const STEPS: readonly { readonly text: string; readonly side: Side }[] = [
-  { text: "Click the floor to walk, double-click to jog", side: "inside" },
+  { text: "Click the floor to walk, double-click to jog", side: "above" },
   { text: "Type / for commands, or open ✦", side: "above" },
   { text: "Pick colours and a hat in People", side: "below" },
 ];
@@ -31,7 +32,7 @@ export function parseHints(raw: string | null): { readonly seen: boolean } {
 export interface HintsOptions {
   /** The `localStorage` getter itself throws when storage is blocked: pass a wrapper that goes through it lazily. */
   readonly storage: Pick<Storage, "getItem" | "setItem">;
-  /** What chip `step` sits beside; null (or a hidden one) puts it against the viewport. */
+  /** What chip `step` sits beside; while it's null or has no box the chip is out of sight (and the tour still open). */
   readonly anchor: (step: number) => HTMLElement | null;
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
@@ -62,17 +63,24 @@ export function createHints(o: HintsOptions): Hints {
   root.append(text, acts);
   let step = -1;
   let asked = false;
+  const sized = new ResizeObserver(() => {
+    place();
+  });
 
   const place = (): void => {
     const side = STEPS[step]?.side;
     if (side === undefined) return;
-    const a = o.anchor(step)?.getBoundingClientRect();
+    const r = o.anchor(step)?.getBoundingClientRect();
+    // Nothing to sit beside (the stage behind People on a phone): out of sight until it's back, never over the room bar.
+    const away = r === undefined || r.width === 0 || r.height === 0;
+    if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
+    root.style.visibility = away ? "hidden" : "";
+    if (away) return;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const r = a !== undefined && a.width > 0 && a.height > 0 ? a : { left: 0, top: 0, width: vw, height: vh, bottom: vh };
     const w = root.offsetWidth;
     const h = root.offsetHeight;
-    const top = side === "inside" ? r.top + GAP : side === "above" ? r.top - h - GAP : r.bottom + GAP;
+    const top = side === "above" ? r.top - h - GAP : r.bottom + GAP;
     root.style.left = `${String(Math.max(GAP, Math.min(r.left + (r.width - w) / 2, vw - w - GAP)))}px`;
     root.style.top = `${String(Math.max(GAP, Math.min(top, vh - h - GAP)))}px`;
   };
@@ -85,6 +93,9 @@ export function createHints(o: HintsOptions): Hints {
       window.addEventListener("scroll", place, { capture: true, passive: true });
     }
     step = to;
+    sized.disconnect();
+    const a = o.anchor(to);
+    if (a !== null) sized.observe(a);
     root.hidden = false;
     text.textContent = s.text;
     place();
@@ -94,6 +105,7 @@ export function createHints(o: HintsOptions): Hints {
   const dismiss = (): void => {
     if (step === -1) return;
     step = -1;
+    sized.disconnect();
     window.removeEventListener("resize", place);
     window.removeEventListener("scroll", place, { capture: true });
     const had = root.contains(document.activeElement);

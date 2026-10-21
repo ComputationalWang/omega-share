@@ -582,7 +582,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         localStorage.setItem(k, v);
       },
     },
-    anchor: (step) => (step === 0 ? clip : step === 1 ? chatForm : people.key),
+    // The floor chip sits on the TV just above its player bar, next to the floor without covering it.
+    anchor: (step) => (step === 0 ? controls : step === 1 ? chatForm : people.key),
     next: () => (help.key.hidden ? null : help.key),
   });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");
