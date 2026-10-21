@@ -150,7 +150,8 @@ fn close_message(code: u16, reason: &'static str) -> Message {
 }
 
 /// The writer task: the outbox into the sink, and the idle pings. True if it ended by sending a close frame.
-async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Arc<Notify>) -> bool {
+async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Arc<Notify>, window: Duration) -> bool {
+    let _ = window;
     loop {
         tokio::select! {
             out = rx.recv() => match out {
@@ -164,7 +165,7 @@ async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Ar
                         let mut fed = 0;
                         while let Some(out) = next.take() {
                             let (msg, last) = match out {
-                                Outbound::Text(text) => (Message::Text(text), false),
+                                Outbound::Text(text) | Outbound::Relay(text) => (Message::Text(text), false),
                                 Outbound::Close(code, reason) => (close_message(code, reason), true),
                             };
                             sink.feed(msg).await?;
@@ -229,7 +230,12 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
     let dead = rx.dead_signal();
     let ping = Arc::new(Notify::new());
     let (sink, mut stream) = socket.split();
-    let mut writer = tokio::spawn(write(sink, rx, ping.clone()));
+    let mut writer = tokio::spawn(write(
+        sink,
+        rx,
+        ping.clone(),
+        Duration::from_millis(u64::from(app.ws.relay_batch_ms)),
+    ));
     let mut guard = Closer {
         app: app.clone(),
         cell: cell.clone(),
@@ -382,6 +388,118 @@ mod tests {
         Utf8Bytes::from(s.to_owned())
     }
 
+    const W: Duration = Duration::from_millis(8);
+
+    /// An outbox whose relays are marked (the connection joined with `batch: true`), and its writer on a recorder.
+    fn relay_writer() -> (crate::outbox::Outbox, Recorder, tokio::task::JoinHandle<bool>) {
+        let (outbox, rx) = channel();
+        let rec = Recorder::default();
+        let task = tokio::spawn(write(rec.clone(), rx, Arc::new(Notify::new()), W));
+        (outbox, rec, task)
+    }
+
+    async fn settle() {
+        for _ in 0..100 {
+            tokio::task::yield_now().await;
+        }
+    }
+
+    fn batch(msgs: &[&str]) -> String {
+        format!(r#"feed {{"type":"batch","msgs":[{}]}}"#, msgs.join(","))
+    }
+
+    // OME-1583: relays already queued together go out as one batch frame at once; a lone one goes out unwrapped.
+    #[tokio::test(start_paused = true)]
+    async fn queued_relays_go_out_as_one_batch_and_a_lone_relay_unwrapped() {
+        let (outbox, rec, task) = relay_writer();
+        for f in [r#"{"n":1}"#, r#"{"n":2}"#, r#"{"n":3}"#] {
+            assert!(outbox.send_relay(&text(f)));
+        }
+        settle().await;
+        assert_eq!(rec.ops(), [batch(&[r#"{"n":1}"#, r#"{"n":2}"#, r#"{"n":3}"#]), "flush".to_owned()]);
+        // The window after it passes with nothing held; the next relay is not held.
+        tokio::time::sleep(W * 2).await;
+        assert!(outbox.send_relay(&text(r#"{"n":4}"#)));
+        settle().await;
+        assert_eq!(rec.ops()[2..], [r#"feed {"n":4}"#, "flush"]);
+        assert_eq!(outbox.queued_bytes(), 0);
+        task.abort();
+    }
+
+    // Relays that come within the window after a relay frame are held for its end, then go out as one frame.
+    #[tokio::test(start_paused = true)]
+    async fn relays_inside_the_window_are_held_until_it_ends() {
+        let (outbox, rec, task) = relay_writer();
+        assert!(outbox.send_relay(&text("1")));
+        settle().await;
+        assert_eq!(rec.ops(), ["feed 1", "flush"], "the first goes at +0 ms");
+        tokio::time::sleep(Duration::from_millis(2)).await;
+        assert!(outbox.send_relay(&text("2")));
+        settle().await;
+        tokio::time::sleep(Duration::from_millis(3)).await;
+        assert!(outbox.send_relay(&text("3")));
+        settle().await;
+        assert_eq!(rec.ops().len(), 2, "held");
+        tokio::time::sleep(Duration::from_millis(4)).await;
+        settle().await;
+        assert_eq!(rec.ops()[2..], [batch(&["2", "3"]), "flush".to_owned()], "out by +8 ms");
+        // A held one alone goes unwrapped, one window later.
+        assert!(outbox.send_relay(&text("4")));
+        settle().await;
+        assert_eq!(rec.ops().len(), 4);
+        tokio::time::sleep(W).await;
+        settle().await;
+        assert_eq!(rec.ops()[4..], ["feed 4", "flush"]);
+        task.abort();
+    }
+
+    // Anything that is not a relay is never held, and held relays go out before it, so the order holds.
+    #[tokio::test(start_paused = true)]
+    async fn a_plain_frame_flushes_the_held_relays_ahead_of_itself() {
+        let (outbox, rec, task) = relay_writer();
+        assert!(outbox.send_relay(&text("1")));
+        settle().await;
+        assert!(outbox.send_relay(&text("2")));
+        assert!(outbox.send_relay(&text("3")));
+        settle().await;
+        assert!(outbox.send_text(&text("playback")));
+        settle().await;
+        assert_eq!(rec.ops(), ["feed 1", "flush", &batch(&["2", "3"]), "feed playback", "flush"]);
+        assert!(outbox.send_relay(&text("4")));
+        assert!(outbox.send_close(1000, "bye"));
+        assert!(task.await.unwrap());
+        assert_eq!(rec.ops()[5..], ["feed 4", "feed close 1000", "flush"]);
+    }
+
+    // A batch carries at most BATCH_MAX_MESSAGES and fits MAX_SERVER_MESSAGE_BYTES; the rest starts the next one.
+    #[tokio::test(start_paused = true)]
+    async fn a_batch_never_passes_the_message_or_byte_cap() {
+        use crate::contract::constants::{BATCH_MAX_MESSAGES, MAX_SERVER_MESSAGE_BYTES};
+        let (outbox, rec, task) = relay_writer();
+        for _ in 0..=BATCH_MAX_MESSAGES {
+            assert!(outbox.send_relay(&text("1")));
+        }
+        settle().await;
+        tokio::time::sleep(W).await;
+        settle().await;
+        let ones = vec!["1"; BATCH_MAX_MESSAGES];
+        assert_eq!(
+            rec.ops(),
+            [batch(&ones), "flush".to_owned(), "feed 1".to_owned(), "flush".to_owned()]
+        );
+        // Two frames that only fit one per batch.
+        let big = "x".repeat(MAX_SERVER_MESSAGE_BYTES / 2);
+        tokio::time::sleep(W * 2).await;
+        assert!(outbox.send_relay(&text(&big)));
+        assert!(outbox.send_relay(&text(&big)));
+        settle().await;
+        tokio::time::sleep(W).await;
+        settle().await;
+        let feed = format!("feed {big}");
+        assert_eq!(rec.ops()[4..], [feed.as_str(), &feed, "flush"], "each alone, unwrapped, at once");
+        task.abort();
+    }
+
     // Frames already queued go out in order with one flush (one write syscall), the close frame last.
     #[tokio::test]
     async fn queued_frames_are_fed_in_order_and_flushed_once() {
@@ -391,7 +509,7 @@ mod tests {
         }
         assert!(outbox.send_close(1000, "bye"));
         let rec = Recorder::default();
-        assert!(write(rec.clone(), rx, Arc::new(Notify::new())).await);
+        assert!(write(rec.clone(), rx, Arc::new(Notify::new()), W).await);
         assert_eq!(rec.ops(), ["feed a", "feed b", "feed c", "feed close 1000", "flush"]);
         // The byte accounting follows what the writer took.
         assert_eq!(outbox.queued_bytes(), 0);
@@ -402,7 +520,7 @@ mod tests {
     async fn a_lone_frame_is_flushed_at_once() {
         let (outbox, rx) = channel();
         let rec = Recorder::default();
-        let task = tokio::spawn(write(rec.clone(), rx, Arc::new(Notify::new())));
+        let task = tokio::spawn(write(rec.clone(), rx, Arc::new(Notify::new()), W));
         assert!(outbox.send_text(&text("x")));
         for _ in 0..100 {
             tokio::task::yield_now().await;
@@ -444,7 +562,7 @@ mod tests {
         }
         assert!(outbox.send_close(1000, "bye"));
         let start = tokio::time::Instant::now();
-        assert!(!write(Drip(None), rx, Arc::new(Notify::new())).await);
+        assert!(!write(Drip(None), rx, Arc::new(Notify::new()), W).await);
         assert!(start.elapsed() <= WRITE_TIMEOUT + Duration::from_secs(1), "{:?}", start.elapsed());
     }
 }

@@ -42,6 +42,9 @@ impl ConnId {
 #[derive(Debug, Clone)]
 pub enum Outbound {
     Text(Utf8Bytes),
+    /// A room relay to a connection that joined with `batch: true` (OME-1583): the writer may coalesce it with the
+    /// relays around it into one `batch` frame.
+    Relay(Utf8Bytes),
     /// A close frame (code, reason); the writer ends after it.
     Close(u16, &'static str),
 }
@@ -105,12 +108,27 @@ pub fn channel() -> (Outbox, OutboxRx) {
 impl Outbox {
     /// Queues a text frame. False (and the outbox is dead) if it would push the queue past the limit or the channel is full.
     pub fn send_text(&self, frame: &Utf8Bytes) -> bool {
+        self.send(frame, false)
+    }
+
+    /// Queues a relay frame (tests; publishing marks relays itself).
+    pub fn send_relay(&self, frame: &Utf8Bytes) -> bool {
+        self.send(frame, true)
+    }
+
+    /// `send_text`, as a [`Outbound::Relay`] when `relay`.
+    fn send(&self, frame: &Utf8Bytes, relay: bool) -> bool {
         if self.is_dead() {
             return false;
         }
         let len = frame.len();
         let queued = self.queued.fetch_add(len, Ordering::AcqRel).saturating_add(len);
-        if queued > BACKPRESSURE_LIMIT || self.tx.try_send(Outbound::Text(frame.clone())).is_err() {
+        let out = if relay {
+            Outbound::Relay(frame.clone())
+        } else {
+            Outbound::Text(frame.clone())
+        };
+        if queued > BACKPRESSURE_LIMIT || self.tx.try_send(out).is_err() {
             self.kill();
             return false;
         }
@@ -160,7 +178,7 @@ impl OutboxRx {
         if self.is_dead() {
             return None;
         }
-        if let Outbound::Text(t) = &next {
+        if let Outbound::Text(t) | Outbound::Relay(t) = &next {
             self.queued.fetch_sub(t.len(), Ordering::AcqRel);
         }
         Some(next)
@@ -176,7 +194,7 @@ impl OutboxRx {
         if self.is_dead() {
             return None;
         }
-        if let Outbound::Text(t) = &next {
+        if let Outbound::Text(t) | Outbound::Relay(t) = &next {
             self.queued.fetch_sub(t.len(), Ordering::AcqRel);
         }
         Some(next)
@@ -195,6 +213,8 @@ struct Entry {
     conn: ConnId,
     outbox: Outbox,
     subscribed: bool,
+    /// Joined with `batch: true` (OME-1583): relays go out as [`Outbound::Relay`].
+    batch: bool,
 }
 
 impl Subscribers {
@@ -204,6 +224,7 @@ impl Subscribers {
             conn,
             outbox,
             subscribed: false,
+            batch: false,
         });
     }
 
@@ -223,6 +244,12 @@ impl Subscribers {
             .find(|e| e.conn == conn)
             .map(|e| e.subscribed = subscribed)
             .is_some()
+    }
+
+    /// The connection's `join.batch` opt-in (OME-1583): false for an unknown connection.
+    pub fn set_batch(&mut self, conn: ConnId, batch: bool) -> bool {
+        let _ = (conn, batch);
+        false
     }
 
     /// The socket closed. False if it was not attached (a dead outbox is detached by publish).
@@ -251,9 +278,9 @@ impl Subscribers {
     }
 
     /// One pass; a subscriber that went dead is dropped from the room (its writer ends the connection).
-    fn publish(&mut self, except: Option<ConnId>, frame: &Utf8Bytes) {
+    fn publish(&mut self, except: Option<ConnId>, frame: &Utf8Bytes, relay: bool) {
         self.entries
-            .retain(|e| !e.subscribed || Some(e.conn) == except || e.outbox.send_text(frame));
+            .retain(|e| !e.subscribed || Some(e.conn) == except || e.outbox.send(frame, relay && e.batch));
     }
 
     fn send_to(&mut self, conn: ConnId, frame: &Utf8Bytes) -> bool {
@@ -294,12 +321,24 @@ impl Subscribers {
 
 /// `server.publish(topic, frame)`: every subscriber.
 pub fn publish_all(inner: &mut RoomInner, frame: &Utf8Bytes) {
-    inner.subscribers.publish(None, frame);
+    inner.subscribers.publish(None, frame, false);
 }
 
 /// `ws.publish(topic, frame)`: every subscriber except `conn`.
 pub fn publish_except(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) {
-    inner.subscribers.publish(Some(conn), frame);
+    inner.subscribers.publish(Some(conn), frame, false);
+}
+
+/// Publishes an encoded `msg` to every subscriber but `except`; a relay goes out as one to those that opted in.
+pub fn publish_frame(inner: &mut RoomInner, except: Option<ConnId>, msg: &ServerMessage, frame: &Utf8Bytes) {
+    inner.subscribers.publish(except, frame, is_relay(msg));
+}
+
+/// A room relay a `batch: true` connection may get coalesced (OME-1583): what members do, sent at their pace.
+/// Playback, queue, room settings, joins and leaves, polls, errors and replies are never held.
+pub fn is_relay(msg: &ServerMessage) -> bool {
+    let _ = msg;
+    false
 }
 
 /// Encodes `msg` once and publishes it to every subscriber (`server.publish(topic, JSON.stringify(msg))`).
@@ -310,7 +349,7 @@ pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) -> bool {
     }
     match encode_frame(msg) {
         Some(frame) => {
-            publish_all(inner, &frame);
+            publish_frame(inner, None, msg, &frame);
             true
         }
         None => false,
@@ -355,7 +394,7 @@ mod tests {
 
     fn text(o: Outbound) -> String {
         match o {
-            Outbound::Text(t) => t.as_str().to_owned(),
+            Outbound::Text(t) | Outbound::Relay(t) => t.as_str().to_owned(),
             Outbound::Close(c, r) => panic!("close {c} {r}"),
         }
     }
@@ -518,6 +557,72 @@ mod tests {
         let (tx, _rx) = channel();
         empty.subscribers.attach(ConnId(5), tx);
         assert!(!publish_msg(&mut empty, &ServerMessage::RoomFull {}));
+    }
+
+    fn msg(json: &str) -> ServerMessage {
+        crate::contract::server_message::parse_server_message(json).unwrap()
+    }
+
+    /// Whether the next queued frame is a relay, and its text.
+    fn next_kind(rx: &mut OutboxRx) -> (bool, String) {
+        match rx.try_recv().unwrap() {
+            Outbound::Relay(t) => (true, t.as_str().to_owned()),
+            Outbound::Text(t) => (false, t.as_str().to_owned()),
+            Outbound::Close(c, r) => panic!("close {c} {r}"),
+        }
+    }
+
+    // OME-1583: only a connection that joined with `batch: true` gets relays marked, and only relays are marked.
+    #[test]
+    fn relays_are_marked_for_a_batch_subscriber_only() {
+        let (mut inner, mut rxs) = room_with(2);
+        assert!(inner.subscribers.set_batch(ConnId(1), true));
+        assert!(!inner.subscribers.set_batch(ConnId(77), true));
+        let walked = r#"{"type":"walked","memberId":"m1","cell":{"x":1,"y":2}}"#;
+        assert!(publish_msg(&mut inner, &msg(walked)));
+        assert!(publish_msg(&mut inner, &msg(r#"{"type":"room-full"}"#)));
+        let (a, b) = rxs.split_at_mut(1);
+        assert_eq!(next_kind(&mut a[0].1), (true, walked.to_owned()));
+        assert_eq!(next_kind(&mut a[0].1), (false, r#"{"type":"room-full"}"#.to_owned()));
+        assert_eq!(next_kind(&mut b[0].1), (false, walked.to_owned()), "no opt-in: a plain frame");
+        assert_eq!(next_kind(&mut b[0].1).0, false);
+        // publish_except (frames.rs) marks the same way; switching the opt-in off stops it.
+        publish_frame(&mut inner, Some(ConnId(2)), &msg(walked), &frame(walked));
+        assert!(next_kind(&mut a[0].1).0);
+        assert!(inner.subscribers.set_batch(ConnId(1), false));
+        assert!(publish_msg(&mut inner, &msg(walked)));
+        assert!(!next_kind(&mut a[0].1).0);
+        assert_eq!(
+            a[0].1.queued.load(Ordering::Acquire),
+            0,
+            "relays count toward the byte limit like any frame"
+        );
+    }
+
+    #[test]
+    fn what_members_do_is_a_relay_and_nothing_else_is() {
+        for relay in [
+            r#"{"type":"walked","memberId":"m1","cell":null}"#,
+            r#"{"type":"seat-changed","memberId":"m1","seat":null}"#,
+            r#"{"type":"floor-sat","memberId":"m1","on":true}"#,
+            r#"{"type":"typing-changed","memberId":"m1","on":true}"#,
+            r#"{"type":"chat","memberId":"m1","text":"hi","at":1}"#,
+            r#"{"type":"emoted","memberId":"m1","kind":"wave"}"#,
+            r#"{"type":"member-status","memberId":"m1","catching":true}"#,
+            r#"{"type":"member-presence","memberId":"m1","away":true}"#,
+            r#"{"type":"tint-changed","memberId":"m1","tint":0}"#,
+        ] {
+            assert!(is_relay(&msg(relay)), "{relay}");
+        }
+        for not in [
+            r#"{"type":"room-full"}"#,
+            r#"{"type":"member-left","memberId":"m1","reason":"left"}"#,
+            r#"{"type":"member-muted","memberId":"m1","muted":true}"#,
+            r#"{"type":"error","code":"rate_limited","message":"slow down"}"#,
+            r#"{"type":"batch","msgs":[{"type":"room-full"}]}"#,
+        ] {
+            assert!(!is_relay(&msg(not)), "{not}");
+        }
     }
 
     #[test]
