@@ -88,6 +88,24 @@ describe("what it says", () => {
     help.key.click();
     expect(shown(help.dialog, "[data-testid=help-report]").length).toBe(1);
     expect(text(help.dialog)).toMatch(/Report room/);
+    // On a phone the Report key sits in the Room panel, not at the bottom (OME-1597).
+    expect(shown(help.dialog, "[data-testid=help-report]").map(text).join("")).toMatch(/[Oo]n a phone[^.]*\bRoom\b/);
+  });
+
+  test("keyboard first with a mouse, touch first on a touch screen (OME-1597)", async () => {
+    const headings = (d: HTMLDialogElement): string[] => [...d.querySelectorAll("h3")].map(text);
+    const { help } = await setup();
+    help.key.click();
+    expect(headings(help.dialog).slice(0, 2)).toEqual(["With a keyboard", "On a touch screen"]);
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (q: string) => (q === "(pointer: coarse)" ? Object.defineProperty(real(q), "matches", { value: true }) : real(q));
+    try {
+      const touch = await setup();
+      touch.help.key.click();
+      expect(headings(touch.help.dialog).slice(0, 2)).toEqual(["On a touch screen", "With a keyboard"]);
+    } finally {
+      window.matchMedia = real;
+    }
   });
 
   test("owner tools only when you own the room, checked on every open", async () => {
