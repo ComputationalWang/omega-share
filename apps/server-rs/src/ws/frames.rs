@@ -3,7 +3,7 @@
 
 use crate::app::App;
 use crate::contract::server_message::{ErrorCode, ErrorMessage, RetryAfterMs, ServerMessage};
-use crate::outbox::{ConnId, close_conn, encode_frame, publish_except, send_to};
+use crate::outbox::{ConnId, close_conn, encode_frame, publish_frame, send_to};
 use crate::registry::RoomInner;
 
 /// `sendError`: `{type:"error", code, message}` to one connection.
@@ -39,7 +39,7 @@ pub fn publish_except_msg(inner: &mut RoomInner, conn: ConnId, msg: &ServerMessa
         return;
     }
     if let Some(frame) = encode_frame(msg) {
-        publish_except(inner, conn, &frame);
+        publish_frame(inner, Some(conn), msg, &frame);
     }
 }
 
