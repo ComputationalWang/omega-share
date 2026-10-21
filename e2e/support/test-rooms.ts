@@ -22,7 +22,7 @@ export const SPEC_ROOMS = {
   "ext-firefox": ["share"],
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
-  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320"],
+  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360"],
   wide: ["w1280", "w1920", "phone", "keys", "fs", "scroll"],
   "provider-shelf": ["vimeo", "live"],
   "phone-perf": ["frames"],

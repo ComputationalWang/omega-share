@@ -29,7 +29,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -409,3 +409,33 @@ for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["
     expect(await targetSize(page)).toEqual([]);
   });
 }
+
+// A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel keys, chat row and 44 px footer leave the room
+// window ~100 px with the chat strip under it. On a short portrait screen that strip goes (the Chat key's sheet holds the
+// log, bubbles still show in the room), so the room keeps ≥ 170 px and every seat shows whole, at 1×, without a pan.
+test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width 16:9 and the Chat sheet opens (OME-1612)", async ({ browser }) => {
+  const page = await one(browser, "small360", { ...PHONE, viewport: { width: 360, height: 640 } });
+  const tv = await page.locator(site.tv).boundingBox();
+  if (tv === null) throw new Error("not laid out");
+  expect(tv.width).toBe(360);
+  expect(Math.abs(tv.height - (360 * 9) / 16)).toBeLessThanOrEqual(1);
+  await frames(page);
+  const pane = await page.locator(".stage-pane").boundingBox();
+  if (pane === null) throw new Error("not laid out");
+  expect(pane.height, "room picture height").toBeGreaterThanOrEqual(170);
+  const seats = await page.locator(site.seat).all();
+  expect(seats.length).toBeGreaterThan(0);
+  for (const s of seats) {
+    const b = await s.boundingBox();
+    if (b === null) throw new Error("seat not laid out");
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    expect(cx >= pane.x && cx <= pane.x + pane.width && cy >= pane.y && cy <= pane.y + pane.height, "seat centre in the room picture").toBe(true);
+  }
+  await seats[0]?.tap();
+  await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(640);
+  await page.getByTestId("portrait-chat").click();
+  await expect(page.getByTestId("portrait-sheet")).toBeVisible();
+  await expect(page.getByTestId("portrait-sheet").locator(site.chatLog)).toBeVisible();
+});
