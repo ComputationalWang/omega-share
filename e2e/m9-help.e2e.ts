@@ -23,7 +23,7 @@ test.afterEach(async () => {
 async function join(name: RoomName<"m9-help">, browser: Parameters<typeof joinRoom>[0], still = false, options?: BrowserContextOptions): Promise<Page> {
   // `still`: reduced motion, so idle avatars don't breathe and the canvas draws only when something happens.
   const contextOptions: BrowserContextOptions = { ...options, ...(still ? { reducedMotion: "reduce" as const } : {}) };
-  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, contextOptions: () => contextOptions });
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, contextOptions: () => contextOptions, tour: true });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.connectionStatus)).toHaveText("");

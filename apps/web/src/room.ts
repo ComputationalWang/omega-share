@@ -48,7 +48,7 @@ import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createRoomCards } from "./room-cards";
 import { createHelp } from "./help/dialog";
 import { createCinemaDim } from "./cinema";
-import { createFirstHint } from "./help/hint";
+import { createHints } from "./help/hints";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
 import tintsJson from "../../../assets/avatars/tints.json";
@@ -439,13 +439,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const inView = head.x >= seen.x && head.x <= seen.x + seen.w && head.y >= seen.y && head.y <= seen.y + seen.h;
       return { head: inView ? head : null, room };
     },
-    // The hint's emote line is done. It leaves the flow, and the stage is refitted now rather than on the next resize
-    // callback, before the wheel is placed over my head (`firstHint` and `fit` are made below; a wheel only opens once the room is up).
+    // The wheel takes the room: the tour's chip goes (`firstHint` is made below; a wheel only opens once the room is up).
     onOpen: () => {
       if (layout.portraitOn() && document.activeElement === chatInput) chatInput.blur();
-      if (!firstHint.isOpen()) return;
       firstHint.dismiss();
-      layout.fit();
     },
   });
   closeWheel = () => {
@@ -475,7 +472,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const popRoomKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out room", title: "Pop out room", hidden: true }, "room-popout");
   popRoomKey.append(sprite("ui-icon-popout-room"));
   // The "?" help (OME-768): the room bar's last key; its dialog is built on the first open and never draws on the canvas.
-  const help = createHelp({ owner: () => state.owner && opts.secret?.ownerToken !== undefined, cinema });
+  const help = createHelp({
+    owner: () => state.owner && opts.secret?.ownerToken !== undefined,
+    cinema,
+    tips: () => {
+      firstHint.restart();
+    },
+  });
   help.key.hidden = true;
   // "Hide for me" (OME-769): who I hid in this room, in this tab only. Never sent: it filters at intake (room-events.ts),
   // and the stage, the logs and the pop-out follow each change once.
@@ -570,8 +573,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   snapKey.addEventListener("click", snap);
   roomTop.append(title, popRoomKey, snapKey, people.key, help.key);
-  // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
-  const firstHint = createFirstHint({
+  // The first-visit tour (OME-1587): fixed chips beside the floor, the message field and People.
+  const firstHint = createHints({
     // The `localStorage` getter itself throws when storage is blocked.
     storage: {
       getItem: (k) => localStorage.getItem(k),
@@ -579,7 +582,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         localStorage.setItem(k, v);
       },
     },
-    touch: () => globalThis.matchMedia("(hover: none)").matches,
+    anchor: (step) => (step === 0 ? clip : step === 1 ? chatForm : people.key),
     next: () => (help.key.hidden ? null : help.key),
   });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");
@@ -689,7 +692,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     side,
     ownerBar: editBar,
     editorPanel,
-    settings: [editBar, tvBox.personal, invite, cards.foot, firstHint.root],
+    settings: [editBar, tvBox.personal, invite, cards.foot],
     phone,
     coarse,
     portrait,
@@ -816,8 +819,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {
       centredSeat = mySeat;
-      // Sat down: the hint's first thing done.
-      if (mySeat !== -1) firstHint.dismiss();
       const p = roomStage.seat(mySeat);
       if (p !== undefined) layout.centre(p);
     }
@@ -1176,7 +1177,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // A line clears typing on the server; a slash command sends no line, so say it here.
       if (ran === true) typingSender.input("");
       else typingSender.sent();
-      firstHint.dismiss();
       // Sent from the key without the field focused: the next line goes straight in.
       if (document.activeElement === chatSend) chatInput.focus({ preventScroll: true });
     }
@@ -1189,7 +1189,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (ev.target instanceof Node && picker.root.contains(ev.target) && picker.key(ev)) ev.preventDefault();
       return;
     }
-    // Esc dismisses the first-visit hint and still does whatever else it does here.
+    // Esc ends the first-visit tour and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();

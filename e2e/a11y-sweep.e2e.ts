@@ -152,7 +152,7 @@ test.afterEach(async () => {
 });
 
 async function newPage(browser: Browser, vp: VP, secrets?: string): Promise<Page> {
-  const context = await watchCsp(await browser.newContext(vp.opts));
+  const context = await watchCsp(await browser.newContext(vp.opts), { tour: true });
   contexts.push(context);
   if (secrets !== undefined) {
     await context.addInitScript(

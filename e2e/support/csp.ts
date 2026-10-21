@@ -132,7 +132,8 @@ function leaveRoom(): void {
 }
 
 /** Starts recording CSP violations in `context` (idempotent) and returns it. Call before opening pages. */
-export async function watchCsp<C extends BrowserContext>(context: C): Promise<C> {
+/** `tour`: leave the first-visit tour (OME-1587) on; every other spec starts with it seen, so no chip sits over the room. */
+export async function watchCsp<C extends BrowserContext>(context: C, { tour = false }: { readonly tour?: boolean } = {}): Promise<C> {
   if (watched.has(context)) return context;
   watched.add(context);
   // A test that closes its browser is done with the room for good: say so first, as Leave does (ADR 0043). Without it
@@ -160,6 +161,15 @@ export async function watchCsp<C extends BrowserContext>(context: C): Promise<C>
       // Opaque origins (about:blank, data:) have no storage.
     }
   }, PINNED_THEME);
+  if (!tour) {
+    await context.addInitScript(() => {
+      try {
+        if (localStorage.getItem("omega.hints") === null) localStorage.setItem("omega.hints", '{"seen":true}');
+      } catch {
+        // Opaque origins have no storage.
+      }
+    });
+  }
   context.on("console", (msg) => {
     recordConsole(msg.type(), msg.text());
   });
