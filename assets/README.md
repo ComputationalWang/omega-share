@@ -1318,9 +1318,13 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
 - **Whirlpool:** cream tub on a wood skirt, a towel roll and a rubber duck on the rim. The rim and the water **in front of each sitter**
   (toward the camera from that seat) are the `front` layer, so a sitter is in the water to the waist in every facing
   (`preview/furniture-v6-seats@2x.png`). **In use loop** (`use: { frames: 2, ms: 200 }`, intended trigger: someone sits in it): bubbles rise;
-  swap `back` for `furniture/whirlpool/teal/use/<dir>/<n>` in place, `front` stays.
-- **Mirror:** 60–140 px up, so it clears the 56 px wainscot and stands over a washbasin or desk. Smoked glass with a tiled reflection, a
-  lamp blur and sheen streaks. Plain wall segments only, like the framed print.
+  swap `back` for `furniture/whirlpool/teal/use/<dir>/<n>` in place, `front` stays. The use frames are the back layer only (same rect and
+  anchor as `back`), so the bubbles (2 px clusters, never on the rim) rise on the water behind the sitters; the water in `front` stays calm.
+  (OME-1685: before that the frames were missing from `furniture-v6.json`; `src/dungeon.test.ts` now checks every animation frame exists.)
+- **Mirror:** an oval 16 × 60 px, 70–130 px up, so it clears the 56 px wainscot and stands over a washbasin or desk. Bevelled brass
+  frame (outer edge lit top-left, inner edge lit bottom-right), pale glass (the `glow` ramp) darker toward the bottom, two sheen streaks
+  and the reflected lamp. OME-1685: it was a tall dark rectangle that read as a door or the night window. Plain wall segments only, like
+  the framed print.
 - **Minibar:** glass door lit from inside (bottles, cans), an ice bucket on top. **Desk:** brass lamp, notepad and pen. Both stand free
   or against a wall. **Washbasin:** backs onto its cell's wall like the bookcase (row 0 for `sw`, col 0 for `se`).
 - Previews: `preview/furniture-v6-room@1x.png` / `@2x` (every piece, both facings, seats taken and free), `preview/furniture-v6-seats@2x.png`,
@@ -1351,14 +1355,15 @@ hair, hat, shirt and shading are theirs), so the four stay as distinct as in set
 
 - One sheet row per avatar × dir (`juno se`, `juno sw`, `pip se`, …); per row bend, thrust 0, 1, 2. The web reads rects from the JSON.
 - **Facings:** front views only (`se`, `sw`). Turn both avatars to the same front facing for the emote (the nearer of `se`/`sw` to the
-  bender's facing). The thruster's own feet are drawn at `meta.omega.thrust.feetOffset` (−11, −5) px from the partner's floor point
+  bender's facing). The thruster's own feet are drawn at `meta.omega.thrust.feetOffset` (−13, −6) px from the partner's floor point
   (mirror x for `sw`): about a third of a tile up-left, on the floor plane. Because the frame is anchored on the partner, the thruster's own
   cell (behind, or the nearest free one) doesn't change the picture.
 - **Tints and hair colours** apply: `dungeon.png` is listed in `tints.json` and `hairs.json` `sheets` (same PLTE slots).
 - Shortcut: no theme hat or accessory overlays exist for these keys, so a hat hides for the few seconds of the emote. Add them if it shows.
 - Preview: `preview/dungeon-poses@4x.png` (per avatar and dir: idle, bend, thrust 0–2, then the pair at thrust 0 and 2).
 
-**Bytes** (`bun assets/src/build.ts`): **+17 159 B**, 308 788 → 325 947, under the 400 KB cap of ADR 0056. Lazy: `furniture-v6.png` +
+**Bytes** (`bun assets/src/build.ts`): **+17 159 B**, 308 788 → 325 947 (OME-1685 polish: +2 926 B, → 328 873, nearly all the 8 whirlpool use
+frames that were missing), under the 400 KB cap of ADR 0056. Lazy: `furniture-v6.png` +
 `.json` gz, `avatars/dungeon.png` + `.json` gz, `edit.png` / `edit.json` gz for 6 thumbnails. **Eager: +154 B**, the six `.ui-thumb-*`
 rules in `reference.css` (gz), the same per-piece cost every catalogue batch has paid.
 
@@ -1402,7 +1407,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 325 947 B** after OME-1670 (Dank Dungeon, +17 159); 308 788 B after OME-1641 and its OME-1657 polish; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 328 873 B** after OME-1670 (Dank Dungeon, +17 159) and its OME-1685 polish (+2 926); 308 788 B after OME-1641 and its OME-1657 polish; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
