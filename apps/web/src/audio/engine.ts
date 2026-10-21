@@ -21,6 +21,8 @@ const MERGE_S = 0.05;
 /** An attack of 0 still ramps over this (s), for the same reason. */
 const MIN_ATTACK_S = 0.002;
 const NOISE_S = 2;
+/** Takes baked per one-shot (OME-1659): a walk cycles through them instead of repeating one sample. */
+const TAKES = 4;
 
 interface ParamLike {
   value: number;
@@ -34,7 +36,7 @@ interface NodeLike {
   disconnect(): unknown;
 }
 interface SourceLike extends NodeLike {
-  start(at: number): unknown;
+  start(at: number, offset?: number): unknown;
   stop(at: number): unknown;
 }
 interface BufferLike {
@@ -164,7 +166,9 @@ export function createSound(o: SoundOptions): Sound {
   let toneVoice: Voice | null = null;
   const voices: Voice[] = [];
   const noise = new Map<string, BufferLike>();
-  const baked = new Map<string, BakedBuffer>();
+  /** Each one-shot's baked takes (TAKES of them, each with its own noise), and the next take to play. */
+  const baked = new Map<string, BakedBuffer[]>();
+  let take = 0;
   // shortcut: one entry per member ever drawn in this room view (tens), dropped with the room; prune on leave if rooms grow.
   const seen = new Map<MemberId, { walking: boolean; half: number; sitting: boolean }>();
 
@@ -217,7 +221,9 @@ export function createSound(o: SoundOptions): Sound {
       }
       tail.connect(g);
       g.connect(bus);
-      src.start(t0);
+      // Noise loops its buffer: a random start keeps each play (and a tone's loop seam) from being the same samples (OME-1659).
+      if ("noise" in l) src.start(t0, Math.random() * NOISE_S);
+      else src.start(t0);
       if (!loop) src.stop(t0 + layerLength(e));
       sources.push(src);
       end = Math.max(end, t0 + layerLength(e));
@@ -278,17 +284,21 @@ export function createSound(o: SoundOptions): Sound {
     for (const [name, r] of Object.entries(o.recipes.sounds)) {
       if (r.loop === true) continue;
       const seconds = Math.max(...r.layers.map((l) => (l.env.delay ?? 0) + layerLength(l.env)));
-      try {
-        const off = make(Math.ceil((seconds + CUT_S) * sampleRate), sampleRate);
-        start(off, off.destination, name, r, false, 0);
-        off.startRendering().then(
-          (b) => {
-            baked.set(name, b);
-          },
-          () => undefined,
-        );
-      } catch {
-        // No offline rendering here: this sound stays live.
+      for (let i = 0; i < TAKES; i++) {
+        try {
+          const off = make(Math.ceil((seconds + CUT_S) * sampleRate), sampleRate);
+          start(off, off.destination, name, r, false, 0);
+          off.startRendering().then(
+            (b) => {
+              const takes = baked.get(name);
+              if (takes === undefined) baked.set(name, [b]);
+              else takes.push(b);
+            },
+            () => undefined,
+          );
+        } catch {
+          // No offline rendering here: this sound stays live.
+        }
       }
     }
   }
@@ -323,7 +333,8 @@ export function createSound(o: SoundOptions): Sound {
       v.cut(now);
       voices.splice(far, 1);
     }
-    const b = baked.get(name);
+    const takes = baked.get(name);
+    const b = takes?.[take++ % takes.length];
     voices.push(b === undefined ? start(ctx, master, name, r, false, distance) : startBaked(ctx, master, name, b, distance));
   }
 
