@@ -293,7 +293,7 @@ test("CSS mode: Tab stays inside the wrapper, and after a reload it still enters
   await expect(root).not.toHaveClass(/is-pseudo-fs/);
 });
 
-type Box = { x: number; y: number; width: number; height: number };
+interface Box { x: number; y: number; width: number; height: number }
 const disjoint = (p: Box, q: Box): boolean => p.x + p.width <= q.x || q.x + q.width <= p.x || p.y + p.height <= q.y || q.y + q.height <= p.y;
 
 // OME-1491 / OME-1593: hide chat. The strip and the shelf go, the picture takes the screen (the largest 16:9, centred),
@@ -322,7 +322,8 @@ async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>)
   await expect(bubbles).toHaveAttribute("aria-live", "polite");
   expect(await bubbles.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe("none");
   const col = await bubbles.boundingBox();
-  if (col === null || col.width === 0) return;
+  // A 16:9 screen or a phone held sideways leaves no room for them (OME-1593): the lines stay in the chat.
+  if (col === null || col.width < 100) return;
   expect(disjoint(col, tv)).toBe(true);
   await say(other, "seen as a bubble");
   const bubble = bubbles.getByText("seen as a bubble");
@@ -372,19 +373,25 @@ test("hide chat in the CSS mode on a phone held sideways", async ({ browser }) =
   await expect(root).not.toHaveClass(/is-pseudo-fs/);
 });
 
-/** Inside the viewport, not covered, and at least 44×44 to the finger (OME-1593). */
+/**
+ * Inside the viewport, not covered, and 44×44 to the finger (OME-1593): the key's own box or its touch hit area (the
+ * chrome's transparent ::before, assets/ui/reference.css) answers a tap at its centre and 21 px either way.
+ */
 async function tappable(page: Page, l: Locator): Promise<void> {
   await expect(l).toBeVisible();
   const b = await box(l);
   const vp = page.viewportSize();
-  expect(b.width).toBeGreaterThanOrEqual(44);
-  expect(b.height).toBeGreaterThanOrEqual(44);
-  expect(b.x).toBeGreaterThanOrEqual(0);
-  expect(b.y).toBeGreaterThanOrEqual(0);
-  expect(b.x + b.width).toBeLessThanOrEqual(vp?.width ?? 0);
-  expect(b.y + b.height).toBeLessThanOrEqual(vp?.height ?? 0);
-  const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x ?? 0, y ?? 0)?.closest("button")?.dataset["testid"] ?? null, [b.x + b.width / 2, b.y + b.height / 2]);
-  expect(hit).toBe(await l.getAttribute("data-testid"));
+  const cx = b.x + b.width / 2;
+  const cy = b.y + b.height / 2;
+  const id = await l.getAttribute("data-testid");
+  for (const [x, y] of [[cx, cy], [cx - 21, cy - 21], [cx + 21, cy - 21], [cx - 21, cy + 21], [cx + 21, cy + 21]] as const) {
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
+    expect(x).toBeLessThanOrEqual(vp?.width ?? 0);
+    expect(y).toBeLessThanOrEqual(vp?.height ?? 0);
+    const hit = await page.evaluate((p) => document.elementFromPoint(p.x, p.y)?.closest("button")?.dataset["testid"] ?? null, { x, y });
+    expect(hit, `tap at ${String(x)},${String(y)}`).toBe(id);
+  }
 }
 
 test("a phone in portrait: the full-screen key is tappable in the room and in full screen", async ({ browser }) => {

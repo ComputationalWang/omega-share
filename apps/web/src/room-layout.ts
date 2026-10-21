@@ -114,6 +114,8 @@ export interface RoomLayout {
   readonly missed: () => void;
 }
 
+const HANDLE_ARROWS = { left: "◀", right: "▶", up: "▲", down: "▼" } as const;
+
 export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   const { root, wrap, clip, stage, tv: tvBox, log: chatLog, queue: queuePanel, notice, roomAway, invite, side, phone, wide } = o;
   const { tv, controls, fsKey } = tvBox;
@@ -144,7 +146,6 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     })(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => { clearTimeout(h); },
-    home: stripHead,
     onChange: (hidden) => {
       // Hiding takes the strip and the shelf away: focus in them goes to the toggle, now in the pill.
       const focused = document.activeElement;
@@ -349,6 +350,12 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
       boxTv(l);
       box(fsChat.bubbles, l.strip);
+      // The hide/show-chat handle (OME-1593): on the strip's edge, or the screen's while hidden; none on the band.
+      fsChat.pill.hidden = l.handle === undefined;
+      if (l.handle !== undefined) {
+        box(fsChat.pill, l.handle);
+        fsChat.toggle.textContent = HANDLE_ARROWS[l.handle.arrow];
+      }
       box(strip, l.strip);
       strip.dataset["at"] = l.at;
       renderStrip(l.at === "band" ? "band" : stripMode);

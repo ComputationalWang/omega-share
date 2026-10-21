@@ -164,9 +164,10 @@ const FS_BAND_TRANSPORT_MIN = 280;
 /** Short phones use a horizontally scrolling shelf when even the usual compact transport cannot fit. */
 const FS_BAND_SCROLL_MIN = 240;
 
-/** Chat hidden (OME-1491): the bubbles' column beside the picture, and on a phone held sideways. */
-const FS_BUBBLES_W = 220;
+/** Chat hidden (OME-1491): the narrowest bubbles' column worth showing. */
 const FS_BUBBLES_NARROW_W = 160;
+/** The hide/show-chat handle's touch target (OME-1593). */
+const FS_HANDLE = 44;
 
 export type StripMode = "open" | "band";
 
@@ -180,7 +181,7 @@ export interface FullscreenLayout {
   /** Initial viewport scroll when the provider minimum and touch band need more vertical space. */
   readonly scrollY?: number;
   /** "alone": the room is popped out (OME-600), so the chat is in its window and the picture has the screen.
-   * "hidden": the viewer hid the chat (OME-1491): no shelf, the picture as big as it gets beside the bubbles' column. */
+   * "hidden": the viewer hid the chat (OME-1491, OME-1593): no shelf, the largest centred picture, bubbles where room is left. */
   readonly at: "side" | "below" | "band" | "alone" | "hidden";
   readonly tv: Rect;
   readonly controls: Rect;
@@ -210,12 +211,22 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   const compactOf = (controls: Rect, tv: Rect): { tv: boolean; controls: boolean } => ({ tv: true, controls: controls.w === tv.w });
 
   if (strip === "hidden") {
-    // `strip` is the bubbles' column at the right: never over the player (ADR 0012 amendment, OME-1491).
-    const bw = w < FS_STRIP_WIDE_FROM ? FS_BUBBLES_NARROW_W : FS_BUBBLES_W;
-    const pic = fitTv(w - bw, h);
-    const tv = { x: Math.max(0, Math.floor((w - bw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h) / 2)), ...pic };
-    const sx = tv.x + tv.w;
-    return { at: "hidden", tv, controls: { x: 0, y: 0, w: 0, h: 0 }, strip: { x: sx, y: 0, w: Math.max(0, w - sx), h }, compact: { tv: true, controls: true } };
+    // Really full screen (OME-1593): the largest 16:9 picture, centred. Nothing of ours over the player (ADR 0012), so the
+    // show-chat handle keeps a 44 px margin on its edge and the opposite one; a phone's letterbox already holds it.
+    // The bubbles get what the screen leaves beside (≥ 160 px) or under the picture, clear of the handle.
+    if (w > h) {
+      const pic = fitTv(w - 2 * FS_HANDLE, h);
+      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h) / 2)), ...pic };
+      const sx = tv.x + tv.w;
+      const sw = w - FS_HANDLE - sx;
+      return { at: "hidden", tv, controls: { x: 0, y: 0, w: 0, h: 0 }, strip: { x: sx, y: 0, w: sw >= FS_BUBBLES_NARROW_W ? sw : 0, h },
+        handle: { x: w - FS_HANDLE, y: Math.floor(h / 2 - FS_HANDLE / 2), w: FS_HANDLE, h: FS_HANDLE, arrow: "left" }, compact: { tv: true, controls: true } };
+    }
+    const pic = fitTv(w, h - 2 * FS_HANDLE);
+    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h) / 2)), ...pic };
+    const sy = tv.y + tv.h;
+    return { at: "hidden", tv, controls: { x: 0, y: 0, w: 0, h: 0 }, strip: { x: 0, y: sy, w, h: Math.max(0, h - FS_HANDLE - sy) },
+      handle: { x: Math.floor(w / 2 - FS_HANDLE / 2), y: h - FS_HANDLE, w: FS_HANDLE, h: FS_HANDLE, arrow: "up" }, compact: { tv: true, controls: true } };
   }
 
   if (strip === "none") {
@@ -276,7 +287,8 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     const pic = fitTv(aw, h - sideBelow);
     const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - sideBelow) / 2)), ...pic };
     const controls = shelf(tv);
-    return { at: "side", tv, controls, strip: { x: aw, y: 0, w: stripW, h }, compact: compactOf(controls, tv) };
+    return { at: "side", tv, controls, strip: { x: aw, y: 0, w: stripW, h }, compact: compactOf(controls, tv),
+      handle: { x: aw, y: Math.floor(h / 2 - FS_HANDLE / 2), w: FS_HANDLE, h: FS_HANDLE, arrow: "right" } };
   }
   // Reserve the open strip's header, composer and frame before sizing a below-player picture.
   const openStripH = 112;
@@ -294,7 +306,8 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   const controls = { x: 0, y: tv.h + GAP, w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
   return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(openStripH, h - sy) },
-    scrollY: Math.max(0, sy + openStripH - h), compact: { tv: true, controls: true } };
+    scrollY: Math.max(0, sy + openStripH - h), compact: { tv: true, controls: true },
+    handle: { x: Math.floor(w / 2 - FS_HANDLE / 2), y: sy, w: FS_HANDLE, h: FS_HANDLE, arrow: "down" } };
 }
 
 /** The whole-room window's chat column (set k `ui-m7-popout`, OME-600). */
