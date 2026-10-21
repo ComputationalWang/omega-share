@@ -613,7 +613,7 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
 .room-portrait .portrait-keys { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; }
 .room-portrait .portrait-keys .ui-button { flex: 1; min-height: 44px; }
 .room-portrait > .portrait-stowed { display: none; }
-.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 20px; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px; overflow: hidden; }
+.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 var(--room-foot); margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px; overflow: hidden; }
 .portrait-sheet[open] { display: flex; flex-direction: column; }
 .portrait-sheet::backdrop { background: transparent; }
 .portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
