@@ -170,7 +170,31 @@ const pads = (): unknown[] => {
   ];
 };
 
-const inputs = (): unknown[] => [...shapes(), ...doors(), ...moods(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** Theatre kinds (OME-1625): exactly one screen (tv or bigscreen), raised rows, curtains, carpet and aisle lights. */
+const theatre = (): unknown[] => {
+  const BIG: Piece = { kind: "bigscreen", col: 0, row: 0, facing: "se" };
+  const row = (col: number, r: number, variant: number, facing = "ne"): Piece => ({ kind: "theatrerow", col, row: r, facing, variant });
+  const ROWS = [row(2, 5, 0), row(5, 2, 0), row(2, 7, 1), row(5, 4, 2)];
+  const curtains: Piece[] = [{ kind: "curtain", col: 1, row: 0, facing: "sw" }, { kind: "curtain", col: 0, row: 1, facing: "se" }];
+  const carpet = (col: number, r: number): Piece => ({ kind: "carpet", col, row: r, facing: "se" });
+  const light = (col: number, r: number, facing = "ne"): Piece => ({ kind: "aislelight", col, row: r, facing });
+  const THEATRE = [BIG, ...ROWS, ...curtains, carpet(2, 5), light(1, 1)];
+  return [
+    layout(...THEATRE),
+    layout(BIG, ...CHAIRS), layout(TV, { ...BIG, col: 9, row: 9 }, ...CHAIRS), layout({ ...BIG, col: 9, row: 9 }, ...CHAIRS),
+    layout(...THEATRE, light(3, 6)), layout(...THEATRE, light(4, 4, "nw")), layout(...THEATRE, carpet(8, 8)), layout(...THEATRE, carpet(9, 9)), layout(...THEATRE, carpet(3, 6)),
+    ...[-1, 0, 1, 2, 3].map((variant) => layout(BIG, row(2, 5, variant), ...ROWS.slice(1))),
+    ...["ne", "nw", "se", "sw"].map((facing) => layout(BIG, row(2, 5, 0, facing), ...ROWS.slice(1))),
+    layout(BIG, ...ROWS.slice(0, 3), ...CHAIRS.slice(0, 2)), layout(BIG, ...ROWS.slice(0, 3), ...CHAIRS.slice(0, 1)), layout(BIG, ...ROWS, row(8, 8, 0)),
+    layout(BIG, ...ROWS, { kind: "curtain", col: 5, row: 0, facing: "sw" }), layout(BIG, ...ROWS, { kind: "curtain", col: 1, row: 1, facing: "sw" }),
+    layout(BIG, ...ROWS, ...curtains, { kind: "curtain", col: 1, row: 0, facing: "sw" }), layout(BIG, ...ROWS, { kind: "curtain", col: 0, row: 1, facing: "ne" }),
+    layout({ ...BIG, facing: "sw" }, ...ROWS), layout({ ...BIG, variant: 1 }, ...ROWS), layout(BIG, ...ROWS, { ...carpet(4, 4), variant: 1 }),
+    // MAX_FURNITURE ±1: the 9-piece theatre plus 23 or 24 aisle lights on free floor cells
+    ...[22, 23, 24].map((n) => layout(...THEATRE, ...[...Array.from({ length: 20 }, (_, i) => light(i % 10, 8 + Math.floor(i / 10))), light(9, 0), light(9, 1), light(9, 2), light(9, 3)].slice(0, n))),
+  ];
+};
+
+const inputs = (): unknown[] => [...theatre(), ...shapes(), ...doors(), ...moods(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));

@@ -16,11 +16,12 @@ import {
   ServerMessageSchema,
   ShareResponseSchema,
   normalizeNickname,
+  nowPlayingOf,
   type AnyEmbed,
   type Nickname,
 } from "@omega/shared";
 import { Room } from "../../server/src/room";
-import { decidedRaw, type Case, type Corpus, type RawInput } from "./corpora";
+import { decided, decidedRaw, type Case, type Corpus, type RawInput } from "./corpora";
 
 const YT: AnyEmbed = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" };
 const VM: AnyEmbed = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" };
@@ -162,6 +163,18 @@ const FRAMES: unknown[] = [
   { type: "control-policy-changed", policy: "owner", by: "m1" },
   { type: "control-policy-changed", policy: "everyone", by: "m1" },
   { type: "room-full" },
+  // Movie night (OME-1625): reactions, the item's moments in the snapshot, countdown starts, start times
+  ...["heart", "laugh", "wow", "clap"].map((kind, i) => ({ type: "reacted", memberId: "m1", kind, mediaMs: [0, 61_500, 1, 43_200_000][i] })),
+  { type: "batch", msgs: [{ type: "reacted", memberId: "m1", kind: "wow", mediaMs: 5 }, { type: "reacted", memberId: "m2", kind: "clap", mediaMs: 5 }] },
+  {
+    type: "snapshot", self: "m1",
+    room: { id: "film-club", seats: [null, null, null, null, null, null, null, null], members: [MEMBER], embed: YT, playback: PLAYING, itemId: "cur1" },
+    reactions: [{ memberId: "m1", kind: "heart", mediaMs: 12_000 }, { memberId: "gone", kind: "laugh", mediaMs: 12_400 }], peakMembers: 7,
+  },
+  { type: "playback", playback: { ...PLAYING, action: "play", startAt: AT + 3000 } },
+  { type: "playback", playback: { ...PLAYING, action: "play", startAt: AT } },
+  { type: "embed-changed", embed: YT, by: "m1", playback: { ...LOAD, position: 90 }, itemId: "q9" },
+  { type: "queue-changed", queue: [{ ...ITEM, startSeconds: 90 }, { id: "q2", embed: VM, by: null, startSeconds: 0 }], by: "m1" },
   ...[
     "bad_message", "not_joined", "already_joined", "seat_taken", "rate_limited", "no_embed", "nickname_taken", "too_many_members",
     "invite_required", "not_owner", "muted", "control_owner_only", "bad_target", "queue_full", "unsupported_url", "resume_expired", "bad_cell",
@@ -356,6 +369,21 @@ const EDGE_TEXTS: string[] = [
   ...[0, 4, 5, 8, 9, -1, 0.5, "1", null].map((accessory) => JSON.stringify({ type: "accessory-changed", memberId: "m1", accessory })),
   ...[true, false, 1, "true", null, undefined].map((on) => JSON.stringify({ type: "typing-changed", memberId: "m1", on })),
   ...[[6, 0], [6, 7], [6, 6], [1, 1], [101, 1], [6.5, 1], [6, 2.5], [6, -1], ["6", 1], [6, null], [6, undefined]].map(([sides, value]) => JSON.stringify({ type: "rolled", memberId: "m1", sides, value })),
+  // timed reactions and the item's peak (OME-1625)
+  ...[0, 1, 256, 257].map((n) => snap(ROOM(), { reactions: Array.from({ length: n }, (_, i) => ({ memberId: "m1", kind: "heart", mediaMs: i })) })),
+  ...[{ memberId: "m1", kind: "wave", mediaMs: 0 }, { memberId: "m1", kind: "heart", mediaMs: -1 }, { memberId: "m1", kind: "heart", mediaMs: 43_200_001 }, { memberId: "m1", kind: "heart", mediaMs: 1.5 },
+    { memberId: "a b", kind: "heart", mediaMs: 0 }, { kind: "heart", mediaMs: 0 }, { memberId: "m1", kind: "heart" }, { memberId: "m1", kind: "heart", mediaMs: 0, at: 1 }, null].map((r) => snap(ROOM(), { reactions: [r] })),
+  snap(ROOM(), { reactions: null }), snap(ROOM(), { reactions: {} }),
+  ...[0, 1, 25, 26, -1, 1.5, "3", null].map((peakMembers) => snap(ROOM(), { peakMembers })),
+  ...[0, 43_200_000, 43_200_001, -1, 1.5, "1", null].map((mediaMs) => JSON.stringify({ type: "reacted", memberId: "m1", kind: "heart", mediaMs })),
+  ...["heart", "laugh", "wow", "clap", "wave", "Wow", 0, null].map((kind) => JSON.stringify({ type: "reacted", memberId: "m1", kind, mediaMs: 0 })),
+  JSON.stringify({ type: "reacted", memberId: "a b", kind: "wow", mediaMs: 0 }), JSON.stringify({ type: "reacted", kind: "wow", mediaMs: 0 }), JSON.stringify({ type: "reacted", memberId: "m1", kind: "wow" }),
+  // countdown starts (OME-1625): a play only, at ≤ startAt ≤ at + COUNTDOWN_MAX_MS
+  ...[AT - 1, AT, AT + 3000, AT + 5000, AT + 5001, 1.5, -1, "1", null].map((startAt) => JSON.stringify({ type: "playback", playback: { ...PLAYING, action: "play", startAt } })),
+  ...[{ playing: false, action: "pause" }, { action: "seek" }, { action: "load" }, { playing: false, action: "play" }].map((o) => JSON.stringify({ type: "playback", playback: { ...PLAYING, ...o, startAt: AT + 3000 } })),
+  snap(ROOM({ embed: YT, playback: { ...PLAYING, action: "play", startAt: AT + 3000 } })), snap(ROOM({ embed: YT, playback: { ...PLAYING, action: "play", startAt: AT + 6000 } })),
+  // start times on queue items (OME-1625)
+  ...[0, 43_200, 43_201, -1, 1.5, "90", null].map((startSeconds) => JSON.stringify({ type: "queue-changed", queue: [{ ...ITEM, startSeconds }], by: null })),
   // the /conga line (OME-1574)
   snap(ROOM(), { conga: { ids: ["m1", "m2"], last: AT } }), snap(ROOM(), { conga: { ids: Array.from({ length: 12 }, (_, i) => `m${String(i)}`), last: 0 } }),
   ...[{ ids: [], last: AT }, { ids: Array.from({ length: 13 }, (_, i) => `m${String(i)}`), last: AT }, { ids: ["m1", "m1"], last: AT }, { ids: ["a b"], last: AT }, { ids: ["m1"], last: -1 }, { ids: ["m1"], last: 1.5 }, { ids: ["m1"] }, { last: AT }, { ids: "m1", last: AT }, null].map((conga) => snap(ROOM(), { conga })),
@@ -487,6 +515,15 @@ const RESPONSES: Record<string, { schema: v.GenericSchema; samples: unknown[] }>
       { rooms: [] },
       { rooms: [{ id: "lobby", memberCount: 3, seatedCount: 2 }, { id: "film-club", memberCount: 25, seatedCount: 8, title: "Friday films" }] },
       { rooms: Array.from({ length: 100 }, (_, i) => ({ id: `r${String(i)}`, memberCount: 0, seatedCount: 0 })) },
+      {
+        rooms: [
+          { id: "lobby", memberCount: 3, seatedCount: 2, watchingCount: 2, nowPlaying: { provider: "youtube", id: "dQw4w9WgXcQ" } },
+          { id: "film-club", memberCount: 25, seatedCount: 8, title: "Friday films", watchingCount: 25, nowPlaying: { provider: "twitch", id: "videos/123456" } },
+          { id: "stream", memberCount: 1, seatedCount: 0, watchingCount: 0, nowPlaying: { provider: "twitch", id: "some_streamer" } },
+          { id: "art", memberCount: 1, seatedCount: 1, watchingCount: 1, nowPlaying: { provider: "vimeo", id: "76979871" } },
+          { id: "quiet", memberCount: 0, seatedCount: 0, watchingCount: 0 },
+        ],
+      },
     ],
   },
 };
@@ -522,6 +559,15 @@ const RESPONSE_EDGES: Record<string, unknown[]> = {
     { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, title: "" }] }, { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, title: " Ｆｒｉｄａｙ " }] },
     { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, extra: 1 }], extra: 1 }, { rooms: [{ id: "lobby", memberCount: 0 }] }, { rooms: [{ memberCount: 0, seatedCount: 0 }] },
     { rooms: {} }, { rooms: null }, {}, { rooms: [[]] }, { rooms: [["lobby", 0, 0]] }, [], '[[]]',
+    // watching summary (OME-1625): watchingCount ≤ memberCount; nowPlaying is provider + id only
+    ...[0, 2, 3, 4, 26, -1, 1.5, "2", null].map((watchingCount) => ({ rooms: [{ id: "lobby", memberCount: 3, seatedCount: 2, watchingCount }] })),
+    ...[
+      { provider: "youtube", id: "dQw4w9WgXcQ", title: "stripped", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" }, { provider: "youtube", id: "dQw4w9WgXc" }, { provider: "youtube", id: "videoseries" },
+      { provider: "twitch", id: "some_streamer" }, { provider: "twitch", id: "Some_Streamer" }, { provider: "twitch", id: "directory" }, { provider: "twitch", id: "videos/1" },
+      { provider: "twitch", id: "videos/999999999999" }, { provider: "twitch", id: "videos/1000000000000" }, { provider: "twitch", id: "videos/0" }, { provider: "twitch", id: "videos/" }, { provider: "twitch", id: "v123" },
+      { provider: "vimeo", id: "76979871" }, { provider: "vimeo", id: "0" }, { provider: "vimeo", id: "76979871?h=abcdef" }, { provider: "generic", id: "x" }, { provider: "youtube" }, { id: "dQw4w9WgXcQ" },
+      { provider: "youtube", id: 1 }, null, "dQw4w9WgXcQ",
+    ].map((nowPlaying) => ({ rooms: [{ id: "lobby", memberCount: 1, seatedCount: 0, nowPlaying }] })),
   ],
 };
 
@@ -565,4 +611,19 @@ export const outboundCorpora: Corpus[] = [
   { name: "server-message-raw", cases: rawMessageCases },
   { name: "response-roundtrip", cases: roundtripResponseCases },
   { name: "response-raw", cases: rawResponseCases },
+  // What `GET /rooms` may say a listed room plays (OME-1625): public synced videos only, provider + id.
+  {
+    name: "now-playing-of",
+    cases: () =>
+      decided(
+        [
+          null, YT, VM, TW, GEN,
+          { provider: "vimeo", videoId: "76979871", hash: "abcdef12", url: "https://player.vimeo.com/video/76979871?h=abcdef12" },
+          { provider: "twitch", kind: "vod", videoId: "123456", url: "https://player.twitch.tv/?video=v123456" },
+          { provider: "twitch", kind: "vod", videoId: "999999999999", url: "https://player.twitch.tv/?video=v999999999999" },
+          { provider: "twitch", kind: "live", channel: "v123", url: "https://player.twitch.tv/?channel=v123" },
+        ] as (AnyEmbed | null)[],
+        (embed) => nowPlayingOf(embed) ?? null,
+      ),
+  },
 ];
