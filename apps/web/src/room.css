@@ -604,6 +604,12 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
 .room-portrait > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .room-portrait > .status:empty, .room-portrait > .editor-panel:empty, .room-portrait > .room-bar:empty { display: none; }
 .room-portrait > .chat-log { height: 76px; max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
+/* A short portrait phone (360×640, OME-1612): the strip would leave the room ~100 px, so it's only visually hidden (still
+ * the live log for screen readers); the Chat key's sheet shows it and bubbles show in the room. Typing, or under 500 px
+ * (a keyboard's resize, no room window left), or focused (it's a Tab stop, QA OME-1614), it's back. */
+@media (min-height: 501px) and (max-height: 700px) {
+  .room-portrait:not(.portrait-typing) > .chat-log:not(:focus) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
+}
 .room-portrait > .chat { margin: 0; gap: 4px; padding: 4px; min-width: 0; }
 .room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
 /* The field stays 16 px (no iOS zoom); its hint is 14 px so "Say something…" fits at 360 px, and ellipsizes, never cuts mid-letter (OME-1597). */
