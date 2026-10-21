@@ -646,14 +646,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     let walking = false;
     for (const c of cats) {
       if (!catWalks.sample(c.id, now, catPose)) continue;
+      // Drawn first and unconditionally: `walking ||= drawHeart()` would skip it once another cat walks.
+      if (drawHeart(c, now)) walking = true;
       const home = !catPose.walking && c.cell === c.w.home;
       const bedTexture = home ? c.asleep : c.bed;
       if (c.bedSprite.texture !== bedTexture) c.bedSprite.texture = bedTexture;
       if (c.sprite.visible === home) c.sprite.visible = !home;
-      if (home) {
-        walking ||= drawHeart(c, now);
-        continue;
-      }
+      if (home) continue;
       // The art has se and sw only: ne walks use se, nw sw.
       const se = catPose.dir === "se" || catPose.dir === "ne";
       const loop = se ? c.walk.se : c.walk.sw;
@@ -665,7 +664,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       }
       c.sprite.position.set(catPose.x, catPose.y);
       c.sprite.zIndex = catPose.z;
-      walking ||= catPose.walking || drawHeart(c, now);
+      walking ||= catPose.walking;
     }
     return walking;
   }
