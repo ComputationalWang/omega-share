@@ -123,8 +123,8 @@ export function contrast(a: string, b: string): number {
 export function tintsTable(): object {
   return {
     license: "CC-BY-SA-4.0",
-    method: "runtime PLTE swap: in avatars.png, motion.png and expressions.png replace PLTE entry slots[t] with tints[n].colors[t] (t = 0 highlight, 1 base, 2 shade); use the copy only for that avatar's frames",
-    sheets: ["avatars.png", "motion.png", "expressions.png"],
+    method: "runtime PLTE swap: in avatars.png, motion.png, expressions.png and watching.png replace PLTE entry slots[t] with tints[n].colors[t] (t = 0 highlight, 1 base, 2 shade); use the copy only for that avatar's frames",
+    sheets: ["avatars.png", "motion.png", "expressions.png", "watching.png"],
     avatars: Object.fromEntries(
       AVATARS.map((a) => {
         assertTintable(a);

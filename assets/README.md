@@ -9,6 +9,8 @@ assets/
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
   avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
   avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
+  avatars/watching.png  # OME-1640 (lazy): 512×256 indexed PNG-8, the theatre's seated-from-behind base + laugh + gasp, ne/nw × avatar
+  avatars/watching.json # OME-1640: PixiJS v8 atlas, expressions.json's schema (frames, animations, meta.omega.{states, anims})
   avatars/tints.json    # OME-1347: 6 shirt tints per avatar, a runtime PLTE swap table (no extra sheets)
   avatars/hairs.json    # OME-1436: 6 hair colours per avatar, the same PLTE swap (hair slots disjoint from tint slots)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
@@ -853,6 +855,33 @@ Load it with `motion.json` (or the first time someone reacts). One row per avata
   and `preview/expressions-scene@1x.png` / `@2x` (the room floor at 1×: every avatar standing and seated in an armchair, each facing a different way;
   frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
 - Engineering hookup (emote picker, server message) is a follow-up issue after the design judge passes.
+
+## Watching poses (`avatars/watching.json`, OME-1640, lazy)
+
+What a seated viewer does while the film plays, seen from behind (theatre rows face the screen). Built like the expressions
+(`watchMotion` in `src/motion.ts` through `composeMotion`): same 32×64 cells, anchor = floor point `(16, 61)`, `nw` is the mirror of `ne`.
+One row per avatar (Juno, Pip, Mo, Kiki); per dir `ne` then `nw`: base 0, laugh 0–1, gasp 0–1.
+
+| Key | Frames | Notes |
+|---|---|---|
+| `watch/base/<id>/<ne\|nw>/0` | 1 | Settled in: sunk 1 px into the seat, the near elbow out on the armrest (Kiki keeps her popcorn). Use it in place of `<id>/sit/<dir>/0` while a video plays; outside playback keep `sit`. No blink frame (no eyes from behind). |
+| `watch/laugh/<id>/<ne\|nw>/<0-1>` | 2 | The shake: `0` bounces up 2 px with the head thrown 1 px aside and the elbows flapping out, `1` drops 1 px. |
+| `watch/gasp/<id>/<ne\|nw>/<0-1>` | 2 | `0` a jolt upright with both hands flung to the cheeks (they frame the jaw beside the hair), `1` the lean in: head dips 2 px toward the screen, hands stay up. |
+
+- **Why these reads:** above a theatre row's seat back only the head, hair and shoulders show, so each reaction lives there (the bounce, the hands).
+  The head never shifts toward the cell's near edge, because wide hats (the witch hat on Mo's brim) would touch the border.
+- **`meta.omega.anims`**: `watch/laugh/<id>/<dir>` is one-shot, `6 × 140 ms` (three shakes); `watch/gasp/<id>/<dir>` is one-shot, `[260, 1400]` ms.
+  Afterwards return to `watch/base`. `meta.omega.states = [{base, 1}, {laugh, 2}, {gasp, 2}]`. Seated frames draw between the seat's `back` and `front` layers,
+  at the seat's lift (`seatLiftByColour` on the theatre row), exactly like `sit`.
+- **Hair colours, shirt tints, hats, bare heads: nothing new to wire.** `watching.png` shares the avatar PLTE, so it's listed in `hairs.json` and
+  `tints.json` `sheets`: patch it like the other avatar sheets. Every `watch/*` key also has its hat in every theme sheet and in
+  `accessories.png`, and a bare-head frame for Pip and Mo in `bare.png` (`bare/watch/...`), because they're generated from the same frame list.
+- Reactions ride the Lead's reaction message (Movie night contract B); this sheet adds no message. Frame swaps only: no per-frame work beyond the texture swap.
+- **Bytes:** sheet 4 548 B + json 1 154 B gz; with the hat and bare frames for the new keys the art total grows by 11 459 B (≤ 20 KB allowance).
+- Previews: `preview/watching-strip@4x.png` (per avatar: plain `sit` back, base, laugh 0–1, gasp 0–1, for ne and nw, on floor marks),
+  `preview/watching-theatre@1x.png` / `@2x` (the theatre set with three raised rows of 4 per side, every row holding all four avatars; panels
+  base, laugh 0, laugh 1 / gasp 0, gasp 1, and a mixed house: front row laughing, middle gasping, back plain) and `preview/watching-rows@3x.png`
+  (the same six panels cut to the seats).
 
 ## Holiday theme: Halloween (`themes/halloween/halloween.json`, OME-1185, lazy)
 

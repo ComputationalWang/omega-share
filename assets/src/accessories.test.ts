@@ -55,7 +55,8 @@ test("bare-head frames for Pip and Mo, every frame key, in the avatar cell shape
 test("the bare sheet is PNG-8 and small", () => {
   const png = read("accessories/bare.png");
   expect([png[24], png[25]]).toEqual([8, 3]);
-  expect(png.length).toBeLessThan(16 * 1024);
+  // OME-1640: the watching poses add 20 bare frames (+1.9 KB).
+  expect(png.length).toBeLessThan(18 * 1024);
 });
 
 // OME-1530: the web swaps each avatar's tint and hair slots in its hat overlays, so the new four keep off those ramps.
