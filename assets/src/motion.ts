@@ -1,4 +1,4 @@
-// Set (d): avatar motion. Walk cycles, breathing, the wave gesture and the emote icons.
+// Set (d): avatar motion. Walk cycles, breathing, the wave and reach gestures and the emote icons.
 // Everything reuses the set (a) role templates through `composeMotion`, so shading, the plum outline,
 // mirroring (SW/NW) and the per-avatar overlays come for free and stay on the shared palette.
 import type { Motion, Pose, Stamp, View } from "./avatars";
@@ -395,6 +395,32 @@ export const YAWN_SEQUENCE: readonly (readonly [number, number])[] = [
   [0, 900],
   [1, 1800],
 ];
+
+// ---- Reach (OME-1697): pet something small on the floor -----------------------------------------------------
+// Standing only. The knees bend into a squat (the body drops 4 px) and the template-left arm (never Kiki's popcorn hand) goes down and out
+// beside the feet; the hand strokes 3 px along the floor between the frames, so the petting reads at 1×.
+
+/** Squat legs for lift −4 (6 rows): facing SE the knees push forward (right), the feet stay where they stood. */
+const CROUCH_FRONT = ["....LLLL..llll..", ".....LLLL..llll.", "......LLL..lll..", "....LLL..ffff...", "....FFFF.fffff..", "....FFFFF......."];
+/** From behind the knees push away (up-right) and the heels stay toward the camera. */
+const CROUCH_BACK = ["....lll..LLL....", ".....lll..LLL...", ".....lll..LLL...", "....fff..LLL....", "....fff..FFF....", ".........FFF...."];
+/** The arm from the shoulder (torso row 4) down to a 3 px hand on the floor beside the feet: `0` reached out, `1` stroked back in. */
+const REACH_ARMS: readonly (readonly string[])[] = [
+  ["......AA", ".....AA.", ".....AA.", "....AA..", "....AA..", "...AA...", "...AA...", "..AA....", ".AA.....", "SSS.....", "SS......"],
+  ["......AA", ".....AA.", ".....AA.", "....AA..", "....AA..", "...AA...", "...AA...", "...AA...", "...AAA..", "....SSS.", "....SS.."],
+];
+
+export function reachMotion(view: View, n: number): Motion {
+  const arms = REACH_ARMS[n];
+  if (!arms) throw new Error(`no reach frame ${String(n)}`);
+  const rows = arms.map((r) => r.replace(/A/g, armRoles(view).left));
+  // Eyes on the hand: the head dips 1 px more than the body.
+  return { lift: -4, headDrop: 1, legs: view === "front" ? CROUCH_FRONT : CROUCH_BACK, after: [ERASE_ARM, { x: -5, y: 4, rows }] };
+}
+export const REACH_FRAMES = 2;
+/** One-shot pet: stroke, stroke back, twice, then the base pose returns (5 × 160 = 800 ms). */
+export const REACH_SEQUENCE: readonly number[] = [0, 1, 0, 1, 0];
+export const REACH_MS = 160;
 
 // ---- Emote icons ------------------------------------------------------------------------------------------
 // 16×16 cells, drawn like the UI icons (auto-shade + plum outline). They float above the name tag.

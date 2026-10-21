@@ -528,6 +528,54 @@
     "y": 2.619047619047619
    }
   },
+  "halloween/hat/reach/juno/idle/se/0": {
+   "frame": {
+    "x": 183,
+    "y": 44,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.4761904761904763
+   }
+  },
+  "halloween/hat/reach/juno/idle/se/1": {
+   "frame": {
+    "x": 183,
+    "y": 44,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.4761904761904763
+   }
+  },
   "halloween/hat/juno/idle/sw/0": {
    "frame": {
     "x": 99,
@@ -742,6 +790,54 @@
    "anchor": {
     "x": 0.5185185185185185,
     "y": 2.619047619047619
+   }
+  },
+  "halloween/hat/reach/juno/idle/sw/0": {
+   "frame": {
+    "x": 99,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.4761904761904763
+   }
+  },
+  "halloween/hat/reach/juno/idle/sw/1": {
+   "frame": {
+    "x": 99,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.4761904761904763
    }
   },
   "halloween/hat/juno/idle/ne/0": {
@@ -960,6 +1056,54 @@
     "y": 2.619047619047619
    }
   },
+  "halloween/hat/reach/juno/idle/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.4761904761904763
+   }
+  },
+  "halloween/hat/reach/juno/idle/ne/1": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.4761904761904763
+   }
+  },
   "halloween/hat/juno/idle/nw/0": {
    "frame": {
     "x": 70,
@@ -1174,6 +1318,54 @@
    "anchor": {
     "x": 0.5185185185185185,
     "y": 2.619047619047619
+   }
+  },
+  "halloween/hat/reach/juno/idle/nw/0": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.4761904761904763
+   }
+  },
+  "halloween/hat/reach/juno/idle/nw/1": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.4761904761904763
    }
   },
   "halloween/hat/juno/sit/se/0": {
@@ -3024,6 +3216,54 @@
     "y": 2.4285714285714284
    }
   },
+  "halloween/hat/reach/pip/idle/se/0": {
+   "frame": {
+    "x": 98,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/reach/pip/idle/se/1": {
+   "frame": {
+    "x": 98,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
   "halloween/hat/pip/idle/sw/0": {
    "frame": {
     "x": 150,
@@ -3238,6 +3478,54 @@
    "anchor": {
     "x": 0.52,
     "y": 2.4285714285714284
+   }
+  },
+  "halloween/hat/reach/pip/idle/sw/0": {
+   "frame": {
+    "x": 150,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/reach/pip/idle/sw/1": {
+   "frame": {
+    "x": 150,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
    }
   },
   "halloween/hat/pip/idle/ne/0": {
@@ -3456,6 +3744,54 @@
     "y": 2.4285714285714284
    }
   },
+  "halloween/hat/reach/pip/idle/ne/0": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/reach/pip/idle/ne/1": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
   "halloween/hat/pip/idle/nw/0": {
    "frame": {
     "x": 0,
@@ -3670,6 +4006,54 @@
    "anchor": {
     "x": 0.52,
     "y": 2.4285714285714284
+   }
+  },
+  "halloween/hat/reach/pip/idle/nw/0": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/reach/pip/idle/nw/1": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
    }
   },
   "halloween/hat/pip/sit/se/0": {
@@ -5520,6 +5904,54 @@
     "y": 2.3333333333333335
    }
   },
+  "halloween/hat/reach/mo/idle/se/0": {
+   "frame": {
+    "x": 136,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.1904761904761907
+   }
+  },
+  "halloween/hat/reach/mo/idle/se/1": {
+   "frame": {
+    "x": 136,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.1904761904761907
+   }
+  },
   "halloween/hat/mo/idle/sw/0": {
    "frame": {
     "x": 196,
@@ -5734,6 +6166,54 @@
    "anchor": {
     "x": 0.5172413793103449,
     "y": 2.3333333333333335
+   }
+  },
+  "halloween/hat/reach/mo/idle/sw/0": {
+   "frame": {
+    "x": 196,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.1904761904761907
+   }
+  },
+  "halloween/hat/reach/mo/idle/sw/1": {
+   "frame": {
+    "x": 196,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.1904761904761907
    }
   },
   "halloween/hat/mo/idle/ne/0": {
@@ -5952,6 +6432,54 @@
     "y": 2.3333333333333335
    }
   },
+  "halloween/hat/reach/mo/idle/ne/0": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.1904761904761907
+   }
+  },
+  "halloween/hat/reach/mo/idle/ne/1": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.1904761904761907
+   }
+  },
   "halloween/hat/mo/idle/nw/0": {
    "frame": {
     "x": 196,
@@ -6166,6 +6694,54 @@
    "anchor": {
     "x": 0.5172413793103449,
     "y": 2.3333333333333335
+   }
+  },
+  "halloween/hat/reach/mo/idle/nw/0": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.1904761904761907
+   }
+  },
+  "halloween/hat/reach/mo/idle/nw/1": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.1904761904761907
    }
   },
   "halloween/hat/mo/sit/se/0": {
@@ -8016,6 +8592,54 @@
     "y": 2.6
    }
   },
+  "halloween/hat/reach/kiki/idle/se/0": {
+   "frame": {
+    "x": 202,
+    "y": 88,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.45
+   }
+  },
+  "halloween/hat/reach/kiki/idle/se/1": {
+   "frame": {
+    "x": 202,
+    "y": 88,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.45
+   }
+  },
   "halloween/hat/kiki/idle/sw/0": {
    "frame": {
     "x": 228,
@@ -8230,6 +8854,54 @@
    "anchor": {
     "x": 0.52,
     "y": 2.6
+   }
+  },
+  "halloween/hat/reach/kiki/idle/sw/0": {
+   "frame": {
+    "x": 228,
+    "y": 88,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.45
+   }
+  },
+  "halloween/hat/reach/kiki/idle/sw/1": {
+   "frame": {
+    "x": 228,
+    "y": 88,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.45
    }
   },
   "halloween/hat/kiki/idle/ne/0": {
@@ -8448,6 +9120,54 @@
     "y": 2.6
    }
   },
+  "halloween/hat/reach/kiki/idle/ne/0": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.45
+   }
+  },
+  "halloween/hat/reach/kiki/idle/ne/1": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.45
+   }
+  },
   "halloween/hat/kiki/idle/nw/0": {
    "frame": {
     "x": 26,
@@ -8662,6 +9382,54 @@
    "anchor": {
     "x": 0.52,
     "y": 2.6
+   }
+  },
+  "halloween/hat/reach/kiki/idle/nw/0": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.45
+   }
+  },
+  "halloween/hat/reach/kiki/idle/nw/1": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.45
    }
   },
   "halloween/hat/kiki/sit/se/0": {
@@ -10375,7 +11143,7 @@
    },
    "hat": {
     "prefix": "halloween/hat/",
-    "count": 416,
+    "count": 448,
     "rects": 32,
     "replaces": true
    }
