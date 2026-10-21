@@ -22,10 +22,13 @@ describe("playerErrorText", () => {
 });
 
 describe("mountErrorText", () => {
-  test("a player API that didn't load keeps the M1b wording, per provider", () => {
-    expect(mountErrorText("youtube", "load-failed")).toBe("The video plays here without sync: the YouTube player API didn't load.");
-    expect(mountErrorText("youtube", "timeout")).toBe("The video plays here without sync: the YouTube player API didn't load.");
-    expect(mountErrorText("vimeo", "load-failed")).toBe("The video plays here without sync: the Vimeo player API didn't load.");
+  // OME-1665: twitch.tv is on the Disconnect "Content" list, so Firefox's strict tracking protection (and every private
+  // window) blocks v1.js. That's outside our control; the notice names the likely cause.
+  test("a player API that didn't load names the likely blocker, per provider", () => {
+    const blocked = "Tracking protection or a content blocker in your browser may be stopping it.";
+    expect(mountErrorText("twitch", "load-failed")).toBe(`The video plays here without sync: the Twitch player API didn't load. ${blocked}`);
+    expect(mountErrorText("youtube", "timeout")).toBe(`The video plays here without sync: the YouTube player API didn't load. ${blocked}`);
+    expect(mountErrorText("vimeo", "load-failed")).toBe(`The video plays here without sync: the Vimeo player API didn't load. ${blocked}`);
   });
 
   test("a provider without an adapter yet, and a player that didn't match the room's video", () => {
