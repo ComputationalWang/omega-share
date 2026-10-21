@@ -598,6 +598,23 @@
     },
     {
       "paths": [
+        "apps/web/src/audio/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/m9-help.e2e.ts",
+        "e2e/walk.e2e.ts",
+        "e2e/emotes.e2e.ts",
+        "perf/site.perf.ts",
+        "perf/walk-tiers.perf.ts"
+      ],
+      "why": "procedural sound engine, a lazy chunk fed by the walk poses (OME-1638)"
+    },
+    {
+      "paths": [
         "apps/web/src/walk/**"
       ],
       "except": [
