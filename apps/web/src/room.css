@@ -438,15 +438,16 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
   body:has(> main > .room-wide) > .site-footer { height: 20px; padding-block: 0; font-size: 11px; white-space: nowrap; overflow: hidden; }
   body:has(> main > .room-wide) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
   /* The head row with the invite's Copy key (Copy is how a phone shares the link; the label still describes the key). */
-  .room-side { padding-inline: 8px max(8px, env(safe-area-inset-right)); }
+  .room-side { padding-inline: 4px max(4px, env(safe-area-inset-right)); }
   .room-side > .room-top { flex-wrap: wrap; gap: 4px; }
   .room-side > .room-top > .room-title { order: -1; flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
   .room-side > .room-top > .invite { display: contents; }
   .room-side > .room-top .invite-note { order: 1; flex: 1 1 100%; margin: 0; font-size: 12px; }
   .room-side > .room-top > .invite > :is(label, input) { display: none; }
   .room-side.is-typing > .room-top:not(:focus-within) { display: none; }
-  .room-side .chat { gap: 4px; }
-  .room-side .chat input { padding-inline-end: 6px; }
+  /* CI's wider fonts (DejaVu) need ~133 px for 15 characters: every px of the row goes to the field. */
+  .room-side .chat { gap: 2px; }
+  .ui-touch .room-side .chat-field > input { padding-inline: 44px 2px; }
 }
 /* The volume pod in the TV's shelf (OME-642): beside the transport, not squeezed. The shelf is a size container: as it
  * narrows the words go (out of sight, not out of the accessibility tree) before anything overlaps (the plate's name, the hints), then the chips keep only their glyphs and
