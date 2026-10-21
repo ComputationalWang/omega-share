@@ -47,6 +47,7 @@
 {"input":"MUTE_MEMORY_MS","ok":true,"output":600000},
 {"input":"NICKNAME_MAX_LENGTH","ok":true,"output":20},
 {"input":"NICKNAME_MAX_MARK_RUN","ok":true,"output":2},
+{"input":"PAIR_INVITE_TTL_MS","ok":true,"output":60000},
 {"input":"PING_ID_MAX","ok":true,"output":2147483647},
 {"input":"PLAYBACK_RATE_MAX","ok":true,"output":2},
 {"input":"PLAYBACK_RATE_MIN","ok":true,"output":0.25},

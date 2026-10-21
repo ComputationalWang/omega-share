@@ -8,6 +8,7 @@ import {
   type UnlockRule,
   unlockRules,
 } from "@omega/shared/extension-bridge";
+import { withTimeout } from "./request-timeout";
 
 /**
  * "Unlock with extension" (ADR 0047 §2, §3, §5): the background's half. A room page on our origin asks, through the
@@ -26,7 +27,7 @@ export interface UnlockDeps {
   readonly version: string;
   /** The server origin the user set (or the default). */
   readonly ourOrigin: () => Promise<string>;
-  /** `browser.declarativeNetRequest`, or undefined where the API is absent (Chromium before the grant). */
+  /** `browser.declarativeNetRequest`, or undefined where the API is absent. */
   readonly dnr: () => SessionRules | undefined;
   /** `permissions.contains(unlockPermissions(host))` */
   readonly hasAccess: (host: string) => Promise<boolean>;
@@ -60,10 +61,13 @@ const ConsentMessageSchema = v.strictObject({
 });
 export type ConsentMessage = v.InferOutput<typeof ConsentMessageSchema>;
 
-/** One host's permissions (§4): Chromium asks for the optional DNR permission with it; Firefox holds that at install. */
-export function unlockPermissions(host: string, browser: UnlockBrowser): { permissions: "declarativeNetRequestWithHostAccess"[]; origins: string[] } {
-  return { permissions: browser === "chrome" ? ["declarativeNetRequestWithHostAccess"] : [], origins: [`https://${host}/*`] };
+/** One host's permission (§4). The DNR permission is held at install: granted at runtime, Chromium never settles its rule updates (OME-1666). */
+export function unlockPermissions(host: string): { origins: string[] } {
+  return { origins: [`https://${host}/*`] };
 }
+
+/** How long one rule change may take before the room hears `unsupported`: inside the 2 s the viewer waits (OME-1666). */
+export const DNR_TIMEOUT_MS = 1_500;
 
 /** `storage.local` key: hosts the viewer allowed on the consent page (OME-1042). */
 export const UNLOCK_HOSTS_KEY = "unlockHosts";
@@ -116,10 +120,12 @@ function originOf(url: string | undefined): string | undefined {
 export function createUnlocker(deps: UnlockDeps) {
   const result = (host: string, outcome: UnlockOutcome): ExtensionToPage => ({ source: BRIDGE_SOURCE, kind: "unlock-result", host, outcome });
 
-  // Rule changes run one at a time: each reads the rule store, then writes ids it picked from it.
+  // Rule changes run one at a time: each reads the rule store, then writes ids it picked from it. A browser call
+  // that never settles fails its change after DNR_TIMEOUT_MS instead of holding up every later one.
   let queue: Promise<unknown> = Promise.resolve();
   function serial<T>(task: () => Promise<T>): Promise<T> {
-    const next = queue.then(task, task);
+    const bounded = () => withTimeout(DNR_TIMEOUT_MS, task);
+    const next = queue.then(bounded, bounded);
     queue = next.catch(() => undefined);
     return next;
   }
@@ -162,7 +168,7 @@ export function createUnlocker(deps: UnlockDeps) {
       } catch {
         return "unsupported";
       }
-    });
+    }).catch(() => "unsupported" as const);
   }
 
   async function onTabOfOurs(tabId: number): Promise<boolean> {

@@ -380,11 +380,15 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         accessory,
         hair,
         via,
-        batch: _,
+        batch,
     } = msg
     else {
         return;
     };
+    // OME-1583: set before the resume branch, so a resumed member gets frames as its new socket asked.
+    inner
+        .subscribers
+        .set_batch(conn.id, *batch == Some(true) && app.ws.relay_batch_ms > 0);
     if let Some(token) = resume_token {
         resume(app, inner, conn, token);
         return;

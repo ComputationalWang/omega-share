@@ -225,6 +225,7 @@ export function createWs({
       case "set-accessory":
       case "set-hair":
       case "floor-sit":
+      case "pair":
       case "typing":
       case "roll":
       case "poll-open":
@@ -369,6 +370,8 @@ export function createWs({
       case "set-hair":
       // OME-1499 too: the frozen TS server ignores floor sits (a layout's mood it stores with the rest of the layout).
       case "floor-sit":
+      // OME-1671 too: the frozen TS server ignores the dank-dungeon pair.
+      case "pair":
       // OME-1452 too: the frozen TS server ignores polls.
       case "poll-open":
       case "vote":

@@ -22,6 +22,8 @@ assets/
   ui/popup/kit.css|png  # set o (OME-1041): the popup's own stylesheet + sprite cut; its 9-slices are ui/slices files
   ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required", "room not found" and "you were removed" vignettes, standalone 72×64 PNGs;
                         #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
+  ui/reactions.png|json # OME-1641 (lazy): 128×128 PNG-8, heart/laugh/wow/clap reaction glyphs (6 frames) + moments-strip minis
+  ui/moments.css        # OME-1641 (lazy): moments strip, recap card, lights-down chrome
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
@@ -796,6 +798,62 @@ a white, cream, plum or near-black page. No lettering in the art: the landing's 
   (6 919 → 5 348 B), which isn't worth a second format or an encoder dependency in the zero-dependency build.
 - **Suggested step captions** (the landing owns the words): *1 · The extension finds the video*, *2 · Share it into a room*, *3 · Sit together and watch*.
 
+## Movie night: reaction glyphs, moments strip, recap card, lights-down (OME-1641, `ui/`, lazy)
+
+Drawn by `src/reactions.ts`, written by `bun assets/src/build.ts`. Previews: `preview/moments.html`, shot by `bun assets/src/shoot-moments.ts`
+into `preview/ui-moments-{room,frames,16,strip,recap,lights}@1x|2x.png`; the sheet at 4× is `preview/reactions-sheet@4x.png`.
+**One meaning per motif:** a glyph that rises and dithers out = somebody reacted just now · a 9 px mini = the same reaction, remembered
+(strip pips, recap counts) · the dusk bands = the share card's title screen, so the recap is the film's own end card. No new colours; fading is
+1-bit dither (sets i and k), never alpha.
+
+| File | Size | Bytes | Loaded |
+|---|---|---|---|
+| `ui/reactions.png` | 128×128 indexed PNG-8, palette trimmed | 1 321 | with the reaction bar / first reaction |
+| `ui/reactions.json` | PixiJS v8 atlas | 595 gz | same |
+| `ui/moments.css` | the strip, the recap card, lights-down, the bar's key icons | 1 649 gz | with the strip or the card (needs `reference.css`) |
+
+### Reaction glyphs (`react/<heart|laugh|wow|clap>/<0..5>`, room scale, 1 art px = 1 stage px)
+
+- **Cell 16×28**, one glyph per row, frames left to right. The glyph **rises inside the cell** (2 px a frame), so a burst is frame swaps
+  only: place the sprite once, no position tween. **Anchor (0.5, 27/28)** = bottom centre = the spawn point, just above the name tag.
+- **Sequence** (`animations["react/<id>"]`, `meta.omega.ms`): pop 80 · settle 120 · beat 200 · rise 180 · dither 50 % 120 · dither 25 % 120 ms =
+  820 ms, one shot (`loop: false`). Glyphs are ≤ 15 px wide with the outline, so they read at 16 px.
+- Heart and laugh are the motion atlas's emote-sticker pixels (pop / settle / accent), so reactions and emotes are one family.
+  **Wow** is new: a teal face with tall dot eyes and a round "O" (laugh: shut eyes, wide grin, mustard); its beat throws two sparks.
+  **Clap** is its own art (OME-1657; the sticker's V read as wings at 16 px): two cream palms, fingers up and thumbs in, a wood rim
+  under the cream so it holds on the tan floor, mustard impact marks above; the beat presses the palms together.
+- **Perf (engineering, OME-1631):** pool the sprites, `meta.omega.maxLive` = 12, off on Basic, drop on Smooth near the 8 ms frame.
+
+### Moments strip and reaction bar (`ui/moments.css`, page chrome at `--ui-px`)
+
+- `.ui-react.ui-react-<id>`: 16 art px key icon (the settled frame), inside a `.ui-button.secondary` with an `aria-label` and `aria-keyshortcuts`.
+- `.ui-mini.ui-mini-<heart|laugh|wow|clap|top|catchup>`: 9 art px minis (`moments/<id>` in the atlas; 18 CSS px in page chrome). `top` = a
+  mustard star for the recap's top moments; `catchup` = cream fast-forward for "Catch me up" (`.ui-button.secondary` + mini + words).
+- `<div class="ui-moments" role="group" aria-label="Moments">`: `.ui-moments-bars` holds plain `<i style="--h: 0..1">` density bars
+  (mustard on a night groove), and up to 8 `<button class="ui-moment-pip" style="--at: 0..1">` with one mini each, titled "Wow at 9:30".
+  `:disabled` when the room's control policy doesn't let you seek. DOM only, no canvas.
+
+### Recap card
+
+`<section class="ui-panel ui-recap" role="dialog" aria-labelledby>`: set (c)'s wood panel, `inline-size: min(360px, 100%)`.
+`.ui-recap-screen` (kicker `.ui-recap-kicker` "the end" + `.ui-recap-title`, 2 lines then ellipsis) on night with the share card's dusk bands
+along its foot (they sit in the padding, so text never lands on them) · `.ui-recap-close` (`.ui-button.secondary` + `icon/close`, Esc too) ·
+`.ui-recap-label` + `ol.ui-recap-moments` of `button.ui-recap-moment` (top mini, `<time>`, `.ui-recap-counts`), seeking like a pip ·
+`ul.ui-recap-who` of `.ui-tag` (`.self` for you; nicknames as text) · a totals `.ui-recap-counts`. It never covers the composer.
+**Contrast** (`RECAP_TEXT`, checked by `src/reactions.test.ts`, all ≥ 4.5:1): cream on night 13.6 · mustard on night 7.5 · light mustard time 10.0 ·
+lilac on the panel 6.6 · cream on the panel 12.8 · cream on the hover row 10.5.
+
+### Lights-down
+
+`<div class="ui-lights-down" aria-hidden="true">` inside the stage, under every DOM chrome layer and never over the player (ADR 0012); `.is-on`
+fades it in over 900 ms in 6 steps (none with reduced motion). Engineering sets `--ui-screen-x/-y` (the screen's centre) and `--ui-screen-tint`
+(the poster's average colour, never a video frame; default glow). A smooth falloff (12 smoothstep stops, OME-1657) from the tinted
+screen to a flat dim; flat from 75 % of the ellipse out, so every seat dims the same.
+
+**Bytes:** +3 565 B, all lazy (305 223 → 308 788 of 409 600), as `bun assets/src/build.ts` measures it: `reactions.png` 1 321, `reactions.json`
+595 gz, `moments.css` 1 649 gz (OME-1657 polish: +151 B). (`gzip -9c` reads 15 B more a file, the gzip header; README § Budget uses zlib level 9 with no header.)
+Eager bytes are unchanged. The cap went from 300 KB to 400 KB for Movie night (ADR 0056, CEO on OME-1656).
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -1271,7 +1329,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 304 093 B (≈ 297.0 KB) of 300 KB**, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 308 788 B** after OME-1641 and its OME-1657 polish; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

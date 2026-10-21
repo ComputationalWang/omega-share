@@ -417,11 +417,13 @@ macro_rules! wire {
             furniture: Vec<Obj<$piece>>,
             #[serde(default, deserialize_with = "present")]
             mood: Option<Mood>,
+            #[serde(default, deserialize_with = "present")]
+            pairs: Option<bool>,
         }
 
         impl From<$layout> for RoomLayout {
             fn from(w: $layout) -> Self {
-                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood }
+                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood, pairs: w.pairs }
             }
         }
     };
@@ -479,6 +481,9 @@ pub struct RoomLayout {
     /// As sent: an explicit "none" stays, absent stays absent.
     #[serde(skip_serializing_if = "Option::is_none")]
     mood: Option<Mood>,
+    /// The `/thrust` + `/bendover` pair is on (OME-1671). As sent, like `mood`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pairs: Option<bool>,
 }
 
 impl RoomLayout {
@@ -498,6 +503,10 @@ impl RoomLayout {
 
     pub fn mood(&self) -> Mood {
         self.mood.unwrap_or_default()
+    }
+
+    pub fn pairs(&self) -> bool {
+        self.pairs.unwrap_or_default()
     }
 
     pub fn seats(&self) -> Vec<Seat> {
@@ -573,7 +582,11 @@ pub fn default_layout() -> RoomLayout {
         Furniture::new(Kind::Plant, 0, 9, Facing::Se),
     ])
     .collect();
-    RoomLayout { furniture, mood: None }
+    RoomLayout {
+        furniture,
+        mood: None,
+        pairs: None,
+    }
 }
 
 /// The judged D1 room presets (room-ownership.ts).
@@ -689,6 +702,24 @@ mod tests {
     }
 
     // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
+    // packages/shared/test/pair-contract.test.ts (OME-1671)
+    #[test]
+    fn pairs_is_an_optional_flag_kept_as_sent() {
+        assert!(!parse(&base(vec![])).to_json().contains("pairs"), "absent stays absent");
+        for flag in [true, false] {
+            let mut v = base(vec![]);
+            v["pairs"] = json!(flag);
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_ok());
+            assert!(parse(&v).to_json().ends_with(&format!(r#","pairs":{flag}}}"#)));
+        }
+        for bad in [json!("true"), json!(1), json!(null)] {
+            let mut v = base(vec![]);
+            v["pairs"] = bad;
+            assert!(RoomLayout::parse(v.to_string().as_bytes()).is_err());
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_err());
+        }
+    }
+
     #[test]
     fn mood_is_optional_and_a_layout_without_one_loads_as_none() {
         let old = parse(&base(vec![]));

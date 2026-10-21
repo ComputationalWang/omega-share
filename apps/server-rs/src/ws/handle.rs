@@ -174,7 +174,7 @@ fn admit_type(
             owner != Some(true) || admit!(edit, "too many room edits, slow down")
         }
         // Unjoined sockets get not_joined in `handle`.
-        ClientMessage::Emote { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
+        ClientMessage::Emote { .. } | ClientMessage::Pair { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
         // A timed reaction spends from the emote bucket; over it dropped silently, like a walk (OME-1625).
         ClientMessage::React { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.emote).is_none(),
         // Cosmetic broadcasts share one bucket (ADR 0053).
@@ -492,6 +492,8 @@ fn handle(
                 },
             );
         }
+        // shortcut: refused everywhere until OME-1672 lands the pair (invites, the teleport, `paired`).
+        ClientMessage::Pair { .. } => send_error(inner, conn.id, ErrorCode::PairsOff, "no /thrust or /bendover in this room"),
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }

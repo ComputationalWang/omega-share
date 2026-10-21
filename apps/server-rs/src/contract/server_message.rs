@@ -15,8 +15,8 @@ use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
 use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PollCount, SeatIndex, Tint};
 use super::state::{
-    Conga, EmoteKind, MediaMs, Member, PingId, PlaybackState, Poll, QueueItem, Reaction, ReactionKind, RoomState, ServerTime, layout,
-    nullable, playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
+    Conga, EmoteKind, MediaMs, Member, PairPose, PingId, PlaybackState, Poll, QueueItem, Reaction, ReactionKind, RoomState, ServerTime,
+    layout, nullable, playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
 };
 use super::text::{ChatText, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -44,6 +44,7 @@ pub enum ErrorCode {
     UnsupportedUrl,
     ResumeExpired,
     BadCell,
+    PairsOff,
 }
 
 /// `MEMBER_LEFT_REASONS`.
@@ -262,6 +263,8 @@ server_messages! {
     "emoted" Emoted EmotedWire { member_id: MemberId, kind: EmoteKind }
     /// A timed reaction (OME-1625); `media_ms` is the server's room clock, never the client's.
     "reacted" Reacted ReactedWire { member_id: MemberId, kind: ReactionKind, media_ms: MediaMs }
+    "pair-invited" PairInvited PairInvitedWire { member_id: MemberId, pose: PairPose }
+    "paired" Paired PairedWire { thrust: MemberId, bendover: MemberId }
     "rolled" Rolled RolledWire { member_id: MemberId, sides: DiceSides, value: DieValue }
     "poll" PollChanged PollWire {
         poll_id: PollId,
@@ -444,6 +447,9 @@ mod tests {
         same(r#"{"type":"playback","playback":{"playing":false,"position":12.5,"rate":0.5,"at":5,"rev":3,"action":"seek","by":null}}"#);
         same(r#"{"type":"title-changed","title":"Friday films","by":"m1"}"#);
         same(r#"{"type":"emoted","memberId":"m1","kind":"cheer"}"#);
+        same(r#"{"type":"pair-invited","memberId":"m1","pose":"thrust"}"#);
+        same(r#"{"type":"paired","thrust":"m1","bendover":"m2"}"#);
+        same(r#"{"type":"error","code":"pairs_off","message":"x"}"#);
         same(r#"{"type":"member-muted","memberId":"m1","muted":true}"#);
         same(r#"{"type":"control-policy-changed","policy":"owner","by":"m1"}"#);
         same(r#"{"type":"room-full"}"#);

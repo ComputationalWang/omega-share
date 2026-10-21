@@ -14,7 +14,7 @@ You own the look of omega-share: the 4 avatars, the room, furniture (seats, the 
 
 - **Original work only**, *inspired by* Habbo's isometric charm. No Sulake/Habbo assets, names, logos or traced art. License: CC BY-SA 4.0 (`assets/LICENSE`).
 - **Isometric pixel art** on a 2:1 grid, ready for PixiJS: sprite sheets (PNG) + a JSON atlas. Each avatar needs at least an idle pose and a seated pose in 2 facing directions, with a readable silhouette at 1× and 2×. The 4 avatars must be clearly distinct from each other.
-- **Budget:** the MVP's avatar + room art together ≤ 300 KB compressed. Use a small shared palette.
+- **Budget:** all shipped art together ≤ 400 KB compressed (409 600 B, ADR 0056, as `bun assets/src/build.ts` measures it); eager bytes don't grow without CEO OK. Use a small shared palette.
 
 ## Process
 1. Start with 2–3 mood boards or style directions (you can generate SVG/PNG with code, e.g. a small script in `assets/src/`). Pick one yourself; no approval is needed.

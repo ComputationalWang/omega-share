@@ -322,6 +322,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     case "typing-changed":
     // Timed reactions (OME-1625): the moments strip and replay (OME-1628/1631) keep their own timeline.
     case "reacted":
+    // The dank-dungeon pair (OME-1671): drawn by OME-1672, never part of the view state.
+    case "pair-invited":
+    case "paired":
       return state;
     // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
     case "poll": {

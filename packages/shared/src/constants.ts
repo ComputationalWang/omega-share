@@ -20,6 +20,8 @@ export const HAIR_COUNT = 6;
 /** The /conga line (OME-1564, OME-1574): at most this many people; a `/conga` over this long after the last join starts a new line. */
 export const CONGA_CAP = 12;
 export const CONGA_WINDOW_MS = 120_000;
+/** A dank-dungeon `/thrust` or `/bendover` invite (OME-1671) waits this long for the other pose, then lapses silently. */
+export const PAIR_INVITE_TTL_MS = 60_000;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */
 export const MAX_ROOM_MEMBERS = 25;
 /** Room ids are `[a-z0-9-]`, 1 to this many characters. */
