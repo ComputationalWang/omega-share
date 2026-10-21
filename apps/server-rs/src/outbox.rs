@@ -598,7 +598,7 @@ mod tests {
         assert_eq!(next_kind(&mut a[0].1), (true, walked.to_owned()));
         assert_eq!(next_kind(&mut a[0].1), (false, r#"{"type":"room-full"}"#.to_owned()));
         assert_eq!(next_kind(&mut b[0].1), (false, walked.to_owned()), "no opt-in: a plain frame");
-        assert_eq!(next_kind(&mut b[0].1).0, false);
+        assert!(!next_kind(&mut b[0].1).0);
         // publish_except (frames.rs) marks the same way; switching the opt-in off stops it.
         publish_frame(&mut inner, Some(ConnId(2)), &msg(walked), &frame(walked));
         assert!(next_kind(&mut a[0].1).0);
