@@ -8,9 +8,8 @@ import { build } from "wxt";
 // the shipped and e2e builds carry exactly this CSP and no permissions beyond ADR 0005.
 const CSP = "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const PERMISSIONS = ["activeTab", "scripting", "storage"];
-// ADR 0047 §4 (OME-1040): "Unlock with extension". Optional in Chromium, requested with the one host; Firefox can't make it
-// optional, so it is install-time there (no prompt, acts only on granted hosts). The e2e builds hold it, because
-// Playwright can't click the browser's permission prompt.
+// ADR 0047 §4 (OME-1040): "Unlock with extension". Install-time in every build (no prompt or warning; it acts only on
+// hosts the viewer granted): granted at runtime, Chromium's updateSessionRules never settles (OME-1666).
 const DNR = "declarativeNetRequestWithHostAccess";
 // Remote servers are https only (parseServerBaseUrl); cleartext only on loopback, any port.
 const OPTIONAL_HOST_PERMISSIONS = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"];
@@ -40,7 +39,7 @@ const SHORTCUT = "Alt+Shift+O";
 const BROWSER_SHORTCUTS = ["Ctrl+Shift+B", "Ctrl+Shift+D", "Ctrl+Shift+I", "Ctrl+Shift+J", "Ctrl+Shift+M", "Ctrl+Shift+N", "Ctrl+Shift+O", "Ctrl+Shift+P", "Ctrl+Shift+Q", "Ctrl+Shift+T", "Ctrl+Shift+W", "Ctrl+Shift+Y", "Alt+Shift+A", "Alt+Shift+I", "Alt+Shift+T"];
 
 const cases = [
-  { name: "production", browser: "chrome", mode: "production", hostPermissions: PRODUCTION_HOSTS, permissions: PERMISSIONS },
+  { name: "production", browser: "chrome", mode: "production", hostPermissions: PRODUCTION_HOSTS, permissions: [...PERMISSIONS, DNR] },
   { name: "e2e", browser: "chrome", mode: "e2e", hostPermissions: E2E_HOSTS, permissions: [...PERMISSIONS, DNR] },
   { name: "firefox production", browser: "firefox", mode: "production", hostPermissions: PRODUCTION_HOSTS, permissions: [...PERMISSIONS, DNR] },
   { name: "firefox e2e", browser: "firefox", mode: "e2e", hostPermissions: E2E_HOSTS, permissions: [...PERMISSIONS, DNR] },
@@ -81,8 +80,7 @@ for (const { name: mode, browser, hostPermissions, permissions } of cases) {
         host_permissions: hostPermissions,
         optional_host_permissions: OPTIONAL_HOST_PERMISSIONS,
       });
-      if (browser === "firefox") expect(manifests.get(mode)).not.toHaveProperty("optional_permissions");
-      else expect(manifests.get(mode)).toHaveProperty("optional_permissions", [DNR]);
+      expect(manifests.get(mode)).not.toHaveProperty("optional_permissions");
       expect(JSON.stringify(manifests.get(mode))).not.toMatch(/<all_urls>|\*:\/\/\*|http:\/\/\*\//);
       // No port in any host pattern: Firefox would never match it (QA OME-687).
       expect(JSON.stringify(manifests.get(mode))).not.toMatch(/:\d+\/\*/);
