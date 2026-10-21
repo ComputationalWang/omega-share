@@ -14,8 +14,9 @@
 // Then Smooth again with every member wearing an accessory (OME-1542): bot n wears 1 + n % 8, the observer the halo, so
 // the walk25.accessories.<metric>.<profile> rows hold the overlay on all 25.
 // Then Smooth again with a 12-person /conga line (OME-1578): bots 1–12 send `/conga`, then every 360 ms the leader walks
-// to a random cell and each of the others to where the one ahead last went, all in one tick (a Follow chain on a fast
-// network lands in one frame); the other 12 keep churning seats and free-walking. walk25.conga.<metric>.<profile>.
+// to a random cell and each of the others, as Follow does, walks to where the one ahead was once that one's `walked`
+// comes back: one relay round trip per link, not all 12 in one tick. The other 12 keep churning seats and free-walking.
+// walk25.conga.<metric>.<profile>.
 // OMEGA_PERF_WALK_RUN=1 (OME-1464): the bots jog (`walk.run`) instead, for the same rows with 25 joggers.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
@@ -90,6 +91,10 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
       const names = new Map<string, string>();
       let changedSinceMark = new Set<string>();
       const errors: string[] = [];
+      /** The /conga line: its bots, their place in it by member id, and the cell each was last relayed at. */
+      let line: Bot[] = [];
+      const lineIndex = new Map<string, number>();
+      const lastCell: ({ x: number; y: number } | undefined)[] = [];
       const join = (n: number): Promise<Bot> =>
         new Promise((resolve, reject) => {
           const ws = new WebSocket(url);
@@ -118,6 +123,14 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
               seats = seats.map((s) => (s === memberId ? null : s));
             } else if (n === 0 && msg.type === "walked") {
               walks++;
+              // Follow: the next in line walks to where this one was, once this one's walk is relayed.
+              const i = memberId === null ? -1 : lineIndex.get(memberId) ?? -1;
+              const cell = "cell" in msg ? msg.cell : null;
+              if (i >= 0 && typeof cell === "object" && cell !== null && "x" in cell && "y" in cell && typeof cell.x === "number" && typeof cell.y === "number") {
+                const behind = lastCell[i];
+                lastCell[i] = { x: cell.x, y: cell.y };
+                if (behind !== undefined) line[i + 1]?.ws.send(JSON.stringify({ type: "walk", cell: behind }));
+              }
               const who = memberId === null ? undefined : names.get(memberId);
               if (who !== undefined) changedSinceMark.add(who);
             } else if (n === 0 && msg.type === "seat-changed" && "seat" in msg) {
@@ -135,24 +148,20 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
         });
       for (let i = 0; i < bots; i++) await join(i);
       // The /conga line (OME-1578): spaced past the chat bucket's refill, so every `/conga` is relayed.
-      const line = all.slice(0, conga);
+      line = all.slice(0, conga);
+      line.forEach((b, i) => {
+        lineIndex.set(b.self, i);
+        lastCell[i] = cells[i];
+      });
       for (const b of line) {
         b.ws.send(JSON.stringify({ type: "chat", text: "/conga" }));
         await new Promise((r) => setTimeout(r, 100));
       }
-      const lastCell: ({ x: number; y: number } | undefined)[] = line.map((_, i) => cells[i]);
       let tick = 0;
       const timer = window.setInterval(() => {
         tick++;
-        if (line.length > 0 && tick % congaEvery === 0) {
-          const ahead = [...lastCell];
-          line.forEach((b, i) => {
-            const cell = i === 0 ? cells[Math.floor(Math.random() * cells.length)] : ahead[i - 1];
-            if (cell === undefined) return;
-            lastCell[i] = cell;
-            b.ws.send(JSON.stringify({ type: "walk", cell }));
-          });
-        }
+        const lead = cells[Math.floor(Math.random() * cells.length)];
+        if (lead !== undefined && tick % congaEvery === 0) line[0]?.ws.send(JSON.stringify({ type: "walk", cell: lead }));
         const free = seats.flatMap((s, i) => (s === null ? [i] : []));
         const seated = all.filter((b) => !line.includes(b) && seats.includes(b.self));
         const standing = all.filter((b) => !line.includes(b) && !seats.includes(b.self));
