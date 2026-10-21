@@ -13,6 +13,7 @@ interface BrowserStub {
   readonly permissionsContains: () => Promise<boolean>;
   readonly tabsQuery?: (query: { readonly url?: readonly string[] }) => Promise<unknown[]>;
   readonly executeScript?: (details: { readonly target: { readonly tabId: number }; readonly args?: readonly unknown[] }) => Promise<unknown[]>;
+  readonly calls?: unknown[][];
 }
 
 const unhandled: unknown[] = [];
@@ -29,7 +30,12 @@ void mock.module("wxt/browser", () => ({
   browser: {
     storage: { local: { get: () => stubbed().storageGet(), set: (items: Record<string, unknown>) => stubbed().storageSet?.(items) ?? Promise.resolve() } },
     permissions: { contains: () => stubbed().permissionsContains() },
-    tabs: { query: (query: { readonly url?: readonly string[] }) => stubbed().tabsQuery?.(query) ?? Promise.resolve([{ id: 1 }]) },
+    tabs: {
+      query: (query: { readonly url?: readonly string[] }) => stubbed().tabsQuery?.(query) ?? Promise.resolve([{ id: 1 }]),
+      update: (...args: unknown[]) => Promise.resolve(stubbed().calls?.push(["tabs.update", ...args])),
+      create: (...args: unknown[]) => Promise.resolve(stubbed().calls?.push(["tabs.create", ...args])),
+    },
+    windows: { update: (...args: unknown[]) => Promise.resolve(stubbed().calls?.push(["windows.update", ...args])) },
     scripting: { executeScript: (details: { readonly target: { readonly tabId: number }; readonly args?: readonly unknown[] }) => stubbed().executeScript?.(details) ?? Promise.reject(new Error("cannot access tab")) },
     runtime: { openOptionsPage: () => Promise.resolve() },
   },
@@ -115,46 +121,88 @@ describe("after a successful share", () => {
   const TOKEN = "AAAAAAAAAAAAAAAAAAAAAA";
   const json = (body: unknown): Response => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
 
-  /** `roomTabs`: the rooms open in site tabs, each holding its share token. */
-  async function shared(stored: Record<string, unknown> = {}, saved: Record<string, unknown>[] = [], roomTabs: readonly string[] = ["lobby"]): Promise<Document> {
+  const TWO_EMBEDS = ["https://www.youtube.com/embed/aqz-KE-bpKQ", "https://www.youtube.com/embed/dQw4w9WgXcQ"];
+
+  /** The popup, loaded. `roomTabs`: the rooms open in site tabs (window 7), each holding its share token. */
+  async function opened(stored: Record<string, unknown> = {}, saved: Record<string, unknown>[] = [], roomTabs: readonly string[] = ["lobby"], embeds: readonly string[] = TWO_EMBEDS, calls: unknown[][] = []): Promise<Document> {
     globalThis.fetch = ((url: string) =>
       Promise.resolve(
         url.endsWith("/share")
           ? json({ ok: true, embed: { provider: "youtube", videoId: "aqz-KE-bpKQ", url: "https://www.youtube.com/embed/aqz-KE-bpKQ" } })
           : json({ rooms: [{ id: "lobby", memberCount: 1, seatedCount: 0 }, { id: "movies", memberCount: 2, seatedCount: 0 }] }),
       )) as typeof fetch;
-    const document = await openPopup({
+    return openPopup({
+      calls,
       storageGet: () => Promise.resolve(stored),
       storageSet: (items) => {
         saved.push(items);
         return Promise.resolve();
       },
       permissionsContains: () => Promise.resolve(true),
-      tabsQuery: (query) => Promise.resolve(query.url === undefined ? [{ id: 1, url: "https://example.com/" }] : roomTabs.map((id, i) => ({ id: i + 2, url: `${ORIGIN}/r/${id}` }))),
+      tabsQuery: (query) => Promise.resolve(query.url === undefined ? [{ id: 1, url: "https://example.com/" }] : roomTabs.map((id, i) => ({ id: i + 2, windowId: 7, url: `${ORIGIN}/r/${id}` }))),
       executeScript: ({ target, args }) =>
         Promise.resolve([
           {
             result:
               args === undefined
-                ? { urls: ["https://example.com/", "https://www.youtube.com/embed/aqz-KE-bpKQ", "https://www.youtube.com/embed/dQw4w9WgXcQ"], media: [], frames: [] }
+                ? { urls: ["https://example.com/", ...embeds], media: [], frames: [] }
                 : JSON.stringify({ roomId: roomTabs[target.tabId - 2], token: TOKEN }),
           },
         ]),
     });
+  }
+
+  async function shared(stored: Record<string, unknown> = {}, saved: Record<string, unknown>[] = [], roomTabs: readonly string[] = ["lobby"], calls: unknown[][] = []): Promise<Document> {
+    const document = await opened(stored, saved, roomTabs, TWO_EMBEDS, calls);
     (el(document, "room") as HTMLSelectElement).value = "lobby";
     (el(document, "share-form") as HTMLFormElement).requestSubmit(el(document, "share"));
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(el(document, "status").textContent).toContain("Shared to lobby.");
+    expect(el(document, "status").textContent).toBe("Shared · Open room");
     expect(el(document, "status").hidden).toBe(false);
     return document;
   }
 
-  // OME-1287
-  test("the status links to the room on the site, in a new tab", async () => {
-    const link = (await shared()).querySelector<HTMLAnchorElement>("#status a");
-    expect(link?.getAttribute("href")).toBe(`${ORIGIN}/r/lobby`);
-    expect(link?.target).toBe("_blank");
-    expect(link?.rel).toBe("noopener noreferrer");
+  async function openRoom(document: Document): Promise<void> {
+    const button = [...document.querySelectorAll<HTMLButtonElement>("#status button")].find((b) => b.textContent === "Open room");
+    if (button === undefined) throw new Error("no Open room button");
+    button.click();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
+  // OME-1635 E2: land in the room.
+  test("Open room focuses the open room tab and its window", async () => {
+    const calls: unknown[][] = [];
+    await openRoom(await shared({}, [], ["movies", "lobby"], calls));
+    expect(calls).toEqual([
+      ["tabs.update", 3, { active: true }],
+      ["windows.update", 7, { focused: true }],
+    ]);
+  });
+
+  test("Open room opens the room in a new tab when no tab has it", async () => {
+    const calls: unknown[][] = [];
+    const document = await shared({}, [], ["lobby"], calls);
+    // The room tab was closed after the share.
+    current = { ...stubbed(), tabsQuery: () => Promise.resolve([]) };
+    await openRoom(document);
+    expect(calls).toEqual([["tabs.create", { url: `${ORIGIN}/r/lobby` }]]);
+  });
+
+  // OME-1635 E1: one embed and the remembered room preselected, so Enter or one click shares.
+  test("one embed and a remembered room: Share has focus", async () => {
+    const document = await opened({ lastRoom: "lobby" }, [], ["lobby"], ["https://www.youtube.com/embed/aqz-KE-bpKQ"]);
+    expect((el(document, "room") as HTMLSelectElement).value).toBe("lobby");
+    expect(document.activeElement?.id).toBe("share");
+  });
+
+  test("two embeds: the first embed has focus, so the user picks", async () => {
+    const document = await opened({ lastRoom: "lobby" });
+    expect(document.activeElement?.getAttribute("name")).toBe("embed");
+  });
+
+  test("no remembered room: the embed has focus, so the user checks the room", async () => {
+    const document = await opened({}, [], ["lobby"], ["https://www.youtube.com/embed/aqz-KE-bpKQ"]);
+    expect(document.activeElement?.getAttribute("name")).toBe("embed");
   });
 
   test("the room is remembered and preselected next time while it's listed", async () => {
