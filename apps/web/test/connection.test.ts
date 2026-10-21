@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, type ServerMessage } from "@omega/shared";
 import { initialState, reduce, type ViewState } from "../src/state";
-import { HANDSHAKE_TIMEOUT_MS, REFUSED_RETRY_BUDGET_MS, createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
+import { HANDSHAKE_TIMEOUT_MS, REFUSED_RETRY_BUDGET_MS, createConnection, type ConnectionEvent, type SingleMessage, type SocketLike } from "../src/connection";
 
 class FakeSocket implements SocketLike {
   sent: string[] = [];
@@ -91,7 +91,7 @@ function runRetry(): number {
   return t.ms;
 }
 
-const snapshot: ServerMessage = {
+const snapshot: SingleMessage = {
   type: "snapshot",
   self: "m1",
   room: { id: "lobby", seats: [null, null, null, null, null, null, null, null], members: [], embed: null },
@@ -271,7 +271,7 @@ describe("close codes (ADR 0016 §5)", () => {
 });
 
 describe("refused joins and rate_limited (ADR 0016 §4)", () => {
-  const error = (code: "nickname_taken" | "too_many_members" | "rate_limited" | "seat_taken", retryAfterMs?: number): ServerMessage => ({
+  const error = (code: "nickname_taken" | "too_many_members" | "rate_limited" | "seat_taken", retryAfterMs?: number): SingleMessage => ({
     type: "error",
     code,
     message: "no",
@@ -798,7 +798,7 @@ describe("durable sessions (ADR 0043)", () => {
 
 // OME-1627: the connection opts in to relay `batch` frames and unwraps them, so nothing past it ever sees one.
 describe("batch frames", () => {
-  const walks: ServerMessage[] = Array.from({ length: 12 }, (_, i) => ({ type: "walked", memberId: "m2", cell: { x: i, y: 1 } }));
+  const walks: ServerMessage[] = Array.from({ length: 12 }, (_, i) => ({ type: "walked", memberId: "m2", cell: { x: i % 6, y: 1 + Math.floor(i / 6) } }));
   const member = { id: "m2", nickname: "bo", avatar: 1, seat: null };
 
   function messagesAfter(frames: readonly (ServerMessage | string)[]): ServerMessage[] {
@@ -806,7 +806,7 @@ describe("batch frames", () => {
     events = [];
     connect();
     last().open();
-    last().receive({ ...snapshot, room: { ...snapshot.room, members: [member] } } as ServerMessage);
+    last().receive({ type: "snapshot", self: "m1", room: { id: "lobby", seats: [null, null, null, null, null, null, null, null], members: [member], embed: null } });
     for (const f of frames) last().receive(f);
     return events.flatMap((e) => (e.type === "message" ? [e.msg] : []));
   }
@@ -823,7 +823,7 @@ describe("batch frames", () => {
     const batched = messagesAfter([{ type: "batch", msgs: walks } as ServerMessage]);
     expect(batched).toEqual(separate);
     expect(fold(batched)).toEqual(fold(separate));
-    expect(fold(batched).room?.members[0]?.cell).toEqual({ x: 11, y: 1 });
+    expect(fold(batched).room?.members[0]?.cell).toEqual({ x: 5, y: 2 });
   });
 
   test("an invalid batch is dropped whole at the boundary", () => {
