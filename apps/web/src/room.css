@@ -262,6 +262,8 @@
 .stage-clip.is-phone[data-keys="row"] > .stage-pane { bottom: 52px; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
 .stage-clip[data-keys="column"] > .room-zoom { flex-direction: column; }
+/* The column's band reads as a rail, not an empty strip beside the room (OME-1597): panel fill, a wall-light edge. */
+.stage-clip.is-phone[data-keys="column"] { background: linear-gradient(#8a6f9e, #8a6f9e) right 50px top 0 / 2px 100% no-repeat, linear-gradient(var(--ui-panel), var(--ui-panel)) right / 52px 100% no-repeat; }
 .room-zoom > .ui-button { display: inline-flex; align-items: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; font-size: 16px; font-weight: 700; }
 /* Seats: a 52×44 oval to the finger instead of the floor diamond. */
 .ui-touch .seat { left: -26px; top: -22px; width: 52px; height: 44px; border-radius: 50%; transform: none; }
@@ -566,6 +568,8 @@ body:has(> main > .room-portrait) { height: 100dvh; overflow: hidden; }
 :root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
 main:has(> .room-portrait) { max-width: none; padding: 0; }
 body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: 20px; font-size: 11px; }
+/* One 20 px line, never two (OME-1597: at 360 px the version wrapped below the viewport); it stays on the landing. */
+body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
 .room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - 20px); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
@@ -577,11 +581,14 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .room-portrait > .chat-log { height: 76px; max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
 .room-portrait > .chat { margin: 0; gap: 4px; padding: 4px; min-width: 0; }
 .room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
+/* The field stays 16 px (no iOS zoom); its hint is 14 px so "Say something…" fits at 360 px, and ellipsizes, never cuts mid-letter (OME-1597). */
+.room-portrait .chat input::placeholder { font-size: 14px; }
+.room-portrait .chat input { text-overflow: ellipsis; }
 .room-portrait .chat > .ui-button { flex: none; min-width: 44px; min-height: 44px; padding-inline: 6px; }
 .room-portrait .portrait-keys { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; }
 .room-portrait .portrait-keys .ui-button { flex: 1; min-height: 44px; }
 .room-portrait > .portrait-stowed { display: none; }
-.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 20px; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px; overflow: hidden; }
+.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 20px; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px; overflow: hidden; }
 .portrait-sheet[open] { display: flex; flex-direction: column; }
 .portrait-sheet::backdrop { background: transparent; }
 .portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
