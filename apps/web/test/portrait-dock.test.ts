@@ -165,3 +165,21 @@ test("the keyboard portrait picture can receive scroll focus and restores its or
     Object.defineProperty(window, "visualViewport", native ?? { configurable: true, value: undefined });
   }
 });
+
+// OME-1586: the message field sits in a `.chat-field` wrapper with the palette key; the link key still leads it.
+test("the link key goes before the field's wrapper when the field is wrapped", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const root = document.createElement("section");
+  const log = document.createElement("ol");
+  const composer = document.createElement("form");
+  const wrap = document.createElement("span");
+  wrap.className = "chat-field";
+  wrap.append(document.createElement("input"));
+  composer.append(wrap);
+  const queue = document.createElement("section");
+  root.append(log, composer, queue);
+  document.body.replaceChildren(root);
+  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+  dock.setActive(true);
+  expect(dock.link.nextElementSibling).toBe(wrap);
+});
