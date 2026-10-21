@@ -115,7 +115,7 @@ test("tabs.query rejects: the scan ends on the unreadable state", async () => {
   expect(unhandled).toEqual([]);
 });
 
-// OME-1285: "Shared to X" belongs to the last share, not to a newly picked room or embed.
+// OME-1285: "Shared · Open room" belongs to the last share, not to a newly picked room or embed.
 describe("after a successful share", () => {
   const ORIGIN = "http://localhost:8787";
   const TOKEN = "AAAAAAAAAAAAAAAAAAAAAA";
