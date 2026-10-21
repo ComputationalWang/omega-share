@@ -665,6 +665,24 @@ mod tests {
     }
 
     // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
+    // packages/shared/test/pair-contract.test.ts (OME-1671)
+    #[test]
+    fn pairs_is_an_optional_flag_kept_as_sent() {
+        assert!(!parse(&base(vec![])).to_json().contains("pairs"), "absent stays absent");
+        for flag in [true, false] {
+            let mut v = base(vec![]);
+            v["pairs"] = json!(flag);
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_ok());
+            assert!(parse(&v).to_json().ends_with(&format!(r#","pairs":{flag}}}"#)));
+        }
+        for bad in [json!("true"), json!(1), json!(null)] {
+            let mut v = base(vec![]);
+            v["pairs"] = bad;
+            assert!(RoomLayout::parse(v.to_string().as_bytes()).is_err());
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_err());
+        }
+    }
+
     #[test]
     fn mood_is_optional_and_a_layout_without_one_loads_as_none() {
         let old = parse(&base(vec![]));

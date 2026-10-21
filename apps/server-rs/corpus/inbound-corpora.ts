@@ -59,6 +59,9 @@ const valid: Raw[] = [
   js({ ...JOIN, batch: true }), js({ ...JOIN, batch: false }), js({ ...JOIN, batch: true, hair: 1 }),
   js({ ...JOIN, via: "lobby" }), js({ ...JOIN, via: "a".repeat(32) }), js({ ...JOIN, via: "film-club", hair: 2 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
+  // pair, layout pairs (OME-1671)
+  js({ type: "pair", pose: "thrust" }), js({ type: "pair", pose: "bendover" }),
+  ...[true, false].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
   js({ type: "walk", cell: { x: 9, y: 0 }, teleport: true }), js({ type: "walk", cell: { x: 9, y: 0 }, teleport: false }), js({ type: "walk", cell: { x: 9, y: 0 }, run: true, teleport: true }),
   js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, { kind: "pad", col: 9, row: 1, facing: "se" }, { kind: "pad", col: 1, row: 9, facing: "se", variant: 1 }] } }),
   ...["none", "warm", "cool", "night"].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
@@ -142,7 +145,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "typing", on: true }), ...mutations({ type: "set-accessory", accessory: 1 }), ...mutations({ type: "roll", sides: 6 }),
   ...mutations(POLL_OPEN), ...mutations({ type: "vote", pollId: "p1", option: 0 }), ...mutations({ type: "poll-close", pollId: "p1" }),
-  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }),
+  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }), ...mutations({ type: "pair", pose: "thrust" }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -193,6 +196,9 @@ const invalid: Raw[] = [
   // floor-sit, layout mood (OME-1499)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "floor-sit", on })), js({ type: "floor-sit" }),
   ...["dark", "Warm", "none ", "", null, 0, true, [], {}].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
+  // pair, layout pairs (OME-1671)
+  ...["Thrust", "hug", "thrust ", "", null, 0, true, [], {}].map((pose) => js({ type: "pair", pose })), js({ type: "pair" }),
+  ...["true", 1, 0, null, [], {}].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),

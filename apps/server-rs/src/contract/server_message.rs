@@ -423,6 +423,9 @@ mod tests {
         same(r#"{"type":"playback","playback":{"playing":false,"position":12.5,"rate":0.5,"at":5,"rev":3,"action":"seek","by":null}}"#);
         same(r#"{"type":"title-changed","title":"Friday films","by":"m1"}"#);
         same(r#"{"type":"emoted","memberId":"m1","kind":"cheer"}"#);
+        same(r#"{"type":"pair-invited","memberId":"m1","pose":"thrust"}"#);
+        same(r#"{"type":"paired","thrust":"m1","bendover":"m2"}"#);
+        same(r#"{"type":"error","code":"pairs_off","message":"x"}"#);
         same(r#"{"type":"member-muted","memberId":"m1","muted":true}"#);
         same(r#"{"type":"control-policy-changed","policy":"owner","by":"m1"}"#);
         same(r#"{"type":"room-full"}"#);

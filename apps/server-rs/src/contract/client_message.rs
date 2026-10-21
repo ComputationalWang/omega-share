@@ -736,6 +736,8 @@ mod tests {
             json!({"type":"title-set","title":"Films"}),
             json!({"type":"emote","kind":"cheer"}),
             json!({"type":"emote","kind":"dance"}),
+            json!({"type":"pair","pose":"thrust"}),
+            json!({"type":"pair","pose":"bendover"}),
             json!({"type":"kick","memberId":"m2"}),
             json!({"type":"mute","memberId":"m2","muted":false}),
             json!({"type":"control-policy","policy":"owner"}),
