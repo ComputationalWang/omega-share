@@ -439,6 +439,12 @@ test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it a
   await seat.tap();
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(640);
+  // The hidden strip is still a Tab stop (a scrollable log): focused, it shows again, so focus is never lost (QA OME-1614).
+  const log = page.locator(site.chatLog);
+  await log.focus();
+  const shown = await log.boundingBox();
+  expect(shown?.height ?? 0, "focused chat log height").toBeGreaterThanOrEqual(44);
+  await log.blur();
   await page.getByTestId("portrait-chat").click();
   await expect(page.getByTestId("portrait-sheet")).toBeVisible();
   await expect(page.getByTestId("portrait-sheet").locator(site.chatLog)).toBeVisible();
