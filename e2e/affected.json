@@ -129,6 +129,7 @@
         "**/*.md"
       ],
       "specs": [
+        "e2e/real/movie-night-smoke.real.ts",
         "e2e/real/real-abuse.real.ts",
         "e2e/real/real-ads.real.ts",
         "e2e/real/real-invite-referrer.real.ts",
@@ -682,6 +683,19 @@
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
+    },
+    {
+      "paths": [
+        "assets/sound/**"
+      ],
+      "specs": [
+        "e2e/m9-help.e2e.ts",
+        "e2e/walk.e2e.ts",
+        "e2e/emotes.e2e.ts",
+        "perf/site.perf.ts",
+        "perf/walk-tiers.perf.ts"
+      ],
+      "why": "sound recipes, read by the OME-1638 sound engine (OME-1642)"
     },
     {
       "paths": [

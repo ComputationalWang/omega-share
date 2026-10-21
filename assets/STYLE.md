@@ -506,6 +506,24 @@ How it's built: for every frame in the avatar, motion and expression sheets, the
 headwear off and the hat on. The hat sprite is the difference between the two (the hat, plus any hair or re-shaded edge under it), cropped.
 Drawn over the avatar at the same floor point, it gives exactly the hatted frame. Frames whose difference has the same pixels share one rect.
 
+## Sound palette (OME-1642, `sound/recipes.json`)
+The room's sound is the same lounge at dusk: soft, warm, wooden, a little muffled, like hearing the room through a cushion. Nothing in it is a sample, and nothing quotes a game or a brand: every sound is a few oscillators and filtered noise bursts with envelopes, synthesized by the room's engine (OME-1638, format v1 in `apps/web/src/audio/FORMAT.md`). 14 sounds, 3 303 bytes of JSON (744 gzipped), 0 audio files.
+
+- **Low and round.** Bodies are sines and triangles under 1 kHz; no square or sawtooth anywhere. Noise is brown or pink and low-passed, except a tile tap and the door latch, which are band-passed (1.7 and 2.3 kHz) and last under 20 ms. Nothing sits in the 3–5 kHz band the ear finds harsh, except the night tone's faint "distant air", far under the bed.
+- **Short.** Footsteps 0.10–0.15 s, UI 0.07–0.32 s, chairs ≤ 0.24 s, the door 0.52 s. Only the lights-down swell is long (3.5 s), because it is a moment.
+- **Pitch tells the story.** A rise means "yes" (toggle: D5 → A5, a fifth; pop: a quick upward glide); a fall means "no" or "settling" (error: two soft triangle notes a fourth down, sitting: a thump that sags). The swell is a soft A-major triad (sines) that glides a whole tone down as the lights dim.
+- **Floors sound different, not louder.** Wood: a hollow knock (sine 130 → 75 Hz) with a dull scuff. Carpet: a pink-noise pad, the quietest step. Tile: a short bright tap with a small body.
+- **Mix (peak at master volume 1, measured by `bun assets/src/sound-meter.ts`).** Everything peaks ≤ -12 dBFS; the room's default volume (40%) puts it 8 dB lower still.
+
+| Tier | Sounds | Peak | Why |
+|---|---|---|---|
+| bed | `tone.warm` · `tone.cool` · `tone.night` (loop, one at a time) | -31 to -34 dBFS (RMS ≈ -45) | felt more than heard; fades in over 2.5–4 s, out over 1.5–2 s |
+| frequent | `step.*` · `ui.tick` · `ui.toggle` | -23 to -28 | heard dozens of times a minute, so the quietest one-shots |
+| events | `chair.*` · `pop` · `ui.error` | -19 to -23 | one person's action, clear but small |
+| moments | `door` · `swell` | -18 · -17 | someone arrives; the film starts |
+
+Room tones by mood: **warm** a low brown-noise "fire-and-radiator" hum with a hint of air; **cool** a wider pink-noise air, like a fan in the next room; **night** the darkest and quietest, a low rumble with a very faint high hiss. Mood `none` has no tone. Audition all of it, including a walk across the three floors and a random 10-minute session, in `preview/sound.html`.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -530,6 +548,7 @@ Drawn over the avatar at the same floor point, it gives exactly the hatted frame
 | Christmas theme (OME-1187, lazy) | `themes/christmas/*` | 2 280 + 3 309 ≈ **5.5 KB** |
 | Valentine's theme (OME-1187, lazy) | `themes/valentines/*` | 1 117 + 3 224 ≈ **4.2 KB** |
 | Easter theme (OME-1187, lazy) | `themes/easter/*` | 2 890 + 3 532 ≈ **6.3 KB** |
+| Sound palette (OME-1642, lazy with the engine) | `sound/recipes.json` (gz), 0 audio files; not art, listed for completeness | 3 303 B raw, **744 B** gz (cap 4 KB raw) |
 | total art budget | | ≤ 300 KB (≈ 213.3 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

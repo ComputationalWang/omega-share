@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share sound palette (OME-1642)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink: #2b2238; --paper: #f4ead8; --wood: #a8673f; --plum: #5b3f6e; --teal: #3f7f7a; --line: #d9c6a5; }
+  body { margin: 0; padding: 24px; background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 20px 0 8px; }
+  p { margin: 4px 0 12px; max-width: 70ch; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; max-width: 980px; }
+  button { font: inherit; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 6px; background: #fffaf0; color: var(--ink); cursor: pointer; box-shadow: 0 2px 0 var(--ink); text-align: left; }
+  button:active { transform: translateY(2px); box-shadow: none; }
+  button[aria-pressed="true"] { background: var(--teal); color: #fff; }
+  button:focus-visible { outline: 3px solid var(--plum); outline-offset: 2px; }
+  table { border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  th, td { border-bottom: 1px solid var(--line); padding: 4px 12px 4px 0; text-align: left; }
+  .over { color: #a3302a; font-weight: 600; }
+  #status { min-height: 1.4em; }
+</style>
+</head>
+<body>
+<h1>Sound palette: "Dusk Lounge"</h1>
+<p>Every sound is synthesized from <code>assets/sound/recipes.json</code> (oscillators, noise, envelopes; 0 audio files), the same way the room's engine (OME-1638) plays it. Buttons play each sound at its mixed level through the master volume below (the room's default is 40%). Serve the repo root to load the file (<code>bunx serve .</code>, then open <code>/assets/preview/sound.html</code>), or pick the file.</p>
+<div class="bar">
+  <label>Master volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.4"> <output id="volout">40%</output></label>
+  <label id="pick" hidden>recipes.json <input id="file" type="file" accept=".json,application/json"></label>
+  <span id="status" role="status"></span>
+</div>
+
+<h2>One-shots</h2>
+<div class="grid" id="shots"></div>
+
+<h2>Room tones (loop until stopped; one at a time, like the room)</h2>
+<div class="grid" id="tones"></div>
+
+<h2>Scenes</h2>
+<div class="grid">
+  <button id="walk" aria-pressed="false">Walk: wood → carpet → tile</button>
+  <button id="session" aria-pressed="false">10-minute session (night tone, walks, sits, UI, pops)</button>
+</div>
+
+<h2>Meter (rendered offline at master volume 1, then at the room's default 40%)</h2>
+<button id="measure">Measure every sound</button>
+<table id="meter" hidden><thead><tr><th>sound</th><th>length</th><th>peak @100%</th><th>RMS @100%</th><th>peak @40%</th></tr></thead><tbody></tbody></table>
+
+<script>
+"use strict";
+// Mirrors apps/web/src/audio/engine.ts (OME-1638, format v1): same envelopes, glides, noise fills and constants.
+const MIN_ATTACK_S = 0.002, NOISE_S = 2, CUT_S = 0.015, DEFAULT_VOLUME = 0.4;
+const TONES = ["tone.warm", "tone.cool", "tone.night"];
+let recipes = null, ctx = null, master = null, tone = null, scene = null;
+const noiseCache = new WeakMap();
+
+function fillNoise(kind, data) {
+  let b0 = 0, b1 = 0, b2 = 0, last = 0;
+  for (let i = 0; i < data.length; i++) {
+    const w = Math.random() * 2 - 1;
+    if (kind === "white") data[i] = w;
+    else if (kind === "pink") {
+      b0 = 0.99765 * b0 + w * 0.099046; b1 = 0.963 * b1 + w * 0.2965164; b2 = 0.57 * b2 + w * 1.0526913;
+      data[i] = (b0 + b1 + b2 + w * 0.1848) * 0.25;
+    } else { last = (last + 0.02 * w) / 1.02; data[i] = last * 3.5; }
+  }
+}
+function noiseBuffer(c, kind) {
+  let m = noiseCache.get(c);
+  if (!m) noiseCache.set(c, (m = new Map()));
+  let b = m.get(kind);
+  if (!b) { b = c.createBuffer(1, Math.round(c.sampleRate * NOISE_S), c.sampleRate); fillNoise(kind, b.getChannelData(0)); m.set(kind, b); }
+  return b;
+}
+const layerLength = (e) => Math.max(MIN_ATTACK_S, e.a ?? 0) + (e.d ?? 0) + (e.hold ?? 0) + (e.r ?? 0);
+
+/** Starts recipe `r` on `out` at `now`; returns a cut(at) for loops and the end time. */
+function start(c, out, r, loop, now) {
+  const bus = c.createGain(); bus.gain.value = r.gain; bus.connect(out);
+  const sources = []; let end = now;
+  for (const l of r.layers) {
+    const e = l.env, t0 = now + (e.delay ?? 0), peak = l.gain ?? 1, a = Math.max(MIN_ATTACK_S, e.a ?? 0);
+    let src;
+    if ("osc" in l) {
+      src = c.createOscillator(); src.type = l.osc; src.frequency.setValueAtTime(l.freq, t0);
+      if (l.to !== undefined && !loop) src.frequency.exponentialRampToValueAtTime(l.to, t0 + layerLength(e));
+    } else { src = c.createBufferSource(); src.buffer = noiseBuffer(c, l.noise); src.loop = true; }
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(peak, t0 + a);
+    if (loop) g.gain.linearRampToValueAtTime(peak * (e.s ?? 1), t0 + a + (e.d ?? 0));
+    else {
+      const s = peak * (e.s ?? 0);
+      g.gain.linearRampToValueAtTime(s, t0 + a + (e.d ?? 0));
+      g.gain.setValueAtTime(s, t0 + a + (e.d ?? 0) + (e.hold ?? 0));
+      g.gain.linearRampToValueAtTime(0, t0 + layerLength(e));
+    }
+    let tail = src;
+    if (l.filter) { const f = c.createBiquadFilter(); f.type = l.filter.type; f.frequency.value = l.filter.freq; f.Q.value = l.filter.q ?? 1; tail.connect(f); tail = f; }
+    tail.connect(g); g.connect(bus); src.start(t0); if (!loop) src.stop(t0 + layerLength(e));
+    sources.push(src); end = Math.max(end, t0 + layerLength(e));
+  }
+  const release = Math.max(CUT_S, ...r.layers.map((l) => (loop ? l.env.r ?? 0 : 0)));
+  return { end, cut(at) { bus.gain.cancelScheduledValues(at); bus.gain.setValueAtTime(bus.gain.value, at); bus.gain.linearRampToValueAtTime(0, at + release); for (const s of sources) s.stop(at + release); } };
+}
+
+function live() {
+  if (!ctx) { ctx = new AudioContext(); master = ctx.createGain(); master.gain.value = Number(vol.value); master.connect(ctx.destination); }
+  void ctx.resume();
+  return ctx;
+}
+function play(name, at = 0) { const r = recipes?.sounds[name]; if (!r) return; const c = live(); start(c, master, r, false, c.currentTime + at); }
+function setTone(name) {
+  const c = live();
+  if (tone) { tone.voice.cut(c.currentTime); tone.button.setAttribute("aria-pressed", "false"); const was = tone.name; tone = null; if (was === name) return; }
+  const button = document.querySelector(`[data-tone="${name}"]`);
+  tone = { name, button, voice: start(c, master, recipes.sounds[name], true, c.currentTime) };
+  button.setAttribute("aria-pressed", "true");
+}
+
+const FLOORS = ["step.wood", "step.carpet", "step.tile"];
+// shortcut: a fixed 0.32 s footfall cadence stands in for the room's walk poses; the engine triggers steps from the animator.
+function walkSteps(n, floorOf) { for (let i = 0; i < n; i++) play(floorOf(i), i * 0.32); return n * 0.32; }
+function stopScene() { if (scene) { clearTimeout(scene.timer); scene.button.setAttribute("aria-pressed", "false"); scene = null; } }
+function runWalk(button) {
+  stopScene(); button.setAttribute("aria-pressed", "true");
+  const len = walkSteps(24, (i) => FLOORS[Math.floor(i / 8)]);
+  scene = { button, timer: setTimeout(stopScene, len * 1000) };
+}
+function runSession(button) {
+  stopScene(); button.setAttribute("aria-pressed", "true");
+  if (tone?.name !== "tone.night") setTone("tone.night");
+  const t0 = performance.now();
+  const beat = () => {
+    if (performance.now() - t0 > 600000) { stopScene(); return; }
+    const x = Math.random();
+    if (x < 0.4) { const f = FLOORS[Math.floor(Math.random() * 3)]; walkSteps(4 + Math.floor(Math.random() * 8), () => f); }
+    else if (x < 0.55) play(Math.random() < 0.5 ? "chair.sit" : "chair.stand");
+    else if (x < 0.75) play(["ui.tick", "ui.tick", "ui.toggle", "ui.error"][Math.floor(Math.random() * 4)]);
+    else if (x < 0.92) { const n = 1 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) play("pop", i * 0.18); }
+    else play("door");
+    scene.timer = setTimeout(beat, 1500 + Math.random() * 3500);
+  };
+  scene = { button, timer: setTimeout(beat, 400) };
+}
+
+/** Renders `name` offline at master gain `level`; returns { len, peak, rms } in seconds and linear amplitude. */
+async function render(name, level) {
+  const r = recipes.sounds[name], rate = 48000, loop = r.loop === true;
+  const len = loop ? 8 : Math.max(...r.layers.map((l) => (l.env.delay ?? 0) + layerLength(l.env))) + 0.05;
+  const c = new OfflineAudioContext(1, Math.ceil(len * rate), rate);
+  const m = c.createGain(); m.gain.value = level; m.connect(c.destination);
+  start(c, m, r, loop, 0);
+  const data = (await c.startRendering()).getChannelData(0);
+  let peak = 0, sum = 0;
+  for (const v of data) { peak = Math.max(peak, Math.abs(v)); sum += v * v; }
+  return { len, peak, rms: Math.sqrt(sum / data.length) };
+}
+const db = (x) => (x > 0 ? 20 * Math.log10(x) : -Infinity);
+/** For the headless meter (assets/src/sound-meter.ts) and the Measure button: dBFS per sound. */
+async function measure() {
+  const rows = [];
+  for (const name of Object.keys(recipes.sounds)) {
+    const full = await render(name, 1), def = await render(name, DEFAULT_VOLUME);
+    rows.push({ name, len: full.len, peak: db(full.peak), rms: db(full.rms), peakDefault: db(def.peak) });
+  }
+  return rows;
+}
+window.measure = measure;
+
+function build() {
+  const shots = document.getElementById("shots"), tones = document.getElementById("tones");
+  shots.replaceChildren(); tones.replaceChildren();
+  for (const name of Object.keys(recipes.sounds)) {
+    const b = document.createElement("button"); b.textContent = name;
+    if (TONES.includes(name)) { b.dataset.tone = name; b.setAttribute("aria-pressed", "false"); b.onclick = () => setTone(name); tones.append(b); }
+    else { b.onclick = () => play(name); shots.append(b); }
+  }
+  document.getElementById("status").textContent = `${Object.keys(recipes.sounds).length} sounds loaded`;
+  window.ready = true;
+}
+function load(json) { recipes = json; build(); }
+
+const vol = document.getElementById("vol");
+vol.oninput = () => { document.getElementById("volout").textContent = `${Math.round(vol.value * 100)}%`; if (master) master.gain.value = Number(vol.value); };
+document.getElementById("walk").onclick = (e) => (scene?.button === e.currentTarget ? stopScene() : runWalk(e.currentTarget));
+document.getElementById("session").onclick = (e) => (scene?.button === e.currentTarget ? stopScene() : runSession(e.currentTarget));
+document.getElementById("file").onchange = async (e) => { const f = e.target.files[0]; if (f) load(JSON.parse(await f.text())); };
+document.getElementById("measure").onclick = async () => {
+  const table = document.getElementById("meter"), body = table.tBodies[0];
+  body.replaceChildren();
+  for (const row of await measure()) {
+    const tr = body.insertRow();
+    for (const [v, over] of [[row.name], [`${row.len.toFixed(2)} s`], [`${row.peak.toFixed(1)} dBFS`, row.peak > -12], [`${row.rms.toFixed(1)} dBFS`], [`${row.peakDefault.toFixed(1)} dBFS`]]) {
+      const td = tr.insertCell(); td.textContent = v; if (over) td.className = "over";
+    }
+  }
+  table.hidden = false;
+};
+fetch("../sound/recipes.json").then((r) => r.json()).then(load).catch(() => {
+  document.getElementById("pick").hidden = false;
+  document.getElementById("status").textContent = "Opened from disk: pick assets/sound/recipes.json, or serve the repo root.";
+});
+</script>
+</body>
+</html>

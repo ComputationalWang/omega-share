@@ -29,6 +29,17 @@ describe("reduce", () => {
     expect(reduce(joined(), { type: "disconnected" }).status).toBe("reconnecting");
   });
 
+  test("a batch applies its messages in order, like one frame each (OME-1624)", () => {
+    const msgs: ServerMessage[] = [
+      { type: "member-joined", member: carol },
+      { type: "walked", memberId: "c", cell: { x: 3, y: 4 } },
+      { type: "member-left", memberId: "b" },
+    ];
+    const batched = server(joined(), { type: "batch", msgs: msgs.filter((m) => m.type !== "batch") });
+    expect(batched).toEqual(msgs.reduce((s, m) => server(s, m), joined()));
+    expect(batched.room?.members.map((m) => m.id)).toEqual(["a", "c"]);
+  });
+
   test("member-joined adds a member once", () => {
     let s = server(joined(), { type: "member-joined", member: carol });
     s = server(s, { type: "member-joined", member: carol });

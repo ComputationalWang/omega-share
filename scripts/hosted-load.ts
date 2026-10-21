@@ -289,6 +289,8 @@ class LoadClient {
       return;
     }
     switch (msg.type) {
+      case "batch": // never sent here: the load client joins without `batch: true`
+        break;
       case "snapshot": {
         this.self = msg.self;
         this.seats = [...msg.room.seats];
