@@ -461,7 +461,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const mentionList = attachMentionComplete(chatInput, (q) => mentionOptions(state.room?.members ?? [], state.self, q));
   // The command palette (OME-1586): every command and move, beside the emote key.
   const palette = createCommandPalette({ input: chatInput, form: chatForm });
-  chatForm.append(picker.root, palette.root, chatInput, chatSend, popOut, mentionList);
+  chatForm.append(picker.root, palette.field, chatSend, popOut, mentionList);
   const chatAway = el("div", { className: "ui-panel ui-away chat-away", role: "status", hidden: true }, "chat-away");
   const chatAwayText = el("p");
   chatAwayText.append(el("b", { textContent: "Chat is in its own window." }), el("br"), "Bubbles still show over the avatars here.");

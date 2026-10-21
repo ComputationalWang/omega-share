@@ -8,8 +8,9 @@ import { emoteIcon } from "../emote/emotes";
 import { COMMANDS, type Command } from "./commands";
 
 export interface CommandPalette {
-  /** The key and its dialog; goes beside the emote picker. */
+  /** The key and its dialog; `field` holds them over the start of the message field, beside the emote key. */
   readonly root: HTMLElement;
+  readonly field: HTMLElement;
   readonly key: HTMLButtonElement;
   readonly dialog: HTMLDialogElement;
   isOpen(): boolean;
@@ -25,13 +26,16 @@ let instances = 0;
 
 export function createCommandPalette(o: { readonly input: HTMLInputElement; readonly form: HTMLFormElement }): CommandPalette {
   const n = String(++instances);
-  const key = el("button", { type: "button", className: "ui-button self icon palette-key", title: "More commands", textContent: "✦" }, "palette-key");
+  const key = el("button", { type: "button", className: "palette-key", title: "More commands", textContent: "✦" }, "palette-key");
   key.setAttribute("aria-label", "More commands");
   key.setAttribute("aria-haspopup", "dialog");
   const dialog = el("dialog", { className: "ui-panel help-dialog palette" }, "palette");
   dialog.setAttribute("aria-modal", "true");
   const root = el("span", { className: "palette-root" });
   root.append(key, dialog);
+  // Inside the field, not a key of its own in the row: a phone's chat row has no width to spare (OME-1586).
+  const field = el("span", { className: "chat-field" });
+  field.append(root, o.input);
   const items: HTMLButtonElement[] = [];
 
   const close = (focus: HTMLElement): void => {
@@ -126,5 +130,5 @@ export function createCommandPalette(o: { readonly input: HTMLInputElement; read
     ev.preventDefault();
     stops[to]?.focus();
   });
-  return { root, key, dialog, isOpen: () => dialog.open };
+  return { root, field, key, dialog, isOpen: () => dialog.open };
 }

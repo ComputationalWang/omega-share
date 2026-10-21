@@ -94,7 +94,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
     },
   });
   const palette = createCommandPalette({ input, form });
-  form.append(picker.root, palette.root, input, send);
+  form.append(picker.root, palette.field, send);
 
   // Set (k) "the pop-out after the main tab closed": the plug, what happened, and what you can do here. A reload gives
   // the room tab a new channel too (ADR 0034), so it reads the same. Superseded by a newer window (and the browser won't

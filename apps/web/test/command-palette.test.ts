@@ -67,7 +67,7 @@ async function setup() {
     input.value = "";
   });
   const palette = createCommandPalette({ input, form });
-  form.append(palette.root, input);
+  form.append(palette.field);
   document.body.replaceChildren(form);
   const items = (): HTMLButtonElement[] => [...palette.dialog.querySelectorAll<HTMLButtonElement>("[data-testid=palette-item]")];
   const item = (text: string): HTMLButtonElement => {
