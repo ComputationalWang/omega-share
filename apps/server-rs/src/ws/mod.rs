@@ -52,6 +52,8 @@ pub struct WsState {
     pub status_interval_ms: f64,
     /// Open sockets allowed per client key; `None` is 50, or 10 behind a trusted proxy.
     pub max_per_ip: Option<usize>,
+    /// How long relays to a `batch: true` connection may be held after a relay frame (`RELAY_BATCH_MS`, OME-1583); 0 turns batching off.
+    pub relay_batch_ms: u32,
     /// A socket silent for this long is dropped; the server pings at half of it (`idleTimeout`, 60 s).
     pub idle_timeout_ms: f64,
     /// Tests only: `run` waits for this before attaching, so a test can start a drain between the upgrade and the attach.
@@ -72,6 +74,7 @@ impl Default for WsState {
             join_timeout_ms: 10_000.0,
             status_interval_ms: 1000.0,
             max_per_ip: None,
+            relay_batch_ms: crate::config::DEFAULT_RELAY_BATCH_MS,
             idle_timeout_ms: 60_000.0,
             hold_attach: None,
             draining: AtomicBool::new(false),
@@ -92,6 +95,7 @@ impl WsState {
             join_timeout_ms: f64::from(config.join_timeout_ms),
             status_interval_ms: f64::from(config.status_interval_ms),
             max_per_ip: config.max_connections_per_ip.map(|n| n as usize),
+            relay_batch_ms: config.relay_batch_ms,
             ..Self::default()
         }
     }

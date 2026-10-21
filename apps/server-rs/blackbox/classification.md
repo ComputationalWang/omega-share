@@ -18,16 +18,17 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 
 | owner | A | A* | B | C | D | E | skipped | total |
 |---|---|---|---|---|---|---|---|---|
+| ? | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 61 |
 | S1 (ported: config.rs) | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 47 |
 | S1 (ported: log.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/rooms.rs) | 0 | 0 | 0 | 0 | 28 | 0 | 0 | 28 |
 | S4c (room core) | 0 | 0 | 0 | 0 | 18 | 0 | 0 | 18 |
-| S5 | 216 | 1 | 1 | 1 | 50 | 0 | 0 | 269 |
-| S6 | 184 | 0 | 1 | 0 | 17 | 0 | 0 | 202 |
+| S5 | 217 | 1 | 0 | 1 | 50 | 0 | 0 | 269 |
+| S6 | 186 | 0 | 1 | 0 | 17 | 0 | 0 | 204 |
 | S7 | 6 | 0 | 0 | 2 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **406** | **1** | **2** | **3** | **271** | **82** | **1** | **766** |
+| **all** | **470** | **1** | **1** | **3** | **271** | **82** | **1** | **829** |
 
 ## Tests
 
@@ -72,36 +73,36 @@ Owner: S7. 30 tests: D 29, skipped 1.
 
 | line | cat | test |
 |---|---|---|
-| 75 | D | snapshot (VACUUM INTO, research §2.5) › writes omega-<UTC date>.db, mode 0600, into a 0700 dir it creates, and it verifies |
-| 87 | D | snapshot (VACUUM INTO, research §2.5) › a second run the same day replaces that day's snapshot |
-| 99 | D | snapshot (VACUUM INTO, research §2.5) › is consistent while another process keeps writing |
-| 126 | D | snapshot (VACUUM INTO, research §2.5) › leaves no temp file behind when the final rename fails |
-| 134 | D | snapshot (VACUUM INTO, research §2.5) › sweeps temp files a killed run left behind on an earlier night |
-| 146 | D | snapshot (VACUUM INTO, research §2.5) › keeps the newest 14 days: the 15th night prunes the oldest |
-| 156 | D | prune › removes all but the newest 14 snapshots and leaves other files alone |
-| 166 | D | prune › removes stale temp files a killed snapshot left, but not one still being written |
-| 180 | D | prune › with 14 or fewer, removes nothing |
-| 210 | D | restore › refuses not a database and leaves DB_PATH untouched |
-| 210 | D | restore › refuses truncated and leaves DB_PATH untouched |
-| 210 | D | restore › refuses a damaged page and leaves DB_PATH untouched |
-| 210 | D | restore › refuses a forged layout and leaves DB_PATH untouched |
-| 210 | D | restore › refuses an empty database and leaves DB_PATH untouched |
-| 225 | D | restore › replaces DB_PATH (0600), ignores a stale WAL and keeps the old DB aside |
-| 250 | D | restore › a death mid-swap never leaves DB_PATH missing or stale: the old DB, WAL frames folded in, stays until the new one lands atomically |
-| 278 | D | restore › refuses, before touching DB_PATH, while another connection holds the DB (the server is still running) |
-| 295 | D | restore › restores into a wiped DB_PATH |
-| 311 | D | CLI and restore.sh › the CLI needs DB_PATH and a known command |
-| 317 | D | CLI and restore.sh › the CLI refuses a corrupt snapshot with exit 1 |
-| 364 | D | CLI and restore.sh › restore.sh refuses a corrupt snapshot before stopping the service |
-| 381 | D | CLI and restore.sh › restore.sh will not start the service on a missing DB_PATH after a failed restore |
-| 401 | D | CLI and restore.sh › restore drill: seed rooms and layout, snapshot, wipe, restore, start the server, rooms and layout are back |
-| 466 | D | pull.sh (off-box copy, run on the operator's machine) › refuses with usage when OMEGA_BACKUP_SOURCE or OMEGA_BACKUP_DEST is missing |
-| 471 | D | pull.sh (off-box copy, run on the operator's machine) › copies only finished snapshots, 0600 in a 0700 dir, and keeps the newest 14 |
-| 481 | D | pull.sh (off-box copy, run on the operator's machine) › fails loudly when the newest snapshot on the box is older than 36 h (the backup alarm) |
-| 492 | D | pull.sh (off-box copy, run on the operator's machine) › a failed pull prunes nothing |
-| 503 | D | systemd units › the snapshot service runs as the service user, umask 0077, no network |
-| 511 | D | systemd units › the timer runs nightly and catches up after downtime |
-| 518 | skipped | systemd units › the shell scripts are shellcheck clean |
+| 76 | D | snapshot (VACUUM INTO, research §2.5) › writes omega-<UTC date>.db, mode 0600, into a 0700 dir it creates, and it verifies |
+| 88 | D | snapshot (VACUUM INTO, research §2.5) › a second run the same day replaces that day's snapshot |
+| 100 | D | snapshot (VACUUM INTO, research §2.5) › is consistent while another process keeps writing |
+| 127 | D | snapshot (VACUUM INTO, research §2.5) › leaves no temp file behind when the final rename fails |
+| 135 | D | snapshot (VACUUM INTO, research §2.5) › sweeps temp files a killed run left behind on an earlier night |
+| 147 | D | snapshot (VACUUM INTO, research §2.5) › keeps the newest 14 days: the 15th night prunes the oldest |
+| 157 | D | prune › removes all but the newest 14 snapshots and leaves other files alone |
+| 167 | D | prune › removes stale temp files a killed snapshot left, but not one still being written |
+| 181 | D | prune › with 14 or fewer, removes nothing |
+| 211 | D | restore › refuses not a database and leaves DB_PATH untouched |
+| 211 | D | restore › refuses truncated and leaves DB_PATH untouched |
+| 211 | D | restore › refuses a damaged page and leaves DB_PATH untouched |
+| 211 | D | restore › refuses a forged layout and leaves DB_PATH untouched |
+| 211 | D | restore › refuses an empty database and leaves DB_PATH untouched |
+| 226 | D | restore › replaces DB_PATH (0600), ignores a stale WAL and keeps the old DB aside |
+| 251 | D | restore › a death mid-swap never leaves DB_PATH missing or stale: the old DB, WAL frames folded in, stays until the new one lands atomically |
+| 279 | D | restore › refuses, before touching DB_PATH, while another connection holds the DB (the server is still running) |
+| 296 | D | restore › restores into a wiped DB_PATH |
+| 312 | D | CLI and restore.sh › the CLI needs DB_PATH and a known command |
+| 318 | D | CLI and restore.sh › the CLI refuses a corrupt snapshot with exit 1 |
+| 365 | D | CLI and restore.sh › restore.sh refuses a corrupt snapshot before stopping the service |
+| 382 | D | CLI and restore.sh › restore.sh will not start the service on a missing DB_PATH after a failed restore |
+| 402 | D | CLI and restore.sh › restore drill: seed rooms and layout, snapshot, wipe, restore, start the server, rooms and layout are back |
+| 469 | D | pull.sh (off-box copy, run on the operator's machine) › refuses with usage when OMEGA_BACKUP_SOURCE or OMEGA_BACKUP_DEST is missing |
+| 474 | D | pull.sh (off-box copy, run on the operator's machine) › copies only finished snapshots, 0600 in a 0700 dir, and keeps the newest 14 |
+| 484 | D | pull.sh (off-box copy, run on the operator's machine) › fails loudly when the newest snapshot on the box is older than 36 h (the backup alarm) |
+| 495 | D | pull.sh (off-box copy, run on the operator's machine) › a failed pull prunes nothing |
+| 506 | D | systemd units › the snapshot service runs as the service user, umask 0077, no network |
+| 514 | D | systemd units › the timer runs nightly and catches up after downtime |
+| 521 | skipped | systemd units › the shell scripts are shellcheck clean |
 
 ### boundary.test.ts
 
@@ -221,6 +222,15 @@ Owner: S1 (ported: config.rs). 47 tests: D 47.
 | 224 | D | RESUME_GRACE_MS (ADR 0043, OME-998) › anything else fails startup, naming the variable |
 | 231 | D | index.ts › a bad PUBLIC_ORIGIN exits non-zero before listening |
 
+### conga.test.ts
+
+Owner: ?. 2 tests: A 2.
+
+| line | cat | test |
+|---|---|---|
+| 32 | A ✓ | conga line in the snapshot (OME-1574) › a late joiner gets the line, leader first: /conga joins at the back, a repeat keeps its place, /stop leaves; no line, no key |
+| 54 | A ✓ | conga line in the snapshot (OME-1574) › leaving the room, sitting down and sitting on the floor take a member out of the line |
+
 ### deploy-kit.test.ts
 
 Owner: none (shell). 42 tests: E 42.
@@ -253,7 +263,7 @@ Owner: none (shell). 42 tests: E 42.
 | 157 | E | nightly backup wiring (OME-358 engine, OME-363) › the kit ships one backup: deploy/backup/**, no second snapshot script or pull |
 | 164 | E | nightly backup wiring (OME-358 engine, OME-363) › provision makes a 0700 service-user backup dir and enables the timer from deploy/backup |
 | 170 | E | nightly backup wiring (OME-358 engine, OME-363) › provision checks the pull sudoers rule with visudo -cf before installing it 0440 |
-| 180 | E | nightly backup wiring (OME-358 engine, OME-363) › the snapshot unit uses the server unit's user, DB, env file, Bun and checkout, and waits for the DB |
+| 180 | E | nightly backup wiring (OME-358 engine, OME-363) › the snapshot unit uses the server unit's user, DB, env file and checkout, and waits for the DB |
 | 194 | E | nightly backup wiring (OME-358 engine, OME-363) › a re-run clears a migrated dir's setgid bit and restarts the timer onto the new schedule (OME-382) |
 | 200 | E | nightly backup wiring (OME-358 engine, OME-363) › the unit's hard-coded DB paths match its default and an env-file override is documented as needing a drop-in (OME-382) |
 | 212 | E | nightly backup wiring (OME-358 engine, OME-363) › docs claim no more for the sudoers rule than deploy already has, and restore runs from the box's kit copy (OME-382) |
@@ -269,6 +279,25 @@ Owner: none (shell). 42 tests: E 42.
 | 308 | E | review hardening (OME-356) › Bun is checked against a hash committed in the repo, not one fetched beside the binary |
 | 313 | E | review hardening (OME-356) › a failed health check puts the previous release back |
 | 319 | E | review hardening (OME-356) › the site is built from the archived commit, not the working tree |
+
+### door-roll.test.ts
+
+Owner: ?. 12 tests: A 12.
+
+| line | cat | test |
+|---|---|---|
+| 45 | A ✓ | doors (OME-1423) › up to MAX_DOORS (2) doors to other rooms are saved and relayed, an unknown room included |
+| 53 | A ✓ | doors (OME-1423) › a third door is a bad_message and changes nothing |
+| 61 | A ✓ | doors (OME-1423) › a door to its own room is a bad_message and changes nothing |
+| 69 | A ✓ | doors (OME-1423) › a target that is not a room id is a bad_message |
+| 81 | A ✓ | roll (OME-1423) › rolls a 2..100-sided die for everyone, the value in 1..sides |
+| 96 | A ✓ | roll (OME-1423) › sides out of bounds is a bad_message; before join it is not_joined |
+| 110 | A ✓ | roll (OME-1423) › shares the chat bucket: 5 lines and rolls pass, the 6th gets rate_limited |
+| 123 | A ✓ | roll (OME-1423) › a muted member's roll is answered muted and reaches nobody |
+| 146 | A ✓ | join via (OME-1556) › via a room with a door back: you stand in front of that door, for everyone |
+| 154 | A ✓ | join via (OME-1556) › via a room with no door back: the default spot |
+| 162 | A ✓ | join via (OME-1556) › someone already stands in front of the door: the default spot |
+| 171 | A ✓ | join via (OME-1556) › a via that is not a room id is a bad_message and the socket stays unjoined |
 
 ### durable-sessions.test.ts
 
@@ -304,19 +333,35 @@ Owner: S6. 25 tests: A 24, D 1.
 
 ### emote.test.ts
 
-Owner: S6. 9 tests: A 8, D 1.
+Owner: S6. 10 tests: A 9, D 1.
 
 | line | cat | test |
 |---|---|---|
 | 32 | A ✓ | emote relay › an emote is relayed as emoted to the whole room, sender included |
 | 45 | A ✓ | emote relay › cheer and yawn (OME-1116) relay like wave |
-| 55 | A ✓ | emote relay › an emote before join gets not_joined and reaches nobody |
-| 65 | A ✓ | emote relay › an emote isn't in a late joiner's snapshot |
-| 77 | A ✓ | emote limits › a burst of 3 relays, the next gets rate_limited with retryAfterMs 1000 and isn't relayed, a refill restores one |
-| 96 | A ✓ | emote limits › cheer and yawn share the one emote bucket |
-| 108 | A ✓ | emote limits › each member has their own bucket |
-| 122 | A ✓ | emote limits › dropped emotes count toward the flood close: 50 in a row close with 4029 |
-| 131 | D | emote limits › emotes never touch the store |
+| 55 | A ✓ | emote relay › dance (OME-1374) relays like wave |
+| 63 | A ✓ | emote relay › an emote before join gets not_joined and reaches nobody |
+| 73 | A ✓ | emote relay › an emote isn't in a late joiner's snapshot |
+| 85 | A ✓ | emote limits › a burst of 3 relays, the next gets rate_limited with retryAfterMs 1000 and isn't relayed, a refill restores one |
+| 104 | A ✓ | emote limits › cheer and yawn share the one emote bucket |
+| 116 | A ✓ | emote limits › each member has their own bucket |
+| 130 | A ✓ | emote limits › dropped emotes count toward the flood close: 50 in a row close with 4029 |
+| 139 | D | emote limits › emotes never touch the store |
+
+### floor-sit-mood.test.ts
+
+Owner: ?. 8 tests: A 8.
+
+| line | cat | test |
+|---|---|---|
+| 36 | A ✓ | floor sit (OME-1499) › on a cell it is relayed as floor-sat to everyone and lands in the snapshot; the current value is a no-op |
+| 52 | A ✓ | floor sit (OME-1499) › while seated, or before standing on a cell, it is bad_cell and nothing is relayed |
+| 67 | A ✓ | floor sit (OME-1499) › a walk clears it (floor-sat false, then walked); so does a sit |
+| 87 | A ✓ | floor sit (OME-1499) › before join it is not_joined; a non-boolean on is bad_message |
+| 98 | A ✓ | floor sit (OME-1499) › it shares the walk bucket: after 8 walks it is dropped silently |
+| 112 | A ✓ | room mood (OME-1499) › the owner sets it with layout-set; it is relayed and lands in the snapshot; absent means none |
+| 122 | A ✓ | room mood (OME-1499) › a bad mood is bad_message and changes nothing |
+| 132 | A ✓ | room mood (OME-1499) › a non-owner's layout-set with a mood is not_owner and changes nothing |
 
 ### fuzz.test.ts
 
@@ -374,6 +419,17 @@ Owner: S7. 5 tests: D 5.
 | 102 | D | drain (in process) › a held seat someone else took first stays theirs |
 | 122 | D | RoomStore seat holds › saved holds are taken once, and a deleted room's holds go with it |
 | 234 | D | graceful restart (process) › SIGTERM exits 0 after closing with SERVICE_RESTART; clients are back in their seats with the same embed within 5 s |
+
+### hair.test.ts
+
+Owner: ?. 4 tests: A 4.
+
+| line | cat | test |
+|---|---|---|
+| 28 | A ✓ | hair (OME-1435) › join sets it, set-hair changes it for everyone, the snapshot carries it; absent is the default |
+| 42 | A ✓ | hair (OME-1435) › out of bounds is bad_message on set-hair and on join; nothing is relayed |
+| 56 | A ✓ | hair (OME-1435) › before join it is not_joined; a resume keeps the hair |
+| 74 | A ✓ | hair (OME-1435) › set-hair shares the emote bucket: 3 changes relay, the next is rate_limited |
 
 ### http-limits.test.ts
 
@@ -563,6 +619,22 @@ Owner: S4c (room core). 18 tests: D 18.
 | 115 | D | applyControl on seekable non-YouTube embeds › https://player.twitch.tv/?video=v123456789: a far-off position is a seek |
 | 115 | D | applyControl on seekable non-YouTube embeds › https://player.vimeo.com/video/76979871: a far-off position is a seek |
 
+### poll.test.ts
+
+Owner: ?. 9 tests: A 9.
+
+| line | cat | test |
+|---|---|---|
+| 38 | A ✓ | polls (OME-1452) › poll-open reaches everyone with zero counts and a 60 s deadline; a late joiner's snapshot carries it |
+| 52 | A ✓ | polls (OME-1452) › the bounds and the chat character rules: anything else is a bad_message and opens nothing |
+| 74 | A ✓ | polls (OME-1452) › one poll per room: a second poll-open is a bad_message, from anyone |
+| 87 | A ✓ | polls (OME-1452) › a member votes once and can change the vote; an option the poll lacks is a bad_message |
+| 111 | A ✓ | polls (OME-1452) › a member who leaves takes their vote along |
+| 125 | A ✓ | polls (OME-1452) › closes itself after 60 s on the test clock; a later vote is dropped silently |
+| 148 | A ✓ | polls (OME-1452) › poll-close: the opener or the room owner may close it, nobody else |
+| 169 | A ✓ | polls (OME-1452) › poll-open takes from the chat bucket; votes have their own 2/s bucket |
+| 188 | A ✓ | polls (OME-1452) › before join it is not_joined; a muted member's poll-open is answered muted |
+
 ### providers.test.ts
 
 Owner: S5. 12 tests: A 12.
@@ -642,7 +714,7 @@ Owner: S5. 38 tests: A 31, D 7.
 
 ### queue.test.ts
 
-Owner: S6. 44 tests: A 42, D 2.
+Owner: S6. 45 tests: A 43, D 2.
 
 | line | cat | test |
 |---|---|---|
@@ -657,39 +729,40 @@ Owner: S6. 44 tests: A 42, D 2.
 | 336 | A ✓ | queue-add (ADR 0031 §2, §3) › before join: not_joined, nothing queued |
 | 348 | A ✓ | queue-remove (ADR 0031 §2, §3) › drops an upcoming item for everyone; by is the remover |
 | 364 | A ✓ | queue-remove (ADR 0031 §2, §3) › an item that isn't there: ignored, no error and no queue-changed |
-| 380 | A ✓ | queue-advance (ADR 0031 §2, §5) › from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer |
-| 422 | A ✓ | queue-advance (ADR 0031 §2, §5) › two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored |
-| 440 | A ✓ | queue-advance (ADR 0031 §2, §5) › with an empty queue: nothing changes |
-| 449 | A ✓ | queue-advance (ADR 0031 §2, §5) › onto a generic item: playback null, so it stays click-to-load (ADR 0024) |
-| 462 | A ✓ | shares and item ids (ADR 0031 §1) › every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue |
-| 478 | A ✓ | control policy owner: guests can't change the queue (ADR 0031 §3) › queue-add, queue-remove and queue-advance from a guest: control_owner_only, nothing changes, and the guest's adds aren't spent |
-| 541 | A ✓ | ended (ADR 0031 §4) › the first valid report advances for everyone, by null; later reports for the spent item change nothing |
-| 558 | A ✓ | ended (ADR 0031 §4) › within 3000 ms of becoming current: ignored |
-| 574 | A ✓ | ended (ADR 0031 §4) › a stale itemId, a position far from the room clock, or a sender who hasn't joined: ignored silently |
-| 588 | A ✓ | ended (ADR 0031 §4) › a live current item never advances on ended (only queue-advance) |
-| 600 | A ✓ | ended (ADR 0031 §4) › a generic current item never advances on ended |
-| 614 | A ✓ | ended (ADR 0031 §4) › with an empty queue: a valid ended changes nothing |
-| 625 | A ✓ | ended (ADR 0031 §4) › ended is not subject to the control policy: a guest's valid report advances an owner-only room |
-| 649 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed |
-| 668 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › errors: 401 without a member's token, 400 unsupported_url, 404 unknown room; nothing queued |
-| 694 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › shares the member's add bucket with the WebSocket: 429 with Retry-After once it is spent |
-| 711 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › the control policy is checked again once a slow body has arrived |
-| 749 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › 409 queue_full at 20 |
-| 771 | A ✓ | persistence (ADR 0031 §6) › a restart keeps the queue and the current item: same ids and embeds, by null |
-| 791 | A ✓ | persistence (ADR 0031 §6) › after a restart the restored item is current anew: ended waits out the debounce again |
-| 816 | A ✓ | persistence (ADR 0031 §6) › rows hidden by the policy can't push a restored queue past 20: the oldest are kept and the room stays joinable |
-| 851 | A ✓ | persistence (ADR 0031 §6) › a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart |
-| 888 | A ✓ | persistence (ADR 0031 §6) › an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart |
-| 907 | D | persistence (ADR 0031 §6) › one store write per queue action; control, chat and ignored frames write nothing |
-| 956 | A ✓ | persistence (ADR 0031 §6) › deleting the room deletes its queue rows |
-| 1004 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current |
-| 1046 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › the started item's ended debounce runs from the add, and later adds only queue |
-| 1065 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with playback null: click-to-load (ADR 0024) |
-| 1076 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed) |
-| 1111 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored |
-| 1152 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a failed store write changes nothing: no row, no current item, no frames |
-| 1171 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem) |
-| 1182 | D | starting from an empty room (ADR 0031 §5, OME-543) › one store write for the add that starts an item |
+| 381 | A ✓ | queue-move (OME-1249) › reorders Up next for everyone; by is the mover, an unknown item is ignored |
+| 402 | A ✓ | queue-advance (ADR 0031 §2, §5) › from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer |
+| 444 | A ✓ | queue-advance (ADR 0031 §2, §5) › two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored |
+| 462 | A ✓ | queue-advance (ADR 0031 §2, §5) › with an empty queue: nothing changes |
+| 471 | A ✓ | queue-advance (ADR 0031 §2, §5) › onto a generic item: playback null, so it stays click-to-load (ADR 0024) |
+| 484 | A ✓ | shares and item ids (ADR 0031 §1) › every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue |
+| 500 | A ✓ | control policy owner: guests can't change the queue (ADR 0031 §3) › queue-add, queue-remove and queue-advance from a guest: control_owner_only, nothing changes, and the guest's adds aren't spent |
+| 563 | A ✓ | ended (ADR 0031 §4) › the first valid report advances for everyone, by null; later reports for the spent item change nothing |
+| 580 | A ✓ | ended (ADR 0031 §4) › within 3000 ms of becoming current: ignored |
+| 596 | A ✓ | ended (ADR 0031 §4) › a stale itemId, a position far from the room clock, or a sender who hasn't joined: ignored silently |
+| 610 | A ✓ | ended (ADR 0031 §4) › a live current item never advances on ended (only queue-advance) |
+| 622 | A ✓ | ended (ADR 0031 §4) › a generic current item never advances on ended |
+| 636 | A ✓ | ended (ADR 0031 §4) › with an empty queue: a valid ended changes nothing |
+| 647 | A ✓ | ended (ADR 0031 §4) › ended is not subject to the control policy: a guest's valid report advances an owner-only room |
+| 671 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed |
+| 690 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › errors: 401 without a member's token, 400 unsupported_url, 404 unknown room; nothing queued |
+| 716 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › shares the member's add bucket with the WebSocket: 429 with Retry-After once it is spent |
+| 733 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › the control policy is checked again once a slow body has arrived |
+| 771 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › 409 queue_full at 20 |
+| 793 | A ✓ | persistence (ADR 0031 §6) › a restart keeps the queue and the current item: same ids and embeds, by null |
+| 813 | A ✓ | persistence (ADR 0031 §6) › after a restart the restored item is current anew: ended waits out the debounce again |
+| 838 | A ✓ | persistence (ADR 0031 §6) › rows hidden by the policy can't push a restored queue past 20: the oldest are kept and the room stays joinable |
+| 873 | A ✓ | persistence (ADR 0031 §6) › a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart |
+| 910 | A ✓ | persistence (ADR 0031 §6) › an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart |
+| 929 | D | persistence (ADR 0031 §6) › one store write per queue action; control, chat and ignored frames write nothing |
+| 978 | A ✓ | persistence (ADR 0031 §6) › deleting the room deletes its queue rows |
+| 1026 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current |
+| 1068 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › the started item's ended debounce runs from the add, and later adds only queue |
+| 1087 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with playback null: click-to-load (ADR 0024) |
+| 1098 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed) |
+| 1133 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored |
+| 1174 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a failed store write changes nothing: no row, no current item, no frames |
+| 1193 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem) |
+| 1204 | D | starting from an empty room (ADR 0031 §5, OME-543) › one store write for the add that starts an item |
 
 ### rate-limit.test.ts
 
@@ -711,6 +784,15 @@ Owner: S5. 14 tests: D 14.
 | 102 | D | clientKey (ADR 0015 §5) › behind the local proxy, only the rightmost entry counts: the one the tunnel appended (T-07) |
 | 110 | D | clientKey (ADR 0015 §5) › a forwarded IPv6 client is keyed by its /64 |
 | 114 | D | clientKey (ADR 0015 §5) › a missing or unparseable forwarded address falls into one shared bucket |
+
+### relay-batch.test.ts
+
+Owner: ?. 2 tests: A 2.
+
+| line | cat | test |
+|---|---|---|
+| 44 | A ✓ | relay batching (OME-1583) › an opted-in observer gets a burst in fewer frames, same messages in order; a plain one byte for byte as before |
+| 68 | A ✓ | relay batching (OME-1583) › replies and non-relays are never batched: an error reaches an opted-in sender as its own frame |
 
 ### relay-latency.test.ts
 
@@ -828,7 +910,7 @@ Owner: S6. 29 tests: A 27, D 2.
 
 ### room-create.test.ts
 
-Owner: S5. 32 tests: A 23, B 1, D 8.
+Owner: S5. 32 tests: A 24, D 8.
 
 | line | cat | test |
 |---|---|---|
@@ -858,12 +940,12 @@ Owner: S5. 32 tests: A 23, B 1, D 8.
 | 434 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › failed deletes take from a per-key bucket: guessing is 429 rate_limited after a burst |
 | 451 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › private rooms are never listed; created rooms show their titles; seeded rooms without one carry no title |
 | 462 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
-| 475 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
-| 482 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
-| 494 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |
-| 511 | A ✓ | headers (ADR 0028 §4) › /r/* carries X-Robots-Tag: noindex, nofollow and Referrer-Policy strict-origin-when-cross-origin; the API doesn't get the robots tag |
-| 537 | D | persistence of created rooms (migration 0002) › a created room survives a restart with its title and visibility, and its owner token still deletes it |
-| 555 | D | persistence of created rooms (migration 0002) › no address, creator or hash of one is written to disk; the owner token and invite key are stored only as SHA-256 |
+| 476 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
+| 483 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
+| 495 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |
+| 512 | A ✓ | headers (ADR 0028 §4) › /r/* carries X-Robots-Tag: noindex, nofollow and Referrer-Policy strict-origin-when-cross-origin; the API doesn't get the robots tag |
+| 538 | D | persistence of created rooms (migration 0002) › a created room survives a restart with its title and visibility, and its owner token still deletes it |
+| 556 | D | persistence of created rooms (migration 0002) › no address, creator or hash of one is written to disk; the owner token and invite key are stored only as SHA-256 |
 
 ### room-lifecycle.test.ts
 
@@ -873,11 +955,11 @@ Owner: S6. 7 tests: A 1, D 6.
 |---|---|---|
 | 36 | D | RoomRegistry.removeRoom › closes the room's sockets, joined or not, and leaves other rooms alone |
 | 65 | D | RoomRegistry.removeRoom › removing a room sends its members no member-left fan-out: they just get ROOM_CLOSED (OME-423 note #2) |
-| 89 | D | RoomRegistry.removeRoom › an upgrade to a removed room is closed with ROOM_CLOSED before any snapshot, and a re-created room of the same id refuses the old members' share tokens |
-| 107 | D | RoomRegistry.removeRoom › a share still reading its body when the room goes is refused and never reaches the store |
-| 156 | D | RoomRegistry.removeRoom › 1000 rooms created, used and removed: every per-room map is back at its baseline |
-| 211 | D | RoomRegistry.removeRoom › state asked for a room that is not (or no longer) registered is never stored |
-| 225 | A ✓ | upgrade limiter before the room lookup (threat model S5) › an unknown-room upgrade flood from one key is throttled: 10 get 404, the 11th 429 with Retry-After, other keys still get 404 |
+| 87 | D | RoomRegistry.removeRoom › an upgrade to a removed room is closed with ROOM_CLOSED before any snapshot, and a re-created room of the same id refuses the old members' share tokens |
+| 105 | D | RoomRegistry.removeRoom › a share still reading its body when the room goes is refused and never reaches the store |
+| 154 | D | RoomRegistry.removeRoom › 1000 rooms created, used and removed: every per-room map is back at its baseline |
+| 209 | D | RoomRegistry.removeRoom › state asked for a room that is not (or no longer) registered is never stored |
+| 223 | A ✓ | upgrade limiter before the room lookup (threat model S5) › an unknown-room upgrade flood from one key is throttled: 10 get 404, the 11th 429 with Retry-After, other keys still get 404 |
 
 ### room-owner.test.ts
 
@@ -1057,6 +1139,18 @@ Owner: S7. 15 tests: D 15.
 | 326 | D | reports dismiss › --room <id> dismisses the room's open reports, and the room can be reported again |
 | 338 | D | usage › bad report or room ids exit 2 without calling the server |
 
+### teleport.test.ts
+
+Owner: ?. 5 tests: A 5.
+
+| line | cat | test |
+|---|---|---|
+| 46 | A ✓ | teleport pads (OME-1545) › a layout with 1 or 3 pads is bad_message and changes nothing |
+| 56 | A ✓ | teleport pads (OME-1545) › from one pad to the other it is relayed as walked with teleport to everyone and lands in the snapshot |
+| 69 | A ✓ | teleport pads (OME-1545) › teleport while not standing on a pad is bad_cell: off a pad, on the standing spot, seated |
+| 85 | A ✓ | teleport pads (OME-1545) › teleport to a cell that is not the other pad is bad_cell; so is any teleport in a room without pads |
+| 102 | A ✓ | teleport pads (OME-1545) › it shares the walk bucket: after 8 walks a teleport is dropped silently |
+
 ### tunnel-script.test.ts
 
 Owner: none (shell). 12 tests: E 12.
@@ -1075,6 +1169,39 @@ Owner: none (shell). 12 tests: E 12.
 | 77 | E | scripts/tunnel.sh (ADR 0015 §2) › an unknown or extra flag [ "-n" ] exits 2 and starts nothing |
 | 77 | E | scripts/tunnel.sh (ADR 0015 §2) › an unknown or extra flag [ "--dry-run", "extra" ] exits 2 and starts nothing |
 | 86 | E | scripts/tunnel.sh (ADR 0015 §2) › the server never holds NGROK_AUTHTOKEN; ngrok still gets it (T-14) |
+
+### typing-accessory.test.ts
+
+Owner: ?. 11 tests: A 11.
+
+| line | cat | test |
+|---|---|---|
+| 29 | A ✓ | typing (OME-1387) › on is relayed to everyone once; a refresh relays nothing; a late joiner's snapshot has no typing |
+| 41 | A ✓ | typing (OME-1387) › on times out after 5000 ms without a refresh; a refresh restarts the wait |
+| 57 | A ✓ | typing (OME-1387) › a chat line clears it first: typing-changed off, then the chat |
+| 68 | A ✓ | typing (OME-1387) › leaving clears it: member-left, and no typing-changed after the timeout |
+| 81 | A ✓ | typing (OME-1387) › a burst of 2 relays, the next is dropped silently, a refill restores one |
+| 99 | A ✓ | typing (OME-1387) › before join it is not_joined; muting clears it, and a muted member's typing reaches nobody |
+| 120 | A ✓ | typing (OME-1387) › a durable socket drop clears it; a resume keeps the accessory |
+| 138 | A ✓ | accessory (OME-1387) › join sets it, set-accessory changes it for everyone, the snapshot carries it |
+| 150 | A ✓ | accessory (OME-1387) › accessories 5..8 (OME-1532): join takes 8, set-accessory 5 relays; 9 is bad_message |
+| 161 | A ✓ | accessory (OME-1387) › out of bounds is bad_message on set-accessory and on join; nothing is relayed |
+| 175 | A ✓ | accessory (OME-1387) › set-accessory shares the emote bucket: 3 changes relay, the next is rate_limited |
+
+### walk.test.ts
+
+Owner: ?. 8 tests: A 8.
+
+| line | cat | test |
+|---|---|---|
+| 34 | A ✓ | walk (OME-1346) › a walk to free floor is relayed as walked to everyone and lands in the next snapshot |
+| 44 | A ✓ | walk (OME-1346) › off the grid is bad_message; a solid piece or a seat is bad_cell; nothing is relayed |
+| 58 | A ✓ | walk (OME-1346) › walking off a seat stands up first; sitting clears the cell |
+| 73 | A ✓ | walk (OME-1346) › a burst of 8 walks relays, the next is dropped silently, a refill restores one |
+| 88 | A ✓ | walk (OME-1346) › run is relayed as sent (OME-1461); a non-boolean run is bad_message |
+| 101 | A ✓ | walk (OME-1346) › a layout that covers a standing member's cell walks them to the door |
+| 117 | A ✓ | tint (OME-1346) › join sets it, set-tint changes it for everyone, the snapshot carries it |
+| 129 | A ✓ | tint (OME-1346) › set-tint shares the emote bucket: 3 changes relay, the next is rate_limited |
 
 ### ws-limits.test.ts
 

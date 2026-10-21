@@ -54,6 +54,7 @@ import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSource
 import { buildPopupVignettes } from "./popup";
 import { POPUP_KIT_SLICES, POPUP_KIT_SPRITES, brightDots, chevronFrame, popupKitCss } from "./popupkit";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
+import { SHEET as REACT_SHEET, buildReactionFrames, layout as reactLayout, momentsCss, reactionAnims } from "./reactions";
 import { PRESETS, THUMB, THUMB_SCALE, presetThumb } from "./presets";
 import { HALLOWEEN } from "./halloween";
 import { CHRISTMAS } from "./christmas";
@@ -2220,15 +2221,41 @@ function buildBare(): Map<string, Uint8Array> {
   return images;
 }
 
+/** Movie night (OME-1641, lazy): reaction glyphs + strip minis in `ui/reactions.png|json`, and `ui/moments.css` (strip, recap card, lights-down). */
+function buildReactions(): void {
+  const frames = buildReactionFrames();
+  registerKeys("reactions", frames.map((f) => f.key));
+  const at = reactLayout(frames);
+  const sheet = new Uint8Array(REACT_SHEET.w * REACT_SHEET.h);
+  const out: Record<string, Pick<Frame, "frame" | "anchor">> = {};
+  for (const f of frames) {
+    const p = at.get(f.key);
+    if (!p) throw new Error(`unplaced ${f.key}`);
+    if (f.key.startsWith("react/")) assertInside(f.key, f.img, f.w, f.h); // minis are 7 art px + their outline, edge to edge
+    blit(sheet, REACT_SHEET.w, f.img, f.w, f.h, p.x, p.y);
+    out[f.key] = { frame: { x: p.x, y: p.y, w: f.w, h: f.h }, anchor: { x: f.ax / f.w, y: f.ay / f.h } };
+  }
+  const small = compactPalette(sheet);
+  writeFileSync(join(ROOT, "ui", "reactions.png"), encodeIndexedPng(REACT_SHEET.w, REACT_SHEET.h, small.pixels, small.palette));
+  const { animations, omega } = reactionAnims();
+  const atlas = { frames: out, animations, meta: { app: "omega-share assets/src/build.ts", version: "1", image: "reactions.png", format: "RGBA8888", size: REACT_SHEET, scale: "1", omega } };
+  writeFileSync(join(ROOT, "ui", "reactions.json"), JSON.stringify(atlas) + "\n");
+  writeFileSync(join(ROOT, "ui", "moments.css"), momentsCss(at));
+  // Preview: the sheet at 4× on the wall shade (not shipped).
+  const bg = colorIndex("wall", 1);
+  const big = upscale(sheet, REACT_SHEET.w, REACT_SHEET.h, 4).map((v) => (v === 0 ? bg : v));
+  writeFileSync(join(ROOT, "preview", "reactions-sheet@4x.png"), encodeIndexedPng(REACT_SHEET.w * 4, REACT_SHEET.h * 4, big, PALETTE));
+}
+
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...DUNGEON_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...DUNGEON_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...DUNGEON_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...DUNGEON_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -2240,7 +2267,7 @@ function report(): void {
     console.log(`${f}: ${String(buf.length)} B${text ? ` (${String(size)} B gz)` : ""}`);
   }
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
-  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 307200`);
+  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 409600 (ADR 0056)`);
   // Set (j): the extension icons ship in the extension package, not the site, so they're reported apart from the art budget.
   const icons = readdirSync(join(ROOT, "store")).filter((n) => /^(icon|found)-\d+\.png$/.test(n)).sort();
   const iconBytes = icons.map((n) => readFileSync(join(ROOT, "store", n)).length);
@@ -2340,6 +2367,7 @@ buildHairs();
 buildRecolours();
 for (const t of THEMES) buildTheme(t, avatarImages);
 buildAccessories(avatarImages);
+buildReactions();
 buildStore();
 buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);
