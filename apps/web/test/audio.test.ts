@@ -294,13 +294,15 @@ describe("walk sounds from the drawn poses", () => {
   });
 
   test("a walker far away loses to near ones once 4 voices play", () => {
-    const t = setup({ listener: () => ({ x: 0, y: 0 }) });
+    // A long footfall, so all five would still be sounding.
+    const long = { ...RECIPES, sounds: { ...RECIPES.sounds, "step.wood": { gain: 0.5, layers: [{ osc: "sine" as const, freq: 101, env: { a: 0.01, d: 1 } }] } } };
+    const t = setup({ listener: () => ({ x: 0, y: 0 }), recipes: long });
     t.sound.unlock();
     const ids: MemberId[] = ["a", "b", "c", "d", "e"];
     for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 1, x: i === 4 ? 500 : i }));
     for (const [i, id] of ids.entries()) {
-      // A few ms apart, so they don't share one footfall (walkers in step, below).
-      t.fake.ctx.currentTime = i * 0.01;
+      // Far enough apart not to merge into one footfall (below).
+      t.fake.ctx.currentTime = i * 0.1;
       t.sound.pose(id, pose({ walking: true, step: 4, x: i === 4 ? 500 : i }));
     }
     expect(t.fake.started).toHaveLength(4);

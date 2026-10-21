@@ -16,6 +16,8 @@ export const DEFAULT_VOLUME = 0.4;
 export const MAX_VOICES = 4;
 /** A stolen voice or a stopped tone fades this fast (s), so it doesn't click. */
 const CUT_S = 0.015;
+/** The same sound again this soon (s) merges into the one playing: walkers in step, or a line out of step, step as one. */
+const MERGE_S = 0.05;
 /** An attack of 0 still ramps over this (s), for the same reason. */
 const MIN_ATTACK_S = 0.002;
 const NOISE_S = 2;
@@ -102,7 +104,7 @@ export interface Sound {
 
 interface Voice {
   readonly name: string;
-  /** When it started (context time): walkers step together on the shared clock, so a footfall at an instant plays once. */
+  /** When it started (context time), for MERGE_S. */
   readonly at: number;
   readonly distance: number;
   end: number;
@@ -311,7 +313,7 @@ export function createSound(o: SoundOptions): Sound {
     for (let i = voices.length - 1; i >= 0; i--) {
       const v = voices[i];
       if (v === undefined || v.end <= now) voices.splice(i, 1);
-      else if (v.at === now && v.name === name) return;
+      else if (v.name === name && now - v.at < MERGE_S) return;
     }
     if (voices.length >= MAX_VOICES) {
       let far = -1;
