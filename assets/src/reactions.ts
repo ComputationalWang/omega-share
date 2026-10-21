@@ -215,8 +215,9 @@ ${keys}
 .ui-moment-pip:disabled { cursor: default; }
 
 .ui-recap { inline-size: min(360px, 100%); display: grid; gap: ${u(4)}; position: relative; }
-.ui-recap-screen { margin: ${u(-2)} ${u(-2)} 0; padding: ${u(4)} ${u(26)} ${u(14)} ${u(5)}; border: var(--ui-px) solid var(--ui-page);
+.ui-recap-screen { margin: ${u(-2)} ${u(-2)} 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: ${u(3)}; align-items: start; padding: ${u(4)} ${u(4)} ${u(14)} ${u(5)}; border: var(--ui-px) solid var(--ui-page);
   background: linear-gradient(to top, ${hex("teal", 2)} 0 ${u(2)}, ${hex("teal", 1)} 0 ${u(5)}, ${hex("mustard", 1)} 0 ${u(6)}, ${hex("pink", 1)} 0 ${u(8)}, ${hex("lilac", 1)} 0 ${u(10)}, ${n1} 0 ${u(13)}, ${n2} 0); }
+.ui-recap-kicker, .ui-recap-title { grid-column: 1; }
 .ui-recap-kicker { color: ${hex("mustard", 1)}; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: lowercase; }
 .ui-recap-title { color: ${hex("cream", 0)}; font-size: 16px; font-weight: 700; line-height: 1.25; margin: ${u(1)} 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .ui-recap-label { color: var(--ui-muted); font-size: 12px; font-weight: 700; margin: 0 0 ${u(2)}; }
@@ -228,7 +229,7 @@ ${keys}
 .ui-recap-moment time { color: ${hex("mustard", 0)}; font-variant-numeric: tabular-nums; font-weight: 700; }
 .ui-recap-counts { display: flex; flex-wrap: wrap; gap: ${u(4)}; align-items: center; color: var(--ui-text); font-size: 13px; font-variant-numeric: tabular-nums; }
 .ui-recap-counts > span { display: inline-flex; align-items: center; gap: ${u(1)}; }
-.ui-recap-close { position: absolute; top: ${u(1)}; right: ${u(1)}; }
+.ui-recap-close { grid-column: 2; grid-row: 1 / span 2; }
 
 .ui-lights-down { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 900ms steps(6);
   background: radial-gradient(ellipse 70% 62% at var(--ui-screen-x, 50%) var(--ui-screen-y, 30%),

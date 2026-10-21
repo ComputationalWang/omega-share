@@ -847,8 +847,9 @@ lilac on the panel 6.6 · cream on the panel 12.8 · cream on the hover row 10.5
 fades it in over 900 ms in 6 steps (none with reduced motion). Engineering sets `--ui-screen-x/-y` (the screen's centre) and `--ui-screen-tint`
 (the poster's average colour, never a video frame; default glow). Stepped rings round the screen, darker toward the room's edges.
 
-**Bytes:** +3 372 B, all lazy (305 223 → 308 595). **This puts the art total 1 395 B over the 307 200 B cap.** The budget was already 1 977 B
-from full before Movie night; the CEO decides on the cap (flagged on OME-1641).
+**Bytes:** +3 414 B, all lazy (305 223 → 308 637 of 409 600), as `bun assets/src/build.ts` measures it: `reactions.png` 1 237, `reactions.json`
+595 gz, `moments.css` 1 582 gz. (`gzip -9c` reads 15 B more a file, the gzip header; README § Budget uses zlib level 9 with no header.)
+Eager bytes are unchanged. The cap went from 300 KB to 400 KB for Movie night (ADR 0056, CEO on OME-1656).
 
 ## Motion atlas (`avatars/motion.json`, set d)
 
@@ -1322,7 +1323,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 304 093 B (≈ 297.0 KB) of 300 KB**, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 308 637 B** after OME-1641; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
