@@ -1,6 +1,6 @@
 # `assets/sound/recipes.json` (OME-1638 engine, OME-1642 palette)
 
-Every sound is synthesized with WebAudio from data. No audio files.
+Every sound is synthesized with WebAudio from data. No audio files. The engine imports this file into its lazy chunk.
 
 ```json
 {

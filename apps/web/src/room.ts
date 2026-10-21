@@ -1314,9 +1314,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Sound (OME-1638): unlocked by the Enter gesture that got us here (its activation still holds), and by the next
   // pointer or key press if the browser kept it suspended (a resumed session had no gesture).
   void import("./audio")
-    .then(async ({ loadSound, floorKinds }) => {
+    .then(({ loadSound, floorKinds }) => {
       let floors: { layout: RoomLayout; at: (cell: number) => FloorKind } | null = null;
-      sound = await loadSound({
+      sound = loadSound({
         store: {
           getItem: (k) => localStorage.getItem(k),
           setItem: (k, v) => {

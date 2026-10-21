@@ -3,7 +3,7 @@ import { FLOOR_CELLS, type MemberId } from "@omega/shared";
 import { createSound, SOUND_MUTED_KEY, SOUND_VOLUME_KEY, type AudioCtx, type Sound, type SoundOptions } from "../src/audio/engine";
 import { floorKinds } from "../src/audio/floor";
 import { parseRecipes, type Recipes } from "../src/audio/recipes";
-import { PLACEHOLDER_RECIPES } from "../src/audio/placeholder";
+import shipped from "../../../assets/sound/recipes.json";
 import { emptyPose, type Pose } from "../src/walk/walks";
 
 // OME-1638: the procedural sound engine. Recipes are data (oscillators, noise, envelopes); the engine plays them on a
@@ -334,8 +334,12 @@ describe("room tone", () => {
 });
 
 describe("the recipes", () => {
-  test("the placeholder recipes parse", () => {
-    expect(parseRecipes(PLACEHOLDER_RECIPES)).not.toBeNull();
+  test("the Designer's recipes (assets/sound/recipes.json) parse and have every sound the room plays", () => {
+    const r = parseRecipes(shipped);
+    expect(r).not.toBeNull();
+    const names = ["step.wood", "step.carpet", "step.tile", "chair.sit", "chair.stand", "door", "ui.tick", "ui.toggle", "ui.error", "pop", "tone.warm", "tone.cool", "tone.night", "swell"];
+    expect(Object.keys(r?.sounds ?? {}).sort()).toEqual(names.sort());
+    for (const n of names) expect(r?.sounds[n]?.loop === true).toBe(n.startsWith("tone."));
   });
 
   test("anything off-format is rejected, not half-played", () => {
