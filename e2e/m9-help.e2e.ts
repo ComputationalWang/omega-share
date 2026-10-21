@@ -1,7 +1,7 @@
-// OME-768 (M9 W2): the first-visit hint, the "?" help dialog and "Room not found", on the real page against the real server.
+// OME-768 (M9 W2): the first-visit hint (since OME-1587 a three-chip tour), the "?" help dialog and "Room not found", on the real page against the real server.
 // What the hint and the dialog say, their focus rules and the not-found words are unit tests (apps/web/test/help-*.test.ts,
-// not-found.test.ts); this spec checks what only a browser can: placement (the hint never covers the picture or the
-// composer), once per browser, the real keys, no canvas redraw from opening help, and the server's answer for a bad id.
+// not-found.test.ts); this spec checks what only a browser can: placement (a chip never covers the composer), once
+// per browser, Show tips again, the real keys, no canvas redraw from opening help, and the server's answer for a bad id.
 import { devices, type BrowserContextOptions, type Locator, type Page } from "@playwright/test";
 import * as v from "valibot";
 import { expect, test, watchCsp } from "./support/csp";
@@ -23,7 +23,7 @@ test.afterEach(async () => {
 async function join(name: RoomName<"m9-help">, browser: Parameters<typeof joinRoom>[0], still = false, options?: BrowserContextOptions): Promise<Page> {
   // `still`: reduced motion, so idle avatars don't breathe and the canvas draws only when something happens.
   const contextOptions: BrowserContextOptions = { ...options, ...(still ? { reducedMotion: "reduce" as const } : {}) };
-  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, contextOptions: () => contextOptions });
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, contextOptions: () => contextOptions, tour: true });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.connectionStatus)).toHaveText("");
@@ -84,22 +84,36 @@ async function overlaps(a: Locator, b: Locator): Promise<boolean> {
 
 const focusedTestId = (page: Page): Promise<string | null> => page.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? null);
 
-test("first visit: the hint shows, politely, clear of the picture and the composer; sitting dismisses it; a reload doesn't bring it back", async ({ browser }) => {
+test("first visit: three chips, a status each, beside the floor, the message field and People, never over the composer; Got it walks them; a reload shows none; Show tips again brings them back and Skip ends them", async ({ browser }) => {
   const page = await join("hint", browser);
   const hint = page.locator(site.firstHint);
+  const next = page.locator(site.hintNext);
   await expect(hint).toBeVisible();
-  await expect(hint).toContainText("Click a seat to sit · type to chat · T for emotes · F for full screen");
-  await expect(page.locator(`${site.firstHint}[aria-live=polite], ${site.firstHint} [aria-live=polite]`)).toHaveCount(1);
-  expect(await overlaps(hint, page.locator(site.tv))).toBe(false);
-  expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
-
-  await page.locator(`${site.seat}[data-seat="0"]`).click();
+  await expect(hint).toHaveAttribute("role", "status");
+  const steps = ["Click the floor to walk, double-click to jog", "Type / for commands, or open ✦", "Pick colours and a hat in People"];
+  for (const words of steps) {
+    await expect(hint).toContainText(words);
+    expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
+    await next.click();
+  }
   await expect(hint).toBeHidden();
+  expect(await page.evaluate(() => localStorage.getItem("omega.hints"))).toBe('{"seen":true}');
 
   // A reload goes straight back in with this tab's session (ADR 0043): no Enter form.
   await page.reload();
   await expect(page.locator(site.connectionStatus)).toHaveText("");
   await page.waitForTimeout(500);
+  await expect(hint).toBeHidden();
+
+  await page.locator(site.helpKey).click();
+  await page.locator(site.helpTips).click();
+  await expect(page.locator(site.helpDialog)).toBeHidden();
+  await expect(hint).toContainText(steps[0] ?? "");
+  // Never blocks input: the message field takes typing while the chip is up.
+  await page.locator(site.chatInput).fill("still typing");
+  await expect(page.locator(site.chatInput)).toHaveValue("still typing");
+  await expect(hint).toBeVisible();
+  await page.locator(site.hintSkip).click();
   await expect(hint).toBeHidden();
 });
 
@@ -163,28 +177,26 @@ test("the help key in the room bar opens it too, and focus goes back to the key"
 
 const inDialog = (page: Page): Promise<boolean> => page.evaluate(() => document.activeElement?.closest("[data-testid=help-dialog]") != null);
 
-test("phone (touch): the hint sits in the viewport clear of the picture and the composer, the help key opens the dialog by tap, it fits and scrolls, Close is a finger-sized target and returns focus to the key", async ({ browser }) => {
+test("phone (touch): each chip sits in the viewport clear of the composer, the help key opens the dialog by tap, it fits and scrolls, Close is a finger-sized target and returns focus to the key", async ({ browser }) => {
   const page = await join("touch", browser, false, devices["Pixel 7"]);
   const viewport = page.viewportSize();
   if (viewport === null) throw new Error("no viewport");
-  await page.locator('[data-testid="portrait-settings"]').tap();
   const hint = page.locator(site.firstHint);
-  await hint.scrollIntoViewIfNeeded();
   await expect(hint).toBeVisible();
-  await expect(hint).toContainText("Tap a seat to sit");
-  const box = await hint.boundingBox();
-  if (box === null) throw new Error("hint not laid out");
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
-  expect(await overlaps(hint, page.locator(site.tv))).toBe(false);
-  await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
-  expect(await hint.evaluate((el) => el.closest('[data-testid="portrait-sheet"]') !== null)).toBe(true);
+  await expect(hint).toContainText("Click the floor to walk");
   const wide = (): Promise<boolean> => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth || document.body.scrollWidth > document.body.clientWidth);
-  expect(await wide()).toBe(false);
-
-  await page.locator('[data-testid="portrait-sheet-close"]').tap();
+  for (let i = 0; i < 3; i += 1) {
+    const box = await hint.boundingBox();
+    if (box === null) throw new Error("hint not laid out");
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
+    expect(await wide()).toBe(false);
+    await page.locator(site.hintNext).tap();
+  }
+  await expect(hint).toBeHidden();
 
   const key = page.locator(site.helpKey);
   await key.scrollIntoViewIfNeeded();
@@ -250,7 +262,7 @@ test("reduced motion: the hint and the help dialog appear and go with no animati
   // Gone at once on dismiss: hidden in the same task as the click.
   expect(
     await hint.evaluate((e) => {
-      e.querySelector<HTMLElement>("[data-testid=first-hint-close]")?.click();
+      e.querySelector<HTMLElement>("[data-testid=hint-skip]")?.click();
       return e instanceof HTMLElement && e.hidden && getComputedStyle(e).display === "none";
     }),
   ).toBe(true);

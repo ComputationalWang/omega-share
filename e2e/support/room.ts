@@ -35,12 +35,14 @@ export interface JoinOptions {
   readonly setup?: (context: BrowserContext, index: number) => Promise<void>;
   /** Context options per client, e.g. a phone (`devices["Pixel 7"]`) for some of them. */
   readonly contextOptions?: (index: number) => BrowserContextOptions | undefined;
+  /** Keep the first-visit tour on (OME-1587); off by default (watchCsp). */
+  readonly tour?: boolean;
 }
 
-export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester", setup, contextOptions }: JoinOptions): Promise<Client[]> {
+export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester", setup, contextOptions, tour = false }: JoinOptions): Promise<Client[]> {
   return Promise.all(
     Array.from({ length: count }, async (_, i) => {
-      const context = await watchCsp(await browser.newContext(contextOptions?.(i)));
+      const context = await watchCsp(await browser.newContext(contextOptions?.(i)), { tour });
       await stubExternalNetwork(context);
       throttleContext(context);
       await setup?.(context, i);

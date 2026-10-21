@@ -405,10 +405,10 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
-/* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so the first-visit
- * hint (the help key says the same) and Up next's empty-state art give way. Kept after the base rules it overrides (QA OME-1309). */
+/* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so
+ * Up next's empty-state art gives way. Kept after the base rules it overrides (QA OME-1309). */
 @media (max-height: 500px) {
-  .room-wide > .first-hint, .room-side .ui-qempty > :first-child { display: none; }
+  .room-side .ui-qempty > :first-child { display: none; }
   /* QA OME-1305: no 40 % cap; Up next sizes to its content, its list scrolling above a link field
    * that stays put (the portrait sheet's pattern). The field gets the row: the link glyph goes, Add keeps only its icon. */
   .room-side > .queue-panel { display: flex; flex-direction: column; gap: 4px; flex-shrink: 1; min-height: 0; max-height: none; padding: 4px; overflow: hidden; }
@@ -479,11 +479,18 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }
 /* OME-776: on touch the wheel's chip names the sticker without its key ("1"): there's no keyboard to press it on. */
 @media (pointer: coarse), (hover: none) { .ui-wheel-label .ui-kbd { display: none; } }
-/* M9 W2 (OME-768): the first-visit hint in the flow under the room bar (never over the picture or the composer), the "?"
- * help dialog on the report dialog's scrim, and "Room not found". Plain chrome until a design set skins them; no motion. */
-.first-hint { --ui-px: 1px; display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 4px 4px 4px 10px; }
-.first-hint[hidden] { display: none; }
-.first-hint-text { flex: 1; margin: 0; font-size: 13px; font-weight: 600; color: var(--ui-text); }
+/* OME-1587: the first-visit tour's chip, fixed beside what it talks about (hints.ts places it), under the emote wheel. A
+ * short slide-in, none under reduced motion. M9 W2 (OME-768): the "?" help dialog on the report dialog's scrim, and
+ * "Room not found". Plain chrome until a design set skins them. */
+.hint-chip { --ui-px: 1px; position: fixed; z-index: 20; box-sizing: border-box; max-width: min(320px, calc(100vw - 16px)); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 6px 6px 10px; }
+.hint-chip[hidden] { display: none; }
+/* Never blocks the room: a click on its words reaches the floor under it; only its two keys take one. */
+.hint-chip, .hint-chip-text { pointer-events: none; }
+.hint-chip-acts { pointer-events: auto; }
+.hint-chip-text { flex: 1 1 160px; margin: 0; font-size: 13px; font-weight: 600; color: var(--ui-text); }
+.hint-chip-acts { display: flex; gap: 6px; margin-left: auto; }
+@media (prefers-reduced-motion: no-preference) { .hint-chip { animation: hint-in 160ms ease-out; } }
+@keyframes hint-in { from { opacity: 0; translate: 0 6px; } }
 .help-key { font-weight: 700; min-width: 28px; }
 /* M9 W3 (OME-769): "Hide for me". The People key sits beside "?"; its list is in the flow under the room bar (never over
  * the picture). A hidden person's name tag and avatar are dimmed (the avatar by alpha, room-view.ts), set once per change. */

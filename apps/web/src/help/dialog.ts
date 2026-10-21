@@ -1,7 +1,7 @@
 // The "?" help dialog (OME-768, M9 W2). A key in the room bar, or `?` under T's rules (never in a text field, never with
 // Ctrl/Alt/Meta, never over another dialog), opens a modal <dialog>: the keyboard and touch controls, the owner's tools
 // (owners only), how to report a room, and the footer pages. Its content is static DOM built on the first open; nothing
-// in it touches the room's canvas. Focus is trapped inside and goes back where it was. Text, plus the Cinema dim checkbox (OME-1406).
+// in it touches the room's canvas. Focus is trapped inside and goes back where it was. Text, plus the Cinema dim checkbox (OME-1406) and Show tips again (OME-1587).
 import { el } from "../controls/dom";
 
 export interface HelpOptions {
@@ -9,6 +9,8 @@ export interface HelpOptions {
   readonly owner: () => boolean;
   /** The Cinema dim setting (OME-1406): a checkbox in the dialog. */
   readonly cinema?: { on(): boolean; set(on: boolean): void };
+  /** Show tips again (OME-1587): starts the first-visit tour over; the dialog closes first. */
+  readonly tips?: () => void;
 }
 
 export interface Help {
@@ -123,7 +125,16 @@ export function createHelp(o: HelpOptions): Help {
       settings.append(label);
       cinemaBox = box;
     }
-    settings.hidden = cinema === undefined;
+    const tips = o.tips;
+    if (tips !== undefined) {
+      const again = el("button", { type: "button", className: "ui-button secondary", textContent: "Show tips again" }, "help-tips");
+      again.addEventListener("click", () => {
+        closeHelp();
+        tips();
+      });
+      settings.append(again);
+    }
+    settings.hidden = cinema === undefined && tips === undefined;
 
     const owner = section("Your room's tools", "help-owner");
     owner.append(list(OWNER));

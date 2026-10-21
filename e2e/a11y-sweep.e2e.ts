@@ -151,8 +151,9 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function newPage(browser: Browser, vp: VP, secrets?: string): Promise<Page> {
-  const context = await watchCsp(await browser.newContext(vp.opts));
+/** `tour`: a first visit, with the first-visit tour (OME-1587) up; only the guest pass audits it. */
+async function newPage(browser: Browser, vp: VP, secrets?: string, tour = false): Promise<Page> {
+  const context = await watchCsp(await browser.newContext(vp.opts), { tour });
   contexts.push(context);
   if (secrets !== undefined) {
     await context.addInitScript(
@@ -215,13 +216,15 @@ VIEWPORTS.forEach((vp, i) => {
     });
 
     test("room as guest: rest, help, report, share sheet, people, full screen, pop-outs", async ({ browser }) => {
-      const page = await newPage(browser, vp);
+      const page = await newPage(browser, vp, undefined, true);
       const skipped: string[] = [];
       await page.goto(testRoom("a11y-sweep", ROOMS[i] ?? "w1280").url);
       await enter(page, `sweep${String(i)}`);
       // The camera key (OME-1565) is in the room bar but the portrait one (/snap there), so "guest rest" audits it.
       const portrait = await page.locator(".room-portrait").count();
       await expect(page.locator(site.snapKey)).toBeVisible({ visible: portrait === 0 });
+      // A first visit: the tour's first chip (OME-1587) is up during "guest rest", so the audit covers it.
+      await expect(page.locator(site.firstHint)).toBeVisible();
       await audit(page, vp.name, "guest rest");
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
       await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
