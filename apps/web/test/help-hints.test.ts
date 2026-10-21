@@ -35,6 +35,8 @@ const blocked = {
 async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = memoryStore()) {
   const { createHints } = await import("../src/help/hints");
   const anchors = [document.createElement("div"), document.createElement("form"), document.createElement("button")];
+  // happy-dom lays nothing out: each anchor reports a box, as on a real page.
+  for (const a of anchors) a.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 200, width: 300, height: 100 });
   const after = document.createElement("button");
   const asked: number[] = [];
   const hints = createHints({
@@ -174,5 +176,23 @@ describe("the first-visit tour", () => {
     key("hint-next")?.focus();
     key("hint-next")?.click();
     expect(document.activeElement).toBe(key("hint-next"));
+  });
+
+  test("an anchor with no box (the stage behind People on a phone) hides the chip, never pins it to the viewport's top over the room bar; it's back once the anchor is", async () => {
+    const { hints, key, after } = await setup();
+    const floor = document.querySelector("div");
+    if (floor === null) throw new Error("no anchor");
+    hints.show();
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("208px");
+    key("hint-next")?.focus();
+    floor.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 0, height: 0 });
+    window.dispatchEvent(new Event("resize"));
+    expect(hints.root.style.visibility).toBe("hidden");
+    expect(document.activeElement).toBe(after);
+    expect(hints.isOpen()).toBe(true);
+    floor.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 200, width: 300, height: 100 });
+    window.dispatchEvent(new Event("resize"));
+    expect(hints.root.style.visibility).toBe("");
   });
 });
