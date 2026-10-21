@@ -11,7 +11,7 @@ import { createAnimator, type FurnitureLoop } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
 import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
-import { createWalks, emptyPose, type Dir } from "./walk/walks";
+import { createWalks, emptyPose, type Dir, type Pose } from "./walk/walks";
 import { wearsBare, wornHat } from "./accessory/hat";
 import type { TintableSheets } from "./walk/tint-sheets";
 import type { AccessoryAtlas } from "./accessory/accessories-sheet";
@@ -56,6 +56,14 @@ export interface RoomViewOptions {
   readonly roomId?: string;
   /** Server time now (clock.ts), so every client's cats change slot together; the local clock without one. */
   readonly serverNow?: () => number;
+  /** The room's sounds (OME-1638, audio/): each drawn pose (footfalls, sit/stand), the door, emote pops. */
+  readonly sound?: RoomSound;
+}
+
+/** What the room view tells the sound engine; room.ts forwards it to the lazy audio chunk once loaded. */
+export interface RoomSound {
+  pose(id: MemberId, pose: Pose): void;
+  play(name: string): void;
 }
 
 export interface RoomView {
@@ -466,6 +474,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     reducedMotion: () => reduced.matches,
     smooth: tier.smooth,
     onDoor: () => {
+      opts.sound?.play("door");
       arrive();
     },
     onTeleport: (from, to) => {
@@ -525,6 +534,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       }
       if (!pose.walking && (entry.walking || moved)) opts.onStop?.(id, x, y);
       entry.walking = pose.walking;
+      opts.sound?.pose(id, pose);
     },
     drawEmote(id, frame, x, y) {
       const entry = pool.get(id);
@@ -1117,6 +1127,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     paused: () => paused,
     renders: () => renders,
     emote(id, kind) {
+      opts.sound?.play("pop");
       animator.emote(id, kind);
     },
     setDimmed(id, on) {

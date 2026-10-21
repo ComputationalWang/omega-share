@@ -6,6 +6,7 @@ import { PLACEHOLDER_RECIPES } from "./placeholder";
 import { parseRecipes } from "./recipes";
 
 export type { Sound } from "./engine";
+export { floorKinds, type FloorKind } from "./floor";
 
 export async function loadSound(o: Omit<SoundOptions, "recipes" | "makeContext">): Promise<Sound> {
   // A glob, so the build doesn't depend on the file being there yet.
