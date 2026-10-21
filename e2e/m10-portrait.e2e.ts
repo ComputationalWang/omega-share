@@ -17,6 +17,14 @@ test.afterEach(async () => {
   clients = [];
 });
 
+/** The sheet stops above the footer row (44 px on a touch screen, OME-1596): it covers no footer link. */
+async function clearOfFooter(sheet: Locator): Promise<void> {
+  const footer = await sheet.page().locator("body > .site-footer").boundingBox();
+  const box = await sheet.boundingBox();
+  if (footer === null || box === null) throw new Error("sheet or footer not laid out");
+  expect(box.y + box.height, "sheet bottom vs footer top").toBeLessThanOrEqual(footer.y + 0.5);
+}
+
 async function visibleInViewport(target: Locator, height: number): Promise<void> {
   await expect(target).toBeVisible();
   const box = await target.boundingBox();
@@ -138,6 +146,7 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     const sheet = page.locator('[data-testid="portrait-sheet"]');
     await expect(sheet).toBeVisible();
     await expect(page.locator(site.queueUrl)).toBeFocused();
+    await clearOfFooter(sheet);
     // Each retry uses fresh video IDs so existing queue state cannot satisfy this share assertion.
     const [firstVideo, nextVideo] = test.info().retry === 0
       ? ["dQw4w9WgXcQ", "9bZkp7q19f0"] as const
@@ -159,6 +168,7 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await expect(page.locator(site.chatLog)).toHaveAttribute("role", "log");
     await expect(page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
     await expect(page.locator(site.chatLog)).toBeFocused();
+    await clearOfFooter(sheet);
     for (let i = 0; i < 12; i++) {
       await page.keyboard.press("Tab");
       expect(await sheet.evaluate((el) => el.contains(document.activeElement))).toBe(true);
