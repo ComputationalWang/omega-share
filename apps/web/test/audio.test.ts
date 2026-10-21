@@ -225,6 +225,21 @@ describe("the sound engine", () => {
   });
 });
 
+describe("footfalls close together", () => {
+  test("the same sound again within 50 ms is merged into the one playing (walkers out of step, a conga line)", () => {
+    const t = setup();
+    t.sound.unlock();
+    t.sound.play("step.wood", 10);
+    t.fake.ctx.currentTime = 0.03;
+    t.sound.play("step.wood", 5);
+    t.sound.play("step.carpet", 5);
+    expect(t.freqs()).toEqual([101, 102]);
+    t.fake.ctx.currentTime = 0.06;
+    t.sound.play("step.wood", 5);
+    expect(t.freqs()).toEqual([101, 102, 101]);
+  });
+});
+
 describe("baked one-shots", () => {
   test("each one-shot is rendered once after unlock; then a play is one buffer source, not a node graph per layer", async () => {
     const rendered: number[] = [];
