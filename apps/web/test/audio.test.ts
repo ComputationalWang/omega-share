@@ -22,9 +22,9 @@ const param = (value = 0): FakeParam => ({
   setValueAtTime(v) {
     this.value = v;
   },
-  linearRampToValueAtTime() {},
-  exponentialRampToValueAtTime() {},
-  cancelScheduledValues() {},
+  linearRampToValueAtTime: () => undefined,
+  exponentialRampToValueAtTime: () => undefined,
+  cancelScheduledValues: () => undefined,
 });
 
 interface Started {
@@ -75,7 +75,7 @@ function fakeContext() {
       let s: Started | null = null;
       return {
         ...node(),
-        buffer: null as unknown,
+        buffer: null as { getChannelData(c: number): Float32Array } | null,
         loop: false,
         start: (at: number) => {
           s = { kind: "noise" as const, freq: 0, at, stoppedAt: null };
@@ -197,8 +197,8 @@ describe("the sound engine", () => {
     t.sound.unlock();
     for (const [i, d] of [10, 40, 20, 30].entries()) t.sound.play(["step.wood", "step.carpet", "step.tile", "chair.sit"][i] ?? "", d);
     t.sound.play("chair.stand", 5);
-    // step.carpet (40 px away) was stopped for the nearer chair.
-    expect(t.fake.started.find((s) => s.freq === 102)?.stoppedAt).toBe(0);
+    // step.carpet (40 px away) was cut (a short fade) for the nearer chair.
+    expect(t.fake.started.find((s) => s.freq === 102)?.stoppedAt).toBeLessThan(0.05);
     expect(t.freqs()).toContain(202);
     t.sound.play("ui.tick", 100);
     expect(t.freqs()).not.toContain(301);
@@ -248,7 +248,7 @@ describe("walk sounds from the drawn poses", () => {
   test("a walker far away loses to near ones once 4 voices play", () => {
     const t = setup({ listener: () => ({ x: 0, y: 0 }) });
     t.sound.unlock();
-    const ids = ["a", "b", "c", "d", "e"].map((s) => s as MemberId);
+    const ids: MemberId[] = ["a", "b", "c", "d", "e"];
     for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 1, x: i === 4 ? 500 : i }));
     for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 4, x: i === 4 ? 500 : i }));
     expect(t.fake.started).toHaveLength(4);
