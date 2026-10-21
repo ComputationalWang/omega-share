@@ -124,16 +124,18 @@ describe("the bubble queue", () => {
 });
 
 describe("the hide-chat toggle", () => {
-  test("named, pressed state follows; remembered per viewer", async () => {
+  test("named for its action, expanded state follows (OME-1593); remembered per viewer", async () => {
     const store = memory();
     const { chat, changes } = await make(store);
     expect(chat.toggle.ariaLabel).toBe("Hide chat");
-    expect(chat.toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(chat.toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(chat.toggle.hasAttribute("aria-pressed")).toBe(false);
     expect(chat.toggle.getAttribute("aria-keyshortcuts")).toBe("C");
     chat.setActive(true);
     chat.toggle.click();
     expect(chat.hidden()).toBe(true);
-    expect(chat.toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(chat.toggle.ariaLabel).toBe("Show chat");
+    expect(chat.toggle.getAttribute("aria-expanded")).toBe("false");
     expect(changes).toEqual([true]);
     expect(store.data.get("omega.fsChatHidden")).toBe("1");
     const again = await make(store);
@@ -165,11 +167,10 @@ describe("the hide-chat toggle", () => {
     expect(chat.hidden()).toBe(false);
   });
 
-  test("the pill says so and dims after ~3 s; a pointer move wakes it", async () => {
+  test("the handle dims after ~3 s while the chat is hidden; a pointer move wakes it", async () => {
     const { chat, c } = await make();
     chat.setActive(true);
     chat.setHidden(true);
-    expect(chat.toggle.textContent).toBe("Chat hidden · C");
     expect(chat.pill.classList.contains("is-idle")).toBe(false);
     c.advance(3000);
     expect(chat.pill.classList.contains("is-idle")).toBe(true);
@@ -180,19 +181,43 @@ describe("the hide-chat toggle", () => {
   });
 });
 
-describe("fullscreenLayout with the chat hidden: the picture is as big as it gets beside a bubble column, nothing under it", () => {
-  // YouTube's Required Minimum Functionality (ADR 0012): nothing of ours over any part of the player, so the bubbles get a
-  // column of their own at the right (the strip's box), never the picture's corner.
+describe("fullscreenLayout with the chat hidden: really full screen (OME-1593), the largest centred 16:9 picture", () => {
+  // Nothing of ours over the player (ADR 0012, YouTube's RMF): the show-chat handle keeps a 44 px margin on its edge and
+  // the opposite one, so the picture stays centred; the bubbles get what the screen leaves, never the picture.
   test.each([
-    [1280, 720, { x: 0, y: 62, w: 1060, h: 596 }, { x: 1060, y: 0, w: 220, h: 720 }],
-    [844, 390, { x: 0, y: 2, w: 684, h: 385 }, { x: 684, y: 0, w: 160, h: 390 }],
-    [1280, 1024, { x: 0, y: 214, w: 1060, h: 596 }, { x: 1060, y: 0, w: 220, h: 1024 }],
-    [2560, 1080, { x: 210, y: 0, w: 1920, h: 1080 }, { x: 2130, y: 0, w: 430, h: 1080 }],
-  ])("%i×%i", (w, h, tv, strip) => {
+    // A 16:9 desktop: only the handle's margins; no room for bubbles.
+    [1280, 720, { x: 44, y: 24, w: 1192, h: 671 }, { x: 1236, y: 0, w: 0, h: 720 }, { x: 1236, y: 338, w: 44, h: 44 }, "left"],
+    // A phone held sideways: its letterbox already holds the handle, so nothing is reserved.
+    [844, 390, { x: 75, y: 0, w: 693, h: 390 }, { x: 768, y: 0, w: 0, h: 390 }, { x: 800, y: 173, w: 44, h: 44 }, "left"],
+    // Ultrawide: bubbles beside the picture, clear of the handle.
+    [2560, 1080, { x: 320, y: 0, w: 1920, h: 1080 }, { x: 2240, y: 0, w: 276, h: 1080 }, { x: 2516, y: 518, w: 44, h: 44 }, "left"],
+    // A phone in portrait: the picture centred, bubbles under it, the handle at the bottom edge.
+    [390, 844, { x: 0, y: 312, w: 390, h: 219 }, { x: 0, y: 531, w: 390, h: 269 }, { x: 173, y: 800, w: 44, h: 44 }, "up"],
+  ] as const)("%i×%i", (w, h, tv, strip, handle, arrow) => {
     const l = fullscreenLayout(w, h, "youtube", "hidden");
     expect(l.at).toBe("hidden");
     expect(l.tv).toEqual(tv);
     expect(l.strip).toEqual(strip);
     expect(l.controls).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+    expect(l.handle).toEqual({ ...handle, arrow });
+  });
+});
+
+describe("fullscreenLayout's chat handle (OME-1593): centred on the open strip's edge, pointing where the chat goes", () => {
+  test.each([
+    [844, 390, "side", { x: 636, y: 173, w: 44, h: 44 }, "right"],
+    [1280, 720, "side", { x: 980, y: 338, w: 44, h: 44 }, "right"],
+    [390, 844, "below", { x: 173, y: 279, w: 44, h: 44 }, "down"],
+  ] as const)("%i×%i", (w, h, at, handle, arrow) => {
+    const l = fullscreenLayout(w, h, "youtube", "open");
+    expect(l.at).toBe(at);
+    expect(l.handle).toEqual({ ...handle, arrow });
+    // Inside the strip, so never over the picture or the shelf.
+    expect(handle.x).toBeGreaterThanOrEqual(l.strip.x);
+    expect(handle.y).toBeGreaterThanOrEqual(l.strip.y);
+  });
+
+  test("no handle where the room is popped out", () => {
+    expect(fullscreenLayout(1280, 720, "youtube", "none").handle).toBeUndefined();
   });
 });

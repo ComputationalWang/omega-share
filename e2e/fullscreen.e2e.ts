@@ -293,33 +293,41 @@ test("CSS mode: Tab stays inside the wrapper, and after a reload it still enters
   await expect(root).not.toHaveClass(/is-pseudo-fs/);
 });
 
-// OME-1491: hide chat. The strip and the shelf go, the picture takes the wrapper, others' lines show beside it for ~6 s.
+interface Box { x: number; y: number; width: number; height: number }
+const disjoint = (p: Box, q: Box): boolean => p.x + p.width <= q.x || q.x + q.width <= p.x || p.y + p.height <= q.y || q.y + q.height <= p.y;
+
+// OME-1491 / OME-1593: hide chat. The strip and the shelf go, the picture takes the screen (the largest 16:9, centred),
+// others' lines show for ~6 s where the screen leaves room beside or under it.
 async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>): Promise<void> {
   const root = page.locator(site.fsRoot);
   await enter();
   const toggle = page.locator(site.fsChatToggle);
   await expect(toggle).toHaveAttribute("aria-label", "Hide chat");
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toHaveAttribute("aria-label", "Show chat");
   await expect(toggle).toBeVisible();
   await expect(page.locator(site.fsStrip)).toBeHidden();
   await expect(page.locator(site.chatInput)).toBeHidden();
   await expect(root.locator(".ui-tv-shelf")).toBeHidden();
-  // The picture fills the wrapper but for the bubbles' column at its right: nothing of ours over the player (ADR 0012).
+  // Centred, as big as it gets; nothing of ours over the player (ADR 0012), the handle included.
   const tv = await box(page.locator(site.tv));
   const r = await box(root);
+  expect(Math.abs(tv.x - r.x - (r.x + r.width - tv.x - tv.width))).toBeLessThanOrEqual(1);
+  expect(Math.abs(tv.y - r.y - (r.y + r.height - tv.y - tv.height))).toBeLessThanOrEqual(1);
+  expect(Math.max(tv.width / r.width, tv.height / r.height)).toBeGreaterThan(0.9);
+  expect(disjoint(await box(toggle), tv)).toBe(true);
   const bubbles = page.locator(site.fsBubbles);
-  const col = await box(bubbles);
-  expect(col.x).toBeGreaterThanOrEqual(tv.x + tv.width);
-  expect(col.x + col.width).toBeLessThanOrEqual(r.x + r.width + 1);
-  expect(tv.width + col.width).toBeGreaterThanOrEqual(r.width - 1);
-  expect((await box(page.locator(site.fsChatToggle))).x).toBeGreaterThanOrEqual(tv.x + tv.width);
   await expect(bubbles).toHaveAttribute("aria-live", "polite");
+  expect(await bubbles.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe("none");
+  const col = await bubbles.boundingBox();
+  // A 16:9 screen or a phone held sideways leaves no room for them (OME-1593): the lines stay in the chat.
+  if (col === null || col.width < 100) return;
+  expect(disjoint(col, tv)).toBe(true);
   await say(other, "seen as a bubble");
   const bubble = bubbles.getByText("seen as a bubble");
   await expect(bubble).toBeVisible();
-  expect(await bubbles.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe("none");
   await expect(bubble).toHaveCount(0, { timeout: 9000 });
 }
 
@@ -333,7 +341,7 @@ test("hide chat in full screen: strip and shelf go, a line shows as a bubble and
   });
   await page.keyboard.press("c");
   await expect(page.locator(site.fsStrip)).toBeVisible();
-  await expect(page.locator(site.fsChatToggle)).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(site.fsChatToggle)).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("c");
   await expect(page.locator(site.fsStrip)).toBeHidden();
   await page.keyboard.press("f");
@@ -344,7 +352,7 @@ test("hide chat in full screen: strip and shelf go, a line shows as a bubble and
   await page.locator(site.fullscreenToggle).click();
   await expect.poll(() => inFullscreen(page)).toBe(true);
   await expect(page.locator(site.fsStrip)).toBeHidden();
-  await expect(page.locator(site.fsChatToggle)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(site.fsChatToggle)).toHaveAttribute("aria-expanded", "false");
 });
 
 test("hide chat in the CSS mode on a phone held sideways", async ({ browser }) => {
@@ -363,4 +371,63 @@ test("hide chat in the CSS mode on a phone held sideways", async ({ browser }) =
   await expect(page.locator(site.fsStrip)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(root).not.toHaveClass(/is-pseudo-fs/);
+});
+
+/**
+ * Inside the viewport, not covered, and 44×44 to the finger (OME-1593): the key's own box or its touch hit area (the
+ * chrome's transparent ::before, assets/ui/reference.css) answers a tap at its centre and 21 px either way.
+ */
+async function tappable(page: Page, l: Locator): Promise<void> {
+  await expect(l).toBeVisible();
+  const b = await box(l);
+  const vp = page.viewportSize();
+  const cx = b.x + b.width / 2;
+  const cy = b.y + b.height / 2;
+  const id = await l.getAttribute("data-testid");
+  for (const [x, y] of [[cx, cy], [cx - 21, cy - 21], [cx + 21, cy - 21], [cx - 21, cy + 21], [cx + 21, cy + 21]] as const) {
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
+    expect(x).toBeLessThanOrEqual(vp?.width ?? 0);
+    expect(y).toBeLessThanOrEqual(vp?.height ?? 0);
+    const hit = await page.evaluate((p) => document.elementFromPoint(p.x, p.y)?.closest("button")?.dataset["testid"] ?? null, { x, y });
+    expect(hit, `tap at ${String(x)},${String(y)}`).toBe(id);
+  }
+}
+
+test("a phone in portrait: the full-screen key is tappable in the room and in full screen", async ({ browser }) => {
+  const [a] = await join(browser, "portraitkey", 1, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  if (!a) throw new Error("no client");
+  const page = a.page;
+  const key = page.locator(site.fullscreenToggle);
+  await tappable(page, key);
+  await key.click();
+  await expect(page.locator(site.fsStrip)).toBeVisible();
+  await page.evaluate(() => { window.scrollTo(0, 0); });
+  await tappable(page, key);
+});
+
+test("a phone in portrait: the handle on the strip's top edge hides the chat, then brings it back from the screen's bottom edge", async ({ browser }) => {
+  const [a, b] = await join(browser, "handle", 2, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  if (!a || !b) throw new Error("need 2 clients");
+  const page = a.page;
+  const handle = page.locator(site.fsChatToggle);
+  await hideChatFlow(page, b.page, async () => {
+    await page.locator(site.fullscreenToggle).click();
+    await expect(page.locator(site.fsStrip)).toBeVisible();
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    const s = await box(page.locator(site.fsStrip));
+    const t = await box(handle);
+    expect(Math.abs(t.x + t.width / 2 - (s.x + s.width / 2))).toBeLessThanOrEqual(1);
+    expect(t.y).toBeCloseTo(s.y, 0);
+    await tappable(page, handle);
+  });
+  // At the screen's bottom edge now; the keyboard reaches it too.
+  const t = await box(handle);
+  expect(t.y + t.height).toBeCloseTo(844, 0);
+  expect(Math.abs(t.x + t.width / 2 - 195)).toBeLessThanOrEqual(1);
+  await tappable(page, handle);
+  await handle.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(site.fsStrip)).toBeVisible();
+  await expect(handle).toHaveAttribute("aria-expanded", "true");
 });

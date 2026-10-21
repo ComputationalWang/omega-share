@@ -1,6 +1,6 @@
 // Full screen's "hide chat" (OME-1491, board OME-1488): a video-only view where people stay present as bubbles. While
 // full screen lasts and the viewer hid the chat, the strip and the shelf go (room-layout.ts, layout.ts "hidden") and each
-// line from someone else shows in a column beside the picture (the strip's box, at its right): the speaker's head (the
+// line from someone else shows where the screen leaves room beside or under the picture (the strip's box; OME-1593): the speaker's head (the
 // landing's avatar sheet, no new art), nickname and text, clamped to 2 lines. At most 4, the oldest out first, each gone
 // after ~6 s. CSS does the drift and the fade (transform/opacity, room.css); JS only adds and removes nodes, one timer
 // per bubble.
@@ -16,8 +16,6 @@ export interface FsChatOptions<H> {
   readonly store: { getItem(k: string): string | null; setItem(k: string, v: string): void } | null;
   readonly setTimer: (fn: () => void, ms: number) => H;
   readonly clearTimer: (h: H) => void;
-  /** Where the toggle sits while the chat shows (the strip's head). */
-  readonly home?: HTMLElement;
   /** The effective hidden state changed (full screen and the choice): the layout follows. */
   readonly onChange: (hidden: boolean) => void;
 }
@@ -25,7 +23,7 @@ export interface FsChatOptions<H> {
 export interface FsChat {
   /** The bubbles' column, beside the picture: polite, never takes the pointer. */
   readonly bubbles: HTMLElement;
-  /** The top-corner pill that holds the toggle while the chat is hidden. */
+  /** The handle (OME-1593) that holds the toggle: the layout places it on the strip's edge or the screen's. */
   readonly pill: HTMLElement;
   readonly toggle: HTMLButtonElement;
   /** Full screen is on and the viewer hid the chat. */
@@ -53,7 +51,8 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
   const bubbles = el("div", { className: "fs-bubbles", ariaLabel: "Chat bubbles", hidden: true }, "fs-bubbles");
   bubbles.setAttribute("aria-live", "polite");
   const pill = el("div", { className: "fs-chat-pill", hidden: true });
-  const toggle = el("button", { type: "button", className: "ui-button self fs-chat-toggle", ariaLabel: "Hide chat" }, "fs-chat-toggle");
+  const toggle = el("button", { type: "button", className: "ui-button self icon fs-chat-toggle", ariaLabel: "Hide chat" }, "fs-chat-toggle");
+  pill.append(toggle);
   toggle.setAttribute("aria-keyshortcuts", "C");
   let chosen = readStored(o.store);
   let active = false;
@@ -83,17 +82,10 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
   };
   const render = (): void => {
     const next = active && chosen;
-    toggle.setAttribute("aria-pressed", String(chosen));
-    // Short in the strip's head: a phone's narrow strip also holds the emote, pop-out and collapse keys there.
-    toggle.textContent = next ? "Chat hidden · C" : "Hide";
-    // One key, two homes: the pill while hidden, the strip's head otherwise. Focus survives the move.
-    const home = next ? pill : o.home;
-    if (home !== undefined && toggle.parentElement !== home) {
-      const focused = document.activeElement === toggle;
-      home.append(toggle);
-      if (focused) toggle.focus({ preventScroll: true });
-    }
-    pill.hidden = !next;
+    toggle.ariaLabel = next ? "Show chat" : "Hide chat";
+    toggle.setAttribute("aria-expanded", String(!next));
+    // The layout shows and places the handle (room-layout.ts); out of full screen it goes.
+    if (!active) pill.hidden = true;
     bubbles.hidden = !next;
     if (next === shown) return;
     shown = next;
