@@ -186,6 +186,8 @@ export interface FullscreenLayout {
   readonly controls: Rect;
   readonly strip: Rect;
   readonly compact: { readonly tv: boolean; readonly controls: boolean };
+  /** The hide/show-chat handle (OME-1593), 44 px: on the open strip's edge, or the screen's while hidden. `arrow`: where tapping moves the chat. */
+  readonly handle?: Rect & { readonly arrow: "left" | "right" | "up" | "down" };
 }
 
 export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode | "none" | "hidden"): FullscreenLayout {
