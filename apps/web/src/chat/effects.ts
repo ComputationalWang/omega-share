@@ -10,6 +10,7 @@ export type SlashCommand =
   | { readonly type: "help" }
   | { readonly type: "snap" }
   | { readonly type: "sit" }
+  | { readonly type: "pet" }
   | { readonly type: "roll"; readonly sides: number }
   | { readonly type: "roll-usage" }
   | { readonly type: "poll"; readonly question: string; readonly options: readonly string[] }
@@ -42,6 +43,7 @@ export function slashCommand(text: string): SlashCommand | null {
     case "help":
     case "snap":
     case "sit":
+    case "pet": // OME-1669
       return rest !== "" ? null : { type: c.name };
     case "roll": {
       if (rest === "") return { type: "roll", sides: 6 };

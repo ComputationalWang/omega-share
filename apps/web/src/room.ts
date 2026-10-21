@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
+import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -37,6 +37,8 @@ import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
 import { CONGA_FULL_LINE, DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { hugHint, hugStep, matchMember } from "./chat/hug";
+import { cellOf as cellIndex, colOf, rowOf, walkGrid } from "./walk/path";
+import { isPetting, petSpot } from "./walk/pet";
 import { attachMentionComplete } from "./chat/complete";
 import { mentionOptions } from "./chat/mention";
 import type { SystemLine } from "./controls/sysline";
@@ -168,7 +170,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   // /hug and /highfive (OME-1453): the walk over that's on its way, and the emote it ends with once I've stopped there.
-  let hug: { readonly target: MemberId; readonly cell: FloorCell; readonly kind: EmoteKind; arrived: boolean } | null = null;
+  let hug: { readonly target: MemberId | null; readonly cell: FloorCell; readonly kind: EmoteKind; arrived: boolean } | null = null;
   function hugNow(): void {
     const kind = hug?.kind;
     hug = null;
@@ -194,6 +196,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       layout.seats(points);
     },
     onFloor: (cell, run) => {
+      // A tap on a cat's cell pets it (OME-1669); a cat's cell isn't somewhere to walk anyway.
+      if (roomStage.catCells().includes(cellIndex(cell.x, cell.y))) return startPet();
       quitConga();
       stopFollow();
       return walkTo(cell, run);
@@ -1030,6 +1034,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
     if (cmd.type === "hug") return startHug(cmd.kind, cmd.name);
+    if (cmd.type === "pet") return startPet();
     if (cmd.type === "sit") return floorSit();
     if (cmd.type === "snap") return snap();
     hint(cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
@@ -1065,10 +1070,46 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     hint(hugHint(`No free spot beside ${m.nickname}`));
     return true;
   }
+  /** /pet or a tap on the cat (OME-1669): walk beside the nearest cat, then the heart (at once if I'm beside one). Zero wire. */
+  function startPet(): boolean {
+    const room = state.room;
+    const self = state.self;
+    const me = self === null ? null : (room?.members.find((m) => m.id === self)?.cell ?? roomStage.cellOf(self));
+    if (room === null || state.status !== "open" || me === null) return false;
+    const cats = roomStage.catCells();
+    if (cats.length === 0) {
+      hint(hugHint("There's no cat here"));
+      return true;
+    }
+    hug = null;
+    const here = cellIndex(me.x, me.y);
+    if (isPetting(here, cats)) return picker.emote("heart");
+    const taken = new Set<number>();
+    for (const m of room.members) if (m.cell !== undefined && m.id !== self) taken.add(cellIndex(m.cell.x, m.cell.y));
+    const spot = petSpot(walkGrid(room.layout ?? DEFAULT_LAYOUT), cats, here, taken);
+    if (spot === null) {
+      hint(hugHint("No free spot beside the cat"));
+      return true;
+    }
+    quitConga();
+    stopFollow();
+    const cell = { x: colOf(spot), y: rowOf(spot) };
+    walkGate.push({ type: "walk", cell });
+    hug = { target: null, cell, kind: "heart", arrived: false };
+    return true;
+  }
   // Crowd applause (OME-1389): from the relayed emotes only (a chat sticker isn't one), so every client agrees.
   const applause = createApplause();
   const relayedEmote = (id: MemberId, kind: EmoteKind): void => {
-    emoted(id, kind);
+    // A heart from beside a cat is a pet (OME-1669): the avatar reaches out (a wave for now), the cat gets the heart. Reduced motion: the plain badge.
+    const at = kind === "heart" && !reducedMotion.matches ? roomStage.cellOf(id) : null;
+    const cats = at === null ? [] : roomStage.catCells();
+    const cat = at === null ? undefined : cats.find((c) => isPetting(cellIndex(at.x, at.y), [c]));
+    if (cat === undefined) emoted(id, kind);
+    else {
+      emoted(id, "wave");
+      roomStage.petCat(cat);
+    }
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
   };
   const kickedStore = sessionStorage;
