@@ -250,8 +250,26 @@ describe("walk sounds from the drawn poses", () => {
     t.sound.unlock();
     const ids: MemberId[] = ["a", "b", "c", "d", "e"];
     for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 1, x: i === 4 ? 500 : i }));
-    for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 4, x: i === 4 ? 500 : i }));
+    for (const [i, id] of ids.entries()) {
+      // A few ms apart, so they don't share one footfall (walkers in step, below).
+      t.fake.ctx.currentTime = i * 0.01;
+      t.sound.pose(id, pose({ walking: true, step: 4, x: i === 4 ? 500 : i }));
+    }
     expect(t.fake.started).toHaveLength(4);
+  });
+});
+
+describe("walkers in step", () => {
+  test("everyone steps on the shared clock: one footfall sound per floor at an instant, not one per walker", () => {
+    const t = setup({ floorAt: (p) => (p.x > 50 ? "carpet" : "wood") });
+    t.sound.unlock();
+    const ids: MemberId[] = ["a", "b", "c", "d", "e", "f"];
+    for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 1, x: i * 20 }));
+    for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 4, x: i * 20 }));
+    expect(t.freqs().sort()).toEqual([101, 102]);
+    t.fake.ctx.currentTime = 0.3;
+    for (const [i, id] of ids.entries()) t.sound.pose(id, pose({ walking: true, step: 0, x: i * 20 }));
+    expect(t.freqs().sort()).toEqual([101, 101, 102, 102]);
   });
 });
 
