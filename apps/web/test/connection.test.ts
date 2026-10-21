@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, type ServerMessage } from "@omega/shared";
+import { initialState, reduce, type ViewState } from "../src/state";
 import { HANDSHAKE_TIMEOUT_MS, REFUSED_RETRY_BUDGET_MS, createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
 
 class FakeSocket implements SocketLike {
@@ -108,7 +109,7 @@ describe("createConnection", () => {
     expect(sockets).toHaveLength(1);
     expect(events).toEqual([{ type: "connecting" }]);
     last().open();
-    expect(last().sent.map((s) => JSON.parse(s) as unknown)).toEqual([{ type: "join", nickname: "zoe", avatar: 1 }]);
+    expect(last().sent.map((s) => JSON.parse(s) as unknown)).toEqual([{ type: "join", nickname: "zoe", avatar: 1, batch: true }]);
   });
 
   test("onOpen runs before join, with the socket already sendable (clock pings go first)", () => {
@@ -121,7 +122,7 @@ describe("createConnection", () => {
     expect(opens).toBe(1);
     expect(last().sent.map((x) => JSON.parse(x) as unknown)).toEqual([
       { type: "ping", id: 7 },
-      { type: "join", nickname: "zoe", avatar: 1 },
+      { type: "join", nickname: "zoe", avatar: 1, batch: true },
     ]);
     last().drop();
     runTimer();
@@ -532,7 +533,7 @@ describe("created rooms (ADR 0028)", () => {
       clearTimer: () => undefined,
     });
     last().open();
-    expect(JSON.parse(last().sent.at(-1) ?? "null")).toEqual(join);
+    expect(JSON.parse(last().sent.at(-1) ?? "null")).toEqual({ ...join, batch: true });
   });
 });
 
@@ -570,19 +571,19 @@ describe("durable sessions (ADR 0043)", () => {
   test("a durable first join opts in with durableSession and no token", () => {
     durable();
     last().open();
-    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, durableSession: true }]);
+    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, durableSession: true, batch: true }]);
   });
 
   test("a non-durable connection sends the plain join", () => {
     durable({ durable: false });
     last().open();
-    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1 }]);
+    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, batch: true }]);
   });
 
   test("an initial token is sent as resumeToken, without durableSession", () => {
     durable({ resumeToken: TOKEN });
     last().open();
-    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN }]);
+    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN, batch: true }]);
   });
 
   test("the snapshot's token is reported, adopted and resent on reconnect instead of durableSession", () => {
@@ -593,7 +594,7 @@ describe("durable sessions (ADR 0043)", () => {
     last().drop();
     runRetry();
     last().open();
-    expect(joins()[1]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN }]);
+    expect(joins()[1]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN, batch: true }]);
   });
 
   test("a rotated token replaces the old one", () => {
@@ -680,7 +681,7 @@ describe("durable sessions (ADR 0043)", () => {
     c.reclaim();
     expect(sockets).toHaveLength(2);
     last().open();
-    expect(joins()[1]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN }]);
+    expect(joins()[1]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN, batch: true }]);
     c.reclaim();
     expect(sockets).toHaveLength(2);
   });
@@ -792,5 +793,40 @@ describe("durable sessions (ADR 0043)", () => {
     expect(timers.filter((t) => t.ms === 3000)).toHaveLength(1);
     last().receive({ type: "error", code: "rate_limited", message: "x" });
     expect(timers.some((t) => t.ms === 3000)).toBe(false);
+  });
+});
+
+// OME-1627: the connection opts in to relay `batch` frames and unwraps them, so nothing past it ever sees one.
+describe("batch frames", () => {
+  const walks: ServerMessage[] = Array.from({ length: 12 }, (_, i) => ({ type: "walked", memberId: "m2", cell: { x: i, y: 1 } }));
+  const member = { id: "m2", nickname: "bo", avatar: 1, seat: null };
+
+  function messagesAfter(frames: readonly (ServerMessage | string)[]): ServerMessage[] {
+    sockets = [];
+    events = [];
+    connect();
+    last().open();
+    last().receive({ ...snapshot, room: { ...snapshot.room, members: [member] } } as ServerMessage);
+    for (const f of frames) last().receive(f);
+    return events.flatMap((e) => (e.type === "message" ? [e.msg] : []));
+  }
+
+  test("a batch emits one message event per inner message, in order, never the batch itself", () => {
+    const msgs = messagesAfter([{ type: "batch", msgs: [{ type: "member-left", memberId: "m3" }, ...walks.slice(0, 2)] } as ServerMessage]);
+    expect(msgs.map((m) => m.type)).toEqual(["snapshot", "member-left", "walked", "walked"]);
+    expect(msgs.slice(2)).toEqual(walks.slice(0, 2));
+  });
+
+  test("12 walks in one batch reduce to the same state as 12 separate frames", () => {
+    const fold = (msgs: ServerMessage[]): ViewState => msgs.reduce((s, msg) => reduce(s, { type: "server", msg, now: 0 }), initialState);
+    const separate = messagesAfter(walks);
+    const batched = messagesAfter([{ type: "batch", msgs: walks } as ServerMessage]);
+    expect(batched).toEqual(separate);
+    expect(fold(batched)).toEqual(fold(separate));
+    expect(fold(batched).room?.members[0]?.cell).toEqual({ x: 11, y: 1 });
+  });
+
+  test("an invalid batch is dropped whole at the boundary", () => {
+    expect(messagesAfter([JSON.stringify({ type: "batch", msgs: [{ type: "batch", msgs: walks }] })]).map((m) => m.type)).toEqual(["snapshot"]);
   });
 });
