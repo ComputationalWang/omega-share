@@ -87,6 +87,9 @@ export interface Sound {
 }
 
 interface Voice {
+  readonly name: string;
+  /** When it started (context time): walkers step together on the shared clock, so a footfall at an instant plays once. */
+  readonly at: number;
   readonly distance: number;
   end: number;
   readonly cut: (at: number) => void;
@@ -162,7 +165,7 @@ export function createSound(o: SoundOptions): Sound {
   }
 
   /** Starts `r` now; a loop holds at its sustain until cut. A tone is never stolen (distance -Infinity). */
-  function start(c: AudioCtx, out: NodeLike, r: Recipe, loop: boolean, distance: number): Voice {
+  function start(c: AudioCtx, out: NodeLike, name: string, r: Recipe, loop: boolean, distance: number): Voice {
     const now = c.currentTime;
     const bus = c.createGain();
     bus.gain.value = r.gain;
@@ -204,6 +207,8 @@ export function createSound(o: SoundOptions): Sound {
     }
     const release = Math.max(CUT_S, ...r.layers.map((l) => (loop ? (l.env.r ?? 0) : 0)));
     return {
+      name,
+      at: now,
       distance,
       end: loop ? Infinity : end,
       cut(at) {
@@ -234,7 +239,7 @@ export function createSound(o: SoundOptions): Sound {
   function startTone(): void {
     const r = o.recipes.sounds[`tone.${mood}`];
     if (ctx === null || master === null || muted || r === undefined || toneVoice !== null) return;
-    toneVoice = start(ctx, master, r, true, -Infinity);
+    toneVoice = start(ctx, master, `tone.${mood}`, r, true, -Infinity);
     voices.push(toneVoice);
   }
   function stopTone(): void {
@@ -248,7 +253,11 @@ export function createSound(o: SoundOptions): Sound {
     const r = o.recipes.sounds[name];
     if (r === undefined) return;
     const now = ctx.currentTime;
-    for (let i = voices.length - 1; i >= 0; i--) if ((voices[i]?.end ?? 0) <= now) voices.splice(i, 1);
+    for (let i = voices.length - 1; i >= 0; i--) {
+      const v = voices[i];
+      if (v === undefined || v.end <= now) voices.splice(i, 1);
+      else if (v.at === now && v.name === name) return;
+    }
     if (voices.length >= MAX_VOICES) {
       let far = -1;
       for (let i = 0; i < voices.length; i++) if (far < 0 || (voices[i]?.distance ?? 0) > (voices[far]?.distance ?? 0)) far = i;
@@ -257,7 +266,7 @@ export function createSound(o: SoundOptions): Sound {
       v.cut(now);
       voices.splice(far, 1);
     }
-    voices.push(start(ctx, master, r, false, distance));
+    voices.push(start(ctx, master, name, r, false, distance));
   }
 
   return {
