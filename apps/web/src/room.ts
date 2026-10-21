@@ -689,6 +689,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     queue: queuePanel,
     notice,
     roomAway,
+    roomTop,
     invite,
     side,
     ownerBar: editBar,

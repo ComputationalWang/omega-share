@@ -31,7 +31,10 @@ export function createInviteControl(
   const label = el("label", { textContent: "Invite link" });
   const input = el("input", { type: "text", id: "invite-link", readOnly: true, value: link }, "invite-link");
   label.htmlFor = input.id;
+  label.id = "invite-label";
   const copy = el("button", { type: "button", className: "invite-copy", textContent: "Copy" }, "invite-copy");
+  // A short screen shows Copy alone (room.css, OME-1595): the label still says what it copies.
+  copy.setAttribute("aria-describedby", label.id);
   const status = el("p", { className: "visually-hidden", role: "status" }, "invite-status");
   let reset: unknown = null;
   const stop = (): void => {

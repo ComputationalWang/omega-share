@@ -67,6 +67,8 @@ export interface RoomLayoutOptions {
   readonly notice: HTMLElement;
   /** The room's pop-out placeholder. */
   readonly roomAway: HTMLElement;
+  /** The room's head row (title, Photo, People, Help): the root's first child, or the chat column's on a short screen. */
+  readonly roomTop: HTMLElement;
   readonly invite: HTMLElement;
   /** The wide layout's right-hand column. */
   readonly side: HTMLElement;
@@ -308,8 +310,14 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     root.classList.toggle("room-wide", two);
     side.hidden = !two;
     // Wide: the room's placeholder, the invite and Up next head the chat column; otherwise they're back in the page's flow.
-    if (two) side.prepend(roomAway, invite, queuePanel.root);
-    else {
+    // Short (a phone held sideways, OME-1595): the head row and the invite's Copy key share the column's first row, so
+    // the left column's height goes to the picture and the floor.
+    if (two && o.short.matches) {
+      side.prepend(roomAway, o.roomTop, queuePanel.root);
+      o.roomTop.prepend(invite);
+    } else root.prepend(o.roomTop);
+    if (two && !o.short.matches) side.prepend(roomAway, invite, queuePanel.root);
+    else if (!two) {
       wrap.after(roomAway);
       notice.after(invite);
       tvBox.personal.after(queuePanel.root);
