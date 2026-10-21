@@ -117,6 +117,16 @@ pub const QUEUE_ENDED_TOLERANCE_S: f64 = 5.0;
 pub const ERROR_MESSAGE_MAX_LENGTH: usize = 200;
 /// Longest seekable playback position we accept, in seconds (12 h).
 pub const MAX_POSITION_S: f64 = 12.0 * 60.0 * 60.0;
+/// Most timed reactions the snapshot carries for the current item (OME-1625, ADR 0056); the server keeps the latest.
+pub const REACTIONS_MAX: usize = 256;
+/// A countdown `control` starts the room this long after the press (OME-1625, ADR 0056).
+pub const COUNTDOWN_MS: u64 = 3_000;
+/// A playback `startAt` is at most this long after its `at`.
+pub const COUNTDOWN_MAX_MS: u64 = 5_000;
+/// `MAX_POSITION_S` in whole seconds: the top of `StartSecondsSchema`.
+pub const MAX_START_SECONDS: u32 = 12 * 60 * 60;
+/// `MAX_POSITION_S` in ms: the top of `MediaMsSchema`.
+pub const MAX_MEDIA_MS: u64 = 12 * 60 * 60 * 1000;
 /// Shared playback rate range.
 pub const PLAYBACK_RATE_MIN: f64 = 0.25;
 pub const PLAYBACK_RATE_MAX: f64 = 2.0;

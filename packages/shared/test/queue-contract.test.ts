@@ -315,7 +315,7 @@ describe("frame size", () => {
     accepts(QueueItemSchema, queue[0]);
   });
 
-  test("a worst-case snapshot with a full queue and a full layout fits the client frame cap", () => {
+  test("a worst-case snapshot (full queue with start times, full layout, 256 reactions, a poll, a 12-long conga) fits the client frame cap", () => {
     const state = {
       id: "a".repeat(32),
       seats: members.slice(0, 8).map((m) => m.id),
@@ -323,11 +323,15 @@ describe("frame size", () => {
       embed: longGeneric(),
       playback: null,
       itemId: "c".repeat(32),
-      queue,
+      queue: queue.map((q) => ({ ...q, startSeconds: 43_200 })),
       controlPolicy: "owner",
       layout: { furniture: fullLayout() },
     };
-    const raw = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: state, shareToken: "a".repeat(22), resumeToken: "a".repeat(43), resumed: false, owner: true });
+    const raw = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: state, shareToken: "a".repeat(22), resumeToken: "a".repeat(43), resumed: false, owner: true,
+      // Movie night (OME-1625): a full reaction timeline at the longest member id, glyph and media time.
+      reactions: Array.from({ length: 256 }, (_, i) => ({ memberId: members[i % members.length]?.id, kind: "laugh", mediaMs: 43_200_000 })), peakMembers: 25,
+      poll: { pollId: "p".repeat(32), by: members[0]?.id, question: "W".repeat(80), options: Array.from({ length: 4 }, () => "W".repeat(40)), counts: [25, 0, 0, 0], endsAt: 1_800_000_000_000 },
+      conga: { ids: members.slice(0, 12).map((m) => m.id), last: 1_800_000_000_000 } });
     expect(new TextEncoder().encode(raw).length).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
     expect(parseServerMessage(raw)?.type).toBe("snapshot");
   });
