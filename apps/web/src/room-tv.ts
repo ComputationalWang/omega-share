@@ -10,7 +10,7 @@ import type { ExtensionBridge } from "./extension-bridge";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
 import type { ViewState } from "./state";
-import { genericFrame, tvFrame, type TvFrame } from "./tv";
+import { genericFrame, tvFrame, twitchFallbackFrame, type TvFrame, type TvIframe } from "./tv";
 
 export interface RoomTvOptions {
   readonly playback: PlaybackController;
@@ -123,6 +123,11 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
   const mount = createPlayerMounter(PLAYERS);
   /** What the TV shows now: the iframe we built, or the container a provider SDK renders into. */
   let tvScreen: HTMLElement | null = null;
+  const tvIframe = (f: TvIframe, testId = "shared-video"): HTMLIFrameElement => {
+    const iframe = el("iframe", { src: f.src, allow: f.allow, referrerPolicy: f.referrerPolicy, title: "Shared video" }, testId);
+    iframe.setAttribute("sandbox", f.sandbox);
+    return iframe;
+  };
   const mountPlayer = (embed: Embed, frame: TvFrame, screenEl: HTMLElement, iframe: HTMLIFrameElement | null): void => {
     syncNotice.hidden = true;
     // Only the shown embed's provider module and SDK load, and only now (ADR 0014, research §5).
@@ -133,6 +138,8 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
         return;
       }
       if (!r.ok) {
+        // No Twitch SDK means no player at all: show the plain player so the notice's "plays here" holds (OME-1665).
+        if (frame.kind === "twitch" && r.reason !== "invalid") screenEl.replaceChildren(tvIframe(twitchFallbackFrame(frame), "twitch-fallback"));
         syncNotice.textContent = mountErrorText(embed.provider, r.reason);
         syncNotice.hidden = false;
         return;
@@ -170,8 +177,7 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
         tvScreen = null;
         tv.replaceChildren(tvEmpty);
       } else if (tf.kind === "iframe") {
-        const iframe = el("iframe", { src: tf.src, allow: tf.allow, referrerPolicy: tf.referrerPolicy, title: "Shared video" }, "shared-video");
-        iframe.setAttribute("sandbox", tf.sandbox);
+        const iframe = tvIframe(tf);
         tvScreen = iframe;
         tv.replaceChildren(iframe);
         mountPlayer(embed, tf, iframe, iframe);

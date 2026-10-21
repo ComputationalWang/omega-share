@@ -31,8 +31,8 @@ export function mountErrorText(provider: Provider, reason: MountFailure): string
   switch (reason) {
     case "load-failed":
     case "timeout":
-      // Firefox's strict tracking protection blocks player.twitch.tv (Disconnect "Content" list, OME-1665); we can't fix that.
-      return `The video plays here without sync: the ${NAMES[provider]} player API didn't load. Tracking protection or a content blocker in your browser may be stopping it.`;
+      // A content blocker that drops the SDK script (OME-1665) is outside our control.
+      return `The video plays here without sync: the ${NAMES[provider]} player API didn't load. A content blocker in your browser may be stopping it.`;
     case "unsupported":
       return `Sync for ${NAMES[provider]} videos isn't ready yet.`;
     case "invalid":
