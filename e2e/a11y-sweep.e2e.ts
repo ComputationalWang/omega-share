@@ -151,8 +151,9 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function newPage(browser: Browser, vp: VP, secrets?: string): Promise<Page> {
-  const context = await watchCsp(await browser.newContext(vp.opts), { tour: true });
+/** `tour`: a first visit, with the first-visit tour (OME-1587) up; only the guest pass audits it. */
+async function newPage(browser: Browser, vp: VP, secrets?: string, tour = false): Promise<Page> {
+  const context = await watchCsp(await browser.newContext(vp.opts), { tour });
   contexts.push(context);
   if (secrets !== undefined) {
     await context.addInitScript(
@@ -215,7 +216,7 @@ VIEWPORTS.forEach((vp, i) => {
     });
 
     test("room as guest: rest, help, report, share sheet, people, full screen, pop-outs", async ({ browser }) => {
-      const page = await newPage(browser, vp);
+      const page = await newPage(browser, vp, undefined, true);
       const skipped: string[] = [];
       await page.goto(testRoom("a11y-sweep", ROOMS[i] ?? "w1280").url);
       await enter(page, `sweep${String(i)}`);

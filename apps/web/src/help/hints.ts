@@ -7,7 +7,8 @@ import { el } from "../controls/dom";
 
 export const HINTS_KEY = "omega.hints";
 
-/** Where a chip goes against its anchor: inside its bottom edge (the floor), just above it, or just below it. */
+/** Where a chip goes against its anchor: inside its top edge (the stage, under the TV), just above it, or just below it.
+ * Inside the bottom edge put it on the composer on a phone, where the stage is a thin strip (a11y sweep, 320×640). */
 type Side = "inside" | "above" | "below";
 const STEPS: readonly { readonly text: string; readonly side: Side }[] = [
   { text: "Click the floor to walk, double-click to jog", side: "inside" },
@@ -71,7 +72,7 @@ export function createHints(o: HintsOptions): Hints {
     const r = a !== undefined && a.width > 0 && a.height > 0 ? a : { left: 0, top: 0, width: vw, height: vh, bottom: vh };
     const w = root.offsetWidth;
     const h = root.offsetHeight;
-    const top = side === "inside" ? r.bottom - h - GAP : side === "above" ? r.top - h - GAP : r.bottom + GAP;
+    const top = side === "inside" ? r.top + GAP : side === "above" ? r.top - h - GAP : r.bottom + GAP;
     root.style.left = `${String(Math.max(GAP, Math.min(r.left + (r.width - w) / 2, vw - w - GAP)))}px`;
     root.style.top = `${String(Math.max(GAP, Math.min(top, vh - h - GAP)))}px`;
   };
