@@ -275,20 +275,21 @@ describe("deploy/deploy.sh --server", () => {
     });
   });
 
-  test("a rust deploy checks the build tools before building the site; a dry run only warns (OME-1606)", () => {
-    withBun((path) => {
-      const empty = tmp();
-      try {
-        const r = spawn(["bash", SCRIPT, "--dry-run"], { PATH: path, DEPLOY_HOST: HOST, XDG_DATA_HOME: empty });
-        expect(r.code, r.out).toBe(0);
-        const warn = r.out.indexOf("scripts/install-server-rs-tools.sh");
-        expect(warn).toBeGreaterThan(-1);
-        expect(warn).toBeLessThan(r.out.indexOf("bun install"));
-        expect(r.out).toContain("a real deploy would refuse");
-      } finally {
-        rmSync(empty, { recursive: true, force: true });
-      }
-    });
+  test("a rust deploy without the build tools stops before building the site; a dry run only warns (OME-1606)", () => {
+    const dir = tmp();
+    try {
+      fake(dir, "bun", `echo "$@" >> "${dir}/bun-calls"\n[[ "$1" == --version ]] && echo ${BUN_VERSION}\nexit 0`);
+      const env = { PATH: `${dir}:/usr/bin:/bin`, DEPLOY_HOST: HOST, XDG_DATA_HOME: dir };
+      const real = spawn(["bash", SCRIPT], env);
+      expect(real.code, real.out).toBe(1);
+      expect(real.out).toContain("scripts/install-server-rs-tools.sh");
+      expect(readFileSync(join(dir, "bun-calls"), "utf8")).not.toContain("install");
+      const dry = spawn(["bash", SCRIPT, "--dry-run"], env);
+      expect(dry.code, dry.out).toBe(0);
+      expect(dry.out).toContain("a real deploy would refuse");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("--server rust builds from the archived commit, checks the binary, ships it and keeps the release atomic", () => {
