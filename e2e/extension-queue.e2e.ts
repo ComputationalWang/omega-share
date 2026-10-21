@@ -71,7 +71,7 @@ test("Add to queue from the popup puts the page's video in the Up next list of e
   const yt = await context.newPage();
   await gotoFixture(yt, "youtube-embed");
   const shared = await useButton(openPopup, yt, roomId, "https://www.youtube.com/embed/aqz-KE-bpKQ", "shareButton");
-  await expect(shared.locator(popup.shareStatus)).toHaveText(`Shared to ${roomId}.`);
+  await expect(shared.locator(popup.shareStatus)).toHaveText("Shared · Open room");
   for (const page of everyone) {
     await expect(page.locator(site.sharedVideo)).toHaveAttribute("src", /\/embed\/aqz-KE-bpKQ/);
     await expect(page.locator(site.queueRow)).toHaveCount(0);
@@ -81,7 +81,7 @@ test("Add to queue from the popup puts the page's video in the Up next list of e
   const source = await context.newPage();
   await gotoFixture(source, "providers-embed");
   const queued = await useButton(openPopup, source, roomId, VIMEO_EMBED, "queueButton");
-  await expect(queued.locator(popup.shareStatus)).toHaveText(`Added to the queue in ${roomId}.`);
+  await expect(queued.locator(popup.shareStatus)).toHaveText("Added to the queue · Open room");
   for (const page of everyone) {
     await expect(page.locator(site.queueRow)).toHaveCount(1);
     await expect(page.locator(site.queueCount)).toHaveText("1 / 20");
@@ -125,7 +125,7 @@ test("Add to queue into an empty room starts the video on every client (ADR 0031
   const source = await context.newPage();
   await gotoFixture(source, "providers-embed");
   const queued = await useButton(openPopup, source, roomId, VIMEO_EMBED, "queueButton");
-  await expect(queued.locator(popup.shareStatus)).toHaveText(`Added to the queue in ${roomId}.`);
+  await expect(queued.locator(popup.shareStatus)).toHaveText("Added to the queue · Open room");
   for (const page of everyone) {
     await expect(page.locator(site.sharedVideo)).toHaveAttribute("src", /player\.vimeo\.com\/video\/76979871/);
     await expect(page.locator(site.queueRow)).toHaveCount(0);
