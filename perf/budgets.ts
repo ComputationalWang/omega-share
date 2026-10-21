@@ -93,7 +93,7 @@ const WALK25_ACCESSORIES: readonly Budget[] = Object.entries(WALK25_PROFILES).fl
   })),
 );
 
-// OME-1578: Smooth again with a 12-person /conga line (12 walks relayed in one tick, every 360 ms), at the same budgets.
+// OME-1578: Smooth again with a 12-person /conga line (the leader walks every 360 ms, each next one once the walk ahead is relayed), at the same budgets.
 const WALK25_CONGA: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, pl]): Budget[] =>
   WALK25.filter((b) => b.id.endsWith(`.${p}.smooth`)).map((b) => ({
     ...b,
