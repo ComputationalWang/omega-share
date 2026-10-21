@@ -119,6 +119,9 @@ const FRAMES: unknown[] = [
   ...[true, false].map((on) => ({ type: "floor-sat", memberId: "m1", on })),
   { type: "member-joined", member: { id: "m2", nickname: "Bob 2", avatar: 3, standingSlot: 1, cell: { x: 3, y: 3 }, floorSit: true } },
   ...[true, false].map((on) => ({ type: "typing-changed", memberId: "m1", on })),
+  // relay batches (OME-1624): 1..BATCH_MAX_MESSAGES, ±1 of the cap
+  ...[1, 63, 64].map((n) => ({ type: "batch", msgs: Array.from({ length: n }, (_, i) => ({ type: "walked", memberId: "m1", cell: { x: i % 10, y: 2 } })) })),
+  { type: "batch", msgs: [{ type: "emoted", memberId: "m1", kind: "clap" }, { type: "chat", memberId: "m2", text: "hi", at: AT }, { type: "walked", memberId: "m1", cell: null, run: true }] },
   ...[[2, 1], [2, 2], [6, 4], [100, 1], [100, 100]].map(([sides, value]) => ({ type: "rolled", memberId: "m1", sides, value })),
   { type: "poll", ...POLL }, { type: "poll", ...POLL, options: ["a", "b", "c", "d"], counts: [25, 0, 0, 0] },
   { type: "poll", ...POLL, question: "q".repeat(80), options: ["x".repeat(40), "🎉"], counts: [0, 0], endsAt: 0 },
@@ -375,6 +378,14 @@ const EDGE_TEXTS: string[] = [
   ...["left", "kicked", "banned", 0, null].map((reason) => JSON.stringify({ type: "member-left", memberId: "m1", reason })),
   ...[0, 7, 8, -1, 0.5, "1", null, undefined].map((seat) => JSON.stringify({ type: "seat-changed", memberId: "m1", seat })),
   ...["m1", "a".repeat(64), "a".repeat(65), "", "a b", "é", "-_"].map((memberId) => JSON.stringify({ type: "member-muted", memberId, muted: true })),
+  // relay batches (OME-1624): empty, over the cap, nested, a bad or non-server inner message, not an array
+  ...[0, 65].map((n) => JSON.stringify({ type: "batch", msgs: Array.from({ length: n }, () => ({ type: "room-full" })) })),
+  JSON.stringify({ type: "batch", msgs: [{ type: "batch", msgs: [{ type: "room-full" }] }] }),
+  JSON.stringify({ type: "batch", msgs: [{ type: "room-full" }, { type: "batch", msgs: [{ type: "room-full" }] }] }),
+  JSON.stringify({ type: "batch", msgs: [{ type: "walked", memberId: "a b", cell: null }] }),
+  JSON.stringify({ type: "batch", msgs: [{ type: "join", nickname: "alice", avatar: 0 }] }),
+  JSON.stringify({ type: "batch", msgs: [{ type: "room-full", pad: 1 }], extra: true }),
+  JSON.stringify({ type: "batch", msgs: { type: "room-full" } }), JSON.stringify({ type: "batch", msgs: null }), JSON.stringify({ type: "batch" }),
   // types and tags
   JSON.stringify({ type: "room-full", pad: "x" }),
   JSON.stringify({ type: "ROOM-FULL" }),

@@ -44,6 +44,8 @@ export const MAX_CLIENT_MESSAGE_BYTES = 4096;
  * ~36 KB with QUEUE_MAX generic items at the longest url (ADR 0031).
  */
 export const MAX_SERVER_MESSAGE_BYTES = 65536;
+/** A relay `batch` frame (OME-1624) carries 1..BATCH_MAX_MESSAGES messages, and as a whole still fits MAX_SERVER_MESSAGE_BYTES. */
+export const BATCH_MAX_MESSAGES = 64;
 /** Most rooms `GET /rooms` returns; keeps the extension dropdown and body (~6 KB) small. */
 export const MAX_LISTED_ROOMS = 100;
 /** Largest `POST /rooms` body, in bytes; a real one is ~110 B (ADR 0028). */

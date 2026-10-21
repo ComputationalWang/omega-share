@@ -44,6 +44,8 @@ pub const MAX_EMBED_URL_LENGTH: usize = 128;
 pub const MAX_CLIENT_MESSAGE_BYTES: usize = 4096;
 /// Largest frame a client accepts; must fit a worst-case full-room snapshot (ADR 0031).
 pub const MAX_SERVER_MESSAGE_BYTES: usize = 65_536;
+/// A relay `batch` frame (OME-1624) carries 1..=BATCH_MAX_MESSAGES messages, and as a whole still fits MAX_SERVER_MESSAGE_BYTES.
+pub const BATCH_MAX_MESSAGES: usize = 64;
 /// Most rooms `GET /rooms` returns.
 pub const MAX_LISTED_ROOMS: usize = 100;
 /// Largest `POST /rooms` body, in bytes (ADR 0028).
