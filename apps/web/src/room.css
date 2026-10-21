@@ -606,9 +606,9 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
 .room-portrait > .chat-log { height: 76px; max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
 /* A short portrait phone (360×640, OME-1612): the strip would leave the room ~100 px, so it's only visually hidden (still
  * the live log for screen readers); the Chat key's sheet shows it and bubbles show in the room. Typing, or under 500 px
- * (a keyboard's resize, no room window left), it's back. */
+ * (a keyboard's resize, no room window left), or focused (it's a Tab stop, QA OME-1614), it's back. */
 @media (min-height: 501px) and (max-height: 700px) {
-  .room-portrait:not(.portrait-typing) > .chat-log { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
+  .room-portrait:not(.portrait-typing) > .chat-log:not(:focus) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
 }
 .room-portrait > .chat { margin: 0; gap: 4px; padding: 4px; min-width: 0; }
 .room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
