@@ -8,6 +8,8 @@ import { BATCH_MAX_MESSAGES, ClientMessageSchema, ServerMessageSchema, parseClie
 const WALK = { type: "walked", memberId: "m1", cell: { x: 1, y: 2 } } as const;
 const batch = (n: number, msg: unknown = WALK): unknown => ({ type: "batch", msgs: Array.from({ length: n }, () => msg) });
 
+const roundtrip = (input: unknown): unknown => parseServerMessage(JSON.stringify(input));
+
 function rejects(input: unknown): void {
   expect(v.safeParse(ServerMessageSchema, input).success).toBe(false);
 }
@@ -18,7 +20,7 @@ test("a batch holds at most 64 messages", () => {
 
 describe("server batch", () => {
   test.each([[1], [2], [BATCH_MAX_MESSAGES - 1], [BATCH_MAX_MESSAGES]])("accepts %p messages", (n) => {
-    expect(parseServerMessage(JSON.stringify(batch(n)))).toEqual(batch(n));
+    expect(roundtrip(batch(n))).toEqual(batch(n));
   });
 
   test.each([[0], [BATCH_MAX_MESSAGES + 1]])("rejects %p messages", (n) => {
@@ -27,7 +29,7 @@ describe("server batch", () => {
 
   test("mixes message types and parses each one", () => {
     const chat = { type: "chat", memberId: "m2", text: " hi ", at: 1 };
-    expect(parseServerMessage(JSON.stringify({ type: "batch", msgs: [WALK, chat, { type: "emoted", memberId: "m1", kind: "clap" }] }))).toEqual({
+    expect(roundtrip({ type: "batch", msgs: [WALK, chat, { type: "emoted", memberId: "m1", kind: "clap" }] })).toEqual({
       type: "batch",
       msgs: [WALK, { ...chat, text: "hi" }, { type: "emoted", memberId: "m1", kind: "clap" }],
     });

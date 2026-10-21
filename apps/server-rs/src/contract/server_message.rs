@@ -6,7 +6,7 @@
 //! are stripped like Valibot's `v.object`, every other rule is checked.
 
 use super::Obj;
-use super::constants::{ERROR_MESSAGE_MAX_LENGTH, MAX_SERVER_MESSAGE_BYTES, RETRY_AFTER_MAX_MS};
+use super::constants::{BATCH_MAX_MESSAGES, ERROR_MESSAGE_MAX_LENGTH, MAX_SERVER_MESSAGE_BYTES, RETRY_AFTER_MAX_MS};
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
@@ -99,6 +99,27 @@ impl<'de, const MAX: u64> Deserialize<'de> for RetryAfter<MAX> {
 
 /// A string-only literal tag: serde's own tag matching also takes integer variant indexes, which
 /// `v.literal` never does (same reason as `literal!` in `embed.rs`).
+/// The messages of a relay `batch` (OME-1624): 1..=`BATCH_MAX_MESSAGES`, none of them a batch.
+#[derive(Debug, Clone, Serialize)]
+#[serde(transparent)]
+pub struct BatchMsgs(Vec<ServerMessage>);
+
+impl BatchMsgs {
+    pub fn new(msgs: Vec<ServerMessage>) -> Option<Self> {
+        let ok = (1..=BATCH_MAX_MESSAGES).contains(&msgs.len()) && !msgs.iter().any(|m| matches!(m, ServerMessage::Batch { .. }));
+        ok.then_some(Self(msgs))
+    }
+    pub fn as_slice(&self) -> &[ServerMessage] {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for BatchMsgs {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::new(Vec::deserialize(d)?).ok_or_else(|| serde::de::Error::custom("invalid batch"))
+    }
+}
+
 pub(crate) trait Lit {
     const TAG: &'static str;
 }
@@ -244,6 +265,7 @@ server_messages! {
     "member-muted" MemberMuted MemberMutedWire { member_id: MemberId, muted: bool }
     "control-policy-changed" ControlPolicyChanged ControlPolicyChangedWire { policy: ControlPolicy, by: MemberId }
     "room-full" RoomFull RoomFullWire {}
+    "batch" Batch BatchWire { msgs: BatchMsgs }
     "error" Error ErrorWire {
         code: ErrorCode,
         message: ErrorMessage,

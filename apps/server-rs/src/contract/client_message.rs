@@ -99,6 +99,9 @@ pub enum ClientMessage {
         hair: Option<Hair>,
         #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         via: Option<RoomId>,
+        /// Relay `batch` frames opt-in (OME-1624); absent means false.
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
+        batch: Option<bool>,
     },
     Leave {},
     Presence {
@@ -304,6 +307,8 @@ struct JoinW {
     hair: Option<Hair>,
     #[serde(default, deserialize_with = "present")]
     via: Option<RoomId>,
+    #[serde(default, deserialize_with = "present")]
+    batch: Option<bool>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -606,6 +611,7 @@ fn convert(wire: Wire) -> ClientMessage {
             accessory: m.accessory,
             hair: m.hair,
             via: m.via,
+            batch: m.batch,
         },
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },

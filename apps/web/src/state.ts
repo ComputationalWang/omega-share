@@ -211,6 +211,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         poll: msg.poll ?? null,
         vote: msg.poll?.pollId === state.poll?.pollId ? state.vote : null,
       };
+    case "batch":
+      return msg.msgs.reduce((s, m) => onServer(s, m, now), state);
     case "room-full":
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "full" };
     case "error": {

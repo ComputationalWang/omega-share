@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import {
+  BATCH_MAX_MESSAGES,
   CHAT_MAX_LENGTH,
   CHAT_MAX_MARK_RUN,
   CONGA_CAP,
@@ -145,6 +146,8 @@ export const ClientMessageSchema = v.variant("type", [
      * front of it, is where they walk in; otherwise the default spot. Never stored or logged; a resume ignores it.
      */
     via: v.optional(RoomIdSchema),
+    /** Opt in to relay `batch` frames (OME-1624, ADR 0050 amendment); absent or false gets one frame per message. */
+    batch: v.optional(v.boolean()),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */
@@ -296,7 +299,7 @@ export const MEMBER_LEFT_REASONS = ["left", "kicked"] as const;
 export type MemberLeftReason = (typeof MEMBER_LEFT_REASONS)[number];
 
 // Server → client. Unknown keys are stripped so the server can add fields.
-export const ServerMessageSchema = v.variant("type", [
+const SingleServerMessageSchema = v.variant("type", [
   /**
    * First message after a successful join. `shareToken` authorizes this member's
    * `POST /rooms/:id/share` until they leave; it is never broadcast (absent from pre-M2 servers).
@@ -404,6 +407,15 @@ export const ServerMessageSchema = v.variant("type", [
     /** Set with `rate_limited`: wait this long before retrying. */
     retryAfterMs: v.optional(RetryAfterMsSchema),
   }),
+]);
+
+export const ServerMessageSchema = v.variant("type", [
+  ...SingleServerMessageSchema.options,
+  /**
+   * Relays coalesced into one frame, in send order (OME-1624, ADR 0050 amendment). Only to a connection that joined
+   * with `batch: true`; read it as its messages one by one. Never nested.
+   */
+  v.object({ type: v.literal("batch"), msgs: v.pipe(v.array(SingleServerMessageSchema), v.minLength(1), v.maxLength(BATCH_MAX_MESSAGES)) }),
 ]);
 export type ServerMessage = v.InferOutput<typeof ServerMessageSchema>;
 
