@@ -1,6 +1,7 @@
 [
 {"input":"ACCESSORY_COUNT","ok":true,"output":9},
 {"input":"AVATAR_COUNT","ok":true,"output":4},
+{"input":"BATCH_MAX_MESSAGES","ok":true,"output":64},
 {"input":"CHAT_MAX_LENGTH","ok":true,"output":280},
 {"input":"CHAT_MAX_MARK_RUN","ok":true,"output":3},
 {"input":"close.HANDSHAKE_TIMEOUT","ok":true,"output":4000},

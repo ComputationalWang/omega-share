@@ -175,6 +175,7 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | SQLite build and connections | Bun's SQLite | `.cargo/config.toml` sets `LIBSQLITE3_FLAGS` (no loadable extensions, `SQLITE_DQS=0`); every connection is defensive with an untrusted schema; `secure_delete=FAST`, `journal_size_limit=4 MiB` (per connection, same file format) |
 | `restore` while the server runs | not checked | refused when the admin socket answers a connect; a start also refuses to unlink a socket that answers |
 | A corrupt room's id in the boot failure | the raw id | the same id, control and format characters escaped (`cli::printable`) |
+| `join` with `batch: true` (OME-1624, ADR 0050 amendment) | flag dropped, one frame per message | room relays to that connection may arrive coalesced in a `batch` frame (OME-1583); a connection without the flag gets byte-identical frames. S13 deletes the TS side |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
 
