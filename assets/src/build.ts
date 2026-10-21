@@ -2100,7 +2100,7 @@ function report(): void {
     console.log(`${f}: ${String(buf.length)} B${text ? ` (${String(size)} B gz)` : ""}`);
   }
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
-  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 307200`);
+  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 337920`);
   // Set (j): the extension icons ship in the extension package, not the site, so they're reported apart from the art budget.
   const icons = readdirSync(join(ROOT, "store")).filter((n) => /^(icon|found)-\d+\.png$/.test(n)).sort();
   const iconBytes = icons.map((n) => readFileSync(join(ROOT, "store", n)).length);

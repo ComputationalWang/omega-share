@@ -1300,7 +1300,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 317 064 B (≈ 309.6 KB), over the 300 KB budget by 9 864 B**, eager 104 566, lazy 212 498 (OME-1639: +11 955, see below; awaiting the CEO's budget call) (`bun assets/src/build.ts`). Rows not named below are
+**Measured total now: 317 064 B (≈ 309.6 KB) of 330 KB** (the line raised for Movie night, OME-1651: 337 920 B), eager 104 566, lazy 212 498 (OME-1639: +11 955, see below) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
@@ -1341,8 +1341,9 @@ The teleport pad (OME-1546) adds **1 130 B** (304 093 → 305 223 of 307 200), a
 
 The theatre set v2 (OME-1639) adds **11 955 B (≈ 11.7 KB)** of its +30 KB allowance (305 109 → 317 064, `bun assets/src/build.ts`): lazy
 `furniture-v5.png` 8 810 + `furniture-v5.json` 1 335 gz, `edit.png` +1 260 and `edit.json` +230 gz (5 thumbnails, 3 swatches); eager
-`reference.css` +320 gz. The other sheets are byte-identical. **This takes the art total past 307 200 B by 9 864 B**: `main` had 2 091 B left,
-so the CEO's +30 KB allowance on OME-1639 is in effect a budget raise, and it needs confirming (or a lazy set moved out of the count).
+`reference.css` +320 gz. The other sheets are byte-identical. This takes the art total past the old 307 200 B line, so the CEO raised the
+line to **337 920 B (330 KB) for Movie night** (OME-1651); 20 856 B are left. (`gzip -9` on the command line shows the JSON at 1 353 B: it
+stores the file name in its header. The budget counts zlib level 9 without one, as `bun assets/src/build.ts` does.)
 
 Bare heads (OME-1409) add **17 154 B (≈ 16.8 KB)** as `bun assets/src/build.ts` measures it (255 904 of 307 200 on its own; 261 418 measured on top of OME-1405), all lazy:
 `bare.png` 15 445 + `bare.json` 1 488 gz, and `accessories.png` +264 / `.json` −19 gz for the refitted Pip and Mo overlays.
