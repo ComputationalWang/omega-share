@@ -37,6 +37,12 @@ describe("one command table", () => {
     for (const w of ["x", "dancing", "helpme", "stopp", "meow", "highfives", "lolz"]) expect(slashCommand(`/${w}`)).toBeNull();
   });
 
+  test("/hug @Bob and /highfive @Bob name Bob (the palette fills `/hug @`, the @-list completes it); a bare @ is the usage", () => {
+    expect(slashCommand("/hug @Bob")).toEqual({ type: "hug", kind: "heart", name: "Bob" });
+    expect(slashCommand("/highfive @Bob")).toEqual({ type: "hug", kind: "clap", name: "Bob" });
+    expect(slashCommand("/hug @")).toEqual({ type: "hug-usage" });
+  });
+
   test("/me, /think, /conga and /stop travel as chat lines: the parser says so instead of running them", () => {
     for (const text of ["/me waves", "/think hm", "/conga", "/stop"]) expect(slashCommand(text)).toEqual({ type: "line" });
   });
