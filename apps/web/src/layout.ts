@@ -134,7 +134,12 @@ const WIDE_TV_SHARE = 0.37;
  * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
  * larger), the shelf right under it, and the stage below, scaled to fill what's left (up past 1× too, OME-1050) and centred.
  */
-export function wideLayout(width: number, height: number, provider: Provider | null): RoomLayout {
+/** The room page's chrome zoom (OME-1667): 1× below 1920×900, 1.5× from there, 2× from 2560×1200. Stub. */
+export function chromeZoom(_width: number, _height: number): number {
+  return 1;
+}
+
+export function wideLayout(width: number, height: number, provider: Provider | null, _chrome = 1): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;

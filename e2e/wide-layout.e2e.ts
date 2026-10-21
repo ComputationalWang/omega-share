@@ -58,7 +58,7 @@ async function volumeUnderPicture(page: Page): Promise<void> {
   expect(Math.abs(play.y + play.height / 2 - (pod.y + pod.height / 2))).toBeLessThanOrEqual(8);
 }
 
-for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080]] as const) {
+for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560", 2560, 1440]] as const) {
   test(`${String(w)}×${String(h)}: the chat is a full-height column beside the room; everything you need is in view, unscrolled`, async ({ browser }) => {
     const page = await one(browser, name, DESKTOP(w, h));
     await page.locator(site.chatInput).fill("hello from the side");
@@ -88,6 +88,39 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080]] as cons
     await expect(page.locator(site.chatInput)).toHaveAttribute("placeholder", "Press Enter to chat");
   });
 }
+
+/** Every visible key in the room's chrome (not the stage's seats and tags, not the site footer), with its size. */
+const keys = (page: Page): Promise<{ name: string; w: number; h: number }[]> =>
+  page.evaluate(() => [...document.querySelectorAll<HTMLElement>("main button, main summary, main [role=button]")]
+    .filter((e) => e.closest(".stage-clip") === null && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
+    .map((e) => ({ e, r: e.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 1 && r.height > 1)
+    .map(({ e, r }) => ({ name: e.getAttribute("data-testid") ?? e.getAttribute("aria-label") ?? e.textContent.trim(), w: r.width, h: r.height })));
+
+// OME-1667 (board): "Scalings on 2k and buttons need to be bigger." From 1920 px wide every key is at least 40×40, and
+// at 2560×1440 the chrome is twice 1280's: the chat column, the shelf and the room fill the screen.
+for (const [name, w, h] of [["w1920", 1920, 1080], ["w2560", 2560, 1440]] as const) {
+  test(`${String(w)}×${String(h)}: every key in the room's chrome is at least 40×40`, async ({ browser }) => {
+    const page = await one(browser, name, DESKTOP(w, h));
+    const found = await keys(page);
+    expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["play-toggle", "mute-toggle", "fullscreen-toggle", "chat-send", "chat-popout", "emote-key", "room-popout", "help-key"]));
+    expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+test("2560×1440: the chrome scales up with the screen, no 1280 page floating in it", async ({ browser }) => {
+  const page = await one(browser, "w2560", DESKTOP(2560, 1440));
+  const side = await box(page.locator(site.chatLog));
+  const shelf = await box(page.locator(".controls"));
+  const room = await box(page.locator(site.roomWindow));
+  const say = await box(page.locator(site.chatSend));
+  expect(side.width).toBeGreaterThanOrEqual(560);
+  expect(shelf.height).toBeGreaterThanOrEqual(80);
+  expect(say.height).toBeGreaterThanOrEqual(70);
+  expect(room.width).toBeGreaterThanOrEqual(1300);
+  // The field grows with its keys.
+  expect((await box(page.locator(site.chatInput))).height).toBeGreaterThanOrEqual(70);
+});
 
 test("390×844 phone: the stacked layout stays, with the volume in the shelf under the picture", async ({ browser }) => {
   const page = await one(browser, "phone", PHONE);
