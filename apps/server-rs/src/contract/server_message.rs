@@ -806,6 +806,28 @@ mod tests {
         );
     }
 
+    // packages/shared/test/batch-contract.test.ts (OME-1624): 1..=64 non-batch messages, each one parsed
+    #[test]
+    fn a_batch_holds_one_to_64_server_messages_never_a_batch() {
+        let walk = r#"{"type":"walked","memberId":"m1","cell":{"x":1,"y":2}}"#;
+        let batch = |n: usize| format!(r#"{{"type":"batch","msgs":[{}]}}"#, vec![walk; n].join(","));
+        for n in [1, 2, 63, 64] {
+            same(&batch(n));
+        }
+        refused(&batch(0));
+        refused(&batch(65));
+        refused(&format!(r#"{{"type":"batch","msgs":[{walk},{}]}}"#, batch(1)));
+        refused(r#"{"type":"batch","msgs":[{"type":"walked","memberId":"a b","cell":null}]}"#);
+        refused(r#"{"type":"batch","msgs":[{"type":"join","nickname":"alice","avatar":0}]}"#);
+        refused(&format!(r#"{{"type":"batch","msgs":{walk}}}"#));
+        refused(r#"{"type":"batch"}"#);
+        let m = parse_server_message(r#"{"type":"batch","msgs":[{"type":"chat","memberId":"m1","text":" hi ","at":1,"x":0}],"y":1}"#);
+        assert_eq!(
+            m.map(|m| encode(&m).unwrap()).as_deref(),
+            Some(r#"{"type":"batch","msgs":[{"type":"chat","memberId":"m1","text":"hi","at":1}]}"#)
+        );
+    }
+
     #[test]
     fn an_encode_failure_is_an_error_with_fixed_text() {
         struct Broken;
