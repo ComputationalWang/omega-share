@@ -248,8 +248,7 @@ impl Subscribers {
 
     /// The connection's `join.batch` opt-in (OME-1583): false for an unknown connection.
     pub fn set_batch(&mut self, conn: ConnId, batch: bool) -> bool {
-        let _ = (conn, batch);
-        false
+        self.entries.iter_mut().find(|e| e.conn == conn).map(|e| e.batch = batch).is_some()
     }
 
     /// The socket closed. False if it was not attached (a dead outbox is detached by publish).
@@ -337,8 +336,22 @@ pub fn publish_frame(inner: &mut RoomInner, except: Option<ConnId>, msg: &Server
 /// A room relay a `batch: true` connection may get coalesced (OME-1583): what members do, sent at their pace.
 /// Playback, queue, room settings, joins and leaves, polls, errors and replies are never held.
 pub fn is_relay(msg: &ServerMessage) -> bool {
-    let _ = msg;
-    false
+    use ServerMessage as M;
+    matches!(
+        msg,
+        M::Walked { .. }
+            | M::SeatChanged { .. }
+            | M::FloorSat { .. }
+            | M::TypingChanged { .. }
+            | M::Chat { .. }
+            | M::Emoted { .. }
+            | M::Rolled { .. }
+            | M::MemberStatus { .. }
+            | M::MemberPresence { .. }
+            | M::TintChanged { .. }
+            | M::AccessoryChanged { .. }
+            | M::HairChanged { .. }
+    )
 }
 
 /// Encodes `msg` once and publishes it to every subscriber (`server.publish(topic, JSON.stringify(msg))`).

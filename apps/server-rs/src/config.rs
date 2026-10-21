@@ -364,6 +364,9 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
     let max_connections_per_ip = whole("MAX_CONNECTIONS_PER_IP", 1, None)?;
     let join_timeout_ms = whole("JOIN_TIMEOUT_MS", 1, Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
     let status_interval_ms = whole("STATUS_INTERVAL_MS", 0, Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
+    let relay_batch_ms = whole("RELAY_BATCH_MS", 0, Some(DEFAULT_RELAY_BATCH_MS))?
+        .filter(|ms| *ms <= 1000)
+        .ok_or_else(|| fail("RELAY_BATCH_MS", "must be a whole number from 0 to 1000 (ms)"))?;
     let max_http_in_flight = match get("MAX_HTTP_IN_FLIGHT") {
         None => DEFAULT_MAX_HTTP_IN_FLIGHT,
         Some(raw) => digits(raw, 5)
@@ -413,7 +416,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         max_connections_per_ip,
         join_timeout_ms,
         status_interval_ms,
-        relay_batch_ms: DEFAULT_RELAY_BATCH_MS,
+        relay_batch_ms,
         max_http_in_flight,
     })
 }

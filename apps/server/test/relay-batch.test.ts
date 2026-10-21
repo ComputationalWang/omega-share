@@ -47,18 +47,16 @@ describe("relay batching (OME-1583)", () => {
     const plain = await join("bob");
     const off = await join("carol", false);
     const actor = await join("dave");
-    // The joins are relays to nobody: member-joined is never batched. Settle them first.
-    await batched.next("member-joined");
-    await batched.next("member-joined");
-    await batched.next("member-joined");
+    // member-joined is never batched; let everyone hear the last join first.
+    for (const c of [batched, plain, off]) await until(c, '"nickname":"dave"');
     const before = { batched: batched.raw.length, plain: plain.raw.length };
     actor.send({ type: "walk", cell: { x: 2, y: 3 } });
     actor.send({ type: "emote", kind: "wave" });
-    actor.send({ type: "typing", on: true });
+    actor.send({ type: "roll", sides: 6 });
     actor.send({ type: "chat", text: "hi" });
     for (const c of [batched, plain, off]) await until(c, '"text":"hi"');
     const plainFrames = plain.raw.slice(before.plain);
-    expect(plainFrames.map((f) => (JSON.parse(f) as { type: string }).type)).toEqual(["walked", "emoted", "typing-changed", "chat"]);
+    expect(plainFrames.map((f) => (JSON.parse(f) as { type: string }).type)).toEqual(["walked", "emoted", "rolled", "chat"]);
     expect(off.raw.slice(-4)).toEqual(plainFrames);
     const batchedFrames = batched.raw.slice(before.batched);
     expect(batchedFrames.length).toBeLessThan(4);

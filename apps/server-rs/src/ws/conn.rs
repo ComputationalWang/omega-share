@@ -17,13 +17,13 @@ use super::limits::{MemberBuckets, WS_BURST, WS_PER_SECOND};
 use super::session::{closed, session_of};
 use crate::app::App;
 use crate::clock::Sleep;
-use crate::contract::constants::close;
+use crate::contract::constants::{BATCH_MAX_MESSAGES, MAX_SERVER_MESSAGE_BYTES, close};
 use crate::contract::ids::{MemberId, RoomId};
 use crate::metrics::SERVICE_RESTART;
 use crate::outbox::{ConnId, Outbound, OutboxRx, channel};
 use crate::rate_limit::TokenBucket;
 use crate::registry::RoomCell;
-use axum::extract::ws::{CloseFrame, Message, WebSocket};
+use axum::extract::ws::{CloseFrame, Message, Utf8Bytes, WebSocket};
 use futures_util::{Sink, SinkExt, StreamExt};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -149,43 +149,134 @@ fn close_message(code: u16, reason: &'static str) -> Message {
     }))
 }
 
+const BATCH_OPEN: &str = r#"{"type":"batch","msgs":["#;
+const BATCH_CLOSE: &str = "]}";
+
+/// Relays held for one `batch` frame (OME-1583): frames as already encoded, spliced together, never reparsed.
+#[derive(Default)]
+struct Held {
+    frames: Vec<Utf8Bytes>,
+    bytes: usize,
+}
+
+impl Held {
+    /// `frame` still fits: at most `BATCH_MAX_MESSAGES`, and the whole batch within `MAX_SERVER_MESSAGE_BYTES`.
+    fn fits(&self, frame: &Utf8Bytes) -> bool {
+        // One comma per frame already held.
+        let size = BATCH_OPEN.len() + self.bytes + self.frames.len() + frame.len() + BATCH_CLOSE.len();
+        self.frames.len() < BATCH_MAX_MESSAGES && size <= MAX_SERVER_MESSAGE_BYTES
+    }
+
+    fn push(&mut self, frame: Utf8Bytes) {
+        self.bytes += frame.len();
+        self.frames.push(frame);
+    }
+
+    /// What is held as one frame: a lone relay as it is, more as a `batch`. `None` when nothing is held.
+    fn take(&mut self) -> Option<Message> {
+        if self.frames.len() < 2 {
+            self.bytes = 0;
+            return self.frames.pop().map(Message::Text);
+        }
+        let mut json = String::with_capacity(BATCH_OPEN.len() + self.bytes + self.frames.len() + BATCH_CLOSE.len());
+        json.push_str(BATCH_OPEN);
+        for (i, frame) in self.frames.drain(..).enumerate() {
+            if i > 0 {
+                json.push(',');
+            }
+            json.push_str(frame.as_str());
+        }
+        json.push_str(BATCH_CLOSE);
+        self.bytes = 0;
+        Some(Message::Text(json.into()))
+    }
+}
+
 /// The writer task: the outbox into the sink, and the idle pings. True if it ended by sending a close frame.
+///
+/// Relays (OME-1583) already queued together go out as one frame at once. Once relays went out, the ones that come
+/// within `window` are held and go out together when it ends; anything else flushes them ahead of itself.
 async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Arc<Notify>, window: Duration) -> bool {
-    let _ = window;
+    let mut held = Held::default();
+    // Armed after relays go out: until it fires, new relays are held.
+    let mut hold: Option<Sleep> = None;
     loop {
         tokio::select! {
             out = rx.recv() => match out {
                 // The outbox died or the room dropped it: the connection ends without a close frame.
                 None => return false,
                 Some(first) => {
+                    let holding = hold.is_some();
                     // Everything already queued is fed, then flushed once: one write per burst, not per frame.
                     // One timeout covers the whole batch, so a client dripping a frame per 9 s cannot hold the writer.
                     let batch = async {
                         let mut next = Some(first);
-                        let mut fed = 0;
+                        let mut taken = 0;
+                        let mut relayed = false;
+                        let mut fed = false;
                         while let Some(out) = next.take() {
-                            let (msg, last) = match out {
-                                Outbound::Text(text) | Outbound::Relay(text) => (Message::Text(text), false),
-                                Outbound::Close(code, reason) => (close_message(code, reason), true),
-                            };
-                            sink.feed(msg).await?;
-                            fed += 1;
-                            if last || fed >= MAX_BATCH {
-                                sink.flush().await?;
-                                return Ok::<bool, S::Error>(last);
+                            taken += 1;
+                            match out {
+                                Outbound::Relay(text) => {
+                                    if !held.fits(&text) && let Some(full) = held.take() {
+                                        sink.feed(full).await?;
+                                        relayed = true;
+                                    }
+                                    held.push(text);
+                                }
+                                Outbound::Text(text) => {
+                                    if let Some(relays) = held.take() {
+                                        sink.feed(relays).await?;
+                                        relayed = true;
+                                    }
+                                    sink.feed(Message::Text(text)).await?;
+                                    fed = true;
+                                }
+                                Outbound::Close(code, reason) => {
+                                    if let Some(relays) = held.take() {
+                                        sink.feed(relays).await?;
+                                    }
+                                    sink.feed(close_message(code, reason)).await?;
+                                    sink.flush().await?;
+                                    return Ok::<(bool, bool), S::Error>((true, relayed));
+                                }
+                            }
+                            if taken >= MAX_BATCH {
+                                break;
                             }
                             next = rx.try_recv();
                         }
-                        sink.flush().await?;
-                        Ok(false)
+                        if !holding && let Some(relays) = held.take() {
+                            sink.feed(relays).await?;
+                            relayed = true;
+                        }
+                        fed |= relayed;
+                        // Nothing to flush when every frame taken was a relay to hold.
+                        if fed {
+                            sink.flush().await?;
+                        }
+                        Ok((false, relayed))
                     };
                     match within(batch).await {
                         None => return false,
-                        Some(true) => return true,
-                        Some(false) => {}
+                        Some((true, _)) => return true,
+                        Some((false, relayed)) => {
+                            if relayed && hold.is_none() {
+                                hold = Some(Box::pin(sleep(window)));
+                            }
+                        }
                     }
                 }
             },
+            () = timer(&mut hold) => {
+                hold = None;
+                if let Some(relays) = held.take() {
+                    if !send(&mut sink, relays).await {
+                        return false;
+                    }
+                    hold = Some(Box::pin(sleep(window)));
+                }
+            }
             () = ping.notified() => {
                 if !send(&mut sink, Message::Ping(axum::body::Bytes::new())).await {
                     return false;
@@ -344,7 +435,6 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::extract::ws::Utf8Bytes;
     use std::pin::Pin;
     use std::sync::Mutex;
     use std::task::{Context, Poll};
