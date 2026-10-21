@@ -8,6 +8,7 @@ import { createChatLog } from "../chat/log";
 import { createPollCard } from "../chat/poll";
 import { el, sprite } from "../controls/dom";
 import { createEmotePicker } from "../emote/picker";
+import { createCommandPalette } from "../chat/palette";
 import { roomPageTitle } from "../page-title";
 import { parsePopMessage, type PopChannel, type PopKind, type RoomSideMessage } from "./channel";
 
@@ -92,7 +93,8 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
       o.clearTimer(h as H);
     },
   });
-  form.append(picker.root, input, send);
+  const palette = createCommandPalette({ input, form });
+  form.append(picker.root, palette.field, send);
 
   // Set (k) "the pop-out after the main tab closed": the plug, what happened, and what you can do here. A reload gives
   // the room tab a new channel too (ADR 0034), so it reads the same. Superseded by a newer window (and the browser won't
@@ -132,6 +134,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
     input.readOnly = held;
     send.disabled = off || held;
     picker.root.inert = off;
+    palette.root.inert = off;
   };
   /** Superseded by a newer window: for good (it never answers the room tab again). */
   let moved = false;

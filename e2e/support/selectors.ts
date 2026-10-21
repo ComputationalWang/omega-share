@@ -82,6 +82,8 @@ export const site = {
   connectionStatus: id("connection-status"),
   chatSend: id("chat-send"),
   emoteKey: id("emote-key"),
+  paletteKey: id("palette-key"),
+  paletteItem: id("palette-item"),
   roomNotice: id("room-notice"),
   // Set (e) playback chrome (OME-89).
   playToggle: id("play-toggle"),

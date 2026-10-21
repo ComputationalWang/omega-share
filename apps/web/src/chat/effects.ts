@@ -2,7 +2,7 @@
 // shout bubble are read locally from the relayed text by every viewer.
 import * as v from "valibot";
 import { DICE_MAX_SIDES, DICE_MIN_SIDES, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, PollOptionSchema, PollQuestionSchema, type EmoteKind, type MemberId } from "@omega/shared";
-import { PICKER_KINDS } from "../emote/emotes";
+import { COMMANDS, type SlashEntry } from "./commands";
 import type { SystemLine } from "../controls/sysline";
 
 export type SlashCommand =
@@ -15,7 +15,9 @@ export type SlashCommand =
   | { readonly type: "poll"; readonly question: string; readonly options: readonly string[] }
   | { readonly type: "poll-usage" }
   | { readonly type: "hug"; readonly kind: "heart" | "clap"; readonly name: string }
-  | { readonly type: "hug-usage" };
+  | { readonly type: "hug-usage" }
+  /** `/me`, `/think`, `/conga`, `/stop`: commands that travel as a chat line. */
+  | { readonly type: "line" };
 
 /** `/poll Question? A | B` (OME-1454): the question is the text up to and including the first "?", the options follow, split on "|". */
 function pollCommand(rest: string): SlashCommand {
@@ -26,29 +28,36 @@ function pollCommand(rest: string): SlashCommand {
   return { type: "poll", question: question.output, options: options.output };
 }
 
-/** Fun aliases for the emotes (OME-1547): `/lol` is `/laugh`, and so on. */
-const ALIASES: Readonly<Partial<Record<EmoteKind, readonly string[]>>> = { heart: ["love"], laugh: ["lol"], question: ["hmm"], exclaim: ["wow"], wave: ["hi", "bye"], cheer: ["yay"], yawn: ["sleepy"] };
+const SLASHES = COMMANDS.filter((c): c is SlashEntry => c.section !== "moves");
 
-/** `/wave` … `/exclaim` (each emote's own name or an alias), `/help`, `/snap` (OME-1565), `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
+/** A word of the command table (OME-1586) after a slash: the emotes (or an alias), `/help`, `/snap` (OME-1565), `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive [@]<name>` (OME-1453), and the chat-line ones; anything else, `/x` included, is chat. */
 export function slashCommand(text: string): SlashCommand | null {
-  const hug = /^\s*\/(hug|highfive)(?:\s+(.*?))?\s*$/is.exec(text);
-  if (hug !== null) {
-    const name = hug[2] ?? "";
-    return name === "" ? { type: "hug-usage" } : { type: "hug", kind: hug[1]?.toLowerCase() === "hug" ? "heart" : "clap", name };
+  const m = /^\s*\/(\S+)(?:\s+(.*?))?\s*$/s.exec(text);
+  const word = m?.[1]?.toLowerCase() ?? "";
+  const rest = m?.[2] ?? "";
+  const c = SLASHES.find((e) => e.name === word || e.aliases.includes(word));
+  if (c === undefined) return null;
+  if (c.emote !== undefined) return rest === "" ? { type: "emote", kind: c.emote } : null;
+  switch (c.name) {
+    case "help":
+    case "snap":
+    case "sit":
+      return rest !== "" ? null : { type: c.name };
+    case "roll": {
+      if (rest === "") return { type: "roll", sides: 6 };
+      const sides = Number(/^d?(\d{1,3})$/i.exec(rest)?.[1]);
+      return sides >= DICE_MIN_SIDES && sides <= DICE_MAX_SIDES ? { type: "roll", sides } : { type: "roll-usage" };
+    }
+    case "poll":
+      return pollCommand(rest);
+    case "hug":
+    case "highfive": {
+      const name = rest.replace(/^@/, "");
+      return name === "" ? { type: "hug-usage" } : { type: "hug", kind: c.name === "hug" ? "heart" : "clap", name };
+    }
+    default:
+      return { type: "line" };
   }
-  const t = text.trim().toLowerCase();
-  if (t === "/help") return { type: "help" };
-  if (t === "/snap") return { type: "snap" };
-  if (t === "/sit") return { type: "sit" };
-  if (t === "/roll") return { type: "roll", sides: 6 };
-  if (t.startsWith("/roll ")) {
-    const sides = Number(/^\/roll\s+d?(\d{1,3})$/.exec(t)?.[1]);
-    return sides >= DICE_MIN_SIDES && sides <= DICE_MAX_SIDES ? { type: "roll", sides } : { type: "roll-usage" };
-  }
-  const poll = /^\/poll(?:\s+(.*))?$/is.exec(text.trim());
-  if (poll !== null) return pollCommand(poll[1] ?? "");
-  const kind = PICKER_KINDS.find((k) => t === `/${k}` || ALIASES[k]?.some((a) => t === `/${a}`) === true);
-  return kind === undefined ? null : { type: "emote", kind };
 }
 
 /** `/me <text>` (OME-1375): the action, or null. */
@@ -61,8 +70,8 @@ export function thinkText(text: string): string | null {
   return /^\s*\/think\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
 }
 
-/** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}${ALIASES[k] === undefined ? "" : ` (${ALIASES[k].map((a) => `/${a}`).join(" ")})`}`).join(" ")} · /me <action> · /think <thought> · /sit · /conga · /stop · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B · /snap`, time: null, self: true };
+/** What `/help` says, to me only: the command table, emotes first. */
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${SLASHES.filter((c) => c.section === "emotes").map((c) => c.help).join(" ")} · ${SLASHES.filter((c) => c.section === "fun").map((c) => c.help).join(" · ")}`, time: null, self: true };
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };

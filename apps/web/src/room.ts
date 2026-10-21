@@ -31,6 +31,7 @@ import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, t
 import type { ExtensionBridge } from "./extension-bridge";
 import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
+import { createCommandPalette } from "./chat/palette";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
@@ -458,7 +459,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   popOut.append(popKey);
   // @-completion (OME-1531): the members here but me.
   const mentionList = attachMentionComplete(chatInput, (q) => mentionOptions(state.room?.members ?? [], state.self, q));
-  chatForm.append(picker.root, chatInput, chatSend, popOut, mentionList);
+  // The command palette (OME-1586): every command and move, beside the emote key.
+  const palette = createCommandPalette({ input: chatInput, form: chatForm });
+  chatForm.append(picker.root, palette.field, chatSend, popOut, mentionList);
   const chatAway = el("div", { className: "ui-panel ui-away chat-away", role: "status", hidden: true }, "chat-away");
   const chatAwayText = el("p");
   chatAwayText.append(el("b", { textContent: "Chat is in its own window." }), el("br"), "Bubbles still show over the avatars here.");
@@ -1012,7 +1015,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** A slash command (OME-1349), from the box or the pop-out: true/false = ran (sent or not), null = not one, it's chat. */
   const runSlash = (text: string): boolean | null => {
     const cmd = slashCommand(text);
-    if (cmd === null) {
+    if (cmd === null || cmd.type === "line") {
       // /conga and /stop go out as chat lines; past the cap, or /stop out of the line, they stay here.
       const c = congaText(text);
       if (c === "conga" && state.self !== null && congaJoin(conga, state.self, clock.serverNow()) === "full") hint(CONGA_FULL_LINE);
