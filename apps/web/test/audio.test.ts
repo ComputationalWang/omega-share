@@ -75,10 +75,11 @@ function fakeContext() {
       let s: Started | null = null;
       return {
         ...node(),
-        buffer: null as { getChannelData(c: number): Float32Array } | null,
+        buffer: null as { getChannelData(c: number): Float32Array; tag?: number } | null,
         loop: false,
-        start: (at: number) => {
-          s = { kind: "noise" as const, freq: 0, at, stoppedAt: null };
+        start(at: number) {
+          // A baked recipe's buffer carries the frequency it was rendered from (`tag`, fakeOffline).
+          s = { kind: "noise" as const, freq: this.buffer?.tag ?? 0, at, stoppedAt: null };
           started.push(s);
         },
         stop: (at: number) => {
@@ -88,6 +89,21 @@ function fakeContext() {
     },
   };
   return { ctx, started };
+}
+
+/** An OfflineAudioContext: renders to a buffer tagged with the first oscillator it started (the recipe's tag). */
+function fakeOffline(rendered: number[]) {
+  return (length: number, sampleRate: number) => {
+    const f = fakeContext();
+    return Object.assign(f.ctx, {
+      sampleRate,
+      startRendering: () => {
+        const tag = f.started.find((x) => x.kind === "osc")?.freq ?? 0;
+        rendered.push(tag);
+        return Promise.resolve({ duration: length / sampleRate, tag, getChannelData: () => new Float32Array(length) });
+      },
+    });
+  };
 }
 
 const memory = (init: Record<string, string> = {}) => {
@@ -206,6 +222,23 @@ describe("the sound engine", () => {
     t.fake.ctx.currentTime = 5;
     t.sound.play("ui.tick", 100);
     expect(t.freqs()).toContain(301);
+  });
+});
+
+describe("baked one-shots", () => {
+  test("each one-shot is rendered once after unlock; then a play is one buffer source, not a node graph per layer", async () => {
+    const rendered: number[] = [];
+    const t = setup({ makeOffline: fakeOffline(rendered) });
+    t.sound.unlock();
+    // Before the renders land it still plays, live.
+    t.sound.play("ui.tick");
+    expect(t.fake.started.map((s) => s.kind)).toEqual(["osc"]);
+    await new Promise((r) => setTimeout(r, 0));
+    // Every one-shot, not the looping tones.
+    expect(rendered.sort()).toEqual([101, 102, 103, 201, 202, 301]);
+    t.fake.ctx.currentTime = 1;
+    t.sound.play("chair.sit");
+    expect(t.fake.started.slice(1).map((s) => [s.kind, s.freq])).toEqual([["noise", 201]]);
   });
 });
 
