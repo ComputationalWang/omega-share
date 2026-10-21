@@ -68,7 +68,7 @@ test.describe("Firefox extension", () => {
     });
     await p.waitForFunction((s) => document.querySelector<HTMLElement>(s)?.dataset["state"] !== undefined, { timeout: 10_000 }, popup.shareStatus);
     const status = await p.$eval(popup.shareStatus, (el) => ({ state: el.getAttribute("data-state"), text: el.textContent }));
-    expect(status).toEqual({ state: "ok", text: expect.stringContaining("e2e-ext-firefox-share") });
+    expect(status).toEqual({ state: "ok", text: "Shared · Open room" });
     await room.waitForSelector(site.sharedVideo, { timeout: 10_000 });
   });
 });

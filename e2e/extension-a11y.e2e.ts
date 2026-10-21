@@ -54,7 +54,7 @@ test("the checked embed has focus once the list renders, and Enter on Share keep
   await p.locator(popup.shareButton).focus();
   await p.keyboard.press("Enter");
   expect(await p.evaluate(() => document.activeElement === document.body)).toBe(false);
-  await expect(p.locator(popup.shareStatus)).toHaveText(`Shared to ${roomId}.`);
+  await expect(p.locator(popup.shareStatus)).toHaveText("Shared · Open room");
   await expect(p.locator(popup.shareButton)).toBeFocused();
 });
 
