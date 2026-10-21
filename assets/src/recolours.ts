@@ -18,6 +18,8 @@ export interface Recolour {
   frames: string;
   /** Tray thumbnail in ui/edit.png, swapped the same way (the room rug has none). */
   thumb?: string;
+  /** Shipped colour's name when the frame keys don't carry one (room.png pieces). */
+  source?: string;
   /** Variants the piece already ships; the new ones are numbered from here. */
   existing: number;
   /** Ramps swapped, in the source colour. */
@@ -29,7 +31,7 @@ export interface Recolour {
 /** Keyed by the `FURNITURE` kind in packages/shared: `rug` is the room's 7×7 rug (room.png), `runner` the kilim runner (atlas id `rug`). */
 export const RECOLOURS: Readonly<Record<string, Recolour>> = {
   sofa: { sheet: "furniture/furniture.png", frames: "furniture/sofa/velvet/", thumb: "thumb/sofa/velvet", existing: 2, from: ["velvet"], variants: [{ id: "teal", to: ["teal"] }, { id: "ginger", to: ["ginger"] }] },
-  rug: { sheet: "room/room.png", frames: "rug/", existing: 1, from: ["navy", "mustard"], variants: [{ id: "rust", to: ["rust", "mustard"] }, { id: "teal", to: ["teal", "cream"] }] },
+  rug: { sheet: "room/room.png", frames: "rug/", source: "navy", existing: 1, from: ["navy", "mustard"], variants: [{ id: "rust", to: ["rust", "mustard"] }, { id: "teal", to: ["teal", "cream"] }] },
   beanbag: { sheet: "furniture/furniture.png", frames: "furniture/beanbag/blush/", thumb: "thumb/beanbag/blush", existing: 2, from: ["blush"], variants: [{ id: "mustard", to: ["mustard"] }, { id: "lilac", to: ["lilac"] }] },
   pouf: { sheet: "furniture/furniture-v2.png", frames: "furniture/pouf/rust/", thumb: "thumb/pouf/rust", existing: 2, from: ["rust"], variants: [{ id: "teal", to: ["teal"] }, { id: "mustard", to: ["mustard"] }] },
   stool: { sheet: "furniture/furniture-v4.png", frames: "furniture/stool/teal/", thumb: "thumb/stool/teal", existing: 2, from: ["teal"], variants: [{ id: "lilac", to: ["lilac"] }, { id: "mustard", to: ["mustard"] }] },
@@ -37,10 +39,18 @@ export const RECOLOURS: Readonly<Record<string, Recolour>> = {
   // OME-1500, wall decor. The dusk print's sky, far and near ridges and sun (the wood trim and mat stay); the warm string's two bulbs.
   frame: { sheet: "furniture/furniture.png", frames: "furniture/frame/dusk/", thumb: "thumb/frame/dusk", existing: 2, from: ["pink", "lilac", "navy", "mustard"], variants: [{ id: "meadow", to: ["glow", "teal", "olive", "mustard"] }, { id: "sunset", to: ["ginger", "rust", "velvet", "cream"] }] },
   garland: { sheet: "furniture/furniture-v2.png", frames: "furniture/garland/warm/", thumb: "thumb/garland/warm", existing: 2, from: ["glow", "mustard"], variants: [{ id: "frost", to: ["teal", "glow"] }, { id: "peach", to: ["blush", "mustard"] }] },
+  // OME-1688, lamps, plants and shelves. Room lamp: its shade. Room plant, monstera: the pot. Arc lamp: the brass, then the shade.
+  // Bookcase: the case, with its cream and teal spines (and globe) swapped out of the way. Wall shelf: the plank, then the pot band.
+  lamp: { sheet: "room/room.png", frames: "lamp/", source: "cream", existing: 1, from: ["cream"], variants: [{ id: "teal", to: ["teal"] }, { id: "lilac", to: ["lilac"] }] },
+  plant: { sheet: "room/room.png", frames: "plant/", source: "rust", existing: 1, from: ["rust"], variants: [{ id: "teal", to: ["teal"] }, { id: "mustard", to: ["mustard"] }] },
+  arclamp: { sheet: "furniture/furniture.png", frames: "furniture/arclamp/brass/", thumb: "thumb/arclamp/brass", existing: 1, from: ["mustard", "cream"], variants: [{ id: "charcoal", to: ["charcoal", "cream"] }, { id: "teal", to: ["mustard", "teal"] }] },
+  monstera: { sheet: "furniture/furniture.png", frames: "furniture/monstera/rust/", thumb: "thumb/monstera/rust", existing: 2, from: ["rust"], variants: [{ id: "mustard", to: ["mustard"] }, { id: "lilac", to: ["lilac"] }] },
+  bookshelf: { sheet: "furniture/furniture.png", frames: "furniture/bookshelf/wood/", thumb: "thumb/bookshelf/wood", existing: 1, from: ["wood", "cream", "teal"], variants: [{ id: "cream", to: ["cream", "wood", "teal"] }, { id: "teal", to: ["teal", "cream", "navy"] }] },
+  wallshelf: { sheet: "furniture/furniture-v2.png", frames: "furniture/wallshelf/wood/", thumb: "thumb/wallshelf/wood", existing: 1, from: ["wood", "teal"], variants: [{ id: "lilac", to: ["lilac", "teal"] }, { id: "teal", to: ["teal", "rust"] }] },
 };
 
 /** Wall-mounted kinds: they get their own contact sheet, on the wall and under the room moods, not on the floor. */
-export const WALL_KINDS: ReadonlySet<string> = new Set(["frame", "garland"]);
+export const WALL_KINDS: ReadonlySet<string> = new Set(["frame", "garland", "wallshelf"]);
 
 /** Index remap for previews and tests: every tone of `from[i]` → the same tone of `to[i]`. */
 export function recolourRemap(r: Recolour, variant: number): Map<number, number> {
@@ -79,7 +89,8 @@ export function recolourCells(): { kind: string; variant: string; images: Img[] 
   const out: { kind: string; variant: string; images: Img[] }[] = [];
   for (const [kind, r] of Object.entries(RECOLOURS)) {
     const shipped: { variant: string; images: Img[] }[] = [];
-    if (kind === "rug") shipped.push({ variant: "navy", images: [rugPatch(room)] });
+    if (kind === "rug") shipped.push({ variant: r.source ?? "", images: [rugPatch(room)] });
+    else if (r.sheet === "room/room.png") shipped.push({ variant: r.source ?? "", images: room.filter((f) => f.key.startsWith(r.frames)) });
     else {
       const id = r.frames.split("/")[1] ?? "";
       const colours = [...new Set(frames.filter((f) => f.key.startsWith(`furniture/${id}/`)).map((f) => f.key.split("/")[2] ?? ""))];

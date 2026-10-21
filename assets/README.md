@@ -30,7 +30,7 @@ assets/
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×1024 indexed PNG-8 (512×512 until OME-1424), 7 more pieces + catalogue v3's 6 (OME-1348) + the door (OME-1424)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
-  furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner, a runtime PLTE swap table (no sheet changes)
+  furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner (+ frame, garland; OME-1688: lamps, plants, shelves), a runtime PLTE swap table (no sheet changes)
   furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops, teleport pad (OME-1546)
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
@@ -1224,6 +1224,25 @@ same rows and cells on the flat wall base under the 4 room moods (top to bottom 
 rgb(60 120 255 / .18), `night` rgb(14 12 46 / .5), as flat overlays: OME-1502 owns the real values), then the dark site bg.
 The contract still says `variants: 2` for both; the hookup raises it to 4 (the web picker reads the table already).
 
+**Lamps, plants and shelves (OME-1688).** Every lamp, plant and shelf takes 2 more, same table, same path: **+242 B**, all lazy
+(`recolours.json` gz 936 → 1 178; 308 788 → 309 030 of 409 600). No sheet, thumb or chip changes: every new id reuses an existing
+`swatch/<id>`. The room's `lamp` and `plant` are `room/room.png` frames like the rug (`source` names their shipped colour; no thumb).
+
+| kind | shipped (variant 0..) | new (variant, id) | swapped ramps → new | sheet |
+|---|---|---|---|---|
+| `lamp` (room) | 0 cream shade | 1 `teal`, 2 `lilac` | cream (shade) | room.png |
+| `plant` (room) | 0 rust pot | 1 `teal`, 2 `mustard` | rust (pot) | room.png |
+| `arclamp` | 0 `brass` | 1 `charcoal` (charcoal arc, cream shade), 2 `teal` (brass arc, teal shade) | mustard, cream | furniture.png |
+| `monstera` | 0 `rust`, 1 `teal` | 2 `mustard`, 3 `lilac` | rust (pot) | furniture.png |
+| `bookshelf` | 0 `wood` | 1 `cream` (cream case, cream spines → wood), 2 `teal` (teal case, cream spines, teal spines and globe → navy) | wood, cream, teal | furniture.png |
+| `wallshelf` | 0 `wood` | 1 `lilac` (lilac plank), 2 `teal` (teal plank, pot band → rust) | wood, teal | furniture-v2.png |
+
+The bookcase swaps its spines out of the case's new ramp so no book vanishes into the case. A pink room-lamp shade was dropped:
+it sits ΔE 6 from teal for deutans. Single-colour kinds pass the ΔE ≥ 20 sibling / ≥ 25 floor / ≥ 3:1 site-bg test on the
+named ramp; the arc lamp (brass is no ramp) and the wall shelf (a wall kind) are compared by pixel like the wall decor. The wall
+shelf is drawn in `preview/recolours-wall@*`, the other five in `preview/recolours-sheet@*` (rows after the runner). Hookup: the
+contract's `variants` become lamp 3, plant 3, arclamp 3, monstera 4, bookshelf 3, wallshelf 3.
+
 ## Set (o) extension popup kit + toolbar "found" state (OME-1041, `ui/popup/` + `store/`)
 
 The extension popup in the site's chrome, and a second toolbar icon for "this page has a video". Previews (1× and 2× device px):
@@ -1318,7 +1337,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops + door, lazy) | 23 415 |
 | `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
 | `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437; + pad, OME-1546; lazy) | 19 477 + 1 915 gz |
-| `furniture/recolours.json` (OME-1462, recolour table, ships with the web bundle) | 3 223 raw / 756 gz |
+| `furniture/recolours.json` (OME-1462 + OME-1500 + OME-1688, recolour table, lazy) | 7 716 raw / 1 178 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -1329,7 +1348,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 308 788 B** after OME-1641 and its OME-1657 polish; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 309 030 B** after OME-1688 (lamp, plant and shelf colourways, +242 lazy); 308 788 B after OME-1641 and its OME-1657 polish; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
@@ -1347,6 +1366,8 @@ Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 �
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
 
 The cat walk (OME-1519) adds **1 969 B**: 292 857 → 294 826 of 307 200 (see "Cat walk").
+
+Lamp, plant and shelf colourways (OME-1688) add **242 B**, all lazy (`recolours.json` gz 936 → 1 178): 308 788 → 309 030 of 409 600 (see "Furniture recolours").
 
 Wall decor recolours (OME-1500) add **401 B**: 292 456 → 292 857 of 307 200 (see "Furniture recolours").
 
