@@ -55,7 +55,7 @@ describe("collectCandidateUrls on fixture pages", () => {
 
   test("no-video: only the page URL", () => {
     const doc = load("no-video", "http://localhost:4400/no-video.html");
-    expect(collectCandidateUrls(doc)).toEqual({ urls: ["http://localhost:4400/no-video.html"], media: [], frames: [] });
+    expect(collectCandidateUrls(doc)).toEqual({ urls: ["http://localhost:4400/no-video.html"], media: [], frames: [], currentTime: 0 });
   });
 
   test("also reads <embed src> and <object data>, resolved against the page", () => {
@@ -206,6 +206,38 @@ describe("collectCandidateUrls on the likely-video fixture page (OME-1037)", () 
     expect(listEmbeds(collectCandidateUrls(doc()))).toEqual([
       { ...generic("https://player.omega-fixture.org/embed/7"), size: { width: 960, height: 540 } },
       { ...generic("https://comments.omega-fixture.org/widget?anime=1"), size: { width: 640, height: 200 } },
+    ]);
+  });
+});
+
+describe("collectCandidateUrls: start where I am (OME-1636)", () => {
+  const WATCH = "https://www.youtube.com/watch?v=aqz-KE-bpKQ&t=30";
+  const seek = (doc: Document, seconds: number): void => {
+    const player = doc.querySelector<HTMLVideoElement>("video.player");
+    if (player === null) throw new Error("fixture has no player");
+    player.currentTime = seconds;
+  };
+
+  test("seeked-video: reads the first <video> that has moved, past an untouched preview", () => {
+    const doc = load("seeked-video", WATCH, OWN_PAGES);
+    seek(doc, 754.6);
+    expect(collectCandidateUrls(doc).currentTime).toBe(754.6);
+    expect(listEmbeds(collectCandidateUrls(doc))).toEqual([{ ...EMBED, startSeconds: 754 }]);
+  });
+
+  test("seeked-video: a player still at 0 falls back to the page URL's t=", () => {
+    const doc = load("seeked-video", WATCH, OWN_PAGES);
+    expect(collectCandidateUrls(doc).currentTime).toBe(0);
+    expect(listEmbeds(collectCandidateUrls(doc))[0]).toEqual({ ...EMBED, startSeconds: 30 });
+  });
+
+  test("start-time-embeds: each iframe's own start/time/#t= param, none for a live channel", () => {
+    const doc = load("start-time-embeds", "http://localhost:4400/start-time-embeds.html", OWN_PAGES);
+    expect(listEmbeds(collectCandidateUrls(doc))).toEqual([
+      { ...EMBED, startSeconds: 75 },
+      { ...TWITCH_VOD, startSeconds: 3723 },
+      { ...VIMEO, startSeconds: 30 },
+      TWITCH_LIVE,
     ]);
   });
 });
