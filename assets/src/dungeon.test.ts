@@ -46,3 +46,10 @@ test("the shipped atlases hold every pose key and the six v6 pieces", () => {
   expect(ids).toEqual(["bed", "desk", "minibar", "mirror", "washbasin", "whirlpool"]);
   expect(v6.meta.omega.pieces.filter((p) => p.seatsByDir).map((p) => p.id).sort()).toEqual(["bed", "whirlpool"]);
 });
+
+test("every v6 animation frame is in the atlas (the whirlpool's use loop on a seat with a front layer)", () => {
+  const v6 = JSON.parse(readFileSync(join(ROOT, "furniture", "furniture-v6.json"), "utf8")) as { frames: Record<string, unknown>; animations: Record<string, string[]> };
+  const keys = Object.values(v6.animations).flat();
+  expect(keys.length).toBe(8);
+  for (const k of keys) expect(v6.frames[k]).toBeDefined();
+});
