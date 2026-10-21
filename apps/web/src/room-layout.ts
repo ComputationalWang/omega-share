@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, chromeZoom, fullscreenLayout, portraitLayout, roomLayout, seatsHome, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
@@ -343,9 +343,12 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
   /** The TV and its shelf take their boxes, compact where they're small. */
-  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }): void => {
+  /** `zoom`: the wide page's chrome zoom (OME-1667); the shelf's box is in its own, zoomed, px. */
+  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }, zoom = 1): void => {
     box(tv, l.tv);
-    box(controls, l.controls);
+    const c = l.controls;
+    box(controls, { x: c.x / zoom, y: c.y / zoom, w: c.w / zoom, h: c.h / zoom });
+    controls.style.zoom = zoom === 1 ? "" : String(zoom);
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
   };
@@ -353,6 +356,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap.
     wrap.style.minHeight = "";
+    // Set before the wrap is measured: room.css widens the chat column with it.
+    const zoom = wide.matches && fs.mode() === "off" ? chromeZoom(window.innerWidth, window.innerHeight) : 1;
+    if (zoom === 1) delete root.dataset["chrome"];
+    else root.dataset["chrome"] = String(zoom);
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
@@ -403,8 +410,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
-      boxTv(l);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom);
+      boxTv(l, "shelfZoom" in l ? l.shelfZoom : 1);
       if ("stage" in l) {
         // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never

@@ -83,10 +83,12 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     if (!quality.isOpen() || quality.menu.parentElement !== wrap) return;
     const m = quality.menu;
     const k = quality.key;
-    const right = controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2;
+    // The shelf's offsets are in its own px: the wide page zooms it (OME-1667), the list it hangs isn't.
+    const z = controls.currentCSSZoom;
+    const right = (controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2) * z;
     const left = Math.max(0, right - m.offsetWidth + 24);
     m.style.left = `${String(left)}px`;
-    m.style.top = `${String(controls.offsetTop + controls.offsetHeight + 8)}px`;
+    m.style.top = `${String((controls.offsetTop + controls.offsetHeight) * z + 8)}px`;
     m.style.setProperty("--ui-tail-x", `${String(right - left)}px`);
   };
   quality.onToggle((open) => {
