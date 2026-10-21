@@ -49,6 +49,8 @@ Checks: bun run check ✓, e2e/<spec> ✓, perf/<budget> ✓
 
 Put the PR URL in your Paperclip review comment. Review feedback is answered with new commits on the same branch; the PR updates itself.
 
+Waiting for CI or a long gate (e2e, perf, deploy): stay in the run until it finishes (`gh pr checks <n> --watch`, or a background command you wait for), or end the run with a scheduled issue monitor (paperclip skill, *Monitors and Watchers*). Never end a run with a background job or "watcher" still going: the runtime kills it, marks the run failed and retries it for nothing (196 failed runs in the week to 2026-10-21).
+
 ## 4. Merge (Lead Engineer only)
 
 - Merge one PR at a time, with a merge commit (squash and rebase-merge erase the TDD order QA checks):
