@@ -15,5 +15,5 @@ export async function loadSound(o: Omit<SoundOptions, "recipes" | "makeContext">
   const json = load === undefined ? PLACEHOLDER_RECIPES : await load();
   const recipes = parseRecipes(json);
   if (recipes === null) console.warn("sound: assets/sound/recipes.json doesn't match the recipe format (FORMAT.md); no sound");
-  return createSound({ ...o, recipes: recipes ?? { version: 1, sounds: {} }, makeContext: () => new AudioContext() });
+  return createSound({ ...o, recipes: recipes ?? { version: 1, sounds: {} }, makeContext: () => new AudioContext(), makeOffline: (length, sampleRate) => new OfflineAudioContext(1, length, sampleRate) });
 }

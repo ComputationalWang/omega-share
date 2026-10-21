@@ -54,6 +54,15 @@ export interface AudioCtx {
   createBufferSource(): SourceLike & { buffer: BufferLike | null; loop: boolean };
 }
 
+interface BakedBuffer extends BufferLike {
+  readonly duration: number;
+}
+
+/** The part of an OfflineAudioContext the engine uses to bake a one-shot into a buffer. */
+export interface OfflineCtx extends AudioCtx {
+  startRendering(): Promise<BakedBuffer>;
+}
+
 /** A `localStorage`-like store; its methods may throw (blocked storage). */
 export interface SoundStore {
   getItem(key: string): string | null;
@@ -62,6 +71,11 @@ export interface SoundStore {
 
 export interface SoundOptions {
   readonly makeContext: () => AudioCtx;
+  /**
+   * Bakes each one-shot once after unlock (mono, `length` frames), so a footfall then costs one buffer source and a
+   * gain on the main thread, not a node graph per layer. Without it, every play synthesizes live.
+   */
+  readonly makeOffline?: (length: number, sampleRate: number) => OfflineCtx;
   readonly recipes: Recipes;
   readonly store: SoundStore;
   /** Where I am in the room (the stage point of my avatar), null before I'm placed. */
@@ -148,6 +162,7 @@ export function createSound(o: SoundOptions): Sound {
   let toneVoice: Voice | null = null;
   const voices: Voice[] = [];
   const noise = new Map<string, BufferLike>();
+  const baked = new Map<string, BakedBuffer>();
   // shortcut: one entry per member ever drawn in this room view (tens), dropped with the room; prune on leave if rooms grow.
   const seen = new Map<MemberId, { walking: boolean; half: number; sitting: boolean }>();
 
@@ -236,6 +251,49 @@ export function createSound(o: SoundOptions): Sound {
     return src;
   }
 
+  function startBaked(c: AudioCtx, out: NodeLike, name: string, b: BakedBuffer, distance: number): Voice {
+    const now = c.currentTime;
+    const src = c.createBufferSource();
+    src.buffer = b;
+    const g = c.createGain();
+    src.connect(g);
+    g.connect(out);
+    src.start(now);
+    return {
+      name,
+      at: now,
+      distance,
+      end: now + b.duration,
+      cut(at) {
+        g.gain.setValueAtTime(g.gain.value, at);
+        g.gain.linearRampToValueAtTime(0, at + CUT_S);
+        src.stop(at + CUT_S);
+        this.end = at + CUT_S;
+      },
+    };
+  }
+
+  function bakeAll(sampleRate: number): void {
+    const make = o.makeOffline;
+    if (make === undefined) return;
+    for (const [name, r] of Object.entries(o.recipes.sounds)) {
+      if (r.loop === true) continue;
+      const seconds = Math.max(...r.layers.map((l) => (l.env.delay ?? 0) + layerLength(l.env)));
+      try {
+        const off = make(Math.ceil((seconds + CUT_S) * sampleRate), sampleRate);
+        start(off, off.destination, name, r, false, 0);
+        off.startRendering().then(
+          (b) => {
+            baked.set(name, b);
+          },
+          () => undefined,
+        );
+      } catch {
+        // No offline rendering here: this sound stays live.
+      }
+    }
+  }
+
   function startTone(): void {
     const r = o.recipes.sounds[`tone.${mood}`];
     if (ctx === null || master === null || muted || r === undefined || toneVoice !== null) return;
@@ -266,7 +324,8 @@ export function createSound(o: SoundOptions): Sound {
       v.cut(now);
       voices.splice(far, 1);
     }
-    voices.push(start(ctx, master, name, r, false, distance));
+    const b = baked.get(name);
+    voices.push(b === undefined ? start(ctx, master, name, r, false, distance) : startBaked(ctx, master, name, b, distance));
   }
 
   return {
@@ -287,6 +346,7 @@ export function createSound(o: SoundOptions): Sound {
       master.gain.value = level();
       master.connect(ctx.destination);
       startTone();
+      bakeAll(ctx.sampleRate);
     },
     play,
     pose(id, p) {
