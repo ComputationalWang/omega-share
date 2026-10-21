@@ -177,8 +177,8 @@ test("the help key in the room bar opens it too, and focus goes back to the key"
 
 const inDialog = (page: Page): Promise<boolean> => page.evaluate(() => document.activeElement?.closest("[data-testid=help-dialog]") != null);
 
-test("phone (touch): each chip sits in the viewport clear of the composer, the help key opens the dialog by tap, it fits and scrolls, Close is a finger-sized target and returns focus to the key", async ({ browser }) => {
-  const page = await join("touch", browser, false, devices["Pixel 7"]);
+test("phone (touch, 390×844 portrait): each chip sits in the viewport clear of the composer and the room bar's People and help keys (OME-1601), the help key opens the dialog by tap, it fits and scrolls, Close is a finger-sized target and returns focus to the key", async ({ browser }) => {
+  const page = await join("touch", browser, false, { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } });
   const viewport = page.viewportSize();
   if (viewport === null) throw new Error("no viewport");
   const hint = page.locator(site.firstHint);
@@ -193,6 +193,8 @@ test("phone (touch): each chip sits in the viewport clear of the composer, the h
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
     expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
+    expect(await overlaps(hint, page.locator(site.peopleKey))).toBe(false);
+    expect(await overlaps(hint, page.locator(site.helpKey))).toBe(false);
     expect(await wide()).toBe(false);
     await page.locator(site.hintNext).tap();
   }
