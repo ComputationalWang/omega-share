@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Embed, type GenericEmbed, isSyncedEmbed } from "@omega/shared";
 import { Window } from "happy-dom";
-import { listEmbeds } from "../src/embeds";
+import { type ListedEmbed, listEmbeds } from "../src/embeds";
 import { collectCandidateUrls } from "../src/scan";
 
 const PAGES = join(import.meta.dirname, "../../../e2e/fixtures/pages");
@@ -127,10 +127,10 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
     }
   });
 
-  const watchPages: readonly { url: string; expected: readonly Embed[] }[] = [
+  const watchPages: readonly { url: string; expected: readonly ListedEmbed[] }[] = [
     { url: "https://www.twitch.tv/SomeChannel", expected: [TWITCH_LIVE] },
     { url: "https://m.twitch.tv/somechannel?sr=a", expected: [TWITCH_LIVE] },
-    { url: "https://www.twitch.tv/videos/1234567890?t=1h2m3s", expected: [TWITCH_VOD] },
+    { url: "https://www.twitch.tv/videos/1234567890?t=1h2m3s", expected: [{ ...TWITCH_VOD, startSeconds: 3723 }] },
     { url: "https://vimeo.com/76979871", expected: [VIMEO] },
     { url: "https://vimeo.com/76979871/8272103f6e", expected: [VIMEO_UNLISTED] },
     { url: "https://vimeo.com/channels/staffpicks/76979871", expected: [VIMEO] },
