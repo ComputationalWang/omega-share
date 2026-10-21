@@ -15,7 +15,7 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "room-view": ["main"],
   walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over", "follow", "jog", "floor", "conga", "conga-late"],
-  emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash", "action", "thinker", "dancer", "applause"],
+  emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash", "action", "thinker", "dancer", "applause", "palette"],
   polish: ["every", "late", "drop"],
   "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed", "reorder", "reorderphone"],
   "queue-perf": ["frames", "spread"],

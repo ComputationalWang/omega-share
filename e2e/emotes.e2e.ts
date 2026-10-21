@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test.describe("emotes", () => {
   /** Two clients in the test's own room, both drawn with the motion atlas (b walked in and is at rest). */
-  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "action" | "thinker" | "typist" | "burst" | "still" | "wheel" | "wheelwalk" | "dancer") {
+  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "action" | "thinker" | "typist" | "burst" | "still" | "wheel" | "wheelwalk" | "dancer" | "palette") {
     clients = await joinRoom(browser, { roomUrl: testRoom("emotes", prefix).url, count: 2, nicknamePrefix: prefix });
     const [a, b] = clients;
     if (a === undefined || b === undefined) throw new Error("need two clients");
@@ -100,6 +100,26 @@ test.describe("emotes", () => {
     await expect(a.page.getByText("Stand up to dance")).toHaveCount(0);
     await a.page.waitForTimeout(500);
     expect((await frames(a.page, bId))?.avatar ?? "").toMatch(/^(breathe\/)?\w+\/sit\//);
+  });
+
+  test("the command palette (OME-1586): ✦ opens it, /dance runs from it, /poll fills the field; the same in the pop-out", async ({ browser }) => {
+    const { a, b, bId } = await pair(browser, "palette");
+    await b.page.locator(site.paletteKey).click();
+    const dialog = b.page.getByRole("dialog", { name: "Commands" });
+    await expect(dialog).toBeVisible();
+    await dialog.locator(`${site.paletteItem}[data-command="/dance"]`).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(async () => (await frames(a.page, bId))?.avatar ?? "", { timeout: 3000, intervals: [40] }).toMatch(/^walk8?\//);
+    await b.page.locator(site.paletteKey).click();
+    await dialog.locator(`${site.paletteItem}[data-command="/poll Question? A | B"]`).click();
+    await expect(b.page.locator(site.chatInput)).toHaveValue("/poll Question? A | B");
+    await expect(b.page.locator(site.chatInput)).toBeFocused();
+    await b.page.locator(site.chatInput).fill("");
+    const [pop] = await Promise.all([b.page.context().waitForEvent("page"), b.page.locator(site.chatPopout).click()]);
+    await pop.locator(site.paletteKey).click();
+    await pop.getByRole("dialog", { name: "Commands" }).locator(`${site.paletteItem}[data-command="/hug @"]`).click();
+    await expect(pop.locator(site.chatInput)).toHaveValue("/hug @");
+    await pop.close();
   });
 
   test("/think is an italic thought line in both logs and a thought bubble on both stages (OME-1465)", async ({ browser }) => {

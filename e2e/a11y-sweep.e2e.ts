@@ -224,6 +224,7 @@ VIEWPORTS.forEach((vp, i) => {
       await expect(page.locator(site.snapKey)).toBeVisible({ visible: portrait === 0 });
       await audit(page, vp.name, "guest rest");
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
+      await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
       await step(page, vp, "report", skipped, async () => (await visibleClick(page, site.reportKey)) && (await page.locator(site.reportDialog).isVisible()));
       await step(page, vp, "share sheet", skipped, async () => (await visibleClick(page, id("portrait-link"))) || (await page.locator(site.inviteLink).isVisible()));
       await step(page, vp, "people", skipped, () => visibleClick(page, site.peopleKey));
