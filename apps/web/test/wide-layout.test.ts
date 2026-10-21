@@ -109,4 +109,15 @@ describe("chrome zoom (OME-1667)", () => {
     }
     expect(wideLayout(2200, 1320, null).controls.h).toBe(CONTROL_BAR_H);
   });
+  test("a TV too narrow for the zoomed shelf's keys (People open) steps the shelf down to a zoom they fit", () => {
+    for (const [w, h, z] of [[2200, 1320, 2], [1300, 1000, 1.5], [1300, 760, 1.5], [1300, 600, 1.5], [900, 600, 2]] as const) {
+      const l = wideLayout(w, h, null, z);
+      expect([1, 1.5, 2]).toContain(l.shelfZoom);
+      expect(l.shelfZoom).toBeLessThanOrEqual(z);
+      expect(l.controls.h).toBe(CONTROL_BAR_H * l.shelfZoom);
+      if (l.shelfZoom > 1) expect(l.tv.w).toBeGreaterThanOrEqual(320 * l.shelfZoom);
+    }
+    expect(wideLayout(2200, 1320, null, 2).shelfZoom).toBe(2);
+    expect(wideLayout(900, 600, null, 2).shelfZoom).toBe(1);
+  });
 });
