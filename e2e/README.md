@@ -10,6 +10,7 @@ bun run perf --no-build            # reuse existing builds
 bun run perf --strict              # pending budgets also fail
 bun run perf --soak                # also the 10 min JS heap soak (post-merge full suite); OMEGA_SOAK_MS shortens it, but a short soak stays PENDING
 bun run e2e:real                   # opt-in real-provider checks, headed on a virtual display (Xvfb); E2E_REAL_ON_DESKTOP=1 to watch. docs/qa/headed-on-xvfb.md
+bun run e2e:real -- movie-night-smoke   # Movie night smoke, docs/ops/movie-night-deploy.md §4 rows 1-9, 4 contexts; OMEGA_SMOKE_ORIGIN="$PUBLIC_ORIGIN" for the hosted site
 ```
 
 ## Which specs a diff needs (`bun run affected`, OME-820)
