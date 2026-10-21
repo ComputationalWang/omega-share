@@ -136,6 +136,9 @@ legend { padding: 0; margin-bottom: 6px; }
 @media (pointer: fine) { .looks { min-height: 38px; } .looks .tints { gap: 6px; } .looks .tint { width: 24px; height: 24px; } }
 /* The accessory row (OME-1391): the tint swatch's shape and focus ring, with a text glyph instead of a colour. */
 .accessories { margin-top: 8px; }
+/* On a touch screen, where the rows stack, each says what it picks (OME-1597): its group's own label on a line of its own,
+ * hidden from screen readers (they read the group's name). With a mouse the rows share a line and the form keeps its height. */
+@media (pointer: coarse) { .welcome .tints::before { content: attr(aria-label) / ""; flex-basis: 100%; margin-bottom: -4px; color: var(--dusk-muted); font-size: 12px; } }
 .accessory { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 2px solid var(--dusk-border, #5a4e6e); border-radius: 50%; background: var(--dusk-surface, #2a2540); color: var(--dusk-text, #f3e9dc); font-size: 14px; line-height: 1; cursor: pointer; }
 .accessory[aria-checked="true"] { border-color: var(--dusk-honey, #f2c46d); box-shadow: 0 0 0 2px var(--dusk-canvas, #1d1a2b), 0 0 0 4px var(--dusk-honey, #f2c46d); }
 @media (pointer: coarse) { .tint, .accessory { width: 44px; height: 44px; } }

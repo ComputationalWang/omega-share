@@ -130,7 +130,7 @@ export function createHelp(o: HelpOptions): Help {
     ownerPart = owner;
 
     const report = section("Reporting a room", "help-report");
-    report.append(el("p", { textContent: "Something wrong here? Use Report room at the bottom of the room. It goes to the people who run omega-share, not to the host or anyone in the room." }));
+    report.append(el("p", { textContent: "Something wrong here? Use Report room at the bottom of the room (on a phone, it's in the Room panel). It goes to the people who run omega-share, not to the host or anyone in the room." }));
     reportPart = report;
 
     const pages = section("About omega-share");
@@ -148,7 +148,9 @@ export function createHelp(o: HelpOptions): Help {
     closeKey = close;
     const acts = el("div", { className: "acts" });
     acts.append(close);
-    dialog.append(title, keyboard, touch, owner, report, pages, settings, acts);
+    // On a touch screen the touch controls come first; the keyboard list is the long one (OME-1597).
+    const controls = window.matchMedia("(pointer: coarse)").matches ? [touch, keyboard] : [keyboard, touch];
+    dialog.append(title, ...controls, owner, report, pages, settings, acts);
   };
 
   const openHelp = (): void => {
@@ -163,6 +165,8 @@ export function createHelp(o: HelpOptions): Help {
     if (cinemaBox !== null && o.cinema !== undefined) cinemaBox.checked = o.cinema.on();
     dialog.showModal();
     closeKey?.focus();
+    // A phone opens it at its top, not scrolled down to the Close key (OME-1597).
+    dialog.scrollTop = 0;
   };
 
   const closeHelp = (): void => {
