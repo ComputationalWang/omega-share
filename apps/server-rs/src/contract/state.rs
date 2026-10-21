@@ -228,6 +228,14 @@ pub enum EmoteKind {
     Dance,
 }
 
+/// `PAIR_POSES` (OME-1671): sent in `pair`, echoed in `pair-invited`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PairPose {
+    Thrust,
+    Bendover,
+}
+
 // ---- playback, members, queue
 
 wire_type!(

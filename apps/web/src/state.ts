@@ -320,6 +320,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
+    // The dank-dungeon pair (OME-1671): drawn by OME-1672, never part of the view state.
+    case "pair-invited":
+    case "paired":
       return state;
     // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
     case "poll": {

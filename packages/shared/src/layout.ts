@@ -215,6 +215,8 @@ export type RoomMood = v.InferOutput<typeof RoomMoodSchema>;
 const layoutEntries = (piece: ReturnType<typeof furniture>) => ({
   furniture: v.pipe(v.array(piece), v.maxLength(MAX_FURNITURE)),
   mood: v.optional(RoomMoodSchema),
+  /** The `/thrust` + `/bendover` pair is on (OME-1671): set by the dank-dungeon preset, kept as sent. Absent means off. */
+  pairs: v.optional(v.boolean()),
 });
 type LayoutEntries = ReturnType<typeof layoutEntries>;
 

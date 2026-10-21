@@ -345,6 +345,8 @@ class LoadClient {
       case "member-status":
       case "member-muted":
       case "emoted":
+      case "pair-invited":
+      case "paired":
       case "walked":
       case "tint-changed":
       case "accessory-changed":

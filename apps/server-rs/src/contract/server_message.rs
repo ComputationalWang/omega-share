@@ -13,8 +13,8 @@ use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
 use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PollCount, SeatIndex, Tint};
 use super::state::{
-    Conga, EmoteKind, Member, PingId, PlaybackState, Poll, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed,
-    poll_counts_are_valid, present, queue_is_valid,
+    Conga, EmoteKind, Member, PairPose, PingId, PlaybackState, Poll, QueueItem, RoomState, ServerTime, layout, nullable,
+    playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
 };
 use super::text::{ChatText, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -42,6 +42,7 @@ pub enum ErrorCode {
     UnsupportedUrl,
     ResumeExpired,
     BadCell,
+    PairsOff,
 }
 
 /// `MEMBER_LEFT_REASONS`.
@@ -252,6 +253,8 @@ server_messages! {
     }
     "title-changed" TitleChanged TitleChangedWire { title: RoomTitle, by: MemberId }
     "emoted" Emoted EmotedWire { member_id: MemberId, kind: EmoteKind }
+    "pair-invited" PairInvited PairInvitedWire { member_id: MemberId, pose: PairPose }
+    "paired" Paired PairedWire { thrust: MemberId, bendover: MemberId }
     "rolled" Rolled RolledWire { member_id: MemberId, sides: DiceSides, value: DieValue }
     "poll" PollChanged PollWire {
         poll_id: PollId,

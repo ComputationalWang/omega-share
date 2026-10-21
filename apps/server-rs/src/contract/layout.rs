@@ -393,11 +393,13 @@ macro_rules! wire {
             furniture: Vec<Obj<$piece>>,
             #[serde(default, deserialize_with = "present")]
             mood: Option<Mood>,
+            #[serde(default, deserialize_with = "present")]
+            pairs: Option<bool>,
         }
 
         impl From<$layout> for RoomLayout {
             fn from(w: $layout) -> Self {
-                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood }
+                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood, pairs: w.pairs }
             }
         }
     };
@@ -455,6 +457,9 @@ pub struct RoomLayout {
     /// As sent: an explicit "none" stays, absent stays absent.
     #[serde(skip_serializing_if = "Option::is_none")]
     mood: Option<Mood>,
+    /// The `/thrust` + `/bendover` pair is on (OME-1671). As sent, like `mood`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pairs: Option<bool>,
 }
 
 impl RoomLayout {
@@ -474,6 +479,10 @@ impl RoomLayout {
 
     pub fn mood(&self) -> Mood {
         self.mood.unwrap_or_default()
+    }
+
+    pub fn pairs(&self) -> bool {
+        self.pairs.unwrap_or_default()
     }
 
     pub fn seats(&self) -> Vec<Seat> {
@@ -549,7 +558,11 @@ pub fn default_layout() -> RoomLayout {
         Furniture::new(Kind::Plant, 0, 9, Facing::Se),
     ])
     .collect();
-    RoomLayout { furniture, mood: None }
+    RoomLayout {
+        furniture,
+        mood: None,
+        pairs: None,
+    }
 }
 
 /// The judged D1 room presets (room-ownership.ts).
