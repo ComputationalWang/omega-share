@@ -251,13 +251,12 @@ export function createSound(o: SoundOptions): Sound {
     return src;
   }
 
+  /** Straight into the master gain, no gain of its own (about half the main-thread cost); a steal stops it at once. */
   function startBaked(c: AudioCtx, out: NodeLike, name: string, b: BakedBuffer, distance: number): Voice {
     const now = c.currentTime;
     const src = c.createBufferSource();
     src.buffer = b;
-    const g = c.createGain();
-    src.connect(g);
-    g.connect(out);
+    src.connect(out);
     src.start(now);
     return {
       name,
@@ -265,10 +264,8 @@ export function createSound(o: SoundOptions): Sound {
       distance,
       end: now + b.duration,
       cut(at) {
-        g.gain.setValueAtTime(g.gain.value, at);
-        g.gain.linearRampToValueAtTime(0, at + CUT_S);
-        src.stop(at + CUT_S);
-        this.end = at + CUT_S;
+        src.stop(at);
+        this.end = at;
       },
     };
   }
