@@ -10,7 +10,7 @@ interface Atlas {
   meta: { omega: { accessories: Record<string, { prefix: string; count: number }> } };
 }
 const a = JSON.parse(read("accessories/accessories.json").toString("utf8")) as Atlas;
-const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expressions.json"]
+const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expressions.json", "avatars/watching.json"]
   .flatMap((f) => Object.keys((JSON.parse(read(f).toString("utf8")) as Atlas).frames))
   .filter((k) => !k.startsWith("emote/"));
 
@@ -43,9 +43,9 @@ test("bare-head frames for Pip and Mo, every frame key, in the avatar cell shape
   expect(avatars).toEqual(["pip", "mo"]);
   expect(accessories).toEqual(["partyhat", "crown", "headphones", "cap", "bow"]);
   const keys = avatarKeys.filter((k) => /(^|\/)(pip|mo)\//.test(k));
-  expect(keys.length).toBe(208);
+  expect(keys.length).toBe(228);
   expect(keys.filter((k) => !bare.frames[`${prefix}${k}`])).toEqual([]);
-  expect(Object.keys(bare.frames).length).toBe(208);
+  expect(Object.keys(bare.frames).length).toBe(228);
   for (const f of Object.values(bare.frames)) {
     expect([f.frame.w, f.frame.h]).toEqual([32, 64]);
     expect(f.anchor).toEqual({ x: 0.5, y: 61 / 64 });
