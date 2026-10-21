@@ -1228,6 +1228,9 @@ then `<link rel="stylesheet" href="/popup/kit.css">` in the popup's `index.html`
 Tokens in `kit.css`: `--ui-page` (popup background), `--ui-text`, `--ui-muted` (labels, host, meta), `--ui-accent` (Server settings),
 `--ui-error`, `--ui-glow` (room name in the success line), `--ui-field` (option list), `--ui-on-primary`, `--ui-disabled-text`, and `--ui-px: 2px`.
 
+## Sound recipes (`sound/recipes.json`, OME-1642)
+WebAudio recipes as data, played by the room's engine (`apps/web/src/audio/`, OME-1638); the format (v1) is `apps/web/src/audio/FORMAT.md`. 14 names: `step.wood|carpet|tile`, `chair.sit|stand`, `door`, `ui.tick|toggle|error`, `pop`, `tone.warm|cool|night` (loop) and `swell`. Each `gain` is the mixed level at master volume 1. Checks: `bun test assets/src/sound.test.ts` (names, fields, ≤ 4 KB, a ≤ -12 dBFS bound, no audio files) and `bun assets/src/sound-meter.ts` (measured peak/RMS per sound, headless). Audition: serve the repo root and open `assets/preview/sound.html`. Look and mix: `STYLE.md`, *Sound palette*.
+
 ## Budget
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.

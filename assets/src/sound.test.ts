@@ -8,8 +8,8 @@ const FILE = join(ASSETS, "sound", "recipes.json");
 const NAMES = ["step.wood", "step.carpet", "step.tile", "chair.sit", "chair.stand", "door", "ui.tick", "ui.toggle", "ui.error", "pop", "tone.warm", "tone.cool", "tone.night", "swell"];
 const PEAK = 10 ** (-12 / 20); // -12 dBFS at master volume 1
 
-type Layer = Record<string, unknown> & { gain?: number; env: Record<string, number> };
-type Recipe = { gain: number; loop?: boolean; layers: Layer[] };
+type Layer = Record<string, unknown> & { gain?: number; env: Record<string, number>; filter?: Record<string, unknown> };
+interface Recipe { gain: number; loop?: boolean; layers: Layer[] }
 const recipes = (): Record<string, Recipe> => (JSON.parse(readFileSync(FILE, "utf8")) as { sounds: Record<string, Recipe> }).sounds;
 
 test("the recipe file is at most 4 KB", () => {
@@ -34,7 +34,7 @@ test("only the fields of format v1", () => {
     for (const l of r.layers) {
       check(name, l, "osc" in l ? keys.osc : keys.noise);
       check(name, l.env, keys.env);
-      if (typeof l.filter === "object" && l.filter !== null) check(name, l.filter, keys.filter);
+      if (l.filter !== undefined) check(name, l.filter, keys.filter);
     }
   }
   expect(extra).toEqual([]);
