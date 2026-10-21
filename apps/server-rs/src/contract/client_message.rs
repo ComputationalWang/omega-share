@@ -14,6 +14,7 @@ use super::layout::{RoomLayout, RoomLayoutInput};
 use super::room::{
     Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, PollOptionIndex, QueueIndex, SeatIndex, Tint,
 };
+use super::state::PairPose;
 use super::text::{ChatText, Nickname, PollOption, PollQuestion, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -129,6 +130,9 @@ pub enum ClientMessage {
     FloorSit {
         on: bool,
     },
+    Pair {
+        pose: PairPose,
+    },
     Typing {
         on: bool,
     },
@@ -211,6 +215,7 @@ impl ClientMessage {
             Self::SetAccessory { .. } => "set-accessory",
             Self::SetHair { .. } => "set-hair",
             Self::FloorSit { .. } => "floor-sit",
+            Self::Pair { .. } => "pair",
             Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
             Self::Roll { .. } => "roll",
@@ -371,6 +376,12 @@ struct FloorSitW {
 
 #[derive(Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
+struct PairW {
+    pose: PairPose,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
 struct ChatW {
     text: ChatText,
 }
@@ -519,6 +530,8 @@ enum Wire {
     SetHair(SetHairW),
     #[serde(rename = "floor-sit")]
     FloorSit(FloorSitW),
+    #[serde(rename = "pair")]
+    Pair(PairW),
     #[serde(rename = "typing")]
     Typing(TypingW),
     #[serde(rename = "chat")]
@@ -573,6 +586,7 @@ impl Validate for Wire {
             Self::SetAccessory(m) => m.validate(),
             Self::SetHair(m) => m.validate(),
             Self::FloorSit(m) => m.validate(),
+            Self::Pair(m) => m.validate(),
             Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
             Self::Roll(m) => m.validate(),
@@ -625,6 +639,7 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
         Wire::SetHair(m) => ClientMessage::SetHair { hair: m.hair },
         Wire::FloorSit(m) => ClientMessage::FloorSit { on: m.on },
+        Wire::Pair(m) => ClientMessage::Pair { pose: m.pose },
         Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
         Wire::Roll(m) => ClientMessage::Roll { sides: m.sides },
@@ -736,6 +751,8 @@ mod tests {
             json!({"type":"title-set","title":"Films"}),
             json!({"type":"emote","kind":"cheer"}),
             json!({"type":"emote","kind":"dance"}),
+            json!({"type":"pair","pose":"thrust"}),
+            json!({"type":"pair","pose":"bendover"}),
             json!({"type":"kick","memberId":"m2"}),
             json!({"type":"mute","memberId":"m2","muted":false}),
             json!({"type":"control-policy","policy":"owner"}),

@@ -170,7 +170,11 @@ const pads = (): unknown[] => {
   ];
 };
 
-const inputs = (): unknown[] => [...shapes(), ...doors(), ...moods(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** The dank-dungeon pair flag (OME-1671): an optional boolean; absent stays absent. */
+const pairs = (): unknown[] =>
+  [true, false, "true", 1, 0, null, [], {}].flatMap((pairs) => [{ ...(base() as object), pairs }, { ...DEFAULT_LAYOUT, pairs }, { ...DEFAULT_LAYOUT, mood: "night", pairs }]);
+
+const inputs = (): unknown[] => [...shapes(), ...doors(), ...moods(), ...pairs(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));
