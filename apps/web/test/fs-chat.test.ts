@@ -43,7 +43,10 @@ function memory(initial: Record<string, string> = {}) {
   return { data, getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); } };
 }
 
-async function make(store = memory()) {
+/** The chat pinned shown: the hide-chat tests start from there; full screen's own default is hidden (OME-1668). */
+const shown = () => memory({ "omega.fsChatHidden": "0" });
+
+async function make(store = shown()) {
   const { createFsChat } = await import("../src/fs-chat");
   const c = clock();
   const changes: boolean[] = [];
@@ -125,7 +128,7 @@ describe("the bubble queue", () => {
 
 describe("the hide-chat toggle", () => {
   test("named for its action, expanded state follows (OME-1593); remembered per viewer", async () => {
-    const store = memory();
+    const store = shown();
     const { chat, changes } = await make(store);
     expect(chat.toggle.ariaLabel).toBe("Hide chat");
     expect(chat.toggle.getAttribute("aria-expanded")).toBe("true");
@@ -181,6 +184,87 @@ describe("the hide-chat toggle", () => {
   });
 });
 
+// OME-1668 (board OME-1664): full screen hides the chat by default; the pointer at the bottom edge, a tap there, Enter
+// or Tab bring it back for a while ("peek"); focus in it or a draft holds it.
+describe("the peek", () => {
+  test("with nothing stored, full screen starts with the chat hidden; outside full screen nothing is hidden", async () => {
+    const { chat, changes } = await make(memory());
+    expect(chat.hidden()).toBe(false);
+    chat.setActive(true);
+    expect(chat.hidden()).toBe(true);
+    expect(changes).toEqual([true]);
+  });
+
+  test("peek(true) shows it now; peek(false) hides it ~2 s later, and moving on doesn't put that off", async () => {
+    const { chat, c, changes } = await make(memory());
+    chat.setActive(true);
+    chat.peek(true);
+    expect(chat.hidden()).toBe(false);
+    chat.peek(false);
+    c.advance(1000);
+    chat.peek(false);
+    c.advance(999);
+    expect(chat.hidden()).toBe(false);
+    c.advance(1);
+    expect(chat.hidden()).toBe(true);
+    expect(changes).toEqual([true, false, true]);
+  });
+
+  test("coming back before the countdown ends keeps it shown", async () => {
+    const { chat, c } = await make(memory());
+    chat.setActive(true);
+    chat.peek(true);
+    chat.peek(false);
+    c.advance(1500);
+    chat.peek(true);
+    c.advance(5000);
+    expect(chat.hidden()).toBe(false);
+  });
+
+  test("focus or a draft holds it past the countdown; letting go starts the countdown", async () => {
+    const { chat, c } = await make(memory());
+    chat.setActive(true);
+    chat.hold(true);
+    expect(chat.hidden()).toBe(false);
+    chat.peek(false);
+    c.advance(5000);
+    expect(chat.hidden()).toBe(false);
+    chat.hold(false);
+    c.advance(1999);
+    expect(chat.hidden()).toBe(false);
+    c.advance(1);
+    expect(chat.hidden()).toBe(true);
+  });
+
+  test("no peek outside full screen; leaving full screen ends one, so the next starts hidden", async () => {
+    const { chat, changes } = await make(memory());
+    chat.peek(true);
+    expect(changes).toEqual([]);
+    chat.setActive(true);
+    chat.peek(true);
+    chat.setActive(false);
+    chat.setActive(true);
+    expect(chat.hidden()).toBe(true);
+  });
+
+  test("the chat pinned shown ignores the peek; the handle pins it from a peek", async () => {
+    const { chat, c } = await make();
+    chat.setActive(true);
+    chat.peek(true);
+    chat.peek(false);
+    c.advance(5000);
+    expect(chat.hidden()).toBe(false);
+    chat.setHidden(true);
+    chat.peek(true);
+    expect(chat.toggle.ariaLabel).toBe("Show chat");
+    expect(chat.toggle.getAttribute("aria-expanded")).toBe("true");
+    chat.toggle.click();
+    chat.peek(false);
+    c.advance(5000);
+    expect(chat.hidden()).toBe(false);
+  });
+});
+
 describe("fullscreenLayout with the chat hidden: really full screen (OME-1593), the largest centred 16:9 picture", () => {
   // Nothing of ours over the player (ADR 0012, YouTube's RMF): the show-chat handle keeps a 44 px margin on its edge and
   // the opposite one, so the picture stays centred; the bubbles get what the screen leaves, never the picture.
@@ -188,13 +272,15 @@ describe("fullscreenLayout with the chat hidden: really full screen (OME-1593), 
     // A 16:9 desktop: only the handle's margins; no room for bubbles.
     [1280, 720, { x: 44, y: 24, w: 1192, h: 671 }, { x: 1236, y: 0, w: 0, h: 720 }, { x: 1236, y: 338, w: 44, h: 44 }, "left"],
     // A phone held sideways: its letterbox already holds the handle, so nothing is reserved.
-    [844, 390, { x: 75, y: 0, w: 693, h: 390 }, { x: 768, y: 0, w: 0, h: 390 }, { x: 800, y: 173, w: 44, h: 44 }, "left"],
+    [844, 390, { x: 82, y: 0, w: 679, h: 382 }, { x: 761, y: 0, w: 0, h: 390 }, { x: 800, y: 173, w: 44, h: 44 }, "left"],
     // Ultrawide: bubbles beside the picture, clear of the handle.
-    [2560, 1080, { x: 320, y: 0, w: 1920, h: 1080 }, { x: 2240, y: 0, w: 276, h: 1080 }, { x: 2516, y: 518, w: 44, h: 44 }, "left"],
+    [2560, 1080, { x: 327, y: 0, w: 1905, h: 1072 }, { x: 2232, y: 0, w: 284, h: 1080 }, { x: 2516, y: 518, w: 44, h: 44 }, "left"],
     // A phone in portrait: the picture centred, bubbles under it, the handle at the bottom edge.
     [390, 844, { x: 0, y: 312, w: 390, h: 219 }, { x: 0, y: 531, w: 390, h: 269 }, { x: 173, y: 800, w: 44, h: 44 }, "up"],
   ] as const)("%i×%i", (w, h, tv, strip, handle, arrow) => {
     const l = fullscreenLayout(w, h, "youtube", "hidden");
+    // The screen's bottom rows stay ours (OME-1668), so a pointer pushed to the bottom edge reaches the page and shows the chat.
+    expect(h - (l.tv.y + l.tv.h)).toBeGreaterThanOrEqual(8);
     expect(l.at).toBe("hidden");
     expect(l.tv).toEqual(tv);
     expect(l.strip).toEqual(strip);

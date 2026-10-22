@@ -37,6 +37,10 @@ export interface FsChat {
   say(avatar: number, nickname: string, text: string): void;
   /** A pointer moved: the pill comes back for a while. */
   wake(): void;
+  /** OME-1668: in full screen, true shows the hidden chat now; false hides it again FS_PEEK_MS later, unless held. */
+  peek(on: boolean): void;
+  /** Focus in the chat or a draft in its field: the peek stays while held. */
+  hold(on: boolean): void;
 }
 
 function readStored(store: FsChatOptions<unknown>["store"]): boolean {
@@ -136,5 +140,7 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
       live.push(entry);
     },
     wake,
+    peek() {},
+    hold() {},
   };
 }
