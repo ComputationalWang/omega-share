@@ -73,7 +73,7 @@ export const SPEC_ROOMS = {
   teleport: ["pads"],
   doors: ["a", "b"],
   replay: ["wire", "clear", "ui"],
-  reactions: ["shape", "big", "flood", "start"],
+  "reaction-safety": ["shape", "big", "flood", "start"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

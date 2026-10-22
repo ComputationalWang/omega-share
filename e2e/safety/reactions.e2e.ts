@@ -52,7 +52,7 @@ function shareToken(m: WsMember): string {
 
 test.describe("react frames an attacker sends", () => {
   test("wrong kind, XSS-shaped, malformed or extra keys: bad_message, nothing relayed or stored; a client time is never used", async ({ request }) => {
-    const room = testRoom("reactions", "shape");
+    const room = testRoom("reaction-safety", "shape");
     await shareVideo(request, room.id);
     const sender = await join(room.id, "sender");
     const watcher = await join(room.id, "watcher");
@@ -100,7 +100,7 @@ test.describe("react frames an attacker sends", () => {
   });
 
   test("an oversized react frame drops the socket before it is read; nobody gets it", async ({ request }) => {
-    const room = testRoom("reactions", "big");
+    const room = testRoom("reaction-safety", "big");
     await shareVideo(request, room.id);
     const sender = await join(room.id, "big");
     const watcher = await join(room.id, "watcher");
@@ -114,7 +114,7 @@ test.describe("react frames an attacker sends", () => {
   });
 
   test("a react flood closes the sender with 4029; the room only ever sees the emote bucket's worth", async ({ request }) => {
-    const room = testRoom("reactions", "flood");
+    const room = testRoom("reaction-safety", "flood");
     await shareVideo(request, room.id);
     const flooder = await join(room.id, "flooder");
     const watcher = await join(room.id, "watcher");
@@ -163,7 +163,7 @@ test.describe("share startSeconds", () => {
   test.setTimeout(90_000);
 
   test("out of range or not an integer: 400 and the room unchanged; in range: the room starts there", async ({ request }) => {
-    const room = testRoom("reactions", "start");
+    const room = testRoom("reaction-safety", "start");
     const member = await join(room.id, "member");
     const token = shareToken(member);
     for (const startSeconds of [-1, 1.5, MAX_POSITION_S + 1, Number.MAX_SAFE_INTEGER, "30", null, true, { s: 30 }]) {
