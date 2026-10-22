@@ -15,7 +15,7 @@ use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, RoomState, RoomSummary, ServerTime};
+use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime};
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
@@ -906,6 +906,23 @@ impl Room {
         EmbedSwitch { playback: None, uncaught }
     }
 
+    /// A member's timed reaction (OME-1632, ADR 0056), stamped with the room clock and kept for the current item.
+    /// `None`, and nothing kept, without a synced current item.
+    pub fn react(&mut self, member: &MemberId, kind: ReactionKind, now_wall: i64) -> Option<Reaction> {
+        let _ = (member, kind, now_wall);
+        None
+    }
+
+    /// The current item's reactions for the snapshot, oldest first; `None` when there are none.
+    pub fn reactions(&self) -> Option<Vec<Reaction>> {
+        None
+    }
+
+    /// Most members at once since the current item started; `None` without an item.
+    pub fn peak_members(&self) -> Option<u8> {
+        None
+    }
+
     /// Applies a member's `control`; the new playback, or `None` if it's for no/another/a generic embed.
     pub fn control(&mut self, member: &MemberId, control: &Control<'_>, now_wall: i64) -> Option<PlaybackState> {
         let Some(AnyEmbed::Synced(embed)) = &self.embed else { return None };
@@ -988,7 +1005,7 @@ impl Rec {
 mod tests {
     use super::*;
     use crate::contract::confusables::nickname_key;
-    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, REACTIONS_MAX, SEAT_COUNT};
     use crate::contract::embed::canonicalize_embed;
     use crate::contract::generic_embed::canonicalize_generic_embed;
     use crate::contract::state::{PlaybackAction, Rev};
@@ -1062,6 +1079,80 @@ mod tests {
             playing,
             position,
         }
+    }
+
+    // ---- timed reactions (OME-1632, ADR 0056)
+
+    fn kinds(r: &Room) -> Vec<(String, ReactionKind, u64)> {
+        r.reactions()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|x| (x.member_id.as_str().to_owned(), x.kind, x.media_ms.get()))
+            .collect()
+    }
+
+    #[test]
+    fn a_reaction_is_stamped_with_the_room_clock_not_the_client() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        let got = r.react(&a, ReactionKind::Heart, T0 + 12_345).unwrap();
+        assert_eq!(json(&got), r#"{"memberId":"m1","kind":"heart","mediaMs":12345}"#);
+        // Paused: the position, whatever the wall clock says.
+        r.control(&a, &ctl(false, 42.5), T0 + 20_000).unwrap();
+        assert_eq!(r.react(&a, ReactionKind::Clap, T0 + 99_000).unwrap().media_ms.get(), 42_500);
+        assert_eq!(
+            kinds(&r),
+            vec![
+                ("m1".into(), ReactionKind::Heart, 12_345),
+                ("m1".into(), ReactionKind::Clap, 42_500)
+            ]
+        );
+    }
+
+    #[test]
+    fn no_reaction_without_a_synced_item_or_from_a_stranger() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        r.set_embed(Some(generic()), None, None, 0.0, T0).unwrap();
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        assert!(r.react(&mid("ghost"), ReactionKind::Wow, T0).is_none());
+        assert!(r.reactions().is_none());
+    }
+
+    #[test]
+    fn the_ring_keeps_the_latest_reactions_max_oldest_first() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        for i in 0..=REACTIONS_MAX as i64 {
+            r.react(&a, ReactionKind::Laugh, T0 + i * 1000).unwrap();
+        }
+        let ms: Vec<u64> = kinds(&r).into_iter().map(|(_, _, ms)| ms).collect();
+        assert_eq!(ms.len(), REACTIONS_MAX);
+        assert_eq!((ms.first(), ms.last()), (Some(&1000), Some(&(REACTIONS_MAX as u64 * 1000))));
+    }
+
+    #[test]
+    fn a_new_item_clears_the_timeline_and_restarts_the_peak_from_who_is_there() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(r.peak_members().is_none());
+        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        let b = join(&mut r, "m2", "bob", None);
+        join(&mut r, "m3", "carol", None);
+        r.react(&b, ReactionKind::Heart, T0).unwrap();
+        r.leave(&b, T0);
+        assert_eq!(r.peak_members(), Some(3));
+        r.enqueue(queued("q1", vimeo(), None));
+        r.advance(1.0, None, T0).unwrap();
+        assert!(r.reactions().is_none());
+        assert_eq!(r.peak_members(), Some(2));
+        r.set_embed(None, None, None, 2.0, T0).unwrap();
+        assert!(r.peak_members().is_none());
+        assert!(r.react(&a, ReactionKind::Heart, T0).is_none());
     }
 
     // ---- construction
