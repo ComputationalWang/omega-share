@@ -510,6 +510,59 @@ describe("emotes", () => {
     expect(s.renders() - before).toBe(at.length);
     expect(at.length).toBeLessThanOrEqual(8 + 4);
   });
+
+  // OME-1672: the dank-dungeon pair. The thruster's frame is anchored on the bender's floor point and drawn there, just behind.
+  describe("pair", () => {
+    function standing() {
+      const s = setup();
+      s.anim.setFrames(frames);
+      s.walks.place([standAt("a", 4, 9), standAt("b", 5, 9)], 0);
+      s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+      s.frame(0);
+      s.timers.length = 0;
+      s.draws.length = 0;
+      return s;
+    }
+
+    test("the bender plays bendover/<avatar>/<front dir>/0, the thruster thrust/<avatar>/<dir>/<n> at the bender's spot, just behind", () => {
+      const s = standing();
+      s.at(1000);
+      s.anim.pair(id("a"), id("b"));
+      run(s, 1000, 2000);
+      const bender = s.draws.filter((d) => d.id === "b").at(-1);
+      const thruster = s.draws.filter((d) => d.id === "a").at(-1);
+      expect(bender?.frame).toMatch(/^bendover\/kiki\/(se|sw)\/0$/);
+      expect(thruster?.frame).toMatch(/^thrust\/juno\/(se|sw)\/[012]$/);
+      expect(thruster?.pose.x).toBe(bender?.pose.x);
+      expect(thruster?.pose.y).toBe(bender?.pose.y);
+      expect(thruster?.pose.z).toBe((bender?.pose.z ?? 0) - 0.5);
+    });
+
+    test("the thrust loops 0 1 2 1 on 110 ms frames", () => {
+      const s = standing();
+      s.at(1000);
+      s.anim.pair(id("a"), id("b"));
+      const at = run(s, 1000, 1500);
+      for (const t of [1000, 1110, 1220, 1330, 1440]) expect(at).toContain(t);
+      const seq = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]).slice(0, 4).map((f) => f?.slice(-1));
+      expect(seq).toEqual(["0", "1", "2", "1"]);
+    });
+
+    test("after a few seconds both are idle again", () => {
+      const s = standing();
+      s.at(1000);
+      s.anim.pair(id("a"), id("b"));
+      run(s, 1000, 9000);
+      for (const who of ["a", "b"]) expect(framesOf(s, who).at(-1)).not.toMatch(/^(thrust|bendover)\//);
+    });
+
+    test("prefers-reduced-motion: nothing is played", () => {
+      const s = ready({ reduced: true });
+      s.anim.pair(id("a"), id("b"));
+      s.frame(0);
+      expect(s.draws.some((d) => /^(thrust|bendover)\//.test(d.frame ?? ""))).toBe(false);
+    });
+  });
 });
 
 // OME-597 (M7 W2): in full screen the room is hidden, so its render loop stops: nothing is drawn or scheduled while
@@ -820,55 +873,5 @@ describe("animator: walking props (the cat)", () => {
     expect(s.frame(16)).toBe(true);
     expect(s.frame(120)).toBe(true);
     expect(s.rafs.length).toBe(0);
-  });
-
-  // OME-1672: the dank-dungeon pair. The thruster's frame is anchored on the bender's floor point and drawn there, just behind.
-  describe("pair", () => {
-    function standing() {
-      const s = ready();
-      s.walks.place([standAt("a", 4, 9), standAt("b", 5, 9)], 0);
-      s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
-      s.draws.length = 0;
-      return s;
-    }
-
-    test("the bender plays bendover/<avatar>/<front dir>/0, the thruster thrust/<avatar>/<dir>/<n> at the bender's spot, just behind", () => {
-      const s = standing();
-      s.at(1000);
-      s.anim.pair(id("a"), id("b"));
-      run(s, 1000, 2000);
-      const bender = s.draws.filter((d) => d.id === "b").at(-1);
-      const thruster = s.draws.filter((d) => d.id === "a").at(-1);
-      expect(bender?.frame).toMatch(/^bendover\/kiki\/(se|sw)\/0$/);
-      expect(thruster?.frame).toMatch(/^thrust\/juno\/(se|sw)\/[012]$/);
-      expect(thruster?.pose.x).toBe(bender?.pose.x);
-      expect(thruster?.pose.y).toBe(bender?.pose.y);
-      expect(thruster?.pose.z).toBe((bender?.pose.z ?? 0) - 0.5);
-    });
-
-    test("the thrust loops 0 1 2 1 on 110 ms frames", () => {
-      const s = standing();
-      s.at(1000);
-      s.anim.pair(id("a"), id("b"));
-      const at = run(s, 1000, 1500);
-      for (const t of [1000, 1110, 1220, 1330, 1440]) expect(at).toContain(t);
-      const seq = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]).slice(0, 4).map((f) => f?.slice(-1));
-      expect(seq).toEqual(["0", "1", "2", "1"]);
-    });
-
-    test("after a few seconds both are idle again", () => {
-      const s = standing();
-      s.at(1000);
-      s.anim.pair(id("a"), id("b"));
-      run(s, 1000, 9000);
-      for (const who of ["a", "b"]) expect(framesOf(s, who).at(-1)).not.toMatch(/^(thrust|bendover)\//);
-    });
-
-    test("prefers-reduced-motion: nothing is played", () => {
-      const s = ready({ reduced: true });
-      s.anim.pair(id("a"), id("b"));
-      s.frame(0);
-      expect(s.draws.some((d) => /^(thrust|bendover)\//.test(d.frame ?? ""))).toBe(false);
-    });
   });
 });

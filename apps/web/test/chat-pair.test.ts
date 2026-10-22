@@ -24,7 +24,8 @@ describe("/thrust and /bendover", () => {
   test("not in /help or the palette's table unless pairs are on", () => {
     expect(names(false)).not.toContain("thrust");
     expect(names(false)).not.toContain("bendover");
-    expect(names(true)).toEqual(expect.arrayContaining(["thrust", "bendover"]));
+    expect(names(true)).toContain("thrust");
+    expect(names(true)).toContain("bendover");
     expect(commandsFor(false)).toBe(COMMANDS);
     expect(HELP_LINE.verb).not.toMatch(/thrust|bendover/);
     expect(helpLine(false)).toEqual(HELP_LINE);

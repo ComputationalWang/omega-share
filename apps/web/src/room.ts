@@ -35,7 +35,7 @@ import { createCommandPalette } from "./chat/palette";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
-import { CONGA_FULL_LINE, DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
+import { CONGA_FULL_LINE, DANCE_SEATED_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, helpLine, pairInvitedLine, rollSticker, slashCommand } from "./chat/effects";
 import { hugHint, hugStep, matchMember } from "./chat/hug";
 import { attachMentionComplete } from "./chat/complete";
 import { mentionOptions } from "./chat/mention";
@@ -468,8 +468,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   popOut.append(popKey);
   // @-completion (OME-1531): the members here but me.
   const mentionList = attachMentionComplete(chatInput, (q) => mentionOptions(state.room?.members ?? [], state.self, q));
+  /** /thrust and /bendover exist only where the room's layout says so (OME-1672). */
+  const pairsOn = (): boolean => state.room?.layout?.pairs === true;
   // The command palette (OME-1586): every command and move, beside the emote key.
-  const palette = createCommandPalette({ input: chatInput, form: chatForm });
+  const palette = createCommandPalette({ input: chatInput, form: chatForm, pairs: pairsOn });
   chatForm.append(picker.root, palette.field, chatSend, popOut, mentionList);
   const chatAway = el("div", { className: "ui-panel ui-away chat-away", role: "status", hidden: true }, "chat-away");
   const chatAwayText = el("p");
@@ -1053,7 +1055,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   /** A slash command (OME-1349), from the box or the pop-out: true/false = ran (sent or not), null = not one, it's chat. */
   const runSlash = (text: string): boolean | null => {
-    const cmd = slashCommand(text);
+    const cmd = slashCommand(text, pairsOn());
     if (cmd === null || cmd.type === "line") {
       // /conga and /stop go out as chat lines; past the cap, or /stop out of the line, they stay here.
       const c = congaText(text);
@@ -1066,9 +1068,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
     if (cmd.type === "hug") return startHug(cmd.kind, cmd.name);
+    if (cmd.type === "pair") return send({ type: "pair", pose: cmd.pose });
     if (cmd.type === "sit") return floorSit();
     if (cmd.type === "snap") return snap();
-    hint(cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
+    hint(cmd.type === "help" ? helpLine(pairsOn()) : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
     return true;
   };
   /** A line to me only, here and in the pop-out. */
@@ -1108,7 +1111,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); roomStage.stopTyping(); relay?.stopTyping(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, typing: (id, on) => {
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); roomStage.stopTyping(); relay?.stopTyping(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, pair: (msg) => {
+    if (msg.type === "paired") {
+      if (!roomOut()) roomStage.pair(msg.thrust, msg.bendover);
+      return;
+    }
+    hint(pairInvitedLine(state.room?.members.find((m) => m.id === msg.memberId)?.nickname ?? "Someone", msg.memberId === state.self, msg.pose));
+  }, typing: (id, on) => {
     // My own box shows I'm typing.
     if (id === state.self) return;
     roomStage.typing(id, on);
