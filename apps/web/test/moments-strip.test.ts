@@ -62,7 +62,7 @@ describe("createMomentsStrip", () => {
     const { strip, seeks, pips } = await setup();
     strip.render([r(150_000), r(150_200)], 600_000);
     expect(pips()).toHaveLength(1);
-    expect(pips()[0]?.style.left).toBe("25%");
+    expect(pips()[0]?.style.getPropertyValue("--at")).toBe("25%");
     pips()[0]?.click();
     expect(seeks).toEqual([150]);
   });
