@@ -18,7 +18,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 
 | owner | A | A* | B | C | D | E | skipped | total |
 |---|---|---|---|---|---|---|---|---|
-| ? | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 61 |
+| ? | 71 | 0 | 0 | 0 | 0 | 0 | 0 | 71 |
 | S1 (ported: config.rs) | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 47 |
 | S1 (ported: log.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
@@ -28,7 +28,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S6 | 186 | 0 | 1 | 0 | 17 | 0 | 0 | 204 |
 | S7 | 6 | 0 | 0 | 2 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **470** | **1** | **1** | **3** | **271** | **82** | **1** | **829** |
+| **all** | **480** | **1** | **1** | **3** | **271** | **82** | **1** | **839** |
 
 ## Tests
 
@@ -562,6 +562,23 @@ Owner: none (shell). 28 tests: E 28.
 | 406 | E | deploy/monitor user units › the timer fires every 5 minutes |
 | 410 | E | deploy/monitor user units › the service is a user oneshot that needs no root and carries no topic |
 
+### movie-night.test.ts
+
+Owner: ?. 10 tests: A 10.
+
+| line | cat | test |
+|---|---|---|
+| 88 | A ✓ | GET /rooms watching summary (OME-1633, ADR 0056) › watchingCount counts the members whose tab is visible; an empty room has 0 and no nowPlaying |
+| 99 | A ✓ | GET /rooms watching summary (OME-1633, ADR 0056) › nowPlaying names the provider and id only: YouTube, Twitch live and VOD, public Vimeo |
+| 114 | A ✓ | GET /rooms watching summary (OME-1633, ADR 0056) › an unlisted Vimeo is never named: its id is what the hash protects |
+| 123 | A ✓ | GET /rooms watching summary (OME-1633, ADR 0056) › a private room's video never appears in the list |
+| 134 | A ✓ | GET /rooms watching summary (OME-1633, ADR 0056) › a listed created room shows its video |
+| 144 | A ✓ | share startSeconds (OME-1633, ADR 0056) › a share starts the room there, and a late joiner gets the room clock from it |
+| 155 | A ✓ | share startSeconds (OME-1633, ADR 0056) › without startSeconds a share starts at 0; on a live stream startSeconds is ignored |
+| 162 | A ✓ | share startSeconds (OME-1633, ADR 0056) › the bounds: 0 and 43200 start there; -1, 43201, 1.5, a string or null are refused as invalid_body |
+| 175 | A ✓ | share startSeconds (OME-1633, ADR 0056) › a queued item keeps its startSeconds until it plays, then starts there |
+| 188 | A ✓ | share startSeconds (OME-1633, ADR 0056) › a queue add into an empty room starts the item at its startSeconds |
+
 ### persistence.test.ts
 
 Owner: S7. 8 tests: A 6, D 2.
@@ -939,13 +956,13 @@ Owner: S5. 32 tests: A 24, D 8.
 | 427 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › a seeded (pinned) room has no owner: nobody can delete the lobby |
 | 434 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › failed deletes take from a per-key bucket: guessing is 429 rate_limited after a burst |
 | 451 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › private rooms are never listed; created rooms show their titles; seeded rooms without one carry no title |
-| 462 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
-| 476 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
-| 483 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
-| 495 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |
-| 512 | A ✓ | headers (ADR 0028 §4) › /r/* carries X-Robots-Tag: noindex, nofollow and Referrer-Policy strict-origin-when-cross-origin; the API doesn't get the robots tag |
-| 538 | D | persistence of created rooms (migration 0002) › a created room survives a restart with its title and visibility, and its owner token still deletes it |
-| 556 | D | persistence of created rooms (migration 0002) › no address, creator or hash of one is written to disk; the owner token and invite key are stored only as SHA-256 |
+| 463 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
+| 477 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
+| 484 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
+| 496 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |
+| 513 | A ✓ | headers (ADR 0028 §4) › /r/* carries X-Robots-Tag: noindex, nofollow and Referrer-Policy strict-origin-when-cross-origin; the API doesn't get the robots tag |
+| 539 | D | persistence of created rooms (migration 0002) › a created room survives a restart with its title and visibility, and its owner token still deletes it |
+| 557 | D | persistence of created rooms (migration 0002) › no address, creator or hash of one is written to disk; the owner token and invite key are stored only as SHA-256 |
 
 ### room-lifecycle.test.ts
 
@@ -1012,22 +1029,22 @@ Owner: S5. 27 tests: A 27.
 | 121 | A ✓ | readiness › GET / answers 200 so process supervisors (Playwright webServer) can see the server is up |
 | 128 | A ✓ | requests without an Origin (curl, server-to-server) › may share (with a member's token) and connect: they are not a cross-site risk |
 | 138 | A ✓ | GET /rooms › lists the default room with member and seated counts |
-| 155 | A ✓ | WebSocket /rooms/:id/ws › upgrade to an unknown room is 404 |
-| 160 | A ✓ | WebSocket /rooms/:id/ws › upgrade from a foreign origin is refused |
-| 167 | A ✓ | WebSocket /rooms/:id/ws › the site origin may connect |
-| 173 | A ✓ | WebSocket /rooms/:id/ws › join sends a snapshot to the joiner and member-joined to the others |
-| 195 | A ✓ | WebSocket /rooms/:id/ws › sit on a free seat is broadcast to everyone, including the sitter |
-| 204 | A ✓ | WebSocket /rooms/:id/ws › sit on a taken seat is refused with seat_taken and changes nothing |
-| 217 | A ✓ | WebSocket /rooms/:id/ws › moving seats frees the old seat; sit null stands up |
-| 233 | A ✓ | WebSocket /rooms/:id/ws › leave frees the seat and tells the others |
-| 249 | A ✓ | WebSocket /rooms/:id/ws › disconnect frees the seat and tells the others |
-| 261 | A ✓ | WebSocket /rooms/:id/ws › chat is relayed to everyone with the sender and server time |
-| 274 | A ✓ | WebSocket /rooms/:id/ws › messages before join are refused with not_joined |
-| 285 | A ✓ | WebSocket /rooms/:id/ws › a second join on the same socket is refused with already_joined |
-| 293 | A ✓ | WebSocket /rooms/:id/ws › invalid payloads are answered with bad_message and the socket keeps working |
-| 318 | A ✓ | WebSocket /rooms/:id/ws › a frame over the size limit closes the socket without affecting the room |
-| 330 | A ✓ | room capacity (ADR 0006) › the 26th member gets room-full and is closed; a freed slot can be reused |
-| 350 | A ✓ | room capacity (ADR 0006) › members beyond the 8 seats stand and spectate; they cannot sit while every seat is taken |
+| 156 | A ✓ | WebSocket /rooms/:id/ws › upgrade to an unknown room is 404 |
+| 161 | A ✓ | WebSocket /rooms/:id/ws › upgrade from a foreign origin is refused |
+| 168 | A ✓ | WebSocket /rooms/:id/ws › the site origin may connect |
+| 174 | A ✓ | WebSocket /rooms/:id/ws › join sends a snapshot to the joiner and member-joined to the others |
+| 196 | A ✓ | WebSocket /rooms/:id/ws › sit on a free seat is broadcast to everyone, including the sitter |
+| 205 | A ✓ | WebSocket /rooms/:id/ws › sit on a taken seat is refused with seat_taken and changes nothing |
+| 218 | A ✓ | WebSocket /rooms/:id/ws › moving seats frees the old seat; sit null stands up |
+| 234 | A ✓ | WebSocket /rooms/:id/ws › leave frees the seat and tells the others |
+| 250 | A ✓ | WebSocket /rooms/:id/ws › disconnect frees the seat and tells the others |
+| 262 | A ✓ | WebSocket /rooms/:id/ws › chat is relayed to everyone with the sender and server time |
+| 275 | A ✓ | WebSocket /rooms/:id/ws › messages before join are refused with not_joined |
+| 286 | A ✓ | WebSocket /rooms/:id/ws › a second join on the same socket is refused with already_joined |
+| 294 | A ✓ | WebSocket /rooms/:id/ws › invalid payloads are answered with bad_message and the socket keeps working |
+| 319 | A ✓ | WebSocket /rooms/:id/ws › a frame over the size limit closes the socket without affecting the room |
+| 331 | A ✓ | room capacity (ADR 0006) › the 26th member gets room-full and is closed; a freed slot can be reused |
+| 351 | A ✓ | room capacity (ADR 0006) › members beyond the 8 seats stand and spectate; they cannot sit while every seat is taken |
 
 ### session-contract-compat.test.ts
 
