@@ -7,6 +7,8 @@
 
 /** Each spec's rooms, by name. A room id is `e2e-<spec>-<name>`, at most ROOM_ID_MAX_LENGTH (32) characters. */
 export const SPEC_ROOMS = {
+  // First, so it sits in GET /rooms' first MAX_LISTED_ROOMS (seeded rooms list in seed order): reactions.e2e.ts reads its `nowPlaying` (OME-1644).
+  listed: ["nowplaying"],
   acceptance: ["main"],
   sync: ["spread", "late", "buffer", "ad", "click", "err150", "volume", "popup"],
   vimeo: ["src", "pause", "privacy", "forged"],
@@ -24,7 +26,7 @@ export const SPEC_ROOMS = {
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
   "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360"],
-  wide: ["w1280", "w1920", "phone", "keys", "fs", "scroll"],
+  wide: ["w1280", "w1920", "w2560", "people1920", "people2560", "tw1920", "tw2560", "help2560", "phone", "keys", "fs", "scroll", "mo1920", "mo2560", "mophone"],
   "provider-shelf": ["vimeo", "live"],
   "phone-perf": ["frames"],
   "theatre-perf": ["frames"],
@@ -70,6 +72,8 @@ export const SPEC_ROOMS = {
   "desk-zoom": ["main"],
   teleport: ["pads"],
   doors: ["a", "b"],
+  replay: ["wire", "clear", "ui"],
+  "reaction-safety": ["shape", "big", "flood", "start"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

@@ -1,4 +1,4 @@
-// Set (d): avatar motion. Walk cycles, breathing, the wave gesture and the emote icons.
+// Set (d): avatar motion. Walk cycles, breathing, the wave and reach gestures and the emote icons.
 // Everything reuses the set (a) role templates through `composeMotion`, so shading, the plum outline,
 // mirroring (SW/NW) and the per-avatar overlays come for free and stay on the shared palette.
 import type { Motion, Pose, Stamp, View } from "./avatars";
@@ -395,6 +395,69 @@ export const YAWN_SEQUENCE: readonly (readonly [number, number])[] = [
   [0, 900],
   [1, 1800],
 ];
+
+// ---- Reach (OME-1697): pet something small on the floor -----------------------------------------------------
+// Standing only. The knees bend into a squat (the body drops 4 px) and the template-left arm (never Kiki's popcorn hand) goes down and out
+// beside the feet; the hand strokes 3 px along the floor between the frames, so the petting reads at 1×.
+
+/** Squat legs for lift −4 (6 rows): facing SE the knees push forward (right), the feet stay where they stood. */
+const CROUCH_FRONT = ["....LLLL..llll..", ".....LLLL..llll.", "......LLL..lll..", "....LLL..ffff...", "....FFFF.fffff..", "....FFFFF......."];
+/** From behind the knees push away (up-right) and the heels stay toward the camera. */
+const CROUCH_BACK = ["....lll..LLL....", ".....lll..LLL...", ".....lll..LLL...", "....fff..LLL....", "....fff..FFF....", ".........FFF...."];
+/** The arm from the shoulder (torso row 4) down to a 3 px hand on the floor beside the feet: `0` reached out, `1` stroked back in. */
+const REACH_ARMS: readonly (readonly string[])[] = [
+  ["......AA", ".....AA.", ".....AA.", "....AA..", "....AA..", "...AA...", "...AA...", "..AA....", ".AA.....", "SSS.....", "SS......"],
+  ["......AA", ".....AA.", ".....AA.", "....AA..", "....AA..", "...AA...", "...AA...", "...AA...", "...AAA..", "....SSS.", "....SS.."],
+];
+
+export function reachMotion(view: View, n: number): Motion {
+  const arms = REACH_ARMS[n];
+  if (!arms) throw new Error(`no reach frame ${String(n)}`);
+  const rows = arms.map((r) => r.replace(/A/g, armRoles(view).left));
+  // Eyes on the hand: the head dips 1 px more than the body.
+  return { lift: -4, headDrop: 1, legs: view === "front" ? CROUCH_FRONT : CROUCH_BACK, after: [ERASE_ARM, { x: -5, y: 4, rows }] };
+}
+export const REACH_FRAMES = 2;
+/** One-shot pet: stroke, stroke back, twice, then the base pose returns (5 × 160 = 800 ms). */
+export const REACH_SEQUENCE: readonly number[] = [0, 1, 0, 1, 0];
+export const REACH_MS = 160;
+
+// ---- Watching (OME-1640): seated from behind, a laugh shake and a gasp lean ------------------------------
+// Theatre rows face the screen, so these are back views only (ne, nw is its mirror). Above a row's seat back only the head,
+// hair and shoulders show, so each reaction lives there: the head shakes and the shoulders bounce, or the hands fly to the cheeks.
+
+export const WATCH_STATES = [
+  { id: "base", frames: 1 },
+  { id: "laugh", frames: 2 },
+  { id: "gasp", frames: 2 },
+] as const;
+export type WatchState = (typeof WATCH_STATES)[number]["id"];
+
+/** Laughing: elbows flap out while the hands hold the belly (hidden from behind). */
+const LAUGH_ARM = ["..AA", ".AA.", "AA..", "AA..", ".AA."];
+/** Gasp: hands flung up to the cheeks, elbows out, so the hands frame the jaw beside the head. */
+const GASP_ARM = [".SS.....", ".SS.....", ".AA.....", "AA......", "AA......", ".AA.....", "..AAA...", "...AA..."];
+
+export function watchMotion(state: WatchState, n: number, holds = false): Motion {
+  if (state === "base") {
+    // Settled in: sunk 1 px into the seat, the near elbow out on the armrest.
+    const elbow = (role: string): Stamp[] => [ERASE_ARM, { x: -2, y: 4, rows: [".AA", "AA.", "SS."].map((r) => r.replace(/A/g, role)) }];
+    const near = bothArms("back", elbow, holds).filter((st) => st.behind !== true && st.x > 7);
+    return { headDrop: 1, after: near };
+  }
+  const rows = state === "laugh" ? LAUGH_ARM : GASP_ARM;
+  const arm = (role: string): Stamp[] => [ERASE_ARM, { x: state === "laugh" ? -2 : -3, y: state === "laugh" ? 3 : -4, rows: rows.map((r) => r.replace(/A/g, role)) }];
+  const after = bothArms("back", arm, holds);
+  // Laugh: a 3 px bounce, up with the head thrown aside, then down (it has to read over a seat back). Gasp: a jolt upright, then a lean in that dips the head toward the screen.
+  // The head never moves toward the cell's near edge (+x): wide hats (the witch hat on Mo's brim) would touch the border.
+  if (state === "laugh") return n === 0 ? { lift: 2, headDx: -1, after } : { headDrop: 1, after };
+  return n === 0 ? { lift: 1, after } : { headDrop: 2, after };
+}
+/** Laugh: three shakes. Gasp: the jolt, then a long held lean. [frame, ms] pairs; afterwards return to `watch/base`. */
+export const WATCH_SEQUENCES: Record<Exclude<WatchState, "base">, readonly (readonly [number, number])[]> = {
+  laugh: [[0, 140], [1, 140], [0, 140], [1, 140], [0, 140], [1, 140]],
+  gasp: [[0, 260], [1, 1400]],
+};
 
 // ---- Emote icons ------------------------------------------------------------------------------------------
 // 16×16 cells, drawn like the UI icons (auto-shade + plum outline). They float above the name tag.

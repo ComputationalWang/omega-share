@@ -514,6 +514,7 @@ pub async fn share(mut cx: Cx, id: &str) -> Response {
             Some(embed.clone()),
             Some(grant.member.clone()),
             Some(item_id.clone()),
+            request.start_seconds(),
             now,
             app.wall(),
         ) else {
@@ -632,7 +633,7 @@ pub async fn queue(mut cx: Cx, id: &str) -> Response {
     let Ok(request) = parse_share_request(text.as_bytes()) else {
         return fail(StatusCode::BAD_REQUEST, ShareErrorCode::InvalidBody, "expected { url: string }");
     };
-    let added = app.with_open_room(&room_id, |inner| add(&app, inner, &actor, request.url()));
+    let added = app.with_open_room(&room_id, |inner| add(&app, inner, &actor, request.url(), request.start_seconds()));
     match added {
         None | Some(Err(QueueAddRefusal::RoomClosed)) => not_found(),
         Some(Ok(item)) => json(StatusCode::OK, &QueueAddResponse::Ok(QueueAddOk { item })),

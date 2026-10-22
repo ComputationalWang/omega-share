@@ -1,7 +1,7 @@
 import type { Embed, Provider } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ListedEmbed, type ScanOutcome, scanTab } from "../../embeds";
-import { FALLBACK_ROOMS, LAST_ROOM_KEY, NEW_ROOM, type RoomList, type RoomsProbe, loadRooms, newRoomUrl, roomUrl, withLastRoom, withNewRoom, withRoomTabs } from "../../rooms";
+import { FALLBACK_ROOMS, LAST_ROOM_KEY, NEW_ROOM, type RoomList, type RoomsProbe, loadRooms, newRoomUrl, roomUrl, watchingBadge, withLastRoom, withNewRoom, withRoomTabs, withWatching } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
 import { SERVER_BASE_URL_KEY, hostPermissionPattern, isLoopbackOrigin, ownHostsOf, readServerBaseUrl } from "../../settings";
@@ -68,6 +68,11 @@ function render(outcome: ScanOutcome): void {
   }
   ui.unreadable.hidden = outcome.kind !== "unreadable";
   renderEmbeds(outcome.kind === "embeds" ? outcome.embeds : null);
+  if (outcome.kind === "embeds") {
+    scanned = outcome.embeds;
+    // The rooms landed first: re-sort for the page's videos, keeping what the dropdown shows.
+    renderRoomList(ui.room.value);
+  }
   focusShare();
 }
 
@@ -123,6 +128,7 @@ function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
       input.type = "radio";
       input.name = "embed";
       input.value = embed.url;
+      if (embed.startSeconds !== undefined) input.dataset["startSeconds"] = String(embed.startSeconds);
       input.checked = i === 0;
       const label = document.createElement("label");
       label.className = "ui-qrow pk-embed";
@@ -138,6 +144,17 @@ function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
   );
   // Keyboard and screen reader users land on the list (OME-1286); the first row is the checked one.
   ui.embeds.querySelector("input")?.focus();
+}
+
+/** The scan's embeds, once it answers; rooms playing one of them sort first (OME-1637). */
+let scanned: readonly ListedEmbed[] = [];
+/** The rooms before the scan's sort and "New room…", once the server load lands. */
+let roomList: RoomList | null = null;
+
+function renderRoomList(selected?: string): void {
+  if (server === null || roomList === null) return;
+  const list = withNewRoom(withWatching(roomList, scanned), server.probe, server.tabs.tokens);
+  renderRooms(selected === undefined ? list : { ...list, selected });
 }
 
 function renderRooms({ rooms, selected }: RoomList): void {
@@ -252,8 +269,8 @@ void scan().then(render);
 void Promise.all([serverBaseUrl.then(loadServer), stored]).then(([state, items]) => {
   server = state;
   lastRoom = items[LAST_ROOM_KEY];
-  const list = withLastRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), items[LAST_ROOM_KEY], state.tabs.tokens);
-  renderRooms(withNewRoom(list, state.probe, state.tabs.tokens));
+  roomList = withLastRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), items[LAST_ROOM_KEY], state.tabs.tokens);
+  renderRoomList();
   renderServer();
   focusShare();
 }, () => {
@@ -266,6 +283,11 @@ ui.room.addEventListener("change", renderServer);
 ui.form.addEventListener("change", () => {
   if (server !== null) ui.status.replaceChildren();
 });
+
+async function badgeTab(text: string): Promise<void> {
+  const tabId = (await tab)?.id;
+  if (tabId !== undefined) await browser.action.setBadgeText({ tabId, text }).catch(() => undefined);
+}
 
 /** A share in flight. The keys go aria-disabled, not disabled, so the focused one keeps focus (OME-1286). */
 let busy = false;
@@ -293,7 +315,8 @@ ui.form.addEventListener("submit", (event) => {
     });
     return;
   }
-  const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: fetchServer };
+  const start = selected.dataset["startSeconds"];
+  const options = { baseUrl: origin, roomId, url: selected.value, startSeconds: start === undefined ? undefined : Number(start), token: tabs.tokens.get(roomId) ?? null, fetch: fetchServer };
   // Enter in the form shares; only the "Add to queue" button queues (ADR 0031).
   const queue = event.submitter === ui.queue;
   setBusy(true);
@@ -306,6 +329,8 @@ ui.form.addEventListener("submit", (event) => {
       }
       showStatus("ok", sharedLine(queue ? "Added to the queue" : "Shared", origin, roomId));
       void browser.storage.local.set({ [LAST_ROOM_KEY]: roomId }).catch(() => undefined);
+      // Tab-scoped, so the browser drops it when the tab navigates: no worker, no always-on badge (OME-1637).
+      if (!queue && roomList !== null) void badgeTab(watchingBadge(roomList, roomId));
     })
     .finally(() => {
       setBusy(false);

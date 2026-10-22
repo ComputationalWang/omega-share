@@ -345,6 +345,7 @@ pub fn is_relay(msg: &ServerMessage) -> bool {
             | M::TypingChanged { .. }
             | M::Chat { .. }
             | M::Emoted { .. }
+            | M::Reacted { .. }
             | M::Rolled { .. }
             | M::MemberStatus { .. }
             | M::MemberPresence { .. }

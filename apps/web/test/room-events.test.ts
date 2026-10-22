@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createClockSync } from "../src/clock";
-import type { ConnectionEvent } from "../src/connection";
+import { createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
 import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
@@ -133,4 +133,35 @@ test("typing-changed goes to the typing sink only; a hidden member's goes nowher
   route({ type: "message", msg: { type: "typing-changed", memberId: "m2", on: true } });
   expect(typed).toEqual([["m1", true]]);
   expect(dispatched).toEqual([]);
+});
+
+// OME-1627: a batch is unwrapped at the connection, so a hidden member's chat inside one still stops at intake.
+test("a hidden member's chat inside a batch frame stays hidden; the rest of the batch goes through in order", () => {
+  const { route, dispatched, emoted } = setup(["m2"]);
+  const sockets: SocketLike[] = [];
+  const conn = createConnection({
+    url: "ws://x",
+    join: { type: "join", nickname: "zoe", avatar: 1 },
+    createSocket: () => {
+      const s: SocketLike = { send: () => undefined, close: () => undefined, onopen: null, onmessage: null, onclose: null, onerror: null };
+      sockets.push(s);
+      return s;
+    },
+    onEvent: route,
+    setTimer: () => 0,
+    clearTimer: () => undefined,
+  });
+  const s = sockets.at(0);
+  if (s === undefined) throw new Error("no socket");
+  const receive = (msg: unknown): void => s.onmessage?.({ data: JSON.stringify(msg) });
+  receive({ type: "batch", msgs: [
+    { type: "chat", memberId: "m2", text: "boo", at: 1 },
+    { type: "emoted", memberId: "m2", kind: "wave" },
+    { type: "chat", memberId: "m1", text: "hi", at: 2 },
+    { type: "member-left", memberId: "m2" },
+  ] });
+  conn.close();
+  expect(dispatched.map((e) => (e.type === "server" ? e.msg.type : e.type))).toEqual(["connecting", "chat", "member-left"]);
+  expect(dispatched.some((e) => e.type === "server" && e.msg.type === "chat" && e.msg.memberId === "m2")).toBe(false);
+  expect(emoted).toEqual([]);
 });

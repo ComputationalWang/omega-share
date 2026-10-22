@@ -110,6 +110,8 @@
     {
       "paths": [
         "e2e/*.e2e.ts",
+        "e2e/safety/*.e2e.ts",
+        "e2e/sync/*.e2e.ts",
         "e2e/*.firefox.ts",
         "e2e/real/*.real.ts",
         "perf/*.perf.ts"
@@ -497,6 +499,18 @@
       "specs": [
         "e2e/accessory.e2e.ts",
         "e2e/theme.e2e.ts"
+      ]
+    },
+    {
+      "paths": [
+        "apps/web/src/moments/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts"
       ]
     },
     {
@@ -926,6 +940,7 @@
         "e2e/extension-a11y.e2e.ts",
         "e2e/extension-phone.e2e.ts",
         "e2e/extension-queue.e2e.ts",
+        "e2e/extension-watching.e2e.ts",
         "e2e/extension.e2e.ts",
         "e2e/extension.firefox.ts",
         "e2e/provider-generic.e2e.ts",

@@ -67,8 +67,6 @@ test("the bar shows while a video plays; a click and Shift+1–4 spend the emote
 });
 
 test("a reaction bursts glyphs over the sender for everyone", async ({ browser, request }) => {
-  // The server relays `react` as `reacted` from OME-1632 on; until it merges the server drops it (ws/handle.rs).
-  test.fixme(true, "needs the server's reacted relay (OME-1632)");
   const { a, b } = await playing(browser, request, "burst");
   await watchGlyphs(b.page);
   await a.page.getByTestId("reaction-bar").getByRole("button", { name: "Heart" }).click();

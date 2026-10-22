@@ -13,6 +13,8 @@ export interface PageScan {
   media: string[];
   /** Iframes: candidates for an unsynced embed, ranked by size in the popup (OME-1037). */
   frames: FrameCandidate[];
+  /** Seconds into the first `<video>` that has moved off 0 (a watch page's player), else 0 (OME-1636). */
+  currentTime: number;
 }
 
 /**
@@ -44,5 +46,13 @@ export function collectCandidateUrls(doc: Document = document): PageScan {
     }
     if (urls.length + media.length + frames.length >= 1000) break;
   }
-  return { urls, media, frames };
+  // shortcut: the first moved <video> is the player; a page playing two videos at once may pick the wrong one.
+  let currentTime = 0;
+  for (const video of doc.querySelectorAll("video")) {
+    if (video.currentTime > 0) {
+      currentTime = video.currentTime;
+      break;
+    }
+  }
+  return { urls, media, frames, currentTime };
 }

@@ -38,7 +38,10 @@ export interface Cycle {
 export type FrameRects = v.InferOutput<typeof FramesSchema>;
 
 /** The emotes that swap the avatar's own frames (`<kind>/<avatar>/<pose>/<dir>`). */
-export type GestureKind = "wave" | "cheer" | "yawn";
+export type GestureKind = "wave" | "cheer" | "yawn" | "reach";
+
+/** What an avatar can play: an emote, or the pet's reach (OME-1697), which is never on the wire. */
+export type AvatarEmote = EmoteKind | "reach";
 
 /** The emotes drawn as a sticker over the avatar (`emote/<kind>`). */
 export type StickerKind = Exclude<EmoteKind, GestureKind | "dance">;
@@ -63,6 +66,8 @@ export interface MotionFrames {
   /** cheer|yawn[avatar].idle|sit[dir]: the one-shots from the expressions sheet (OME-1121). */
   readonly cheer: readonly PoseCycles[];
   readonly yawn: readonly PoseCycles[];
+  /** reach[avatar].idle[dir]: the pet (OME-1697), standing only, so `sit` is empty. */
+  readonly reach: readonly PoseCycles[];
   /** emote[kind]: the one-shot sticker. */
   readonly emote: Readonly<Record<StickerKind, Cycle>>;
 }
@@ -87,7 +92,7 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown, expressio
   };
   const ids = sheet.meta.omega.avatars.map((a) => a.id);
   const gesture = (kind: GestureKind): PoseCycles[] =>
-    ids.map((id) => ({ idle: DIRS.map((d) => oneShot(`${kind}/${id}/idle/${d}`)), sit: DIRS.map((d) => oneShot(`${kind}/${id}/sit/${d}`)) }));
+    ids.map((id) => ({ idle: DIRS.map((d) => oneShot(`${kind}/${id}/idle/${d}`)), sit: kind === "reach" ? [] : DIRS.map((d) => oneShot(`${kind}/${id}/sit/${d}`)) }));
   const walk = ids.map((id) =>
     DIRS.map((d) => {
       const a = anim(`walk/${id}/${d}`, WALK_FRAMES);
@@ -118,6 +123,7 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown, expressio
     wave: gesture("wave"),
     cheer: gesture("cheer"),
     yawn: gesture("yawn"),
+    reach: gesture("reach"),
     emote: { heart: oneShot("emote/heart"), laugh: oneShot("emote/laugh"), question: oneShot("emote/question"), exclaim: oneShot("emote/exclaim"), clap: oneShot("emote/clap") },
   };
 }

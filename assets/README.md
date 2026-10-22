@@ -9,6 +9,8 @@ assets/
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
   avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
   avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
+  avatars/watching.png  # OME-1640 (lazy): 512×256 indexed PNG-8, the theatre's seated-from-behind base + laugh + gasp, ne/nw × avatar
+  avatars/watching.json # OME-1640: PixiJS v8 atlas, expressions.json's schema (frames, animations, meta.omega.{states, anims})
   avatars/tints.json    # OME-1347: 6 shirt tints per avatar, a runtime PLTE swap table (no extra sheets)
   avatars/hairs.json    # OME-1436: 6 hair colours per avatar, the same PLTE swap (hair slots disjoint from tint slots)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
@@ -896,23 +898,53 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 Two reactions for every avatar, pose and facing, built like the wave (`src/motion.ts`, the set (a) templates through `composeMotion`):
 same 32×64 cells, anchor = floor point `(16, 61)` (`0.5, 61/64`), shading, plum outline and mirroring. `motion.png` is full (1024×512),
 so this is a **second lazy sheet with `motion.json`'s schema**: `frames`, Pixi `animations`, `meta.omega.{tile, cell, floorPoint, gestures, anims}`.
-Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames.
+Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames; a 5th row holds reach (1024×320, not rounded up to 512: the web keeps one tinted copy per look).
 
 | Key | Frames | Notes |
 |---|---|---|
 | `cheer/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | Fists up in a V. `0` elbows bent, fists by the ears, eyes closed in a smile, a small grin; `1` arms high and a wide-open grin, and standing avatars hop onto tiptoe (body up 1 px, heels up, toes on y 60). Kiki keeps her popcorn and pumps her free arm. |
 | `yawn/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | `0` the yawn: a big stretch, elbows out and hands behind the head, eyes shut, mouth a tall O. `1` the doze: arms down, head nods 2 px onto the collar, eyes shut, and a small cream "z z" floats up beside the head (never mirrored, so it never reads backwards). |
+| `reach/<id>/idle/<dir>/<0-1>` | 2 per dir, standing only (OME-1697) | Petting something small on the floor beside the feet (the room cat). Squat: knees forward, body down 4 px, head 1 px more. The template-left arm (never Kiki's popcorn hand) goes down and out; `0` hand on the floor out beside the shoes, `1` stroked 4 px back in. In the 5th sheet row, avatar i in columns 8i–8i+7. |
 
 - **Faces only show facing the camera (se/sw).** From behind (ne/nw) the arms and the head carry the reaction: the V, the elbows-out stretch,
   the nod and the "z". The far arm passes behind the head and hair, so a raised arm never covers a bun or a hat.
 - **`meta.omega.anims`**: `cheer/<id>/<pose>/<dir>` is one-shot, `6 × 180 ms` (three pumps); `yawn/<id>/<pose>/<dir>` is one-shot, `[900, 1800]` ms
-  (yawn, then doze). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
+  (yawn, then doze); `reach/<id>/idle/<dir>` is one-shot, `5 × 160 ms` = 800 ms (stroke, back, stroke, back, stroke). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
 - `meta.omega.gestures = [{id: "cheer", label: "Cheer"}, {id: "yawn", label: "Yawn"}]`, alongside motion.json's `wave`.
-- Keys start with `cheer` or `yawn`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
+- Reach isn't in `gestures` (it's not a picker emote); the web wires it as a `GestureKind` with idle cycles only.
+- Previews: `preview/reach-strip@4x.png` (per avatar: base pose, frame 0, frame 1, in se sw ne nw).
+- Keys start with `cheer`, `yawn` or `reach`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
 - Previews: `preview/expressions-strip@4x.png` (per avatar a cheer row and a yawn row: base pose, frame 0, frame 1, for idle and sit in se sw ne nw, on floor marks)
   and `preview/expressions-scene@1x.png` / `@2x` (the room floor at 1×: every avatar standing and seated in an armchair, each facing a different way;
   frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
 - Engineering hookup (emote picker, server message) is a follow-up issue after the design judge passes.
+
+## Watching poses (`avatars/watching.json`, OME-1640, lazy)
+
+What a seated viewer does while the film plays, seen from behind (theatre rows face the screen). Built like the expressions
+(`watchMotion` in `src/motion.ts` through `composeMotion`): same 32×64 cells, anchor = floor point `(16, 61)`, `nw` is the mirror of `ne`.
+One row per avatar (Juno, Pip, Mo, Kiki); per dir `ne` then `nw`: base 0, laugh 0–1, gasp 0–1.
+
+| Key | Frames | Notes |
+|---|---|---|
+| `watch/base/<id>/<ne\|nw>/0` | 1 | Settled in: sunk 1 px into the seat, the near elbow out on the armrest (Kiki keeps her popcorn). Use it in place of `<id>/sit/<dir>/0` while a video plays; outside playback keep `sit`. No blink frame (no eyes from behind). |
+| `watch/laugh/<id>/<ne\|nw>/<0-1>` | 2 | The shake: `0` bounces up 2 px with the head thrown 1 px aside and the elbows flapping out, `1` drops 1 px. |
+| `watch/gasp/<id>/<ne\|nw>/<0-1>` | 2 | `0` a jolt upright with both hands flung to the cheeks (they frame the jaw beside the hair), `1` the lean in: head dips 2 px toward the screen, hands stay up. |
+
+- **Why these reads:** above a theatre row's seat back only the head, hair and shoulders show, so each reaction lives there (the bounce, the hands).
+  The head never shifts toward the cell's near edge, because wide hats (the witch hat on Mo's brim) would touch the border.
+- **`meta.omega.anims`**: `watch/laugh/<id>/<dir>` is one-shot, `6 × 140 ms` (three shakes); `watch/gasp/<id>/<dir>` is one-shot, `[260, 1400]` ms.
+  Afterwards return to `watch/base`. `meta.omega.states = [{base, 1}, {laugh, 2}, {gasp, 2}]`. Seated frames draw between the seat's `back` and `front` layers,
+  at the seat's lift (`seatLiftByColour` on the theatre row), exactly like `sit`.
+- **Hair colours, shirt tints, hats, bare heads: nothing new to wire.** `watching.png` shares the avatar PLTE, so it's listed in `hairs.json` and
+  `tints.json` `sheets`: patch it like the other avatar sheets. Every `watch/*` key also has its hat in every theme sheet and in
+  `accessories.png`, and a bare-head frame for Pip and Mo in `bare.png` (`bare/watch/...`), because they're generated from the same frame list.
+- Reactions ride the Lead's reaction message (Movie night contract B); this sheet adds no message. Frame swaps only: no per-frame work beyond the texture swap.
+- **Bytes:** sheet 4 548 B + json 1 154 B gz; with the hat and bare frames for the new keys the art total grows by 11 459 B (≤ 20 KB allowance).
+- Previews: `preview/watching-strip@4x.png` (per avatar: plain `sit` back, base, laugh 0–1, gasp 0–1, for ne and nw, on floor marks),
+  `preview/watching-theatre@1x.png` / `@2x` (the theatre set with three raised rows of 4 per side, every row holding all four avatars; panels
+  base, laugh 0, laugh 1 / gasp 0, gasp 1, and a mixed house: front row laughing, middle gasping, back plain) and `preview/watching-rows@3x.png`
+  (the same six panels cut to the seats).
 
 ## Holiday theme: Halloween (`themes/halloween/halloween.json`, OME-1185, lazy)
 
@@ -928,7 +960,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 | `halloween/web/corner-l`, `/corner-r` | | `(0,0)`, where `wall/corner` goes | Cobweb in the back top corner, one half per wall; a spider hangs off the right half. |
 | `halloween/web/l-end`, `/r-end` | | `(0,9)`, `(9,0)`, where `wall/l/end` / `wall/r/end` go | Small webs in the open wall ends' top corners. |
 | `halloween/bat/<0-3>` | 16×16 | anywhere on the back walls | Flap cycle: wings up, mid, down, mid. Facing right; mirror (`scale.x = -1`) to fly left. Anchor = centre `(8, 8)`. |
-| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (416 keys, 32 shared rects). |
+| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (448 keys). |
 
 - **`meta.omega.decor`** lists the decor in draw order, each `{ key, on }`, where `on` is the wall frame key it belongs to. For every wall cell
   drawn with that frame, place the decal at that cell's `cellCenter(col, row)`. If the room has no such wall (an owner removed the window), skip it.
@@ -946,7 +978,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 ## Holiday themes B: Sinterklaas, Christmas, Valentine's, Easter (OME-1187, lazy)
 
 Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per theme under `themes/<id>/`, keys prefixed `<id>/`, decor in
-`meta.omega.decor`, a hat for every avatar frame key (416 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
+`meta.omega.decor`, a hat for every avatar frame key (448 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
 
 - **`meta.omega.period`** is either `{ from: "MM-DD", to: "MM-DD" }` (local date, both ends inclusive) or, for Easter, `{ easter: { from: -7, to: 1 } }`:
   days relative to Easter Sunday (Gregorian computus), so Easter runs from the Sunday before Easter Sunday through Easter Monday.
@@ -971,7 +1003,7 @@ Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per th
 ## Head accessories (`accessories/accessories.json`, OME-1388, lazy)
 
 Eight cosmetics (OME-1388's four, OME-1530's four) in one lazy 256×256 indexed PNG-8, fetched only when someone in the room wears one. Each is a hat in exactly the holiday
-theme format above: one overlay for **every** avatar frame key (416 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`,
+theme format above: one overlay for **every** avatar frame key (448 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `reach`,
 `yawn`, all four dirs; dance reuses the walk frames, so it is covered), anchored at the avatar's floor point, drawn as the avatar's next sibling.
 
 `meta.omega.accessories` = `{ <id>: { prefix, count, rects, replaces } }`. Each value has the theme manifest's `meta.omega.hat` shape, so
@@ -1004,7 +1036,7 @@ Pip and Mo take their headwear off: Pip shows a messy ginger mop with two cowlic
 Their overlays in `accessories.json` are drawn for those bare heads.
 
 `meta.omega.bare` = `{ prefix: "bare/", avatars: ["pip", "mo"], accessories: ["partyhat", "crown", "headphones", "cap", "bow"] }`. Frame `bare/K` exists
-for every avatar frame key `K` of Pip and Mo (104 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, all four
+for every avatar frame key `K` of Pip and Mo (112 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, `reach`, all four
 dirs; dance reuses walk). Each frame is a full 32×64 cell with the avatar sheets' anchor (`16/32`, `61/64`), so it swaps in for the texture
 directly. Keys carry only `frame` + `anchor`. Identical cells share a rect (200 rects for 208 keys).
 
@@ -1349,9 +1381,13 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
 - **Whirlpool:** cream tub on a wood skirt, a towel roll and a rubber duck on the rim. The rim and the water **in front of each sitter**
   (toward the camera from that seat) are the `front` layer, so a sitter is in the water to the waist in every facing
   (`preview/furniture-v6-seats@2x.png`). **In use loop** (`use: { frames: 2, ms: 200 }`, intended trigger: someone sits in it): bubbles rise;
-  swap `back` for `furniture/whirlpool/teal/use/<dir>/<n>` in place, `front` stays.
-- **Mirror:** 60–140 px up, so it clears the 56 px wainscot and stands over a washbasin or desk. Smoked glass with a tiled reflection, a
-  lamp blur and sheen streaks. Plain wall segments only, like the framed print.
+  swap `back` for `furniture/whirlpool/teal/use/<dir>/<n>` in place, `front` stays. The use frames are the back layer only (same rect and
+  anchor as `back`), so the bubbles (2 px clusters, never on the rim) rise on the water behind the sitters; the water in `front` stays calm.
+  (OME-1685: before that the frames were missing from `furniture-v6.json`; `src/dungeon.test.ts` now checks every animation frame exists.)
+- **Mirror:** an oval 16 × 60 px, 70–130 px up, so it clears the 56 px wainscot and stands over a washbasin or desk. Bevelled brass
+  frame (outer edge lit top-left, inner edge lit bottom-right), pale glass (the `glow` ramp) darker toward the bottom, two sheen streaks
+  and the reflected lamp. OME-1685: it was a tall dark rectangle that read as a door or the night window. Plain wall segments only, like
+  the framed print.
 - **Minibar:** glass door lit from inside (bottles, cans), an ice bucket on top. **Desk:** brass lamp, notepad and pen. Both stand free
   or against a wall. **Washbasin:** backs onto its cell's wall like the bookcase (row 0 for `sw`, col 0 for `se`).
 - Previews: `preview/furniture-v6-room@1x.png` / `@2x` (every piece, both facings, seats taken and free), `preview/furniture-v6-seats@2x.png`,
@@ -1382,14 +1418,15 @@ hair, hat, shirt and shading are theirs), so the four stay as distinct as in set
 
 - One sheet row per avatar × dir (`juno se`, `juno sw`, `pip se`, …); per row bend, thrust 0, 1, 2. The web reads rects from the JSON.
 - **Facings:** front views only (`se`, `sw`). Turn both avatars to the same front facing for the emote (the nearer of `se`/`sw` to the
-  bender's facing). The thruster's own feet are drawn at `meta.omega.thrust.feetOffset` (−11, −5) px from the partner's floor point
+  bender's facing). The thruster's own feet are drawn at `meta.omega.thrust.feetOffset` (−13, −6) px from the partner's floor point
   (mirror x for `sw`): about a third of a tile up-left, on the floor plane. Because the frame is anchored on the partner, the thruster's own
   cell (behind, or the nearest free one) doesn't change the picture.
 - **Tints and hair colours** apply: `dungeon.png` is listed in `tints.json` and `hairs.json` `sheets` (same PLTE slots).
 - Shortcut: no theme hat or accessory overlays exist for these keys, so a hat hides for the few seconds of the emote. Add them if it shows.
 - Preview: `preview/dungeon-poses@4x.png` (per avatar and dir: idle, bend, thrust 0–2, then the pair at thrust 0 and 2).
 
-**Bytes** (`bun assets/src/build.ts`): **+17 159 B**, 308 788 → 325 947, under the 400 KB cap of ADR 0056. Lazy: `furniture-v6.png` +
+**Bytes** (`bun assets/src/build.ts`): **+17 159 B**, 308 788 → 325 947 (OME-1685 polish: +2 926 B, → 328 873, nearly all the 8 whirlpool use
+frames that were missing), under the 400 KB cap of ADR 0056. Lazy: `furniture-v6.png` +
 `.json` gz, `avatars/dungeon.png` + `.json` gz, `edit.png` / `edit.json` gz for 6 thumbnails. **Eager: +154 B**, the six `.ui-thumb-*`
 rules in `reference.css` (gz), the same per-piece cost every catalogue batch has paid.
 
@@ -1434,7 +1471,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 337 639 B** after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 352 021 B** after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

@@ -12,7 +12,7 @@ interface Atlas {
   meta: { omega: { theme: string; decor: { key: string; on: string }[]; effect: { frames: string[] }; hat: { prefix: string; count: number } } };
 }
 const atlas = (id: string): Atlas => JSON.parse(read(`themes/${id}/${id}.json`).toString("utf8")) as Atlas;
-const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expressions.json"]
+const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expressions.json", "avatars/watching.json"]
   .flatMap((f) => Object.keys((JSON.parse(read(f).toString("utf8")) as Atlas).frames))
   .filter((k) => !k.startsWith("emote/"));
 const WALLS = new Set(["wall/l/window0", "wall/l/window1", "wall/r/poster0", "wall/r/poster1", "wall/corner", "wall/l/end", "wall/r/end", "wall/l", "wall/r"]);
