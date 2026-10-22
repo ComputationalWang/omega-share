@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { EmoteKind, MemberId } from "@omega/shared";
+import type { EmoteKind, MemberId, ReactionKind } from "@omega/shared";
 import type { PopMessage } from "../src/popout/channel";
 import type { StageState } from "../src/state";
 import { stageTransform } from "../src/layout";
@@ -34,6 +34,7 @@ async function setup(size = { w: 1280, h: 668 }) {
   const renders: { s: StageState; selfCatching: boolean }[] = [];
   const emotes: [MemberId, EmoteKind][] = [];
   const typing: [MemberId | null, boolean][] = [];
+  const reacts: [MemberId, ReactionKind][] = [];
   let focused = 0;
   const stageRoot = document.createElement("div");
   for (let i = 0; i < 8; i++) {
@@ -60,6 +61,7 @@ async function setup(size = { w: 1280, h: 668 }) {
       root: stageRoot,
       render: (s, selfCatching) => renders.push({ s, selfCatching }),
       emote: (id, kind) => emotes.push([id, kind]),
+      react: (id, kind) => reacts.push([id, kind]),
       typing: (id, on) => typing.push([id, on]),
       stopTyping: () => typing.push([null, false]),
     },
@@ -91,7 +93,7 @@ async function setup(size = { w: 1280, h: 668 }) {
     if (!(e instanceof HTMLElement)) throw new Error("no plate");
     return e;
   };
-  return { popout, root, stageRoot, from, frame, take, adopt, renders, emotes, typing, plate, focused: () => focused };
+  return { popout, root, stageRoot, from, frame, take, adopt, renders, emotes, reacts, typing, plate, focused: () => focused };
 }
 
 describe("whole-room window", () => {
@@ -171,6 +173,15 @@ describe("whole-room window", () => {
     adopt();
     from({ t: "room-emote", member: "m1", kind: "heart" });
     expect(emotes).toEqual([["m1", "heart"]]);
+  });
+
+  test("reactions burst in the window as they come, over the room as it is now (OME-1730)", async () => {
+    const { from, adopt, renders, reacts } = await setup();
+    adopt();
+    from(VIEW);
+    from({ t: "room-react", member: "m1", kind: "clap" });
+    expect(renders).toHaveLength(1);
+    expect(reacts).toEqual([["m1", "clap"]]);
   });
 
   test("an emote right after a change is drawn over the room as it is now: the waiting frame is drawn first", async () => {
