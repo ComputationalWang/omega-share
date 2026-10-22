@@ -48,6 +48,7 @@ import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createRoomCards } from "./room-cards";
 import { createHelp } from "./help/dialog";
 import { createCinemaDim } from "./cinema";
+import { createCountdown } from "./countdown/countdown";
 import { createHints } from "./help/hints";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
@@ -735,6 +736,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
 
+  // The shared 3-2-1 (OME-1634): over the room, from each playback; the lights go down on 1.
+  const countdown = createCountdown({
+    serverNow: () => clock.serverNow(),
+    plain: () => reducedMotion.matches || roomStage.root.querySelector("canvas")?.dataset["motion"] === "basic",
+    onChange: () => {
+      dim();
+    },
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h);
+    },
+  });
+  roomStage.root.append(countdown.el);
+
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let shownError: ViewState["lastError"] = null;
@@ -752,7 +767,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** The room dims while the video plays, lifted while the editor is open (OME-1406); the mood shown is the drawn layout's (OME-1502). */
   let lightsDown = false;
   const dim = (): void => {
-    const playing = pbView?.hasVideo === true && pbView.playing;
+    const playing = pbView?.hasVideo === true && pbView.playing && countdown.lit();
     cinema.update(playing, owner.editing());
     const mood = (owner.preview() ?? layoutOf(state.room)).mood ?? "none";
     cinema.mood(mood);
@@ -1003,6 +1018,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
       playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
+      countdown.set(room?.playback ?? null);
       tvBox.sync(next);
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
