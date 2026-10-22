@@ -110,6 +110,8 @@
     {
       "paths": [
         "e2e/*.e2e.ts",
+        "e2e/safety/*.e2e.ts",
+        "e2e/sync/*.e2e.ts",
         "e2e/*.firefox.ts",
         "e2e/real/*.real.ts",
         "perf/*.perf.ts"
