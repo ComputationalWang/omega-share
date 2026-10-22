@@ -387,6 +387,16 @@ body:has(> main > .room-wide[data-chrome="2"]) { --wide-side: calc(640px + env(s
 .room-wide[data-chrome] > :not(.stage-wrap, .room-side, .hint-chip, dialog), .room-wide[data-chrome] > .room-side > * { zoom: var(--chrome); }
 /* The emote wheel is placed in viewport px (picker.ts) and is page chrome at 2× already: it keeps 1×. */
 .room-wide[data-chrome] .ui-wheel { zoom: calc(1 / var(--chrome)); }
+/* The help dialog zooms too (QA OME-1696: a 520 px box at 2560); a zoomed dialog's viewport bound is divided by it. */
+.room-wide[data-chrome] > .help-dialog { zoom: var(--chrome); }
+.room-wide[data-chrome] :is(.help-dialog, .report-dialog) { max-height: calc(100dvh / var(--chrome) - 16px); }
+.room-wide[data-chrome] .help-dialog { width: min(calc(100vw / var(--chrome) - 16px), 520px); }
+.room-wide[data-chrome] .report-dialog { width: min(calc(100vw / var(--chrome) - 16px), 480px); }
+.room-wide[data-chrome] .report-dialog:has(> form[hidden]) { width: min(calc(100vw / var(--chrome) - 16px), 380px); }
+/* "Outfits" is a line of text in People: a 27 px row is 40 px at 1.5×. */
+.room-wide[data-chrome] .outfits > summary { display: flex; align-items: center; min-height: 27px; width: max-content; }
+/* The quality list's 25 px options, likewise. */
+.room-wide[data-chrome] .quality-menu .ui-modrow { min-height: 27px; }
 /* A 26 px icon key is 39 px at 1.5×. */
 .room-wide[data-chrome] .ui-button.icon:not(.stage-clip *) { min-width: 27px; }
 main:has(> .room-wide) { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }

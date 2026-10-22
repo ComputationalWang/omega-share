@@ -411,7 +411,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom);
-      boxTv(l, "shelfZoom" in l ? l.shelfZoom : 1);
+      boxTv(l, roomOut ? 1 : zoom);
       if ("stage" in l) {
         // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never

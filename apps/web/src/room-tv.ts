@@ -83,12 +83,12 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     if (!quality.isOpen() || quality.menu.parentElement !== wrap) return;
     const m = quality.menu;
     const k = quality.key;
-    // The shelf's offsets are in its own px: the wide page zooms it (OME-1667), the list it hangs isn't.
-    const z = controls.currentCSSZoom;
-    const right = (controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2) * z;
+    // The list zooms with the shelf (OME-1667), so both are in the shelf's px.
+    m.style.zoom = controls.style.zoom;
+    const right = controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2;
     const left = Math.max(0, right - m.offsetWidth + 24);
     m.style.left = `${String(left)}px`;
-    m.style.top = `${String((controls.offsetTop + controls.offsetHeight) * z + 8)}px`;
+    m.style.top = `${String(controls.offsetTop + controls.offsetHeight + 8)}px`;
     m.style.setProperty("--ui-tail-x", `${String(right - left)}px`);
   };
   quality.onToggle((open) => {
@@ -99,7 +99,10 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
       quality.menu.remove();
       return;
     }
-    if (row) controls.append(quality.menu);
+    if (row) {
+      quality.menu.style.zoom = "";
+      controls.append(quality.menu);
+    }
     else {
       wrap.append(quality.menu);
       placeQuality();
