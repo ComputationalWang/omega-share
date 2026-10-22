@@ -174,7 +174,7 @@ export function recoverCrashed(dir: string, now = Date.now()): void {
 }
 
 /** Run every queued job, oldest first, one at a time. Returns how many ran. */
-export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?: number; load?: LoadGate } = {}): Promise<number> {
+export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?: number; load?: LoadGate; lock?: () => Promise<() => void> } = {}): Promise<number> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let ran = 0;
   for (;;) {
@@ -240,6 +240,11 @@ export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?
 }
 
 /** The queue lives outside any checkout so every worktree (and the runner service) sees the same one. */
+/** Takes the machine-wide perf flock; resolves with its release. Stub (OME-1724 red). */
+export function perfLock(_path: string): Promise<() => void> {
+  return Promise.resolve(() => undefined);
+}
+
 export function queueDir(env: Record<string, string | undefined> = process.env): string {
   const home = env["HOME"] ?? "";
   return env["OMEGA_PERF_QUEUE_DIR"] ?? join(env["XDG_STATE_HOME"] ?? join(home, ".local/state"), "omega-share/perf-queue");
