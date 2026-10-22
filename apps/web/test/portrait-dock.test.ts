@@ -183,3 +183,18 @@ test("the link key goes before the field's wrapper when the field is wrapped", a
   dock.setActive(true);
   expect(dock.link.nextElementSibling).toBe(wrap);
 });
+
+test("the portrait room marks the body, so its page rules need no body:has() (OME-1755)", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const root = document.createElement("section");
+  const log = document.createElement("div");
+  const composer = document.createElement("form");
+  const queue = document.createElement("section");
+  root.append(log, composer, queue);
+  document.body.replaceChildren(root);
+  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+  dock.setActive(true);
+  expect(document.body.classList.contains("room-is-portrait")).toBe(true);
+  dock.setActive(false);
+  expect(document.body.classList.contains("room-is-portrait")).toBe(false);
+});

@@ -75,11 +75,14 @@ describe("room layout", () => {
     expect(poll.nextElementSibling).toBe(log.root);
     expect(log.root.nextElementSibling).toBe(form);
     expect(side.hidden).toBe(true);
+    expect(document.body.classList.contains("room-is-wide")).toBe(false);
   });
 
   test("on a wide screen the invite, Up next and the chat make the side column", async () => {
     const { root, log, form, side, queue, invite } = await setup({ wide: true });
     expect(root.classList.contains("room-wide")).toBe(true);
+    // OME-1755: the page's wide rules key on a body class, not body:has(), which re-styles the page on every chat line.
+    expect(document.body.classList.contains("room-is-wide")).toBe(true);
     expect(side.hidden).toBe(false);
     expect(invite.parentElement).toBe(side);
     expect(queue.root.parentElement).toBe(side);

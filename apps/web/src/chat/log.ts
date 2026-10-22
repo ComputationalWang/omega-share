@@ -28,6 +28,8 @@ export interface ChatLogOptions<H> {
   readonly now: () => number;
   readonly setTimer: (fn: () => void, ms: number) => H;
   readonly clearTimer: (h: H) => void;
+  /** Runs `fn` before the next paint (default requestAnimationFrame): the log sticks to its foot there, once a frame. */
+  readonly requestFrame?: (fn: () => void) => void;
 }
 
 export interface ChatLog {

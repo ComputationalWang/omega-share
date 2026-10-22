@@ -16,7 +16,7 @@ afterAll(async () => {
 
 type Ageing = "settle" | "fade";
 
-async function setup(ageing: Ageing = "settle", cap?: number) {
+async function setup(ageing: Ageing = "settle", cap?: number, frames: (() => void)[] = []) {
   const { createChatLog } = await import("../src/chat/log");
   let now = 0;
   const timers = new Map<number, { fn: () => void; at: number }>();
@@ -24,6 +24,9 @@ async function setup(ageing: Ageing = "settle", cap?: number) {
   const log = createChatLog({
     ageing,
     ...(cap === undefined ? {} : { cap }),
+    requestFrame: (fn) => {
+      frames.push(fn);
+    },
     now: () => now,
     setTimer: (fn, ms) => {
       const id = nextId++;
@@ -290,5 +293,56 @@ describe("chat log: hide for me", () => {
     log.hideFrom((id) => id === "b");
     log.append({ kind: "chat", nickname: "Bo", text: "late", self: false }, "b");
     expect(lines().map((l) => l.hidden)).toEqual([true]);
+  });
+});
+
+// OME-1755: at the rate limit several lines land in one frame. Reading scrollHeight per line forced a style and layout
+// pass inside every socket message (62 % of the observer's message time in the wide chat burst). The log sticks to its
+// foot once per frame instead, and a message never reads layout while the reader is at the foot.
+describe("chat log: sticking to the foot (OME-1755)", () => {
+  const measured = (root: HTMLElement, height: () => number): { reads: () => number } => {
+    let reads = 0;
+    Object.defineProperty(root, "scrollHeight", { configurable: true, get: () => { reads++; return height(); } });
+    Object.defineProperty(root, "clientHeight", { configurable: true, get: () => 100 });
+    return { reads: () => reads };
+  };
+
+  test("a burst of lines reads no layout per message and sticks to the foot once, in the next frame", async () => {
+    const frames: (() => void)[] = [];
+    const { log, chat } = await setup("settle", undefined, frames);
+    const m = measured(log.root, () => 900);
+    for (let i = 0; i < 5; i++) chat("Kit", String(i));
+    expect(m.reads()).toBe(0);
+    expect(frames.length).toBe(1);
+    frames.shift()?.();
+    expect(m.reads()).toBe(1);
+    expect(log.root.scrollTop).toBe(900);
+  });
+
+  test("the scroll a new line causes before its frame doesn't stop the log following", async () => {
+    const frames: (() => void)[] = [];
+    const { log, chat } = await setup("settle", undefined, frames);
+    let height = 900;
+    const m = measured(log.root, () => height);
+    chat("Kit", "a");
+    // The line made the content taller; the browser fires scroll before the frame's callbacks run.
+    height = 1000;
+    log.root.dispatchEvent(new Event("scroll"));
+    frames.shift()?.();
+    const before = m.reads();
+    chat("Kit", "b");
+    expect(m.reads()).toBe(before);
+    expect(frames.length).toBe(1);
+  });
+
+  test("a reader scrolled up stays put: no frame is asked for", async () => {
+    const frames: (() => void)[] = [];
+    const { log, chat } = await setup("settle", undefined, frames);
+    measured(log.root, () => 900);
+    log.root.scrollTop = 100;
+    log.root.dispatchEvent(new Event("scroll"));
+    chat("Kit", "a");
+    expect(frames.length).toBe(0);
+    expect(log.root.scrollTop).toBe(100);
   });
 });
