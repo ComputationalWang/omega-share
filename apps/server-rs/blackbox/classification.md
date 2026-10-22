@@ -18,7 +18,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 
 | owner | A | A* | B | C | D | E | skipped | total |
 |---|---|---|---|---|---|---|---|---|
-| ? | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 61 |
+| ? | 64 | 0 | 0 | 0 | 0 | 0 | 0 | 64 |
 | S1 (ported: config.rs) | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 47 |
 | S1 (ported: log.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
@@ -28,7 +28,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S6 | 186 | 0 | 1 | 0 | 17 | 0 | 0 | 204 |
 | S7 | 6 | 0 | 0 | 2 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **470** | **1** | **1** | **3** | **271** | **82** | **1** | **829** |
+| **all** | **473** | **1** | **1** | **3** | **271** | **82** | **1** | **832** |
 
 ## Tests
 
@@ -230,6 +230,16 @@ Owner: ?. 2 tests: A 2.
 |---|---|---|
 | 32 | A ✓ | conga line in the snapshot (OME-1574) › a late joiner gets the line, leader first: /conga joins at the back, a repeat keeps its place, /stop leaves; no line, no key |
 | 54 | A ✓ | conga line in the snapshot (OME-1574) › leaving the room, sitting down and sitting on the floor take a member out of the line |
+
+### countdown.test.ts
+
+Owner: ?. 3 tests: A 3.
+
+| line | cat | test |
+|---|---|---|
+| 51 | A ✓ | shared countdown (OME-1634) › a countdown play is relayed to everyone with startAt COUNTDOWN_MS after at |
+| 67 | A ✓ | shared countdown (OME-1634) › a pause during the countdown cancels it for everyone |
+| 82 | A ✓ | shared countdown (OME-1634) › countdown is ignored on a pause and on a live embed |
 
 ### deploy-kit.test.ts
 
