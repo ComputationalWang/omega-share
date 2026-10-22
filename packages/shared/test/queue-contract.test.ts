@@ -9,6 +9,7 @@ import {
   MAX_ROOM_MEMBERS,
   MAX_SERVER_MESSAGE_BYTES,
   MAX_URL_LENGTH,
+  MemberSchema,
   QUEUE_ADD_MEMBER_BURST,
   QUEUE_ADD_MEMBER_REFILL_MS,
   QUEUE_ADD_ROOM_BURST,
@@ -19,6 +20,7 @@ import {
   QueueItemIdSchema,
   QueueAddResponseSchema,
   QueueItemSchema,
+  REACTIONS_MAX,
   RoomStateSchema,
   SHARE_ERROR_CODES,
   ServerMessageSchema,
@@ -285,17 +287,26 @@ describe("queue limits (ADR 0031)", () => {
 });
 
 describe("frame size", () => {
-  // Worst case: 25 members with 64-char ids, a generic current item and QUEUE_MAX generic items at the longest url.
+  // Worst case: 25 members with 64-char ids (the contract max, not the server's 36-char UUIDs), every optional member
+  // field, CJK text (3 B per UTF-16 unit, the most any allowed text costs), a generic current item and QUEUE_MAX generic
+  // items at the longest url (OME-1701).
   const longGeneric = () => {
     const url = "https://" + "a".repeat(60) + ".example.com/" + "x".repeat(MAX_GENERIC_EMBED_URL_LENGTH - 81);
     return { provider: "generic" as const, host: "a".repeat(60) + ".example.com", url };
   };
   const members = Array.from({ length: MAX_ROOM_MEMBERS }, (_, i) => ({
     id: `m${String(i).padStart(63, "0")}`,
-    nickname: "W".repeat(20),
+    nickname: "語".repeat(20),
     avatar: 3,
     catching: true,
+    away: true,
+    standingSlot: i,
     muted: true,
+    cell: { x: 9, y: 9 },
+    tint: 5,
+    accessory: 3,
+    hair: 3,
+    floorSit: true,
   }));
   const queue = Array.from({ length: QUEUE_MAX }, (_, i) => item(`q${String(i).padStart(31, "0")}`, longGeneric(), members[i]?.id ?? null));
 
@@ -315,11 +326,14 @@ describe("frame size", () => {
     accepts(QueueItemSchema, queue[0]);
   });
 
-  test("a worst-case snapshot (full queue with start times, full layout, 256 reactions, a poll, a 12-long conga) fits the client frame cap", () => {
+  // 61,557 B of 65,536 at REACTIONS_MAX = 200 (OME-1701; 256 reactions made it 67,957 B, and the client dropped it).
+  test("a worst-case snapshot (CJK title, full queue with start times, full layout, REACTIONS_MAX reactions, a CJK poll, a 12-long conga) fits the client frame cap", () => {
+    expect(v.safeParse(MemberSchema, members[0]).success).toBe(true);
     const state = {
       id: "a".repeat(32),
+      title: "語".repeat(32),
       seats: members.slice(0, 8).map((m) => m.id),
-      members: members.map((m, standingSlot) => ({ ...m, away: false, standingSlot })),
+      members,
       embed: longGeneric(),
       playback: null,
       itemId: "c".repeat(32),
@@ -329,8 +343,8 @@ describe("frame size", () => {
     };
     const raw = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: state, shareToken: "a".repeat(22), resumeToken: "a".repeat(43), resumed: false, owner: true,
       // Movie night (OME-1625): a full reaction timeline at the longest member id, glyph and media time.
-      reactions: Array.from({ length: 256 }, (_, i) => ({ memberId: members[i % members.length]?.id, kind: "laugh", mediaMs: 43_200_000 })), peakMembers: 25,
-      poll: { pollId: "p".repeat(32), by: members[0]?.id, question: "W".repeat(80), options: Array.from({ length: 4 }, () => "W".repeat(40)), counts: [25, 0, 0, 0], endsAt: 1_800_000_000_000 },
+      reactions: Array.from({ length: REACTIONS_MAX }, (_, i) => ({ memberId: members[i % members.length]?.id, kind: "laugh", mediaMs: 43_200_000 })), peakMembers: 25,
+      poll: { pollId: "p".repeat(32), by: members[0]?.id, question: "語".repeat(80), options: Array.from({ length: 4 }, () => "語".repeat(40)), counts: [25, 0, 0, 0], endsAt: 1_800_000_000_000 },
       conga: { ids: members.slice(0, 12).map((m) => m.id), last: 1_800_000_000_000 } });
     expect(new TextEncoder().encode(raw).length).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
     expect(parseServerMessage(raw)?.type).toBe("snapshot");
