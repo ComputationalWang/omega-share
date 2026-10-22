@@ -537,6 +537,8 @@ export interface Motion {
   lift?: number;
   /** The head sinks by this many px onto the collar (breathing out). */
   headDrop?: number;
+  /** The head moves sideways by this many px (a laugh's shake, a lean toward the screen). */
+  headDx?: number;
   /** Replaces the standing legs (idle pose only). The last row always lands on the floor line (y 60). */
   legs?: readonly string[];
   /** Front view only, relative to the head origin, after the overlays (so inside Pip's lenses, through Mo's beard): eyes and mouth. */
@@ -557,7 +559,7 @@ export function composeMotion(a: AvatarDef, pose: Pose, dir: Dir, m: Motion): Gr
   const g = blank(CELL.w, CELL.h);
   const o0 = ORIGINS[pose];
   const o: Origins = {
-    head: { x: o0.head.x, y: o0.head.y - lift + (m.headDrop ?? 0) },
+    head: { x: o0.head.x + (m.headDx ?? 0), y: o0.head.y - lift + (m.headDrop ?? 0) },
     torso: { x: o0.torso.x, y: o0.torso.y - lift },
   };
   const torso = view === "front" ? TORSO : TORSO_BACK;

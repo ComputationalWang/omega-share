@@ -396,6 +396,43 @@ export const YAWN_SEQUENCE: readonly (readonly [number, number])[] = [
   [1, 1800],
 ];
 
+// ---- Watching (OME-1640): seated from behind, a laugh shake and a gasp lean ------------------------------
+// Theatre rows face the screen, so these are back views only (ne, nw is its mirror). Above a row's seat back only the head,
+// hair and shoulders show, so each reaction lives there: the head shakes and the shoulders bounce, or the hands fly to the cheeks.
+
+export const WATCH_STATES = [
+  { id: "base", frames: 1 },
+  { id: "laugh", frames: 2 },
+  { id: "gasp", frames: 2 },
+] as const;
+export type WatchState = (typeof WATCH_STATES)[number]["id"];
+
+/** Laughing: elbows flap out while the hands hold the belly (hidden from behind). */
+const LAUGH_ARM = ["..AA", ".AA.", "AA..", "AA..", ".AA."];
+/** Gasp: hands flung up to the cheeks, elbows out, so the hands frame the jaw beside the head. */
+const GASP_ARM = [".SS.....", ".SS.....", ".AA.....", "AA......", "AA......", ".AA.....", "..AAA...", "...AA..."];
+
+export function watchMotion(state: WatchState, n: number, holds = false): Motion {
+  if (state === "base") {
+    // Settled in: sunk 1 px into the seat, the near elbow out on the armrest.
+    const elbow = (role: string): Stamp[] => [ERASE_ARM, { x: -2, y: 4, rows: [".AA", "AA.", "SS."].map((r) => r.replace(/A/g, role)) }];
+    const near = bothArms("back", elbow, holds).filter((st) => st.behind !== true && st.x > 7);
+    return { headDrop: 1, after: near };
+  }
+  const rows = state === "laugh" ? LAUGH_ARM : GASP_ARM;
+  const arm = (role: string): Stamp[] => [ERASE_ARM, { x: state === "laugh" ? -2 : -3, y: state === "laugh" ? 3 : -4, rows: rows.map((r) => r.replace(/A/g, role)) }];
+  const after = bothArms("back", arm, holds);
+  // Laugh: a 3 px bounce, up with the head thrown aside, then down (it has to read over a seat back). Gasp: a jolt upright, then a lean in that dips the head toward the screen.
+  // The head never moves toward the cell's near edge (+x): wide hats (the witch hat on Mo's brim) would touch the border.
+  if (state === "laugh") return n === 0 ? { lift: 2, headDx: -1, after } : { headDrop: 1, after };
+  return n === 0 ? { lift: 1, after } : { headDrop: 2, after };
+}
+/** Laugh: three shakes. Gasp: the jolt, then a long held lean. [frame, ms] pairs; afterwards return to `watch/base`. */
+export const WATCH_SEQUENCES: Record<Exclude<WatchState, "base">, readonly (readonly [number, number])[]> = {
+  laugh: [[0, 140], [1, 140], [0, 140], [1, 140], [0, 140], [1, 140]],
+  gasp: [[0, 260], [1, 1400]],
+};
+
 // ---- Emote icons ------------------------------------------------------------------------------------------
 // 16×16 cells, drawn like the UI icons (auto-shade + plum outline). They float above the name tag.
 
