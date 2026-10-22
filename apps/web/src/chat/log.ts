@@ -152,9 +152,16 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
   /** The reader is at the foot: new lines and a new box (the chat changing column, full screen's strip) keep them there. */
   const atFoot = (): boolean => root.scrollHeight - root.scrollTop - root.clientHeight <= 2;
   let following = true;
+  /** A stick to the foot is due in the next frame: the scroll a new line causes before then isn't the reader's. */
+  let stickDue = false;
+  const requestFrame = opts.requestFrame ?? ((fn: () => void) => { requestAnimationFrame(fn); });
+  const stickToFoot = (): void => {
+    stickDue = false;
+    root.scrollTop = root.scrollHeight;
+  };
   root.addEventListener("scroll", () => {
     // A box that was just moved reads 0 tall (or reset to the top) until it's laid out again: that's not the reader.
-    if (root.clientHeight > 0) following = atFoot();
+    if (!stickDue && root.clientHeight > 0) following = atFoot();
   }, { passive: true });
   // Moving the log resets its scroll, and the strip settles its size after full screen starts (QA OME-658).
   if (typeof ResizeObserver !== "undefined") {
@@ -173,7 +180,11 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
       lines.push(line);
       root.append(line.el);
       if (lines.length > cap) lines.shift()?.el.remove();
-      if (stick) root.scrollTop = root.scrollHeight;
+      // Once a frame, not per line: reading scrollHeight here forced a layout inside every socket message (OME-1755).
+      if (stick && !stickDue) {
+        stickDue = true;
+        requestFrame(stickToFoot);
+      }
       // In fade mode the armed timer may be an older line's fade, due after this line settles.
       if (heldSince === null && (timer === null || dueAt(line) < armedAt)) schedule();
     },
