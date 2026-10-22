@@ -24,8 +24,8 @@ export interface Recolour {
   existing: number;
   /** Ramps swapped, in the source colour. */
   from: readonly RampName[];
-  /** New colours: `to[i]` replaces `from[i]`. `id` is also the `swatch/<id>` chip in ui/edit.png. */
-  variants: readonly { id: string; to: readonly RampName[] }[];
+  /** New colours: `to[i]` replaces `from[i]`; `shade`, if set, gives `to[0]`'s shade tone instead. `id` is also the `swatch/<id>` chip in ui/edit.png. */
+  variants: readonly { id: string; to: readonly RampName[]; shade?: RampName }[];
 }
 
 /** Keyed by the `FURNITURE` kind in packages/shared: `rug` is the room's 7×7 rug (room.png), `runner` the kilim runner (atlas id `rug`). */
@@ -40,13 +40,14 @@ export const RECOLOURS: Readonly<Record<string, Recolour>> = {
   frame: { sheet: "furniture/furniture.png", frames: "furniture/frame/dusk/", thumb: "thumb/frame/dusk", existing: 2, from: ["pink", "lilac", "navy", "mustard"], variants: [{ id: "meadow", to: ["glow", "teal", "olive", "mustard"] }, { id: "sunset", to: ["ginger", "rust", "velvet", "cream"] }] },
   garland: { sheet: "furniture/furniture-v2.png", frames: "furniture/garland/warm/", thumb: "thumb/garland/warm", existing: 2, from: ["glow", "mustard"], variants: [{ id: "frost", to: ["teal", "glow"] }, { id: "peach", to: ["blush", "mustard"] }] },
   // OME-1688, lamps, plants and shelves. Room lamp: its shade. Room plant, monstera: the pot. Arc lamp: the brass, then the shade.
-  // Bookcase: the case, with its cream and teal spines (and globe) swapped out of the way. Wall shelf: the plank, then the pot band.
+  // Bookcase: the case, with its cream and teal spines (and globe) swapped out of the way; the cream case keeps the wood shade so it
+  // reads on the lightest floor (OME-1707). Wall shelf: the plank, then the pot band.
   lamp: { sheet: "room/room.png", frames: "lamp/", source: "cream", existing: 1, from: ["cream"], variants: [{ id: "teal", to: ["teal"] }, { id: "lilac", to: ["lilac"] }] },
   plant: { sheet: "room/room.png", frames: "plant/", source: "rust", existing: 1, from: ["rust"], variants: [{ id: "teal", to: ["teal"] }, { id: "mustard", to: ["mustard"] }] },
-  arclamp: { sheet: "furniture/furniture.png", frames: "furniture/arclamp/brass/", thumb: "thumb/arclamp/brass", existing: 1, from: ["mustard", "cream"], variants: [{ id: "charcoal", to: ["charcoal", "cream"] }, { id: "teal", to: ["mustard", "teal"] }] },
+  arclamp: { sheet: "furniture/furniture.png", frames: "furniture/arclamp/brass/", thumb: "thumb/arclamp/brass", existing: 1, from: ["mustard", "cream"], variants: [{ id: "lilac", to: ["lilac", "cream"] }, { id: "teal", to: ["mustard", "teal"] }] },
   monstera: { sheet: "furniture/furniture.png", frames: "furniture/monstera/rust/", thumb: "thumb/monstera/rust", existing: 2, from: ["rust"], variants: [{ id: "mustard", to: ["mustard"] }, { id: "lilac", to: ["lilac"] }] },
-  bookshelf: { sheet: "furniture/furniture.png", frames: "furniture/bookshelf/wood/", thumb: "thumb/bookshelf/wood", existing: 1, from: ["wood", "cream", "teal"], variants: [{ id: "cream", to: ["cream", "wood", "teal"] }, { id: "teal", to: ["teal", "cream", "navy"] }] },
-  wallshelf: { sheet: "furniture/furniture-v2.png", frames: "furniture/wallshelf/wood/", thumb: "thumb/wallshelf/wood", existing: 1, from: ["wood", "teal"], variants: [{ id: "lilac", to: ["lilac", "teal"] }, { id: "teal", to: ["teal", "rust"] }] },
+  bookshelf: { sheet: "furniture/furniture.png", frames: "furniture/bookshelf/wood/", thumb: "thumb/bookshelf/wood", existing: 1, from: ["wood", "cream", "teal"], variants: [{ id: "cream", to: ["cream", "wood", "teal"], shade: "wood" }, { id: "teal", to: ["teal", "cream", "navy"] }] },
+  wallshelf: { sheet: "furniture/furniture-v2.png", frames: "furniture/wallshelf/wood/", thumb: "thumb/wallshelf/wood", existing: 1, from: ["wood", "teal"], variants: [{ id: "cream", to: ["cream", "teal"] }, { id: "teal", to: ["teal", "rust"] }] },
 };
 
 /** Wall-mounted kinds: they get their own contact sheet, on the wall and under the room moods, not on the floor. */
@@ -56,7 +57,7 @@ export const WALL_KINDS: ReadonlySet<string> = new Set(["frame", "garland", "wal
 export function recolourRemap(r: Recolour, variant: number): Map<number, number> {
   const v = r.variants[variant];
   if (v?.to.length !== r.from.length) throw new Error(`no recolour ${String(variant)}`);
-  return new Map(r.from.flatMap((f, i) => TONES.map((t) => [colorIndex(f, t), colorIndex(v.to[i] ?? f, t)] as [number, number])));
+  return new Map(r.from.flatMap((f, i) => TONES.map((t) => [colorIndex(f, t), colorIndex(i === 0 && t === 2 && v.shade ? v.shade : (v.to[i] ?? f), t)] as [number, number])));
 }
 
 /** furniture/recolours.json: what the client needs for the PLTE swap. */
@@ -73,7 +74,7 @@ export function recoloursTable(): object {
           frames: r.frames,
           ...(r.thumb ? { thumb: r.thumb } : {}),
           slots: r.from.flatMap((f) => TONES.map((t) => colorIndex(f, t))),
-          variants: r.variants.map((v, i) => ({ variant: r.existing + i, id: v.id, colors: v.to.flatMap((t) => [...RAMPS[t]]) })),
+          variants: r.variants.map((v, i) => ({ variant: r.existing + i, id: v.id, colors: v.to.flatMap((t, i) => RAMPS[t].map((h, k) => (i === 0 && k === 2 && v.shade ? RAMPS[v.shade][2] : h))) })),
         },
       ]),
     ),

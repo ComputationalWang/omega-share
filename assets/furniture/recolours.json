@@ -368,11 +368,11 @@
    "variants": [
     {
      "variant": 1,
-     "id": "charcoal",
+     "id": "lilac",
      "colors": [
-      "#655a70",
-      "#4a4052",
-      "#332b3a",
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0",
       "#fff7ea",
       "#f4ead2",
       "#cbbd9f"
@@ -444,7 +444,7 @@
      "colors": [
       "#fff7ea",
       "#f4ead2",
-      "#cbbd9f",
+      "#7c4d2c",
       "#c98e5a",
       "#a86e40",
       "#7c4d2c",
@@ -485,11 +485,11 @@
    "variants": [
     {
      "variant": 1,
-     "id": "lilac",
+     "id": "cream",
      "colors": [
-      "#c6a8ec",
-      "#a17fd0",
-      "#6f55a0",
+      "#fff7ea",
+      "#f4ead2",
+      "#cbbd9f",
       "#6fd0c4",
       "#3aa7a3",
       "#23706f"
