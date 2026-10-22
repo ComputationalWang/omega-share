@@ -104,10 +104,32 @@ describe("pairs (OME-1672)", () => {
     await a.client.next("paired");
   });
 
-  binaryOnly("with no free cell (the sender is seated) the sender gets bad_cell and the invite stays", async () => {
+  binaryOnly("a sender on their standing spot is stood on the door cell first, then the inviter goes beside them", async () => {
+    // bob never walked: he teleports to the door (9,9); behind him (10,9) is off the floor, so alice gets west, (8,9).
+    const { a, b } = await setup(true);
+    await invite(a, "thrust");
+    b.client.send({ type: "pair", pose: "bendover" });
+    expect(await a.client.next("walked")).toMatchObject({ memberId: b.snapshot.self, cell: { x: 9, y: 9 }, teleport: true });
+    expect(await a.client.next("walked")).toMatchObject({ memberId: a.snapshot.self, cell: { x: 8, y: 9 }, teleport: true });
+    expect(await a.client.next("paired")).toEqual({ type: "paired", thrust: a.snapshot.self, bendover: b.snapshot.self });
+  });
+
+  binaryOnly("a seated sender is stood up onto the door cell first", async () => {
     const { a, b } = await setup(true);
     b.client.send({ type: "sit", seat: 2 });
     for (const c of clients) await c.next("seat-changed");
+    await invite(a, "thrust");
+    b.client.send({ type: "pair", pose: "bendover" });
+    expect(await a.client.next("seat-changed")).toEqual({ type: "seat-changed", memberId: b.snapshot.self, seat: null });
+    expect(await a.client.next("walked")).toMatchObject({ memberId: b.snapshot.self, cell: { x: 9, y: 9 }, teleport: true });
+    expect(await a.client.next("walked")).toMatchObject({ memberId: a.snapshot.self, cell: { x: 8, y: 9 } });
+    await a.client.next("paired");
+  });
+
+  binaryOnly("with no free cell beside the sender, the sender gets bad_cell and the invite stays", async () => {
+    const table = (col: number, row: number) => ({ kind: "sidetable" as const, col, row, facing: "se" as const });
+    const { a, b } = await setup(true, [...DEFAULT_LAYOUT.furniture, table(8, 9), table(9, 8), table(8, 8)]);
+    await stand(b, [9, 9]);
     await invite(a, "thrust");
     b.client.send({ type: "pair", pose: "bendover" });
     expect((await b.client.next("error")).code).toBe("bad_cell");

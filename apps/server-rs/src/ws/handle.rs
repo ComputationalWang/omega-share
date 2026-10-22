@@ -739,6 +739,7 @@ fn pair(app: &App, inner: &mut RoomInner, conn: &Conn, member: &MemberId, pose: 
             bendover,
             inviter,
             cell,
+            stand: _,
         } => {
             get_up(inner, &inviter);
             if let WalkResult::Walked { stood_up } = inner.room.walk(&inviter, cell) {

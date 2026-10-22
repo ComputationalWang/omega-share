@@ -9,7 +9,9 @@
 
 use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT};
+use crate::contract::constants::{
+    CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT,
+};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
@@ -17,7 +19,8 @@ use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
 use crate::contract::state::{
-    Conga, MediaMs, Member, PairPose, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime, StartSeconds,
+    Conga, MediaMs, Member, PairPose, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
+    StartSeconds,
 };
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
@@ -91,14 +94,16 @@ pub enum PairResult {
     PairsOff,
     /// No open invite of the other pose: this is the sender's own now.
     Invited,
-    /// A match, but no free cell beside the sender (or the sender has no cell): the invite stays.
+    /// A match, but no free cell beside the sender (or, for a sender with no cell, anywhere): the invite stays.
     NoCell,
-    /// A match, its invite consumed. `inviter` is `thrust` or `bendover`, and goes to `cell`.
+    /// A match, its invite consumed. `inviter` is `thrust` or `bendover`, and goes to `cell`. A sender with no cell
+    /// (on their standing spot, or seated) is stood on `stand` first.
     Paired {
         thrust: MemberId,
         bendover: MemberId,
         inviter: MemberId,
         cell: FloorCell,
+        stand: Option<FloorCell>,
     },
 }
 
@@ -439,6 +444,7 @@ impl Room {
             bendover: bendover.clone(),
             inviter,
             cell,
+            stand: None,
         }
     }
 
@@ -2607,11 +2613,15 @@ mod tests {
         (r, a, b)
     }
     fn paired(thrust: &MemberId, bendover: &MemberId, inviter: &MemberId, c: FloorCell) -> PairResult {
+        stood(thrust, bendover, inviter, c, None)
+    }
+    fn stood(thrust: &MemberId, bendover: &MemberId, inviter: &MemberId, c: FloorCell, stand: Option<FloorCell>) -> PairResult {
         PairResult::Paired {
             thrust: thrust.clone(),
             bendover: bendover.clone(),
             inviter: inviter.clone(),
             cell: c,
+            stand,
         }
     }
 
@@ -2664,13 +2674,46 @@ mod tests {
     }
 
     #[test]
-    fn a_sender_with_no_cell_has_nowhere_to_pair_and_the_invite_stays() {
+    fn a_sender_on_their_standing_spot_is_stood_on_the_door_cell_first() {
+        // bob never walked: he goes to the door (9,9), still facing west; behind him (10,9) is off the floor, so
+        // alice takes the first free neighbour, west (8,9)
+        let mut r = room();
+        r.set_layout(pairs_layout(&[]));
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), stood(&a, &b, &a, cell(8, 9), Some(cell(9, 9))));
+    }
+
+    #[test]
+    fn a_seated_sender_is_stood_on_the_door_cell_first() {
         let (mut r, a, b) = pair_room(&[]);
         r.pair(&a, PairPose::Thrust, T0);
         r.sit(&b, Some(seat(2)));
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), stood(&a, &b, &a, cell(8, 9), Some(cell(9, 9))));
+    }
+
+    #[test]
+    fn with_the_door_cell_taken_a_sender_with_no_cell_goes_to_the_next_free_cell_back_from_it() {
+        // carol on the door: bob goes to (8,9); behind him (9,9) is carol's, so alice goes west, (7,9)
+        let mut r = room();
+        r.set_layout(pairs_layout(&[]));
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        let c = join(&mut r, "m3", "carol", None);
+        r.walk(&c, cell(9, 9));
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), stood(&a, &b, &a, cell(7, 9), Some(cell(8, 9))));
+    }
+
+    #[test]
+    fn a_sender_hemmed_in_has_nowhere_to_pair_and_the_invite_stays() {
+        let (mut r, a, b) = pair_room(&[table(8, 9), table(9, 8), table(8, 8)]);
+        r.walk(&b, cell(9, 9));
+        r.pair(&a, PairPose::Thrust, T0);
         assert_eq!(r.pair(&b, PairPose::Bendover, T0), PairResult::NoCell);
         r.walk(&b, cell(4, 5));
-        assert_eq!(r.pair(&b, PairPose::Bendover, T0), paired(&a, &b, &a, cell(5, 5)));
+        assert!(matches!(r.pair(&b, PairPose::Bendover, T0), PairResult::Paired { stand: None, .. }));
     }
 
     #[test]
