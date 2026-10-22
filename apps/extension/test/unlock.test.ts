@@ -77,9 +77,9 @@ const refererRule = (id: number, tab = ROOM_TAB): UnlockRule => ({
 });
 
 describe("unlockPermissions", () => {
-  test("Chromium asks for the DNR API permission with the one host; Firefox for the host alone (§4)", () => {
-    expect(unlockPermissions("video.cdn-host.net", "chrome")).toEqual({ permissions: ["declarativeNetRequestWithHostAccess"], origins: ["https://video.cdn-host.net/*"] });
-    expect(unlockPermissions("video.cdn-host.net", "firefox")).toEqual({ permissions: [], origins: ["https://video.cdn-host.net/*"] });
+  // OME-1666: DNR granted at runtime leaves Chromium's updateSessionRules pending forever, so both browsers hold it at install.
+  test("asks for the one host alone, in every browser (§4)", () => {
+    expect(unlockPermissions("video.cdn-host.net")).toEqual({ origins: ["https://video.cdn-host.net/*"] });
   });
 });
 
@@ -284,5 +284,26 @@ describe("removal", () => {
     const h = harness({ noDnr: true });
     await h.unlocker.tabRemoved(ROOM_TAB);
     expect(h.rules()).toEqual([]);
+  });
+});
+
+describe("a DNR call that never settles (OME-1666)", () => {
+  test("the room hears unsupported within 2 s, and the next unlock isn't stuck behind it", async () => {
+    const store = fakeDnr();
+    let stuck = true;
+    const dnr = {
+      getSessionRules: store.getSessionRules,
+      updateSessionRules: (u: { removeRuleIds?: number[]; addRules?: UnlockRule[] }) => (stuck ? new Promise<void>(() => undefined) : store.updateSessionRules(u)),
+    };
+    const h = harness({ granted: true, dnr: () => dnr });
+    const started = performance.now();
+    await h.unlocker.onMessage(unlock("video.cdn-host.net"), roomSender);
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(h.notes).toEqual([[ROOM_TAB, { source: "omega-share", kind: "unlock-result", host: "video.cdn-host.net", outcome: "unsupported" }]]);
+
+    stuck = false;
+    await h.unlocker.onMessage(unlock("video.cdn-host.net"), roomSender);
+    expect(h.notes.at(-1)).toEqual([ROOM_TAB, { source: "omega-share", kind: "unlock-result", host: "video.cdn-host.net", outcome: "unlocked" }]);
+    expect(store.rules()).not.toEqual([]);
   });
 });

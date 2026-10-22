@@ -252,6 +252,7 @@ fn apply(room: &mut Room, op: &Op, op_now: Option<i64>, now: i64) -> Option<Valu
                 id: id.clone(),
                 embed: embed.clone(),
                 by: by.clone(),
+                start_seconds: None,
             });
             Value::Null
         }

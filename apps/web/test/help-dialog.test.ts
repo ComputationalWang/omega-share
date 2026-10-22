@@ -268,3 +268,53 @@ describe("Show tips again (OME-1587)", () => {
     expect(document.activeElement).toBe(help.key);
   });
 });
+
+describe("the Sound setting (OME-1638)", () => {
+  test("a volume slider and a Mute checkbox show the stored setting and change it; hidden until the sound engine is in", async () => {
+    const { createHelp } = await import("../src/help/dialog");
+    let volume = 0.4;
+    let muted = false;
+    let loaded = false;
+    const help = createHelp({
+      owner: () => false,
+      sound: () =>
+        loaded
+          ? {
+              volume: () => volume,
+              setVolume: (v: number) => {
+                volume = v;
+              },
+              muted: () => muted,
+              setMuted: (m: boolean) => {
+                muted = m;
+              },
+            }
+          : null,
+    });
+    document.body.replaceChildren(help.key, help.dialog);
+    help.key.click();
+    const slider = help.dialog.querySelector<HTMLInputElement>('input[type="range"][data-testid="sound-volume"]');
+    const mute = help.dialog.querySelector<HTMLInputElement>('input[type="checkbox"][data-testid="sound-mute"]');
+    expect(slider?.closest<HTMLElement>("[hidden]")).not.toBeNull();
+    help.close();
+    loaded = true;
+    help.key.click();
+    expect(slider?.closest<HTMLElement>("[hidden]")).toBeNull();
+    if (slider === null || mute === null) return;
+    expect(slider.labels?.[0]?.textContent).toMatch(/sound volume/i);
+    expect(mute.labels?.[0]?.textContent).toMatch(/mute/i);
+    expect(slider.value).toBe("40");
+    expect(mute.checked).toBe(false);
+    slider.value = "75";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(volume).toBe(0.75);
+    mute.click();
+    expect(muted).toBe(true);
+    help.close();
+    volume = 0.1;
+    muted = false;
+    help.key.click();
+    expect(slider.value).toBe("10");
+    expect(mute.checked).toBe(false);
+  });
+});
