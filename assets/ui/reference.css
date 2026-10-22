@@ -401,7 +401,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-thumb-coffeetable-wood { width: calc(28 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-45 * var(--ui-px)) calc(-754 * var(--ui-px)); }
 .ui-thumb-couch-cream { width: calc(42 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-596 * var(--ui-px)); }
 .ui-thumb-couch-olive { width: calc(42 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-625 * var(--ui-px)); }
-.ui-thumb-curtain-velvet { width: calc(10 * var(--ui-px)); height: calc(37 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-120 * var(--ui-px)); }
+.ui-thumb-curtain-velvet { width: calc(10 * var(--ui-px)); height: calc(37 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-82 * var(--ui-px)); }
 .ui-thumb-desk-wood { width: calc(25 * var(--ui-px)); height: calc(29 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-566 * var(--ui-px)); }
 .ui-thumb-door-painted { width: calc(18 * var(--ui-px)); height: calc(40 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) 0; }
 .ui-thumb-door-wood { width: calc(18 * var(--ui-px)); height: calc(40 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-41 * var(--ui-px)); }
@@ -414,7 +414,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-thumb-garland-warm { width: calc(19 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-773 * var(--ui-px)); }
 .ui-thumb-hammock-rust { width: calc(42 * var(--ui-px)); height: calc(31 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-410 * var(--ui-px)); }
 .ui-thumb-minibar-wood { width: calc(26 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-74 * var(--ui-px)) calc(-730 * var(--ui-px)); }
-.ui-thumb-mirror-brass { width: calc(13 * var(--ui-px)); height: calc(37 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-82 * var(--ui-px)); }
+.ui-thumb-mirror-brass { width: calc(20 * var(--ui-px)); height: calc(33 * var(--ui-px)); background-position: calc(-220 * var(--ui-px)) calc(-342 * var(--ui-px)); }
 .ui-thumb-monstera-rust { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-232 * var(--ui-px)) calc(-709 * var(--ui-px)); }
 .ui-thumb-monstera-teal { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-101 * var(--ui-px)) calc(-730 * var(--ui-px)); }
 .ui-thumb-neonsign-pink { width: calc(17 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-165 * var(--ui-px)) calc(-753 * var(--ui-px)); }

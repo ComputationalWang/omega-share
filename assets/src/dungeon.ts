@@ -12,7 +12,7 @@ export const BEND_FLOOR = { x: 24, y: 61 } as const;
 /** `thrust`: the **partner's** floor point (the bender's cell centre). The thruster stands up-left of it, a little behind. */
 export const THRUST_FLOOR = { x: 38, y: 61 } as const;
 /** Where the thruster's own feet sit relative to the partner's floor point, in px (facing se; mirror x for sw). */
-export const THRUST_OFFSET = { x: -11, y: -5 } as const;
+export const THRUST_OFFSET = { x: -13, y: -6 } as const;
 export const DUNGEON_DIRS: readonly Dir[] = ["se", "sw"];
 
 /** Hip-thrust loop: back, mid, forward; played 0 1 2 1. */
@@ -70,11 +70,13 @@ export function bendGrid(a: AvatarDef, dir: Dir): Grid {
   return finish(g, dir);
 }
 
-/** `thrust` frame n: the idle body sheared row by row, hips forward and shoulders back, feet planted. Drawn at THRUST_OFFSET
+/** `thrust` frame n: the idle body sheared row by row, hips forward and shoulders back, feet planted, and the body above the
+ *  legs bobbing down 0/1/2 px (the partner hides the hips, so the head carries the loop at 1×). Drawn at THRUST_OFFSET
  *  from the partner's floor point. */
 export function thrustGrid(a: AvatarDef, dir: Dir, n: number): Grid {
   const hip = [-2, 1, 4][n] ?? 0;
-  const head = [1, 0, -2][n] ?? 0;
+  const head = [2, 0, -4][n] ?? 0;
+  const bob = [0, 1, 2][n] ?? 0;
   const idle = idleWide(a);
   const g = blank(DUNGEON_CELL.w, DUNGEON_CELL.h);
   const ox = THRUST_FLOOR.x - BEND_FLOOR.x + THRUST_OFFSET.x, oy = THRUST_OFFSET.y;
@@ -84,6 +86,7 @@ export function thrustGrid(a: AvatarDef, dir: Dir, n: number): Grid {
     if (y >= 40) return Math.round(head + ((hip - head) * (y - 40)) / 7);
     return head;
   };
-  for (let y = 0; y <= 60; y++) copyRows(idle, g, y, y, ox + shift(y), oy);
+  // Ascending rows: the legs (51+) draw last, over the bobbed hips.
+  for (let y = 0; y <= 60; y++) copyRows(idle, g, y, y, ox + shift(y), oy + (y <= 50 ? bob : 0));
   return finish(g, dir);
 }
