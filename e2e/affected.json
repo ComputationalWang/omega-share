@@ -203,6 +203,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
         "e2e/doors.e2e.ts"
@@ -243,6 +245,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -632,6 +636,8 @@
         "perf/polish.perf.ts",
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "e2e/teleport.e2e.ts",
         "e2e/doors.e2e.ts"
@@ -697,6 +703,8 @@
         "perf/queue.perf.ts",
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -959,6 +967,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ],
