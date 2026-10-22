@@ -1313,11 +1313,12 @@ rigid block lying flat on the armrest. Previews: `preview/lying.html` (every fac
   | `couch` (lounge couch) | `lie` | `…/<dir>/back` + `front` | (−4, 4) | (4, 4) | (4, 1) | (−4, 1) |
   | `cat` (cat bed) | `curl` | `furniture/cat/<colour>/bed/<dir>` (the empty bed) | (12, −2) | (−12, −2) | n/a | n/a |
 
-- **Head accessories:** none drawn for this pose; hide the hat while lying. **Tints and hair colours:** `lying.png` uses the same
+- **Headwear:** each avatar's own headwear is drawn into the frames (Pip's beanie and Mo's bucket hat, turned sideways), so
+  show the frame as is. There are no lying frames in the theme or accessory hat overlays: hide those overlays while lying. **Tints and hair colours:** `lying.png` uses the same
   PLTE as `avatars.png` (a test guards it), so apply the `tints.json` / `hairs.json` slots to it for that avatar's frames. It is not
   added to those tables' `sheets` lists, so the eager files stay byte-for-byte frozen.
-- **Bytes:** `lying.png` 6 457 + `lying.json` 1 243 gz = **7 700 B** of the 12 KB (12 288 B) allowance, all lazy; no other shipped
-  file changes. Measured art total: **316 501 B of 409 600**.
+- **Bytes:** `lying.png` 6 457 + `lying.json` 1 308 gz (level 9, as `build.ts` measures) = **7 765 B** of the 12 KB (12 288 B) allowance, all lazy; no other shipped
+  file changes. Measured art total: **316 553 B of 409 600**.
 
 ## Budget
 

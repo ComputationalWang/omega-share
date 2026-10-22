@@ -1732,7 +1732,7 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
         dirs: LIE_STYLE_DIRS,
         // Not listed in the eager hairs/tints tables (they stay frozen); the PLTE is the same, so their slots apply as is.
         swaps: "tints.json and hairs.json: same PLTE slots as avatars.png, apply them to this sheet for that avatar's frames",
-        hats: "none: hide head accessories while lying",
+        hats: "own headwear (Pip beanie, Mo bucket hat) is drawn in; no overlay hat frames: hide theme/accessory hat overlays while lying",
         anims,
         pieces: LIE_ANCHORS,
       },
