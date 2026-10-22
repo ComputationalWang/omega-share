@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, FURNITURE, FURNITURE_KINDS, MAX_FURNITURE, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import * as v from "valibot";
-import { TRAY_TABS, defaultFacing, needsSecondPad, padCount, fits, layoutKey, move, parseDoorTarget, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
+import { AWAITING_ART, TRAY_TABS, defaultFacing, needsSecondPad, padCount, fits, layoutKey, move, parseDoorTarget, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
 
 // OME-1425: a door's room is picked from a link or an id; the link is this site's own, never another origin's.
 describe("parseDoorTarget", () => {
@@ -207,9 +207,9 @@ describe("defaultFacing", () => {
 });
 
 describe("TRAY_TABS", () => {
-  test("every kind, catalogue v2 and the door (OME-1425) too, is in exactly one tab", () => {
+  test("every kind, catalogue v2 and the door (OME-1425) too, is in exactly one tab, except those still awaiting art", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
-    expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
+    expect([...all, ...AWAITING_ART].sort()).toEqual([...FURNITURE_KINDS].sort());
     expect(TRAY_TABS.find((t) => t.id === "floor")?.kinds).toContain("pad");
     expect(TRAY_TABS.find((t) => t.id === "decor")?.kinds).toContain("door");
   });

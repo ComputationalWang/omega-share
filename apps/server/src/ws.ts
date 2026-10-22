@@ -204,6 +204,7 @@ export function createWs({
         // Non-owners get not_owner (or not_joined) in `handle`; only the owner's edits take from the bucket.
         return ws.data.session?.owner !== true || admit(ws, ws.data.buckets.edit, "too many room edits, slow down");
       case "emote":
+      case "react":
         // Unjoined sockets get not_joined in `handle`.
         return ws.data.session === null || admit(ws, ws.data.buckets.emote, "too many emotes, slow down");
       case "leave":
@@ -354,6 +355,8 @@ export function createWs({
       }
       // OME-1249 came after the Rust switch: the frozen TS server (rollback only) ignores reorders.
       case "queue-move":
+      // OME-1625 (ADR 0056) too: the frozen TS server ignores timed reactions.
+      case "react":
         return;
       // OME-1346 (ADR 0053) came after the Rust switch too: the frozen TS server ignores walks and tints.
       case "walk":

@@ -2,6 +2,7 @@ import * as v from "valibot";
 import { QUEUE_MAX } from "./constants";
 import { AnyEmbedSchema } from "./generic-embed";
 import { MemberIdSchema, QueueItemIdSchema } from "./ids";
+import { StartSecondsSchema } from "./playback";
 
 export { QueueItemIdSchema, type QueueItemId } from "./ids";
 
@@ -14,6 +15,8 @@ export const QueueItemSchema = v.object({
   id: QueueItemIdSchema,
   embed: AnyEmbedSchema,
   by: v.nullable(MemberIdSchema),
+  /** Where the room starts it, from the share's `startSeconds` (OME-1625). Absent means 0; kept in memory only, like `by`. */
+  startSeconds: v.optional(StartSecondsSchema),
 });
 export type QueueItem = v.InferOutput<typeof QueueItemSchema>;
 

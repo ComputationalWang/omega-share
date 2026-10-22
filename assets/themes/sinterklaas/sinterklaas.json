@@ -1944,6 +1944,246 @@
     "y": 2.5714285714285716
    }
   },
+  "sinterklaas/hat/watch/base/juno/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/watch/laugh/juno/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/watch/laugh/juno/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/watch/gasp/juno/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.7142857142857144
+   }
+  },
+  "sinterklaas/hat/watch/gasp/juno/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5714285714285716
+   }
+  },
+  "sinterklaas/hat/watch/base/juno/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/watch/laugh/juno/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/watch/laugh/juno/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/watch/gasp/juno/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.7142857142857144
+   }
+  },
+  "sinterklaas/hat/watch/gasp/juno/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5714285714285716
+   }
+  },
   "sinterklaas/hat/walk/juno/se/0": {
    "frame": {
     "x": 42,
@@ -4419,6 +4659,246 @@
   "sinterklaas/hat/yawn/pip/sit/nw/1": {
    "frame": {
     "x": 228,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.272727272727273
+   }
+  },
+  "sinterklaas/hat/watch/base/pip/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/watch/laugh/pip/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/watch/laugh/pip/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/watch/gasp/pip/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.409090909090909
+   }
+  },
+  "sinterklaas/hat/watch/gasp/pip/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.272727272727273
+   }
+  },
+  "sinterklaas/hat/watch/base/pip/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/watch/laugh/pip/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/watch/laugh/pip/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/watch/gasp/pip/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.409090909090909
+   }
+  },
+  "sinterklaas/hat/watch/gasp/pip/nw/1": {
+   "frame": {
+    "x": 204,
     "y": 0,
     "w": 23,
     "h": 22
@@ -6936,6 +7416,246 @@
     "y": 2.2857142857142856
    }
   },
+  "sinterklaas/hat/watch/base/mo/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/watch/laugh/mo/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/watch/laugh/mo/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/watch/gasp/mo/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4285714285714284
+   }
+  },
+  "sinterklaas/hat/watch/gasp/mo/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
+  "sinterklaas/hat/watch/base/mo/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/watch/laugh/mo/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/watch/laugh/mo/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/watch/gasp/mo/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4285714285714284
+   }
+  },
+  "sinterklaas/hat/watch/gasp/mo/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
+   }
+  },
   "sinterklaas/hat/walk/mo/se/0": {
    "frame": {
     "x": 156,
@@ -9432,6 +10152,246 @@
     "y": 2.55
    }
   },
+  "sinterklaas/hat/watch/base/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/watch/laugh/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/watch/laugh/kiki/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/watch/gasp/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.7
+   }
+  },
+  "sinterklaas/hat/watch/gasp/kiki/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.55
+   }
+  },
+  "sinterklaas/hat/watch/base/kiki/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/watch/laugh/kiki/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/watch/laugh/kiki/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/watch/gasp/kiki/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.7
+   }
+  },
+  "sinterklaas/hat/watch/gasp/kiki/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.55
+   }
+  },
   "sinterklaas/hat/walk/kiki/se/0": {
    "frame": {
     "x": 162,
@@ -10266,7 +11226,7 @@
    },
    "hat": {
     "prefix": "sinterklaas/hat/",
-    "count": 416,
+    "count": 456,
     "rects": 40,
     "replaces": true
    }

@@ -43,6 +43,12 @@ describe("args", () => {
     const b = parseArgs(["--server", "s", "--rooms", "3", "--members", "4", "--duration", "10", "--probes", "7", "--label", "rs"]);
     expect(b).toMatchObject({ rooms: 3, members: 4, duration: 10, probes: 7, label: "rs" });
   });
+  test("--batch 1 opts every member in; off by default", () => {
+    expect(parseArgs(["--server", "s"])).toMatchObject({ batch: false });
+    expect(parseArgs(["--server", "s", "--batch", "1"])).toMatchObject({ batch: true });
+    expect(parseArgs(["--server", "s", "--batch", "0"])).toMatchObject({ batch: false });
+    expect(() => parseArgs(["--server", "s", "--batch", "yes"])).toThrow();
+  });
   test("compare takes two files and a noise", () => {
     expect(parseArgs(["--compare", "a.json", "b.json", "--noise", "10"])).toEqual({ mode: "compare", a: "a.json", b: "b.json", noise: 10 });
   });
