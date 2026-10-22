@@ -677,6 +677,26 @@ mod tests {
         ])
     }
 
+    // packages/shared/test/layout-contract.test.ts (OME-1688 colourways)
+    #[test]
+    fn lamps_plants_and_shelves_take_their_r2_colourways() {
+        for (kind, at, n) in [
+            ("lamp", p("lamp", 9, 0, "se"), 3),
+            ("plant", p("plant", 0, 9, "se"), 3),
+            ("arclamp", p("arclamp", 9, 0, "sw"), 3),
+            ("monstera", p("monstera", 0, 9, "se"), 4),
+            ("bookshelf", p("bookshelf", 3, 0, "sw"), 3),
+            ("wallshelf", p("wallshelf", 2, 0, "sw"), 3),
+        ] {
+            let mut last = at.clone();
+            last["variant"] = json!(n - 1);
+            let mut over = at;
+            over["variant"] = json!(n);
+            assert!(piece_accepts(&last), "{kind} variant {}", n - 1);
+            assert!(!piece_accepts(&over), "{kind} variant {n}");
+        }
+    }
+
     // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
     // packages/shared/test/pair-contract.test.ts (OME-1671)
     #[test]
@@ -972,7 +992,7 @@ mod tests {
             ("a cat facing the TV", p("cat", 0, 0, "ne")),
             ("a wall shelf off the wall", p("wallshelf", 3, 2, "sw")),
             ("a wall shelf on a window segment", p("wallshelf", 0, 6, "se")),
-            ("a second wall shelf colour", pv("wallshelf", 2, 0, "sw", 1)),
+            ("a fourth wall shelf colour", pv("wallshelf", 2, 0, "sw", 3)),
             ("a garland off the wall", p("garland", 1, 3, "se")),
             ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),
