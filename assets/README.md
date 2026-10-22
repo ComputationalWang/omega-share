@@ -35,6 +35,8 @@ assets/
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   furniture/furniture-v5.png  # theatre set v2 (OME-1639, lazy-load): 256×1024 indexed PNG-8, raised rows, curtain, big screen, aisle lights, carpet
   furniture/furniture-v5.json # theatre set v2: v4's schema + `seatLiftByColour`
+  furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×256 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin (v4 schema)
+  avatars/dungeon.png|json  # Dank Dungeon (OME-1670, lazy): 256×512 PNG-8, the bendover / thrust emote poses, 48×64 cells
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
   accessories/accessories.png|json  # OME-1388 + OME-1530 (lazy): 256×256 PNG-8, eight head accessories, each a hat per avatar frame (theme hat format)
@@ -1320,6 +1322,77 @@ Tokens in `kit.css`: `--ui-page` (popup background), `--ui-text`, `--ui-muted` (
 ## Sound recipes (`sound/recipes.json`, OME-1642)
 WebAudio recipes as data, played by the room's engine (`apps/web/src/audio/`, OME-1638); the format (v1) is `apps/web/src/audio/FORMAT.md`. 14 names: `step.wood|carpet|tile`, `chair.sit|stand`, `door`, `ui.tick|toggle|error`, `pop`, `tone.warm|cool|night` (loop) and `swell`. Each `gain` is the mixed level at master volume 1. Checks: `bun test assets/src/sound.test.ts` (names, fields, ≤ 4 KB, a ≤ -12 dBFS bound, no audio files) and `bun assets/src/sound-meter.ts` (measured peak/RMS per sound, headless). Audition: serve the repo root and open `assets/preview/sound.html`. Look and mix: `STYLE.md`, *Sound palette*.
 
+## Dank Dungeon (OME-1670, lazy): hotel-suite furniture, the preset, the bend-over / thrust emote
+
+A tongue-in-cheek "dungeon" that is really a modern hotel suite after dark. **The room shell costs 0 B:** the honey planks are the wood
+floor, the left wall's `window0`/`window1` pair is the big window, and the moody light is the existing `night` mood (OME-1502,
+`layout.mood`, a multiplied `rgb(36 48 110 / 0.5)`). Previews: `preview/dungeon-room@1x.png` / `@2x` (the preset, full house, a pair
+mid-emote on the runner) and `preview/dungeon-room-night@1x.png` / `@2x` (the same under the night mood, as the room shows it).
+
+### Furniture v6 (`furniture/furniture-v6.png` + `.json`, 256×256, lazy)
+
+A fourth lazy sheet with exactly the v4 schema (frame keys, anchors, `meta.omega.pieces`, `animations`, `useKey`; identical frames share
+a rect). Load it only when a layout uses one of these. Like v4, nothing reads it until the hookup (OME-1672) adds the ids to `FURNITURE`.
+
+| id | label | layer / mount | facings | colours | footprint |
+|---|---|---|---|---|---|
+| `bed` | Twin bed (seat, no front layer) | object, floor | `ne nw se sw` | `velvet` (duvet, headboard, a plum pillow) | 2×1, 2 seats |
+| `whirlpool` | Whirlpool (seat, front layer) | object, floor | `ne nw se sw` | `teal` | 2×1, 2 seats |
+| `mirror` | Wall mirror | wall | `se sw` | `brass` | wall |
+| `minibar` | Minibar | object, floor | `se sw` | `wood` | 1×1 |
+| `desk` | Writing desk | object, floor, wall-backable | `se sw` | `wood` | 1×1 |
+| `washbasin` | Washbasin | object, floor, wall-backed | `se sw` | `cream` | 1×1 |
+
+- **Bed:** low platform bed, plum duvet folded back over cream sheets, a mustard throw at the foot, and five pillows against a tufted
+  headboard at the **anchor end** (local −x). So facing `ne` at `(0, r)` the headboard is on the left wall, facing `nw` at `(c, 0)` on the right
+  wall: it reads wall-backed without being `wallBacked` in the contract. Sitters sit on the duvet (seat 0 among the pillows).
+- **Whirlpool:** cream tub on a wood skirt, a towel roll and a rubber duck on the rim. The rim and the water **in front of each sitter**
+  (toward the camera from that seat) are the `front` layer, so a sitter is in the water to the waist in every facing
+  (`preview/furniture-v6-seats@2x.png`). **In use loop** (`use: { frames: 2, ms: 200 }`, intended trigger: someone sits in it): bubbles rise;
+  swap `back` for `furniture/whirlpool/teal/use/<dir>/<n>` in place, `front` stays.
+- **Mirror:** 60–140 px up, so it clears the 56 px wainscot and stands over a washbasin or desk. Smoked glass with a tiled reflection, a
+  lamp blur and sheen streaks. Plain wall segments only, like the framed print.
+- **Minibar:** glass door lit from inside (bottles, cans), an ice bucket on top. **Desk:** brass lamp, notepad and pen. Both stand free
+  or against a wall. **Washbasin:** backs onto its cell's wall like the bookcase (row 0 for `sw`, col 0 for `se`).
+- Previews: `preview/furniture-v6-room@1x.png` / `@2x` (every piece, both facings, seats taken and free), `preview/furniture-v6-seats@2x.png`,
+  `preview/furniture-v6-atlas@2x.png`. Tray thumbnails are in `ui/edit.png` (`thumb/<id>/<colour>`), like every catalogue piece.
+
+### The preset (draft for OME-1672)
+
+`presets/` validates every layout against `FURNITURE`, so the preset can't ship there before the hookup. Its layout is `DUNGEON_PRESET` in
+`src/build.ts` (rendered in `preview/dungeon-room*`); move it into `src/presets.ts` once the kinds exist:
+
+- id `dungeon`, name **Dank Dungeon**, blurb "Twin beds, a whirlpool for two and the lights way down.", `mood: "night"`.
+- Pieces: `tv (0,0) se`; `bed (4,0) nw`, `bed (0,3) ne`; `wingback (7,2) nw`, `wingback (7,4) nw` with `coffeetable (7,3) sw` (the sitting corner);
+  `whirlpool (2,7) ne`; `desk (7,0) sw`, `minibar (9,0) sw`; `washbasin (0,7) se` under `mirror (0,7) se`; `neonsign (0,2) se`; `arclamp (1,5) se`;
+  `runner (4,4) nw` variant 1; `monstera (9,9) sw` variant 1.
+- 8 seats, all facing the TV corner: both beds (2 each), the tub (2), the two wingbacks. Nothing on wall segments 5, 6, 8; the middle diagonal stays clear.
+
+### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
+
+Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera
+(Kiki parks her popcorn on the floor); **`thrust`**, a silly hip-thrust dance standing just behind the partner, 3 frames played
+`0 1 2 1` at 110 ms (`meta.omega.thrust`, Pixi `animations["thrust/<avatar>/<dir>"]`). Built from each avatar's own idle frame (head,
+hair, hat, shirt and shading are theirs), so the four stay as distinct as in set (a).
+
+| Key | Cell | Anchor | Draw |
+|---|---|---|---|
+| `bendover/<avatar>/<se\|sw>/0` | 48×64 | the bender's floor point (24, 61) for `se`, (23, 61) for `sw` | at the bender's cell centre, its normal depth |
+| `thrust/<avatar>/<se\|sw>/<0-2>` | 48×64 | **the partner's** floor point (38, 61) for `se`, (9, 61) for `sw` | at the **partner's** cell centre, just behind the partner (zIndex − 0.5) |
+
+- One sheet row per avatar × dir (`juno se`, `juno sw`, `pip se`, …); per row bend, thrust 0, 1, 2. The web reads rects from the JSON.
+- **Facings:** front views only (`se`, `sw`). Turn both avatars to the same front facing for the emote (the nearer of `se`/`sw` to the
+  bender's facing). The thruster's own feet are drawn at `meta.omega.thrust.feetOffset` (−11, −5) px from the partner's floor point
+  (mirror x for `sw`): about a third of a tile up-left, on the floor plane. Because the frame is anchored on the partner, the thruster's own
+  cell (behind, or the nearest free one) doesn't change the picture.
+- **Tints and hair colours** apply: `dungeon.png` is listed in `tints.json` and `hairs.json` `sheets` (same PLTE slots).
+- Shortcut: no theme hat or accessory overlays exist for these keys, so a hat hides for the few seconds of the emote. Add them if it shows.
+- Preview: `preview/dungeon-poses@4x.png` (per avatar and dir: idle, bend, thrust 0–2, then the pair at thrust 0 and 2).
+
+**Bytes** (`bun assets/src/build.ts`): **+17 159 B**, 308 788 → 325 947, under the 400 KB cap of ADR 0056. Lazy: `furniture-v6.png` +
+`.json` gz, `avatars/dungeon.png` + `.json` gz, `edit.png` / `edit.json` gz for 6 thumbnails. **Eager: +154 B**, the six `.ui-thumb-*`
+rules in `reference.css` (gz), the same per-piece cost every catalogue batch has paid.
+
 ## Budget
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
@@ -1361,7 +1434,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 320 629 B** after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 337 639 B** after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

@@ -4,7 +4,8 @@
  "sheets": [
   "avatars.png",
   "motion.png",
-  "expressions.png"
+  "expressions.png",
+  "dungeon.png"
  ],
  "avatars": {
   "juno": {
