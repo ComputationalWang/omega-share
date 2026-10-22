@@ -126,6 +126,9 @@ for (const [name, opts, min] of [["mo1920", DESKTOP(1920, 1080), 40], ["mo2560",
     expect(p.height).toBeGreaterThanOrEqual(min - 0.5);
     const play = await box(page.locator(site.playToggle));
     expect(p.y).toBeGreaterThanOrEqual(play.y + play.height);
+    // OME-1756: a reaction in the first second sits at the strip's left end; the whole key stays on screen.
+    expect(p.x).toBeGreaterThanOrEqual(-0.5);
+    expect(p.x + p.width).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
     if (min === 40) expect((await keys(page)).filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
   });
 }
