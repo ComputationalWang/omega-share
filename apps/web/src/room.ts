@@ -1021,7 +1021,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   const dispatch = (e: ViewEvent): void => {
     // A reaction (OME-1631) bursts over the sender; never view state. Hidden members' too stay hidden (OME-769).
-    if (e.type === "server" && e.msg.type === "reacted" && !isHidden(e.msg.memberId) && !roomOut()) roomStage.react(e.msg.memberId, e.msg.kind);
+    if (e.type === "server" && e.msg.type === "reacted" && !isHidden(e.msg.memberId)) {
+      relay?.react(e.msg.memberId, e.msg.kind);
+      if (!roomOut()) roomStage.react(e.msg.memberId, e.msg.kind);
+    }
     if (e.type === "server" && e.msg.type === "walked" && e.msg.teleport === true) roomStage.teleported(e.msg.memberId);
     // Never view state (state.ts): straight to the moments.
     if (e.type === "server" && e.msg.type === "reacted") {
@@ -1368,8 +1371,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (ev.key === "Escape") firstHint.dismiss();
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
-    // Before the picker: on some layouts Shift+digit types a digit, which the picker would take as an emote.
-    else if (!reactionBar.root.hidden && reactionBar.key(ev)) ev.preventDefault();
+    // Before the picker, shown or not: on some layouts Shift+digit types a digit, which the picker would take as an emote.
+    else if (reactionBar.key(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {

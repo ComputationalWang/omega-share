@@ -3,7 +3,7 @@
 // state the room tab mirrors over the channel, with the chat column (popout/view.ts) beside it and a brass plate saying
 // where the picture is and its time. No socket, no join, no provider SDK: seat clicks, chat and emotes go back to the
 // room tab, which sends them on its one WebSocket.
-import type { EmoteKind, MemberId, RoomId } from "@omega/shared";
+import type { EmoteKind, MemberId, ReactionKind, RoomId } from "@omega/shared";
 import { el } from "../controls/dom";
 import { formatClock } from "../controls/sysline";
 import { popRoomLayout, stageTransform } from "../layout";
@@ -17,6 +17,7 @@ export interface PopStage {
   readonly root: HTMLElement;
   render(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: EmoteKind): void;
+  react(id: MemberId, kind: ReactionKind): void;
   typing(id: MemberId, on: boolean): void;
   stopTyping(): void;
 }
@@ -104,6 +105,11 @@ export function createRoomPopout<H>(o: RoomPopoutOptions<H>): RoomPopout {
         // Over the avatar as the room is now: a member who just came in may not be drawn yet.
         if (queued) draw();
         o.stage.emote(m.member, m.kind);
+        return;
+      case "room-react":
+        // As an emote: over the avatar as the room is now.
+        if (queued) draw();
+        o.stage.react(m.member, m.kind);
         return;
       case "room-typing":
         // As an emote: over the avatar as the room is now.
