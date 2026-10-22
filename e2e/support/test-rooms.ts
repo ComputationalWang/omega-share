@@ -9,6 +9,7 @@
 export const SPEC_ROOMS = {
   acceptance: ["main"],
   sync: ["spread", "late", "buffer", "ad", "click", "err150", "volume", "popup"],
+  countdown: ["start", "cancel"],
   vimeo: ["src", "pause", "privacy", "forged"],
   "provider-sync": ["twvod", "vimeo", "vimeo-rate", "twvod-late", "live", "live-early", "live-forge", "live-ad"],
   "provider-share": ["1", "2", "3", "4"],

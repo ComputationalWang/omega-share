@@ -87,6 +87,8 @@ export const site = {
   roomNotice: id("room-notice"),
   // Set (e) playback chrome (OME-89).
   playToggle: id("play-toggle"),
+  // The shared 3-2-1 (OME-1634).
+  countdown: id("countdown"),
   seek: id("seek"),
   timeCurrent: id("time-current"),
   timeDuration: id("time-duration"),

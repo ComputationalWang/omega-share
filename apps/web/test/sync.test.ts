@@ -71,6 +71,38 @@ describe("expectedPosition", () => {
   });
 });
 
+describe("countdown (OME-1634, ADR 0056): startAt holds the room at its position, then runs from there", () => {
+  const counting = room({ startAt: 1_003_000 });
+  test("expectedPosition holds until startAt, then extrapolates from it", () => {
+    expect(expectedPosition(counting, 1_001_000)).toBe(10);
+    expect(expectedPosition(counting, 1_003_000)).toBe(10);
+    expect(expectedPosition(counting, 1_004_500)).toBeCloseTo(11.5, 9);
+  });
+
+  test("before startAt every seekable mode parks at the position, a hard seek or not, whatever the player does", () => {
+    for (const mode of ["fine", "burst", "seek-only"] as const) {
+      for (const playerState of ["playing", "paused", "cued", "unstarted", "buffering"] as const) {
+        expect(decide(input(0, { room: counting, mode, playerState, hardSeek: true }))).toEqual({ kind: "park", to: 10 });
+      }
+      expect(decide(input(500, { room: counting, mode }))).toEqual({ kind: "park", to: 10 });
+    }
+  });
+
+  test("parked at the position: wait for startAt less half a tick and the start-up latency, then unpark", () => {
+    const parked = (startAt: number, over: Partial<DecideInput> = {}) =>
+      decide(input(0, { room: room({ startAt }), playerState: "paused", stableForMs: 0, sampleCount: 0, parkAt: 10, ...over }));
+    expect(parked(1_002_000)).toEqual({ kind: "none" });
+    expect(parked(1_000_126)).toEqual({ kind: "none" });
+    expect(parked(1_000_125)).toEqual({ kind: "unpark" });
+    expect(parked(1_000_300, { startLatencyMs: 200 })).toEqual({ kind: "unpark" });
+    expect(parked(1_002_000, { playerState: "playing" })).toEqual({ kind: "pause" });
+  });
+
+  test("a live room has no countdown to wait for", () => {
+    expect(decide(input(0, { room: counting, mode: "live", playerState: "paused" }))).toEqual({ kind: "play" });
+  });
+});
+
 describe("decide: thresholds", () => {
   test("inside the ±100 ms dead band nothing happens", () => {
     for (const d of [0, 50, -50, 99, -99, 100, -100]) expect(decide(input(d))).toEqual({ kind: "none" });
