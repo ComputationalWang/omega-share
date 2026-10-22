@@ -181,23 +181,27 @@ pub const fn spec(kind: Kind) -> Spec {
     use Layer::{Floor, Object, Wall};
     match kind {
         Kind::Armchair => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Tv | Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1),
+        Kind::Tv => Spec::new(Object, FIXED, 1, 1),
+        Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1).variants(3),
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7).variants(3),
         Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4),
         Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
         Kind::Beanbag | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(4),
         Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
-        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
+        Kind::Arclamp => Spec::new(Object, CAMERA, 1, 1).variants(3),
+        Kind::Sidetable | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
             Spec::new(Object, CAMERA, 1, 1)
         }
-        Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
-        Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
+        Kind::Monstera => Spec::new(Object, CAMERA, 1, 1).variants(4),
+        Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).variants(3).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(4),
         Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(4),
         Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
-        Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Wallshelf => Spec::new(Wall, CAMERA, 0, 0).variants(3),
+        Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
         Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(4),

@@ -249,7 +249,7 @@ describe("FurnitureSchema", () => {
     ["a cat facing the TV", { kind: "cat", col: 0, row: 0, facing: "ne" }],
     ["a wall shelf off the wall", { kind: "wallshelf", col: 3, row: 2, facing: "sw" }],
     ["a wall shelf on a window segment", { kind: "wallshelf", col: 0, row: 6, facing: "se" }],
-    ["a second wall shelf colour", { kind: "wallshelf", col: 2, row: 0, facing: "sw", variant: 1 }],
+    ["a fourth wall shelf colour", { kind: "wallshelf", col: 2, row: 0, facing: "sw", variant: 3 }],
     ["a garland off the wall", { kind: "garland", col: 1, row: 3, facing: "se" }],
     ["a garland on a sconce segment", { kind: "garland", col: 8, row: 0, facing: "sw" }],
     ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],

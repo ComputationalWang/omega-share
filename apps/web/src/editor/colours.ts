@@ -15,10 +15,13 @@ export const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;
   return kind === "runner" ? "rug" : kind;
 };
-/** A piece's colours by variant: its shipped ones, then its recolours (OME-1463; the room's rug ships navy alone). */
+/** The room atlas pieces' one shipped look, named for its swatch (OME-1463, OME-1688). */
+const ROOM_SHIPPED: Partial<Record<FurnitureKind, string>> = { rug: "navy", lamp: "cream", plant: "rust" };
+/** A piece's colours by variant: its shipped ones, then its recolours. */
 export const coloursOf = (kind: FurnitureKind): readonly string[] => {
   const id = atlasId(kind);
   const extra = recolourIds(kind);
-  const shipped = id === null ? (extra.length > 0 && kind === "rug" ? ["navy"] : []) : (COLOURS.get(id) ?? []);
+  const room = ROOM_SHIPPED[kind];
+  const shipped = id === null ? (extra.length > 0 && room !== undefined ? [room] : []) : (COLOURS.get(id) ?? []);
   return [...shipped, ...extra];
 };
