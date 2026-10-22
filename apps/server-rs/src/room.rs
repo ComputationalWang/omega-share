@@ -9,16 +9,18 @@
 
 use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, REACTIONS_MAX, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Conga, Member, PlaybackState, Position, QueueItem, RoomState, RoomSummary, ServerTime, StartSeconds};
+use crate::contract::state::{
+    Conga, MediaMs, Member, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime, StartSeconds,
+};
 use crate::contract::text::{Nickname, RoomTitle};
-use crate::playback::{Control, apply_control, load_playback, restored_playback};
+use crate::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
 use std::collections::{HashMap, VecDeque};
 
@@ -210,6 +212,10 @@ pub struct Room {
     conga: Vec<MemberId>,
     /// Server time of the last join; `None` before the first.
     conga_last: Option<u64>,
+    /// The current item's timed reactions, oldest first, at most `REACTIONS_MAX` (ADR 0056): memory only.
+    reactions: VecDeque<Reaction>,
+    /// Most members at once since the current item started (ADR 0056).
+    peak_members: usize,
 }
 
 /// `Map.get(key)` of an expiry map, then the "live" rule: the entry runs while `now < until`; an expired one is dropped.
@@ -277,6 +283,8 @@ impl Room {
             holds_until: 0,
             conga: Vec::new(),
             conga_last: None,
+            reactions: VecDeque::new(),
+            peak_members: 0,
             layout: init.layout.unwrap_or_else(default_layout),
             title: init.title,
             control_policy: init.control_policy.unwrap_or(DEFAULT_CONTROL_POLICY),
@@ -629,6 +637,7 @@ impl Room {
             });
         }
         self.order.push(slot);
+        self.peak_members = self.peak_members.max(self.order.len());
         Ok(out)
     }
 
@@ -894,6 +903,8 @@ impl Room {
         self.embed = embed;
         self.current_item_id = item_id;
         self.current_since = since;
+        self.reactions.clear();
+        self.peak_members = self.order.len();
         self.playback = synced.then(|| PlaybackState {
             position: start.and_then(|s| Position::new(f64::from(s.get()))).unwrap_or(Position::ZERO),
             ..load_playback(self.rev, now_wall, by)
@@ -918,6 +929,38 @@ impl Room {
             rec.announced = None;
         }
         EmbedSwitch { playback: None, uncaught }
+    }
+
+    /// A member's timed reaction (OME-1632, ADR 0056), stamped with the room clock and kept for the current item.
+    /// `None`, and nothing kept, without a synced current item.
+    pub fn react(&mut self, member: &MemberId, kind: ReactionKind, now_wall: i64) -> Option<Reaction> {
+        let playback = self.playback.as_ref()?;
+        if !self.index.contains_key(member) {
+            return None;
+        }
+        // Whole ms; `expected_position` is clamped to 0..=MAX_POSITION_S, so `MediaMs::new` only fails on a bug.
+        let media_ms = MediaMs::new((expected_position(playback, now_wall) * 1000.0).round() as u64)?;
+        let reaction = Reaction {
+            member_id: member.clone(),
+            kind,
+            media_ms,
+        };
+        if self.reactions.len() >= REACTIONS_MAX {
+            self.reactions.pop_front();
+        }
+        self.reactions.push_back(reaction.clone());
+        Some(reaction)
+    }
+
+    /// The current item's reactions for the snapshot, oldest first; `None` when there are none.
+    pub fn reactions(&self) -> Option<Vec<Reaction>> {
+        (!self.reactions.is_empty()).then(|| self.reactions.iter().cloned().collect())
+    }
+
+    /// Most members at once since the current item started; `None` without an item.
+    pub fn peak_members(&self) -> Option<u8> {
+        self.current_item_id.as_ref()?;
+        u8::try_from(self.peak_members).ok()
     }
 
     /// Applies a member's `control`; the new playback, or `None` if it's for no/another/a generic embed.
@@ -1012,7 +1055,7 @@ impl Rec {
 mod tests {
     use super::*;
     use crate::contract::confusables::nickname_key;
-    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, REACTIONS_MAX, SEAT_COUNT};
     use crate::contract::embed::canonicalize_embed;
     use crate::contract::generic_embed::canonicalize_generic_embed;
     use crate::contract::state::{PlaybackAction, Rev};
@@ -1086,6 +1129,114 @@ mod tests {
             playing,
             position,
         }
+    }
+
+    // ---- timed reactions (OME-1632, ADR 0056)
+
+    fn kinds(r: &Room) -> Vec<(String, ReactionKind, u64)> {
+        r.reactions()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|x| (x.member_id.as_str().to_owned(), x.kind, x.media_ms.get()))
+            .collect()
+    }
+
+    #[test]
+    fn a_reaction_is_stamped_with_the_room_clock_not_the_client() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        let got = r.react(&a, ReactionKind::Heart, T0 + 12_345).unwrap();
+        assert_eq!(json(&got), r#"{"memberId":"m1","kind":"heart","mediaMs":12345}"#);
+        // Paused: the position, whatever the wall clock says.
+        r.control(&a, &ctl(false, 42.5), T0 + 20_000).unwrap();
+        assert_eq!(r.react(&a, ReactionKind::Clap, T0 + 99_000).unwrap().media_ms.get(), 42_500);
+        assert_eq!(
+            kinds(&r),
+            vec![
+                ("m1".into(), ReactionKind::Heart, 12_345),
+                ("m1".into(), ReactionKind::Clap, 42_500)
+            ]
+        );
+    }
+
+    #[test]
+    fn no_reaction_without_a_synced_item_or_from_a_stranger() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        r.set_embed(Some(generic()), None, None, None, 0.0, T0).unwrap();
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        assert!(r.react(&mid("ghost"), ReactionKind::Wow, T0).is_none());
+        assert!(r.reactions().is_none());
+    }
+
+    #[test]
+    fn the_ring_keeps_the_latest_reactions_max_oldest_first() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        for i in 0..=REACTIONS_MAX as i64 {
+            r.react(&a, ReactionKind::Laugh, T0 + i * 1000).unwrap();
+        }
+        let ms: Vec<u64> = kinds(&r).into_iter().map(|(_, _, ms)| ms).collect();
+        assert_eq!(ms.len(), REACTIONS_MAX);
+        assert_eq!((ms.first(), ms.last()), (Some(&1000), Some(&(REACTIONS_MAX as u64 * 1000))));
+    }
+
+    // The server's own frame for packages/shared/test/queue-contract.test.ts:330 (OME-1701): a full room with a full ring.
+    #[test]
+    fn a_full_room_snapshot_with_a_full_ring_fits_the_frame_limit() {
+        use crate::contract::constants::MAX_SERVER_MESSAGE_BYTES;
+        use crate::contract::server_message::ServerMessage;
+        let mut r = room();
+        r.set_title(Some(RoomTitle::parse(&"語".repeat(32)).unwrap()));
+        let members: Vec<MemberId> = (0..MAX_ROOM_MEMBERS)
+            .map(|i| join(&mut r, &format!("m{i:063}"), &format!("{}{i:02}", "語".repeat(18)), None))
+            .collect();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        r.control(&members[0], &ctl(false, 43_199.0), T0).unwrap();
+        for i in 0..REACTIONS_MAX {
+            r.react(&members[i % members.len()], ReactionKind::Laugh, T0).unwrap();
+        }
+        let frame = json(&ServerMessage::Snapshot {
+            self_id: members[0].clone(),
+            room: r.snapshot(),
+            share_token: None,
+            resume_token: None,
+            resumed: Some(true),
+            owner: Some(true),
+            poll: None,
+            conga: r.conga(),
+            reactions: r.reactions(),
+            peak_members: r.peak_members(),
+        });
+        assert!(
+            frame.contains(r#""peakMembers":25"#) && frame.contains(r#""mediaMs":43199000"#),
+            "{frame}"
+        );
+        assert!(frame.len() <= MAX_SERVER_MESSAGE_BYTES, "{} bytes", frame.len());
+    }
+
+    #[test]
+    fn a_new_item_clears_the_timeline_and_restarts_the_peak_from_who_is_there() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(r.peak_members().is_none());
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        let b = join(&mut r, "m2", "bob", None);
+        join(&mut r, "m3", "carol", None);
+        r.react(&b, ReactionKind::Heart, T0).unwrap();
+        r.leave(&b, T0);
+        assert_eq!(r.peak_members(), Some(3));
+        r.enqueue(queued("q1", vimeo(), None));
+        r.advance(1.0, None, T0).unwrap();
+        assert!(r.reactions().is_none());
+        assert_eq!(r.peak_members(), Some(2));
+        r.set_embed(None, None, None, None, 2.0, T0).unwrap();
+        assert!(r.peak_members().is_none());
+        assert!(r.react(&a, ReactionKind::Heart, T0).is_none());
     }
 
     // ---- construction
