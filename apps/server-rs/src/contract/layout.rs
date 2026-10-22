@@ -88,6 +88,13 @@ pub enum Kind {
     Bigscreen,
     Aislelight,
     Carpet,
+    // Dank Dungeon (OME-1670 / OME-1672).
+    Bed,
+    Whirlpool,
+    Mirror,
+    Minibar,
+    Desk,
+    Washbasin,
 }
 
 impl Kind {
@@ -97,7 +104,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 41] = [
+pub const KINDS: [Kind; 47] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -139,6 +146,12 @@ pub const KINDS: [Kind; 41] = [
     Kind::Bigscreen,
     Kind::Aislelight,
     Kind::Carpet,
+    Kind::Bed,
+    Kind::Whirlpool,
+    Kind::Mirror,
+    Kind::Minibar,
+    Kind::Desk,
+    Kind::Washbasin,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,6 +242,10 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bigscreen => Spec::new(Object, FIXED, 1, 1),
         Kind::Aislelight => Spec::new(Floor, ON_FLOOR, 1, 1),
         Kind::Carpet => Spec::new(Floor, FIXED, 2, 2),
+        Kind::Bed | Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
+        Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Minibar | Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
+        Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
     }
 }
 
@@ -600,9 +617,11 @@ pub enum RoomPresetId {
     Cafe,
     Bar,
     Empty,
+    #[serde(rename = "dank-dungeon")]
+    DankDungeon,
 }
 
-pub const ROOM_PRESET_IDS: [RoomPresetId; 7] = [
+pub const ROOM_PRESET_IDS: [RoomPresetId; 8] = [
     RoomPresetId::Classic,
     RoomPresetId::Cinema,
     RoomPresetId::Living,
@@ -610,6 +629,7 @@ pub const ROOM_PRESET_IDS: [RoomPresetId; 7] = [
     RoomPresetId::Cafe,
     RoomPresetId::Bar,
     RoomPresetId::Empty,
+    RoomPresetId::DankDungeon,
 ];
 
 /// Omitted preset means today's `DEFAULT_LAYOUT` (classic).
@@ -625,6 +645,7 @@ impl RoomPresetId {
             Self::Cafe => "cafe",
             Self::Bar => "bar",
             Self::Empty => "empty",
+            Self::DankDungeon => "dank-dungeon",
         }
     }
 }

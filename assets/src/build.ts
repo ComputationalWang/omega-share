@@ -1711,34 +1711,6 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
 const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "avatars/dungeon.png", "avatars/dungeon.json"];
 const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
 
-/** The draft "Dank Dungeon" preset (layout v1 + `mood: "night"`). It can't join `PRESETS` until the six v6 ids are `FURNITURE`
- *  kinds (the hookup issue, OME-1672), so it lives here and in the README. Seats: 2 per bed, 2 in the tub, 2 wingbacks. */
-const DUNGEON_PRESET = {
-  id: "dungeon",
-  name: "Dank Dungeon",
-  blurb: "Twin beds, a whirlpool for two and the lights way down.",
-  layout: {
-    mood: "night",
-    furniture: [
-      { kind: "tv", col: 0, row: 0, facing: "se" },
-      { kind: "bed", col: 4, row: 0, facing: "nw" },
-      { kind: "bed", col: 0, row: 3, facing: "ne" },
-      { kind: "wingback", col: 7, row: 2, facing: "nw" },
-      { kind: "wingback", col: 7, row: 4, facing: "nw" },
-      { kind: "whirlpool", col: 2, row: 7, facing: "ne" },
-      { kind: "coffeetable", col: 7, row: 3, facing: "sw" },
-      { kind: "desk", col: 7, row: 0, facing: "sw" },
-      { kind: "minibar", col: 9, row: 0, facing: "sw" },
-      { kind: "washbasin", col: 0, row: 7, facing: "se" },
-      { kind: "mirror", col: 0, row: 7, facing: "se" },
-      { kind: "neonsign", col: 0, row: 2, facing: "se" },
-      { kind: "arclamp", col: 1, row: 5, facing: "se" },
-      { kind: "runner", col: 4, row: 4, facing: "nw", variant: 1 },
-      { kind: "monstera", col: 9, row: 9, facing: "sw", variant: 1 },
-    ],
-  },
-} as const;
-
 /** The night mood (OME-1502, `apps/web/src/room.css`): rgb(36 48 110 / 0.5) multiplied over the room. Per colour, so a palette. */
 const NIGHT_PALETTE: RGBA[] = PALETTE.map((c) => {
   const m = (v: number, t: number): number => Math.round(v * (0.5 + (0.5 * t) / 255));
@@ -1831,11 +1803,11 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   buildSeatContact(pieces, all, V6_SEATS, "furniture-v6-seats@2x.png");
   // The preset with a full house: every seat taken, plus juno bent over at (5,6) with mo behind her.
   const sit = new Map<string, string[]>([["bed:4,0", ["kiki", "pip"]], ["bed:0,3", ["mo", "juno"]], ["wingback:7,2", ["pip"]], ["wingback:7,4", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
-  const placements: Placement[] = DUNGEON_PRESET.layout.furniture.filter((f) => f.kind !== "tv").map((f) => {
+  const placements: Placement[] = (PRESETS.find((x) => x.id === "dank-dungeon")?.layout.furniture ?? []).filter((f) => f.kind !== "tv").map((f) => {
     const kind: string = f.kind === "runner" ? "rug" : f.kind;
     const meta = pieces.find((p) => p.id === kind);
     if (!meta) throw new Error(`no piece ${kind}`);
-    const colour = meta.colours["variant" in f ? f.variant : 0] ?? meta.colours[0] ?? "";
+    const colour = meta.colours[f.variant ?? 0] ?? meta.colours[0] ?? "";
     const p: Placement = { id: kind, colour, dir: f.facing, col: f.col, row: f.row };
     const who = sit.get(`${f.kind}:${String(f.col)},${String(f.row)}`);
     if (who) p.sitters = who;
@@ -1961,7 +1933,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   const ids = new Set<string>();
   let bytes = 0;
   const index = PRESETS.map((pr) => {
-    if (!/^[a-z]{1,12}$/.test(pr.id) || ids.has(pr.id)) throw new Error(`preset id ${pr.id}: [a-z]{1,12}, unique`);
+    if (!/^[a-z-]{1,12}$/.test(pr.id) || ids.has(pr.id)) throw new Error(`preset id ${pr.id}: [a-z-]{1,12}, unique`);
     ids.add(pr.id);
     if (pr.blurb.length > 60) throw new Error(`preset ${pr.id}: blurb over 60 characters`);
     const parsed = v.safeParse(RoomLayoutInputSchema, pr.layout);
