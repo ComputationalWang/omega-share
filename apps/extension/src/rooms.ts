@@ -1,4 +1,4 @@
-import { DEFAULT_ROOM_ID, RoomListResponseSchema } from "@omega/shared";
+import { type AnyEmbed, DEFAULT_ROOM_ID, type NowPlaying, RoomListResponseSchema, nowPlayingOf } from "@omega/shared";
 import * as v from "valibot";
 import { ROOMS_TIMEOUT_MS, withTimeout } from "./request-timeout";
 import { SERVER_REQUEST_HEADERS, SERVER_REQUEST_INIT } from "./settings";
@@ -6,6 +6,11 @@ import { SERVER_REQUEST_HEADERS, SERVER_REQUEST_INIT } from "./settings";
 export interface RoomOption {
   readonly id: string;
   readonly label: string;
+  /** What `GET /rooms` said (OME-1637); a room known only from a tab has none of these. */
+  readonly title?: string;
+  /** Members watching: `watchingCount`, or `memberCount` from a server before ADR 0056. */
+  readonly watching?: number;
+  readonly nowPlaying?: NowPlaying;
 }
 
 export interface RoomList {
@@ -50,7 +55,13 @@ export async function loadRooms({ baseUrl, fetch }: LoadRoomsOptions): Promise<R
   if (!parsed.success) return { kind: "offline" };
   const [first] = parsed.output.rooms;
   if (first === undefined) return { kind: "ok", list: FALLBACK_ROOMS };
-  const rooms = parsed.output.rooms.map((r) => ({ id: r.id, label: `${r.title ?? r.id} (${String(r.memberCount)})` }));
+  const rooms = parsed.output.rooms.map((r) => ({
+    id: r.id,
+    label: `${r.title ?? r.id} (${String(r.memberCount)})`,
+    ...(r.title === undefined ? {} : { title: r.title }),
+    watching: r.watchingCount ?? r.memberCount,
+    ...(r.nowPlaying === undefined ? {} : { nowPlaying: r.nowPlaying }),
+  }));
   return { kind: "ok", list: { rooms, selected: rooms.some((r) => r.id === DEFAULT_ROOM_ID) ? DEFAULT_ROOM_ID : first.id } };
 }
 
@@ -62,10 +73,29 @@ export async function loadRooms({ baseUrl, fetch }: LoadRoomsOptions): Promise<R
 export function withRoomTabs(list: RoomList, tabs: { readonly rooms: readonly string[]; readonly tokens: ReadonlyMap<string, string> }): RoomList {
   const [first] = tabs.rooms;
   if (first === undefined) return list;
-  const label = (id: string): string => list.rooms.find((r) => r.id === id)?.label ?? id;
-  const open = tabs.rooms.map((id) => ({ id, label: label(id) }));
+  const open = tabs.rooms.map((id) => list.rooms.find((r) => r.id === id) ?? { id, label: id });
   const rest = list.rooms.filter((r) => !tabs.rooms.includes(r.id));
   return { rooms: [...open, ...rest], selected: tabs.rooms.find((id) => tabs.tokens.has(id)) ?? first };
+}
+
+/**
+ * "They're already watching this" (OME-1637): rooms whose `nowPlaying` is a video on the page move first, labelled
+ * "N watching · Join". The match runs on what the popup already has: nothing about the page goes to the server.
+ */
+export function withWatching(list: RoomList, embeds: readonly AnyEmbed[]): RoomList {
+  const playing = new Set(embeds.flatMap((e) => {
+    const n = nowPlayingOf(e);
+    return n === undefined ? [] : [`${n.provider}:${n.id}`];
+  }));
+  const matches = (r: RoomOption): boolean => r.nowPlaying !== undefined && playing.has(`${r.nowPlaying.provider}:${r.nowPlaying.id}`);
+  const first = list.rooms.filter(matches).map((r) => ({ ...r, label: `${r.title ?? r.id} · ${String(r.watching ?? 0)} watching · Join` }));
+  return first.length === 0 ? list : { ...list, rooms: [...first, ...list.rooms.filter((r) => !matches(r))] };
+}
+
+/** The tab badge after a share into `roomId` (OME-1637): its watcher count, or "" (no badge) when there's none to show. */
+export function watchingBadge(list: RoomList, roomId: string): string {
+  const n = list.rooms.find((r) => r.id === roomId)?.watching ?? 0;
+  return n > 0 ? String(n) : "";
 }
 
 /** The "New room…" option's value; no room id is empty. */
