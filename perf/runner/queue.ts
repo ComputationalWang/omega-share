@@ -1,5 +1,5 @@
 // File-based perf job queue (OME-819). An agent submits a job and ends its run; the runner service works the queue one job at a time
-// and writes result.json next to the job; the agent reads it on its next heartbeat. No sleep/poll loops, no flock.
+// and writes result.json next to the job; the agent reads it on its next heartbeat. No sleep/poll loops; each job holds the perf flock.
 // Layout: <queue>/<id>/job.json, running.json (while running), result.json (when done), run.log, report.md; <queue>/.last-built (sha whose build is reusable).
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -186,63 +186,75 @@ export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?
       writeJson(join(jobDir, "result.json"), { id, status: "failed", exitCode: null, reason: "unreadable job.json", startedAt: Date.now(), finishedAt: Date.now() });
       continue;
     }
-    const gate = opts.load;
-    const loadAtStart = gate ? await waitForIdle(gate) : undefined;
-    const startedAt = Date.now();
-    writeJson(join(jobDir, "running.json"), { startedAt });
-    const lastBuilt = join(dir, ".last-built");
-    const reuseBuild = existsSync(lastBuilt) && readFileSync(lastBuilt, "utf8") === job.sha;
-    const abort = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let outcome: { exitCode: number | null; reason?: string };
-    const samples: LoadSample[] = [];
-    const burst: { load: number | null } = { load: null };
-    const sampler = gate
-      ? setInterval(() => {
-          const load1 = gate.read();
-          samples.push({ t: Date.now() - startedAt, load1 });
-          if (burst.load === null && load1 > gate.maxLoad) { burst.load = load1; abort.abort(); }
-        }, gate.sampleMs)
-      : undefined;
+    // OME-1724: held from before the idle wait to the result, so a flocked soak or perf run can't overlap the job.
+    const release = opts.lock ? await opts.lock() : undefined;
     try {
-      const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => { abort.abort(); reject(new Error(`timed out after ${String(Math.round(timeoutMs / 1000))} s`)); }, timeoutMs);
-      });
-      const r = await Promise.race([exec(job, { reuseBuild, signal: abort.signal, logPath: join(jobDir, "run.log"), jobDir }), timeout]);
-      outcome = { exitCode: r.exitCode };
-    } catch (e) {
-      outcome = { exitCode: null, reason: e instanceof Error ? e.message : String(e) };
+      const gate = opts.load;
+      const loadAtStart = gate ? await waitForIdle(gate) : undefined;
+      const startedAt = Date.now();
+      writeJson(join(jobDir, "running.json"), { startedAt });
+      const lastBuilt = join(dir, ".last-built");
+      const reuseBuild = existsSync(lastBuilt) && readFileSync(lastBuilt, "utf8") === job.sha;
+      const abort = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let outcome: { exitCode: number | null; reason?: string };
+      const samples: LoadSample[] = [];
+      const burst: { load: number | null } = { load: null };
+      const sampler = gate
+        ? setInterval(() => {
+            const load1 = gate.read();
+            samples.push({ t: Date.now() - startedAt, load1 });
+            if (burst.load === null && load1 > gate.maxLoad) { burst.load = load1; abort.abort(); }
+          }, gate.sampleMs)
+        : undefined;
+      try {
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => { abort.abort(); reject(new Error(`timed out after ${String(Math.round(timeoutMs / 1000))} s`)); }, timeoutMs);
+        });
+        const r = await Promise.race([exec(job, { reuseBuild, signal: abort.signal, logPath: join(jobDir, "run.log"), jobDir }), timeout]);
+        outcome = { exitCode: r.exitCode };
+      } catch (e) {
+        outcome = { exitCode: null, reason: e instanceof Error ? e.message : String(e) };
+      } finally {
+        clearTimeout(timer);
+        clearInterval(sampler);
+      }
+      const invalidLoad = burst.load;
+      const passed = outcome.exitCode === 0 && invalidLoad === null;
+      if (passed) writeFileSync(lastBuilt, job.sha);
+      else rmSync(lastBuilt, { force: true }); // an aborted run may have rebuilt for another sha
+      const loadFields = gate && loadAtStart !== undefined
+        ? { loadAtStart, loadPeak: Math.max(0, ...samples.map((x) => x.load1)), loadSamples: downsample(samples) }
+        : {};
+      const attempt = job.attempt ?? 1;
+      let requeuedAs: string | undefined;
+      if (invalidLoad !== null && gate && attempt <= gate.maxRequeues) {
+        requeuedAs = submitJob(dir, { sha: job.sha, specs: job.specs, requester: job.requester, issue: job.issue, ...(job.motion === undefined ? {} : { motion: job.motion }), attempt: attempt + 1, retryOf: job.id });
+      }
+      const status = invalidLoad !== null ? "invalid" : passed ? "passed" : "failed";
+      const reason = invalidLoad !== null
+        ? `invalid (load ${String(Math.round(invalidLoad * 100) / 100)}): the host was busy during the run, so no pass/fail verdict${requeuedAs ? `; requeued as ${requeuedAs}` : `; gave up after ${String(attempt)} attempts`}`
+        : outcome.reason;
+      const result: JobResult = { ...job, status, exitCode: outcome.exitCode, ...(reason === undefined ? {} : { reason }), ...(requeuedAs === undefined ? {} : { requeuedAs }), ...loadFields, startedAt, finishedAt: Date.now() };
+      writeJson(join(jobDir, "result.json"), result);
+      rmSync(join(jobDir, "running.json"), { force: true });
+      ran++;
     } finally {
-      clearTimeout(timer);
-      clearInterval(sampler);
+      release?.();
     }
-    const invalidLoad = burst.load;
-    const passed = outcome.exitCode === 0 && invalidLoad === null;
-    if (passed) writeFileSync(lastBuilt, job.sha);
-    else rmSync(lastBuilt, { force: true }); // an aborted run may have rebuilt for another sha
-    const loadFields = gate && loadAtStart !== undefined
-      ? { loadAtStart, loadPeak: Math.max(0, ...samples.map((x) => x.load1)), loadSamples: downsample(samples) }
-      : {};
-    const attempt = job.attempt ?? 1;
-    let requeuedAs: string | undefined;
-    if (invalidLoad !== null && gate && attempt <= gate.maxRequeues) {
-      requeuedAs = submitJob(dir, { sha: job.sha, specs: job.specs, requester: job.requester, issue: job.issue, ...(job.motion === undefined ? {} : { motion: job.motion }), attempt: attempt + 1, retryOf: job.id });
-    }
-    const status = invalidLoad !== null ? "invalid" : passed ? "passed" : "failed";
-    const reason = invalidLoad !== null
-      ? `invalid (load ${String(Math.round(invalidLoad * 100) / 100)}): the host was busy during the run, so no pass/fail verdict${requeuedAs ? `; requeued as ${requeuedAs}` : `; gave up after ${String(attempt)} attempts`}`
-      : outcome.reason;
-    const result: JobResult = { ...job, status, exitCode: outcome.exitCode, ...(reason === undefined ? {} : { reason }), ...(requeuedAs === undefined ? {} : { requeuedAs }), ...loadFields, startedAt, finishedAt: Date.now() };
-    writeJson(join(jobDir, "result.json"), result);
-    rmSync(join(jobDir, "running.json"), { force: true });
-    ran++;
   }
 }
 
 /** The queue lives outside any checkout so every worktree (and the runner service) sees the same one. */
-/** Takes the machine-wide perf flock; resolves with its release. Stub (OME-1724 red). */
-export function perfLock(_path: string): Promise<() => void> {
-  return Promise.resolve(() => undefined);
+/** The lock every flocked perf run and soak takes (docs/perf-budgets.md). */
+export const PERF_LOCK_PATH = join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "omega-share-perf.lock");
+
+/** Waits for the machine-wide perf flock; resolves with its release. A `flock` child holds it until its stdin closes, so a dead runner frees it too. */
+export async function perfLock(path = PERF_LOCK_PATH): Promise<() => void> {
+  const p = Bun.spawn(["flock", path, "sh", "-c", "echo locked; exec cat >/dev/null"], { stdin: "pipe", stdout: "pipe", stderr: "inherit" });
+  const { value } = await p.stdout.getReader().read();
+  if (value === undefined) throw new Error(`flock ${path} exited with ${String(await p.exited)}`);
+  return () => { void p.stdin.end(); };
 }
 
 export function queueDir(env: Record<string, string | undefined> = process.env): string {
