@@ -5,7 +5,7 @@ import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
 /** A real clock on fake timers: which timers are still pending after the event. */
-function setup(hidden: readonly string[] = [], typing: (memberId: string, on: boolean) => void = () => undefined): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[] } {
+function setup(hidden: readonly string[] = [], typing: (memberId: string, on: boolean) => void = () => undefined): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[]; pairs: unknown[] } {
   const pending = new Set<number>();
   let next = 0;
   const clock = createClockSync<number>({
@@ -24,8 +24,10 @@ function setup(hidden: readonly string[] = [], typing: (memberId: string, on: bo
   const dispatched: ViewEvent[] = [];
   const emoted: [string, string][] = [];
   const sessions: string[] = [];
+  const pairs: unknown[] = [];
   const sinks = {
     emoted: (memberId: string, kind: string) => emoted.push([memberId, kind]),
+    pair: (msg: unknown) => pairs.push(msg),
     typing,
     clock,
     shareToken: { onEvent: () => undefined },
@@ -35,7 +37,7 @@ function setup(hidden: readonly string[] = [], typing: (memberId: string, on: bo
     hidden: (id: string) => hidden.includes(id),
     session: (token: string) => sessions.push(token),
   };
-  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted, sessions };
+  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted, sessions, pairs };
 }
 
 test("room-closed (4004) stops the clock: no ping timer keeps firing on the terminal screen", () => {
@@ -133,4 +135,18 @@ test("typing-changed goes to the typing sink only; a hidden member's goes nowher
   route({ type: "message", msg: { type: "typing-changed", memberId: "m2", on: true } });
   expect(typed).toEqual([["m1", true]]);
   expect(dispatched).toEqual([]);
+});
+
+test("pair-invited and paired go straight to the pair sink, never through the view state (OME-1672)", () => {
+  const { route, dispatched, pairs } = setup();
+  route({ type: "message", msg: { type: "pair-invited", memberId: "m1", pose: "thrust" } });
+  route({ type: "message", msg: { type: "paired", thrust: "m1", bendover: "m2" } });
+  expect(pairs).toEqual([{ type: "pair-invited", memberId: "m1", pose: "thrust" }, { type: "paired", thrust: "m1", bendover: "m2" }]);
+  expect(dispatched).toEqual([]);
+});
+
+test("a hidden member's invite goes nowhere", () => {
+  const { route, pairs } = setup(["m1"]);
+  route({ type: "message", msg: { type: "pair-invited", memberId: "m1", pose: "bendover" } });
+  expect(pairs).toEqual([]);
 });
