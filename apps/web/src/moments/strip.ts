@@ -98,7 +98,7 @@ export function createMomentsStrip(o: { readonly seek: (seconds: number) => bool
         b.hidden = p === undefined;
         if (p === undefined) return;
         at[i] = p.mediaMs;
-        b.style.left = `${String((p.mediaMs / durationMs) * 100)}%`;
+        b.style.setProperty("--at", `${String((p.mediaMs / durationMs) * 100)}%`);
         b.replaceChildren(sprite(emoteIcon(REACTION_EMOTE[p.kind])));
         b.dataset["count"] = String(p.count);
         label(b, p.mediaMs, p.count);

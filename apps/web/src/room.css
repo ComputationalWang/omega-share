@@ -144,7 +144,8 @@
 .moments-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background-color: var(--field-border); }
 /* A pip's 16×14 icon sits on the bar; a larger key (--pip, OME-1748) grows down over the bar and the wall, never up into
  * the shelf, and its bottom padding keeps the icon where it was. */
-.moments-pip { position: absolute; top: 1px; transform: translateX(-50%); display: grid; place-items: center; width: var(--pip, 16px); height: var(--pip, 14px); padding: 0 0 calc(var(--pip, 14px) - 14px); border: 0; background: none; cursor: pointer; }
+/* --at is the pip's time point; clamped by half a key so a pip at either end stays inside the strip (OME-1756). */
+.moments-pip { position: absolute; top: 1px; left: clamp(var(--pip, 16px) / 2, var(--at), 100% - var(--pip, 16px) / 2); transform: translateX(-50%); display: grid; place-items: center; width: var(--pip, 16px); height: var(--pip, 14px); padding: 0 0 calc(var(--pip, 14px) - 14px); border: 0; background: none; cursor: pointer; }
 .moments-pip:disabled { cursor: default; opacity: 0.7; }
 .moments-pip:focus-visible { outline: 1px solid var(--ui-text); outline-offset: 1px; }
 .moments-pip .ui-sprite { transform: scale(0.5); }
