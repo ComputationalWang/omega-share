@@ -4,10 +4,10 @@ import { type ListedEmbed, type ScanOutcome, scanTab } from "../../embeds";
 import { FALLBACK_ROOMS, LAST_ROOM_KEY, NEW_ROOM, type RoomList, type RoomsProbe, loadRooms, newRoomUrl, roomUrl, withLastRoom, withNewRoom, withRoomTabs } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
-import { SERVER_BASE_URL_KEY, hostPermissionPattern, ownHostsOf, readServerBaseUrl } from "../../settings";
+import { SERVER_BASE_URL_KEY, hostPermissionPattern, isLoopbackOrigin, ownHostsOf, readServerBaseUrl } from "../../settings";
 import { addToQueue } from "../../queue";
 import { shareEmbed } from "../../share";
-import { type RoomTabs, readRoomTabs } from "../../share-token";
+import { type RoomTabs, readRoomTabs, roomTabPatterns } from "../../share-token";
 
 function byId<T extends HTMLElement>(id: string, type: new () => T): T {
   const el = document.getElementById(id);
@@ -68,6 +68,7 @@ function render(outcome: ScanOutcome): void {
   }
   ui.unreadable.hidden = outcome.kind !== "unreadable";
   renderEmbeds(outcome.kind === "embeds" ? outcome.embeds : null);
+  focusShare();
 }
 
 const PROVIDER_NAMES: Readonly<Record<Provider, string>> = { youtube: "YouTube", twitch: "Twitch", vimeo: "Vimeo" };
@@ -150,16 +151,46 @@ function showStatus(state: "ok" | "error", message: string | HTMLSpanElement): v
   ui.status.replaceChildren(sprite(state === "ok" ? "glyph-check" : "icon-warn"), typeof message === "string" ? span("", message) : message);
 }
 
-/** "Shared to <room>." with the room id linking to the room on the site, in a new tab (OME-1287). */
+/** "Shared · Open room" (OME-1635): the button lands the user in the room. */
 function sharedLine(prefix: string, origin: string, roomId: string): HTMLSpanElement {
-  const link = document.createElement("a");
-  link.href = roomUrl(origin, roomId);
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = roomId;
-  const line = span("", prefix);
-  line.append(link, ".");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pk-link";
+  button.textContent = "Open room";
+  button.addEventListener("click", () => {
+    void openRoom(origin, roomId).then(() => {
+      window.close();
+    });
+  });
+  const line = span("", `${prefix} · `);
+  line.append(button);
   return line;
+}
+
+/** Focuses the tab already showing the room (the server origin is a host permission, so `tabs.query` sees it), else opens one. */
+async function openRoom(origin: string, roomId: string): Promise<void> {
+  const url = roomUrl(origin, roomId);
+  const path = new URL(url).pathname;
+  // Like readRoomTabs: a loopback server's site may run on another local port.
+  const loopback = isLoopbackOrigin(origin);
+  const tabs = await browser.tabs.query({ url: roomTabPatterns(origin) }).catch(() => []);
+  const open = tabs.find((t) => t.url !== undefined && URL.canParse(t.url) && new URL(t.url).pathname.replace(/\/$/, "") === path && (loopback || new URL(t.url).origin === origin));
+  if (open?.id === undefined) {
+    await browser.tabs.create({ url });
+    return;
+  }
+  await browser.tabs.update(open.id, { active: true });
+  await browser.windows.update(open.windowId, { focused: true });
+}
+
+/**
+ * One embed and the remembered room, both preselected: Share takes focus, so Enter or one click shares (OME-1635).
+ * Runs when the scan or the server load lands, whichever is last; never takes focus the user moved elsewhere.
+ */
+function focusShare(): void {
+  const active = document.activeElement;
+  const untouched = active === null || active === document.body || ui.embeds.contains(active);
+  if (untouched && ui.embeds.childElementCount === 1 && lastRoom !== undefined && ui.room.value === lastRoom && !ui.share.disabled) ui.share.focus();
 }
 
 interface ServerState {
@@ -211,6 +242,8 @@ async function loadServer(origin: string): Promise<ServerState> {
 
 const stored = browser.storage.local.get([SERVER_BASE_URL_KEY, LAST_ROOM_KEY]);
 const serverBaseUrl = stored.then((items) => readServerBaseUrl(items[SERVER_BASE_URL_KEY]));
+/** The room shared into last, once storage answers. */
+let lastRoom: unknown;
 
 renderRooms(FALLBACK_ROOMS);
 renderServer();
@@ -218,9 +251,11 @@ void scan().then(render);
 // One `GET /rooms` per popup open, in parallel with the scan so the embed list isn't held up.
 void Promise.all([serverBaseUrl.then(loadServer), stored]).then(([state, items]) => {
   server = state;
+  lastRoom = items[LAST_ROOM_KEY];
   const list = withLastRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), items[LAST_ROOM_KEY], state.tabs.tokens);
   renderRooms(withNewRoom(list, state.probe, state.tabs.tokens));
   renderServer();
+  focusShare();
 }, () => {
   // Storage or the server load threw: Share stays off on the fallback rooms, but say why (OME-1101).
   showStatus("error", "Couldn't load the server settings. Close and reopen the popup.");
@@ -269,7 +304,7 @@ ui.form.addEventListener("submit", (event) => {
         showStatus("error", result.message);
         return;
       }
-      showStatus("ok", sharedLine(queue ? "Added to the queue in " : "Shared to ", origin, roomId));
+      showStatus("ok", sharedLine(queue ? "Added to the queue" : "Shared", origin, roomId));
       void browser.storage.local.set({ [LAST_ROOM_KEY]: roomId }).catch(() => undefined);
     })
     .finally(() => {

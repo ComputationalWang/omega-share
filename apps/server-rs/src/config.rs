@@ -55,6 +55,9 @@ pub struct ServerConfig {
     pub join_timeout_ms: u32,
     /// `STATUS_INTERVAL_MS`: `member-status` coalescing interval (default 1 s).
     pub status_interval_ms: u32,
+    /// `RELAY_BATCH_MS`: how long relays to a `batch: true` connection may be held (default 8 ms, at most 1000);
+    /// 0 turns relay batching off (OME-1583).
+    pub relay_batch_ms: u32,
     /// `MAX_HTTP_IN_FLIGHT`: HTTP requests handled at once, whatever their clients; more get 503
     /// (`maxHttpInFlight` in server.ts, threat model section 10). Zero refuses every request.
     pub max_http_in_flight: usize,
@@ -79,6 +82,8 @@ impl std::error::Error for ConfigError {}
 pub const DEFAULT_MAX_CONNECTIONS: u32 = 1024;
 pub const DEFAULT_JOIN_TIMEOUT_MS: u32 = 10_000;
 pub const DEFAULT_STATUS_INTERVAL_MS: u32 = 1000;
+/// Half a 60 Hz frame (OME-1618).
+pub const DEFAULT_RELAY_BATCH_MS: u32 = 8;
 
 /// HTTP requests handled at once by default (`MAX_HTTP_IN_FLIGHT` in http.ts).
 pub const DEFAULT_MAX_HTTP_IN_FLIGHT: usize = 256;
@@ -99,7 +104,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 19] = [
+pub const CONFIG_KEYS: [&str; 20] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -114,6 +119,7 @@ pub const CONFIG_KEYS: [&str; 19] = [
     "MAX_CONNECTIONS_PER_IP",
     "JOIN_TIMEOUT_MS",
     "STATUS_INTERVAL_MS",
+    "RELAY_BATCH_MS",
     "MAX_HTTP_IN_FLIGHT",
     "GENERIC_EMBEDS",
     "GENERIC_EMBED_DENYLIST",
@@ -358,6 +364,9 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
     let max_connections_per_ip = whole("MAX_CONNECTIONS_PER_IP", 1, None)?;
     let join_timeout_ms = whole("JOIN_TIMEOUT_MS", 1, Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
     let status_interval_ms = whole("STATUS_INTERVAL_MS", 0, Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
+    let relay_batch_ms = whole("RELAY_BATCH_MS", 0, Some(DEFAULT_RELAY_BATCH_MS))?
+        .filter(|ms| *ms <= 1000)
+        .ok_or_else(|| fail("RELAY_BATCH_MS", "must be a whole number from 0 to 1000 (ms)"))?;
     let max_http_in_flight = match get("MAX_HTTP_IN_FLIGHT") {
         None => DEFAULT_MAX_HTTP_IN_FLIGHT,
         Some(raw) => digits(raw, 5)
@@ -407,6 +416,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         max_connections_per_ip,
         join_timeout_ms,
         status_interval_ms,
+        relay_batch_ms,
         max_http_in_flight,
     })
 }
@@ -467,11 +477,18 @@ mod tests {
             ("MAX_CONNECTIONS_PER_IP", "3"),
             ("JOIN_TIMEOUT_MS", "200"),
             ("STATUS_INTERVAL_MS", "20"),
+            ("RELAY_BATCH_MS", "0"),
         ]);
         assert_eq!(
-            (cfg.max_connections_per_ip, cfg.join_timeout_ms, cfg.status_interval_ms),
-            (Some(3), 200, 20)
+            (
+                cfg.max_connections_per_ip,
+                cfg.join_timeout_ms,
+                cfg.status_interval_ms,
+                cfg.relay_batch_ms
+            ),
+            (Some(3), 200, 20, 0)
         );
+        assert_eq!(ok(&[("RELAY_BATCH_MS", "1000")]).relay_batch_ms, 1000);
         for (key, bad) in [
             ("MAX_CONNECTIONS_PER_IP", "0"),
             ("MAX_CONNECTIONS_PER_IP", "x"),
@@ -479,6 +496,9 @@ mod tests {
             ("JOIN_TIMEOUT_MS", "-5"),
             ("STATUS_INTERVAL_MS", "1.5"),
             ("STATUS_INTERVAL_MS", ""),
+            ("RELAY_BATCH_MS", "1001"),
+            ("RELAY_BATCH_MS", "-1"),
+            ("RELAY_BATCH_MS", "8.5"),
         ] {
             refuses(&[(key, bad)], key);
         }
@@ -507,6 +527,7 @@ mod tests {
                 max_connections_per_ip: None,
                 join_timeout_ms: 10_000,
                 status_interval_ms: 1000,
+                relay_batch_ms: 8,
                 max_http_in_flight: 256,
             }
         );
@@ -550,6 +571,7 @@ mod tests {
                 max_connections_per_ip: None,
                 join_timeout_ms: 10_000,
                 status_interval_ms: 1000,
+                relay_batch_ms: 8,
                 max_http_in_flight: 256,
             }
         );

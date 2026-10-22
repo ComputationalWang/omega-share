@@ -1,0 +1,11 @@
+[
+{"input":null,"ok":false},
+{"input":{"provider":"youtube","videoId":"dQw4w9WgXcQ","url":"https://www.youtube.com/embed/dQw4w9WgXcQ"},"ok":true,"output":{"provider":"youtube","id":"dQw4w9WgXcQ"}},
+{"input":{"provider":"vimeo","videoId":"76979871","hash":null,"url":"https://player.vimeo.com/video/76979871"},"ok":true,"output":{"provider":"vimeo","id":"76979871"}},
+{"input":{"provider":"twitch","kind":"live","channel":"some_streamer","url":"https://player.twitch.tv/?channel=some_streamer"},"ok":true,"output":{"provider":"twitch","id":"some_streamer"}},
+{"input":{"provider":"generic","host":"player.example.com","url":"https://player.example.com/embed/42"},"ok":false},
+{"input":{"provider":"vimeo","videoId":"76979871","hash":"abcdef12","url":"https://player.vimeo.com/video/76979871?h=abcdef12"},"ok":false},
+{"input":{"provider":"twitch","kind":"vod","videoId":"123456","url":"https://player.twitch.tv/?video=v123456"},"ok":true,"output":{"provider":"twitch","id":"videos/123456"}},
+{"input":{"provider":"twitch","kind":"vod","videoId":"999999999999","url":"https://player.twitch.tv/?video=v999999999999"},"ok":true,"output":{"provider":"twitch","id":"videos/999999999999"}},
+{"input":{"provider":"twitch","kind":"live","channel":"v123","url":"https://player.twitch.tv/?channel=v123"},"ok":true,"output":{"provider":"twitch","id":"v123"}}
+]

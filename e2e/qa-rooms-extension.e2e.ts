@@ -134,7 +134,7 @@ test("a private room open in a tab (invite link) is offered, and sharing into it
   await expect(p.locator(popup.embedItem)).toHaveCount(1);
   await expect(p.locator(popup.shareButton)).toBeEnabled();
   await p.locator(popup.shareButton).click();
-  await expect(p.locator(popup.shareStatus)).toHaveText(`Shared to ${priv.id}.`);
+  await expect(p.locator(popup.shareStatus)).toHaveText("Shared · Open room");
   await expect(p.locator(popup.shareStatus)).toHaveAttribute("data-state", "ok");
   await expect(tab.locator(site.sharedVideo)).toBeVisible();
 });
@@ -204,7 +204,7 @@ test("after the owner deletes the private room it is refused for sharing and lea
 
   await before.page.locator(popup.shareButton).click();
   await expect(before.page.locator(popup.shareStatus)).toHaveAttribute("data-state", "error");
-  await expect(before.page.locator(popup.shareStatus)).not.toHaveText(/^Shared to/);
+  await expect(before.page.locator(popup.shareStatus)).not.toHaveText(/^Shared/);
   await expect(tab.locator(site.sharedVideo)).toBeHidden();
 
   // A fresh popup while the room's tab is still open: the URL still names the room, and sharing is refused all the same.

@@ -86,6 +86,7 @@ const RUNNERS: &[&str] = &[
     "nickname",
     "nickname-key",
     "normalize-hostname",
+    "now-playing-of",
     "parse-bearer",
     "playback-caps",
     "queue-item-id",
@@ -247,6 +248,7 @@ fn constant(name: &str) -> Option<Value> {
         "MAX_EMBED_URL_LENGTH" => json!(MAX_EMBED_URL_LENGTH),
         "MAX_CLIENT_MESSAGE_BYTES" => json!(MAX_CLIENT_MESSAGE_BYTES),
         "MAX_SERVER_MESSAGE_BYTES" => json!(MAX_SERVER_MESSAGE_BYTES),
+        "BATCH_MAX_MESSAGES" => json!(BATCH_MAX_MESSAGES),
         "MAX_LISTED_ROOMS" => json!(MAX_LISTED_ROOMS),
         "MAX_CREATE_BODY_BYTES" => json!(MAX_CREATE_BODY_BYTES),
         "ROOM_CREATE_KEY_BURST" => json!(ROOM_CREATE_KEY_BURST),
@@ -266,6 +268,7 @@ fn constant(name: &str) -> Option<Value> {
         "HAIR_COUNT" => json!(HAIR_COUNT),
         "CONGA_CAP" => json!(CONGA_CAP),
         "CONGA_WINDOW_MS" => json!(CONGA_WINDOW_MS),
+        "PAIR_INVITE_TTL_MS" => json!(PAIR_INVITE_TTL_MS),
         "TYPING_BURST" => json!(TYPING_BURST),
         "TYPING_REFILL_MS" => json!(TYPING_REFILL_MS),
         "TYPING_TIMEOUT_MS" => json!(TYPING_TIMEOUT_MS),
@@ -282,6 +285,9 @@ fn constant(name: &str) -> Option<Value> {
         "QUEUE_ENDED_TOLERANCE_S" => json!(QUEUE_ENDED_TOLERANCE_S),
         "ERROR_MESSAGE_MAX_LENGTH" => json!(ERROR_MESSAGE_MAX_LENGTH),
         "MAX_POSITION_S" => json!(MAX_POSITION_S),
+        "REACTIONS_MAX" => json!(REACTIONS_MAX),
+        "COUNTDOWN_MS" => json!(COUNTDOWN_MS),
+        "COUNTDOWN_MAX_MS" => json!(COUNTDOWN_MAX_MS),
         "PLAYBACK_RATE_MIN" => json!(PLAYBACK_RATE_MIN),
         "PLAYBACK_RATE_MAX" => json!(PLAYBACK_RATE_MAX),
         "PING_ID_MAX" => json!(PING_ID_MAX),
@@ -618,6 +624,20 @@ fn any_embed_schema_agrees() {
     agree(
         load::<Value, String>(include_str!("../corpus/out/any-embed-schema.json")),
         |input| serde_json::from_value::<AnyEmbed>(input.clone()).ok().and_then(|e| to_json(&e)),
+    );
+}
+
+#[test]
+fn now_playing_of_agrees() {
+    agree(
+        load::<Option<Value>, Value>(include_str!("../corpus/out/now-playing-of.json")),
+        |input| {
+            let embed = match input {
+                None => None,
+                Some(v) => Some(serde_json::from_value::<AnyEmbed>(v.clone()).ok()?),
+            };
+            embed?.now_playing().and_then(|n| serde_json::to_value(n).ok())
+        },
     );
 }
 

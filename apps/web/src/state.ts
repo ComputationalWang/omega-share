@@ -211,6 +211,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         poll: msg.poll ?? null,
         vote: msg.poll?.pollId === state.poll?.pollId ? state.vote : null,
       };
+    case "batch":
+      return msg.msgs.reduce((s, m) => onServer(s, m, now), state);
     case "room-full":
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "full" };
     case "error": {
@@ -318,6 +320,11 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
+    // Timed reactions (OME-1625): the moments strip and replay (OME-1628/1631) keep their own timeline.
+    case "reacted":
+    // The dank-dungeon pair (OME-1671): drawn by OME-1672, never part of the view state.
+    case "pair-invited":
+    case "paired":
       return state;
     // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
     case "poll": {

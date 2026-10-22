@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import {
+  BATCH_MAX_MESSAGES,
   CHAT_MAX_LENGTH,
   CHAT_MAX_MARK_RUN,
   CONGA_CAP,
@@ -15,10 +16,11 @@ import {
   POLL_MIN_OPTIONS,
   POLL_OPTION_MAX_LENGTH,
   POLL_QUESTION_MAX_LENGTH,
+  REACTIONS_MAX,
 } from "./constants";
 import { PollIdSchema, RoomIdSchema } from "./ids";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
-import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
+import { MediaMsSchema, OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
   AccessorySchema,
@@ -118,6 +120,18 @@ export const EMOTE_KINDS = ["clap", "exclaim", "heart", "laugh", "question", "wa
 export const EmoteKindSchema = v.picklist(EMOTE_KINDS);
 export type EmoteKind = v.InferOutput<typeof EmoteKindSchema>;
 
+/** Timed reaction glyphs (OME-1625, ADR 0056), the Designer's set. Separate from emotes: they land on the video's timeline. */
+export const REACTION_KINDS = ["heart", "laugh", "wow", "clap"] as const;
+export const ReactionKindSchema = v.picklist(REACTION_KINDS);
+export type ReactionKind = v.InferOutput<typeof ReactionKindSchema>;
+/** One timed reaction: who, which glyph, and where in the current item the server's room clock was (`mediaMs`). */
+export const ReactionSchema = v.object({ memberId: MemberIdSchema, kind: ReactionKindSchema, mediaMs: MediaMsSchema });
+export type Reaction = v.InferOutput<typeof ReactionSchema>;
+/** The dank-dungeon pair (OME-1671): one member bends over, the other thrusts behind them. */
+export const PAIR_POSES = ["thrust", "bendover"] as const;
+export const PairPoseSchema = v.picklist(PAIR_POSES);
+export type PairPose = v.InferOutput<typeof PairPoseSchema>;
+
 // Client → server. Strict: unknown keys are rejected, not stripped.
 export const ClientMessageSchema = v.variant("type", [
   /**
@@ -145,6 +159,8 @@ export const ClientMessageSchema = v.variant("type", [
      * front of it, is where they walk in; otherwise the default spot. Never stored or logged; a resume ignores it.
      */
     via: v.optional(RoomIdSchema),
+    /** Opt in to relay `batch` frames (OME-1624, ADR 0050 amendment); absent or false gets one frame per message. */
+    batch: v.optional(v.boolean()),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */
@@ -206,6 +222,11 @@ export const ClientMessageSchema = v.variant("type", [
     url: v.pipe(v.string(), v.maxLength(MAX_EMBED_URL_LENGTH)),
     playing: v.boolean(),
     position: PositionSchema,
+    /**
+     * With `playing: true`, a shared 3-2-1 (OME-1625, ADR 0056): the server answers a `playback` whose `startAt` is
+     * COUNTDOWN_MS after `at`. Ignored with `playing: false` and for a live embed. Absent means false.
+     */
+    countdown: v.optional(v.boolean()),
   }),
   /**
    * Advisory catch-up flag (ADR 0019); never pauses the room. Needs `join`. Send only on
@@ -218,6 +239,20 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("title-set"), title: RoomTitleSchema }),
   /** Needs `join`. Rate-limited per member (EMOTE_BURST, EMOTE_REFILL_MS); never stored. */
   v.strictObject({ type: v.literal("emote"), kind: EmoteKindSchema }),
+  /**
+   * Needs `join`. A timed reaction (OME-1625, ADR 0056), relayed as `reacted` with the server's own `mediaMs`: the
+   * client sends no time. Spends from the `emote` bucket; over it dropped silently, like a `walk`. Without a synced
+   * current item (none, or generic) it is dropped silently.
+   */
+  v.strictObject({ type: v.literal("react"), kind: ReactionKindSchema }),
+  /**
+   * `/thrust` or `/bendover` (OME-1671). Needs `join` and a layout with `pairs: true`, else `error: pairs_off`. Shares the
+   * `emote` bucket. If another member's open invite has the other pose, the two pair: the inviter stands up (`seat-changed`
+   * null / `floor-sat` false), moves next to the sender (`walked`, `teleport: true`; the thruster behind the bender), then
+   * `paired`; with no free cell for it, `error: bad_cell` and the invite stays. Otherwise this is the sender's invite
+   * (`pair-invited`), replacing their own earlier one, open for PAIR_INVITE_TTL_MS. Never stored or in a snapshot.
+   */
+  v.strictObject({ type: v.literal("pair"), pose: PairPoseSchema }),
   /*
    * Owner moderation (ADR 0030). Each needs `join` with the owner token: the server checks joined,
    * then owner (`not_owner`), then the MODERATION_BURST bucket (`rate_limited`), then the target
@@ -286,8 +321,10 @@ export const ERROR_CODES = [
   "unsupported_url",
   /** Unknown, expired, revoked or wrong-room resume credential; no fresh join fallback. */
   "resume_expired",
-  /** `walk` to a cell under a solid piece or a seat (ADR 0053); `floor-sit` on while not standing on a cell (OME-1499). */
+  /** `walk` to a cell under a solid piece or a seat (ADR 0053); `floor-sit` on while not standing on a cell (OME-1499); `pair` with no free cell beside the partner (OME-1671). */
   "bad_cell",
+  /** `pair` in a room whose layout lacks `pairs: true` (OME-1671). */
+  "pairs_off",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -296,7 +333,7 @@ export const MEMBER_LEFT_REASONS = ["left", "kicked"] as const;
 export type MemberLeftReason = (typeof MEMBER_LEFT_REASONS)[number];
 
 // Server → client. Unknown keys are stripped so the server can add fields.
-export const ServerMessageSchema = v.variant("type", [
+const SingleServerMessageSchema = v.variant("type", [
   /**
    * First message after a successful join. `shareToken` authorizes this member's
    * `POST /rooms/:id/share` until they leave; it is never broadcast (absent from pre-M2 servers).
@@ -316,6 +353,13 @@ export const ServerMessageSchema = v.variant("type", [
     poll: v.optional(PollSchema),
     /** The /conga line (OME-1574). Absent when nobody is in it, or from a server without it. */
     conga: v.optional(CongaSchema),
+    /**
+     * The current item's timed reactions (OME-1625), oldest first, at most REACTIONS_MAX (the latest). Cleared when
+     * the item changes. Absent when there are none, or from a server without them.
+     */
+    reactions: v.optional(v.pipe(v.array(ReactionSchema), v.maxLength(REACTIONS_MAX))),
+    /** Most members in the room at once since the current item started (OME-1625, for the recap). Absent with no item. */
+    peakMembers: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(MAX_ROOM_MEMBERS))),
   }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
   /** `reason` is absent from a pre-M6 server: read it as `left`. */
@@ -379,6 +423,15 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("title-changed"), title: RoomTitleSchema, by: MemberIdSchema }),
   /** A member emoted (sender included). Fire-and-forget: not stored, never in a snapshot, so late joiners don't see it. */
   v.object({ type: v.literal("emoted"), memberId: MemberIdSchema, kind: EmoteKindSchema }),
+  /**
+   * A member reacted (OME-1625, sender included). `mediaMs` is the server's room clock for the current item when it
+   * arrived. Stored for the item (the snapshot's `reactions`), so late joiners can replay it.
+   */
+  v.object({ type: v.literal("reacted"), memberId: MemberIdSchema, kind: ReactionKindSchema, mediaMs: MediaMsSchema }),
+  /** A member's open `pair` invite (OME-1671), sender included: "X wants to /thrust, to join in use /bendover". Fire-and-forget. */
+  v.object({ type: v.literal("pair-invited"), memberId: MemberIdSchema, pose: PairPoseSchema }),
+  /** Two members paired (OME-1671), after the inviter's `walked`. Clients play the poses; fire-and-forget, like `emoted`. */
+  v.object({ type: v.literal("paired"), thrust: MemberIdSchema, bendover: MemberIdSchema }),
   /** A member rolled a `sides`-faced die and got `value`, 1..sides (sender included). Fire-and-forget, like `emoted`. */
   v.pipe(
     v.object({ type: v.literal("rolled"), memberId: MemberIdSchema, sides: DiceSidesSchema, value: v.pipe(v.number(), v.integer(), v.minValue(1)) }),
@@ -404,6 +457,15 @@ export const ServerMessageSchema = v.variant("type", [
     /** Set with `rate_limited`: wait this long before retrying. */
     retryAfterMs: v.optional(RetryAfterMsSchema),
   }),
+]);
+
+export const ServerMessageSchema = v.variant("type", [
+  ...SingleServerMessageSchema.options,
+  /**
+   * Relays coalesced into one frame, in send order (OME-1624, ADR 0050 amendment). Only to a connection that joined
+   * with `batch: true`; read it as its messages one by one. Never nested.
+   */
+  v.object({ type: v.literal("batch"), msgs: v.pipe(v.array(SingleServerMessageSchema), v.minLength(1), v.maxLength(BATCH_MAX_MESSAGES)) }),
 ]);
 export type ServerMessage = v.InferOutput<typeof ServerMessageSchema>;
 

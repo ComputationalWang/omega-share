@@ -171,6 +171,7 @@ pub fn add(app: &App, inner: &mut RoomInner, actor: &QueueActor, url: &str) -> R
         id,
         embed,
         by: Some(actor.member_id.clone()),
+        start_seconds: None,
     };
     let new = StoredQueueItem {
         id: item.id.clone(),
@@ -758,6 +759,7 @@ mod tests {
                 id: id.clone(),
                 embed,
                 by: None,
+                start_seconds: None,
             });
             id
         };

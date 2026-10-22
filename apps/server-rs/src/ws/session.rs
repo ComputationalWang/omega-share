@@ -348,6 +348,9 @@ fn resume(app: &App, inner: &mut RoomInner, conn: &mut Conn, token: &ResumeToken
         owner: session.owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
         conga: inner.room.conga(),
+        // The reaction timeline and the item's peak: OME-1632.
+        reactions: None,
+        peak_members: None,
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);
@@ -377,10 +380,15 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         accessory,
         hair,
         via,
+        batch,
     } = msg
     else {
         return;
     };
+    // OME-1583: set before the resume branch, so a resumed member gets frames as its new socket asked.
+    inner
+        .subscribers
+        .set_batch(conn.id, *batch == Some(true) && app.ws.relay_batch_ms > 0);
     if let Some(token) = resume_token {
         resume(app, inner, conn, token);
         return;
@@ -496,6 +504,9 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         owner: owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
         conga: inner.room.conga(),
+        // The reaction timeline and the item's peak: OME-1632.
+        reactions: None,
+        peak_members: None,
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);

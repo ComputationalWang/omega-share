@@ -239,7 +239,12 @@ impl Room {
             .queue
             .into_iter()
             .filter(|(item, _)| current_item_id.as_ref() != Some(item))
-            .map(|(id, embed)| QueueItem { id, embed, by: None })
+            .map(|(id, embed)| QueueItem {
+                id,
+                embed,
+                by: None,
+                start_seconds: None,
+            })
             .collect();
         let playback = init.embed.as_ref().filter(|e| e.is_synced()).map(|_| restored_playback(now_wall));
         let rev = playback.as_ref().map_or(-1, |p| i64::try_from(p.rev.0).unwrap_or(0));
@@ -955,6 +960,9 @@ impl Room {
             member_count: u8::try_from(self.order.len()).unwrap_or(u8::MAX),
             seated_count: u8::try_from(seated).unwrap_or(u8::MAX),
             title: self.title.clone(),
+            // `GET /rooms` watching summary: OME-1633.
+            watching_count: None,
+            now_playing: None,
         }
     }
 }
@@ -1042,6 +1050,7 @@ mod tests {
             id: iid(id),
             embed,
             by: by.map(mid),
+            start_seconds: None,
         }
     }
     fn mute_ms() -> i64 {

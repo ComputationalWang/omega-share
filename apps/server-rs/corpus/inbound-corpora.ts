@@ -56,8 +56,14 @@ const valid: Raw[] = [
   js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, accessory: 8 }), js({ ...JOIN, tint: 2, accessory: 3 }),
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
+  ...["heart", "laugh", "wow", "clap"].map((kind) => js({ type: "react", kind })),
+  js({ ...CONTROL, countdown: true }), js({ ...CONTROL, countdown: false }), js({ ...CONTROL, playing: false, countdown: true }),
+  js({ ...JOIN, batch: true }), js({ ...JOIN, batch: false }), js({ ...JOIN, batch: true, hair: 1 }),
   js({ ...JOIN, via: "lobby" }), js({ ...JOIN, via: "a".repeat(32) }), js({ ...JOIN, via: "film-club", hair: 2 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
+  // pair, layout pairs (OME-1671)
+  js({ type: "pair", pose: "thrust" }), js({ type: "pair", pose: "bendover" }),
+  ...[true, false].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
   js({ type: "walk", cell: { x: 9, y: 0 }, teleport: true }), js({ type: "walk", cell: { x: 9, y: 0 }, teleport: false }), js({ type: "walk", cell: { x: 9, y: 0 }, run: true, teleport: true }),
   js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, { kind: "pad", col: 9, row: 1, facing: "se" }, { kind: "pad", col: 1, row: 9, facing: "se", variant: 1 }] } }),
   ...["none", "warm", "cool", "night"].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
@@ -141,7 +147,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "typing", on: true }), ...mutations({ type: "set-accessory", accessory: 1 }), ...mutations({ type: "roll", sides: 6 }),
   ...mutations(POLL_OPEN), ...mutations({ type: "vote", pollId: "p1", option: 0 }), ...mutations({ type: "poll-close", pollId: "p1" }),
-  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }),
+  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }), ...mutations({ type: "pair", pose: "thrust" }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -185,11 +191,16 @@ const invalid: Raw[] = [
   ...[9, -1, 0.5, "1", null, true].map((accessory) => js({ type: "set-accessory", accessory })), js({ ...JOIN, accessory: 9 }), js({ ...JOIN, accessory: null }),
   // set-hair, join hair (OME-1435)
   ...[6, -1, 0.5, "1", null, true].map((hair) => js({ type: "set-hair", hair })), js({ ...JOIN, hair: 6 }), js({ ...JOIN, hair: null }),
+  // join batch opt-in (OME-1624)
+  ...["true", 1, 0, null, []].map((batch) => js({ ...JOIN, batch })),
   // join via (OME-1556)
   ...["Lobby", "", "a".repeat(33), "lobby/x", "https://evil.example/", null, 3, ["lobby"]].map((via) => js({ ...JOIN, via })),
   // floor-sit, layout mood (OME-1499)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "floor-sit", on })), js({ type: "floor-sit" }),
   ...["dark", "Warm", "none ", "", null, 0, true, [], {}].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
+  // pair, layout pairs (OME-1671)
+  ...["Thrust", "hug", "thrust ", "", null, 0, true, [], {}].map((pose) => js({ type: "pair", pose })), js({ type: "pair" }),
+  ...["true", 1, 0, null, [], {}].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),
@@ -202,6 +213,10 @@ const invalid: Raw[] = [
   js({ ...POLL_OPEN, extra: 1 }), js({ type: "vote", pollId: "p1", option: 0, extra: 1 }), js({ type: "poll-close", pollId: "p1", option: 0 }),
   ...[4, -1, 0.5, 255, 256, "1", null, true].map((option) => js({ type: "vote", pollId: "p1", option })),
   ...["", "a".repeat(33), "a b", "é", "a/b"].flatMap((pollId) => [js({ type: "vote", pollId, option: 0 }), js({ type: "poll-close", pollId })]),
+  // timed reactions (OME-1625): glyph kinds only, never a client time
+  ...["wave", "Heart", "", "jump", 0, null].map((kind) => js({ type: "react", kind })), js({ type: "react" }),
+  js({ type: "react", kind: "heart", mediaMs: 1000 }), js({ type: "react", kind: "heart", at: 1 }), js({ type: "react", kind: "heart", memberId: "m1" }),
+  ...[1, "true", null].map((countdown) => js({ ...CONTROL, countdown })),
   js({ type: "emote", kind: "Wave" }), js({ type: "emote", kind: "jump" }), js({ type: "emote", kind: "" }), js({ type: "emote", kind: 1 }),
   js({ type: "kick", memberId: "" }), js({ type: "kick", memberId: "a".repeat(65) }), js({ type: "kick", memberId: "a b" }), js({ type: "kick", memberId: "mé" }),
   js({ type: "control-policy", policy: "Owner" }), js({ type: "control-policy", policy: "all" }),
@@ -334,6 +349,9 @@ const shareBodies = (): Raw[] => [
   js({}), js({ url: null }), js({ url: 1 }), js({ url: ["x"] }), js({ url: {} }), js({ url: "x", extra: 1 }), js({ url: "x", u: "y" }),
   js("x"), js(null), js([]), js(["x"]), js(1), ok(""), ok("{"), ok('["https://x.example"]'), ok('{"url":"x"} x'), ok('{"url":"x",}'),
   rr('{"url":"a","url":"b"}'), rr('{"url":"\\ud800"}'),
+  // startSeconds (OME-1625): an integer in 0..MAX_POSITION_S
+  ...[0, 1, 90, 43_199, 43_200, 43_201, -1, 1.5, "90", null, true].map((startSeconds) => js({ url: "https://youtu.be/dQw4w9WgXcQ", startSeconds })),
+  rr('{"url":"x","startSeconds":-0}'), rr('{"url":"x","startSeconds":90.0}'), rr('{"url":"x","startSeconds":9e1}'), rr('{"url":"x","startSeconds":1,"startSeconds":2}'),
 ];
 const reportBodies = (): Raw[] => [
   ...["sexual", "violence", "hate", "spam", "danger", "other"].flatMap((reason) => [

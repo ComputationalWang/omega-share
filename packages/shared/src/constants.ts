@@ -20,6 +20,8 @@ export const HAIR_COUNT = 6;
 /** The /conga line (OME-1564, OME-1574): at most this many people; a `/conga` over this long after the last join starts a new line. */
 export const CONGA_CAP = 12;
 export const CONGA_WINDOW_MS = 120_000;
+/** A dank-dungeon `/thrust` or `/bendover` invite (OME-1671) waits this long for the other pose, then lapses silently. */
+export const PAIR_INVITE_TTL_MS = 60_000;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */
 export const MAX_ROOM_MEMBERS = 25;
 /** Room ids are `[a-z0-9-]`, 1 to this many characters. */
@@ -44,6 +46,8 @@ export const MAX_CLIENT_MESSAGE_BYTES = 4096;
  * ~36 KB with QUEUE_MAX generic items at the longest url (ADR 0031).
  */
 export const MAX_SERVER_MESSAGE_BYTES = 65536;
+/** A relay `batch` frame (OME-1624) carries 1..BATCH_MAX_MESSAGES messages, and as a whole still fits MAX_SERVER_MESSAGE_BYTES. */
+export const BATCH_MAX_MESSAGES = 64;
 /** Most rooms `GET /rooms` returns; keeps the extension dropdown and body (~6 KB) small. */
 export const MAX_LISTED_ROOMS = 100;
 /** Largest `POST /rooms` body, in bytes; a real one is ~110 B (ADR 0028). */
@@ -135,6 +139,12 @@ export const QUEUE_ENDED_TOLERANCE_S = 5;
 export const ERROR_MESSAGE_MAX_LENGTH = 200;
 /** Longest seekable playback position we accept, in seconds (12 h). */
 export const MAX_POSITION_S = 12 * 60 * 60;
+/** Most timed reactions the snapshot carries for the current item (OME-1625, ADR 0056); the server keeps the latest. */
+export const REACTIONS_MAX = 256;
+/** A countdown `control` starts the room this long after the press (OME-1625, ADR 0056). */
+export const COUNTDOWN_MS = 3_000;
+/** A playback `startAt` is at most this long after its `at`. */
+export const COUNTDOWN_MAX_MS = 5_000;
 /** Shared playback rate range. Always 1 in M1b–M3; a range so a shared rate later doesn't break old clients. */
 export const PLAYBACK_RATE_MIN = 0.25;
 export const PLAYBACK_RATE_MAX = 2;
