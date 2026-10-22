@@ -137,7 +137,8 @@ describe("requests without an Origin (curl, server-to-server)", () => {
 describe("GET /rooms", () => {
   test("lists the default room with member and seated counts", async () => {
     const empty = v.parse(RoomListResponseSchema, await (await fetch(`${t.http}/rooms`)).json());
-    expect(empty).toEqual({ rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0 }] });
+    // toMatchObject: the binary adds the optional watching summary (OME-1633, ADR 0056); the rows are still exactly these.
+    expect(empty).toMatchObject({ rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0 }] });
 
     const { client } = await join("alice");
     await join("bob");
@@ -145,7 +146,7 @@ describe("GET /rooms", () => {
     await client.next("seat-changed");
     const res = await fetch(`${t.http}/rooms`, { headers: { origin: EXTENSION_ORIGIN } });
     expect(res.headers.get("access-control-allow-origin")).toBe(EXTENSION_ORIGIN);
-    expect(v.parse(RoomListResponseSchema, await res.json())).toEqual({
+    expect(v.parse(RoomListResponseSchema, await res.json())).toMatchObject({
       rooms: [{ id: "lobby", memberCount: 2, seatedCount: 1 }],
     });
   });

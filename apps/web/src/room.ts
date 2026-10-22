@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, REACTIONS_MAX, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type Reaction, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
+import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, REACTIONS_MAX, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type Member, type MemberId, type Nickname, type Reaction, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -19,6 +19,7 @@ import { createRoomTv, syncedOnly } from "./room-tv";
 import { expectedPosition } from "./sync";
 import { createReplay } from "./moments/replay";
 import { createMomentsStrip } from "./moments/strip";
+import { createRecapCard, recapOf } from "./moments/recap";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
@@ -395,7 +396,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let pbView: PlaybackView | null = null;
   let ctlFrame = 0;
   const playback = createPlaybackController({
-    send,
+    send: (m) => {
+      if (m.type === "ended") showRecap(m.itemId);
+      return send(m);
+    },
     clock,
     now: () => performance.now(),
     setInterval: (fn, ms) => setInterval(fn, ms),
@@ -467,6 +471,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
   });
+  // Recap (OME-1629): once per item, when it ends or the queue moves on; who watched = everyone in the room during it.
+  const recap = createRecapCard();
+  const watched = new Map<string, Nickname>();
+  let recapped: string | undefined;
+  const see = (members: readonly Member[] | undefined): void => {
+    for (const m of members ?? []) watched.set(m.id, m.nickname);
+  };
+  const showRecap = (id: string | undefined): void => {
+    if (id === undefined || id === recapped) return;
+    recapped = id;
+    const d = recapOf(reactions, momentsDuration * 1000, [...watched].filter(([m]) => !isHidden(m)).map(([, n]) => n));
+    if (d !== null) recap.show(d);
+  };
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
@@ -750,7 +767,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, reactionBar.root, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, reactionBar.root, recap.root, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
@@ -1073,10 +1090,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       replay.start(reactions);
       drawMoments();
     } else if (next.room?.itemId !== prevRoom?.itemId) {
+      showRecap(prevRoom?.itemId);
+      watched.clear();
+      see(next.room?.members);
       reactions = [];
       replay.stop();
       drawMoments();
     }
+    if (next.room?.members !== prevRoom?.members) see(next.room?.members);
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {

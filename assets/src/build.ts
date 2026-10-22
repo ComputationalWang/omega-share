@@ -1826,7 +1826,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   const items: (FurnItem & { ghost?: boolean })[] = [];
   for (const p of plan.placements.filter((q) => meta(q.id).layer === "object")) {
     const a = cellAt(p.col, p.row);
-    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : undefined;
+    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : p.use !== undefined ? `furniture/${p.id}/${p.colour}/use/${p.dir}/${String(p.use)}` : undefined;
     items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []).map((it) => ({ ...it, key: open !== undefined && it.layer === 2 ? open : it.key, ghost: p.ghost === true })));
   }
   for (const [key, c, r] of plan.standing) {

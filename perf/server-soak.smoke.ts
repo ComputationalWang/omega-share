@@ -9,8 +9,11 @@ import { parseSoakArgs } from "./soak-stats";
 
 test("a one-minute soak with one planned restart passes every enforced criterion", async () => {
   const out = mkdtempSync(join(tmpdir(), "soak-smoke-"));
+  const server = process.env["OMEGA_SOAK_SERVER"];
   const args = parseSoakArgs([
-    "--server", process.env["OMEGA_SOAK_SERVER"] ?? "bun apps/server/src/index.ts",
+    "--server", server ?? "bun apps/server/src/index.ts",
+    // The TS reference never batches relays (PORTING.md "Deliberate differences").
+    ...(server === undefined ? ["--relay-batch-ms", "0"] : []),
     "--minutes", "1",
     "--restart-every-min", "0.5",
     "--sample-s", "1",
@@ -22,6 +25,9 @@ test("a one-minute soak with one planned restart passes every enforced criterion
   const result = await runSoak(args);
   const failed = result.checks.filter((c) => c.enforced && !c.ok);
   expect(failed).toEqual([]);
+  // Opted-in members got batch frames from the Rust binary; the others got none.
+  if (server !== undefined) expect(result.result.batch.frames).toBeGreaterThan(0);
+  expect(result.result.batch.unopted).toBe(0);
   expect(result.result.restarts.length).toBeGreaterThanOrEqual(2);
   expect(result.result.restarts.some((r) => r.seatsExpected > 0)).toBe(true);
   expect(existsSync(join(out, "timeline.jsonl"))).toBe(true);
