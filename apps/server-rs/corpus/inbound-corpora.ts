@@ -56,6 +56,8 @@ const valid: Raw[] = [
   js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, accessory: 8 }), js({ ...JOIN, tint: 2, accessory: 3 }),
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
+  ...["heart", "laugh", "wow", "clap"].map((kind) => js({ type: "react", kind })),
+  js({ ...CONTROL, countdown: true }), js({ ...CONTROL, countdown: false }), js({ ...CONTROL, playing: false, countdown: true }),
   js({ ...JOIN, batch: true }), js({ ...JOIN, batch: false }), js({ ...JOIN, batch: true, hair: 1 }),
   js({ ...JOIN, via: "lobby" }), js({ ...JOIN, via: "a".repeat(32) }), js({ ...JOIN, via: "film-club", hair: 2 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
@@ -211,6 +213,10 @@ const invalid: Raw[] = [
   js({ ...POLL_OPEN, extra: 1 }), js({ type: "vote", pollId: "p1", option: 0, extra: 1 }), js({ type: "poll-close", pollId: "p1", option: 0 }),
   ...[4, -1, 0.5, 255, 256, "1", null, true].map((option) => js({ type: "vote", pollId: "p1", option })),
   ...["", "a".repeat(33), "a b", "é", "a/b"].flatMap((pollId) => [js({ type: "vote", pollId, option: 0 }), js({ type: "poll-close", pollId })]),
+  // timed reactions (OME-1625): glyph kinds only, never a client time
+  ...["wave", "Heart", "", "jump", 0, null].map((kind) => js({ type: "react", kind })), js({ type: "react" }),
+  js({ type: "react", kind: "heart", mediaMs: 1000 }), js({ type: "react", kind: "heart", at: 1 }), js({ type: "react", kind: "heart", memberId: "m1" }),
+  ...[1, "true", null].map((countdown) => js({ ...CONTROL, countdown })),
   js({ type: "emote", kind: "Wave" }), js({ type: "emote", kind: "jump" }), js({ type: "emote", kind: "" }), js({ type: "emote", kind: 1 }),
   js({ type: "kick", memberId: "" }), js({ type: "kick", memberId: "a".repeat(65) }), js({ type: "kick", memberId: "a b" }), js({ type: "kick", memberId: "mé" }),
   js({ type: "control-policy", policy: "Owner" }), js({ type: "control-policy", policy: "all" }),
@@ -343,6 +349,9 @@ const shareBodies = (): Raw[] => [
   js({}), js({ url: null }), js({ url: 1 }), js({ url: ["x"] }), js({ url: {} }), js({ url: "x", extra: 1 }), js({ url: "x", u: "y" }),
   js("x"), js(null), js([]), js(["x"]), js(1), ok(""), ok("{"), ok('["https://x.example"]'), ok('{"url":"x"} x'), ok('{"url":"x",}'),
   rr('{"url":"a","url":"b"}'), rr('{"url":"\\ud800"}'),
+  // startSeconds (OME-1625): an integer in 0..MAX_POSITION_S
+  ...[0, 1, 90, 43_199, 43_200, 43_201, -1, 1.5, "90", null, true].map((startSeconds) => js({ url: "https://youtu.be/dQw4w9WgXcQ", startSeconds })),
+  rr('{"url":"x","startSeconds":-0}'), rr('{"url":"x","startSeconds":90.0}'), rr('{"url":"x","startSeconds":9e1}'), rr('{"url":"x","startSeconds":1,"startSeconds":2}'),
 ];
 const reportBodies = (): Raw[] => [
   ...["sexual", "violence", "hate", "spam", "danger", "other"].flatMap((reason) => [

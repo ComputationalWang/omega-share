@@ -7,6 +7,8 @@
 
 /** Each spec's rooms, by name. A room id is `e2e-<spec>-<name>`, at most ROOM_ID_MAX_LENGTH (32) characters. */
 export const SPEC_ROOMS = {
+  // First, so it sits in GET /rooms' first MAX_LISTED_ROOMS (seeded rooms list in seed order): reactions.e2e.ts reads its `nowPlaying` (OME-1644).
+  listed: ["nowplaying"],
   acceptance: ["main"],
   sync: ["spread", "late", "buffer", "ad", "click", "err150", "volume", "popup"],
   vimeo: ["src", "pause", "privacy", "forged"],
@@ -15,6 +17,7 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "room-view": ["main"],
   walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over", "follow", "jog", "floor", "conga", "conga-late"],
+  reactions: ["bar", "burst"],
   emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash", "action", "thinker", "dancer", "applause", "palette"],
   polish: ["every", "late", "drop"],
   "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed", "reorder", "reorderphone"],
@@ -26,6 +29,8 @@ export const SPEC_ROOMS = {
   wide: ["w1280", "w1920", "phone", "keys", "fs", "scroll"],
   "provider-shelf": ["vimeo", "live"],
   "phone-perf": ["frames"],
+  "theatre-perf": ["frames"],
+  "heap-movie": ["main"],
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
@@ -67,6 +72,8 @@ export const SPEC_ROOMS = {
   "desk-zoom": ["main"],
   teleport: ["pads"],
   doors: ["a", "b"],
+  replay: ["wire", "clear", "ui"],
+  "reaction-safety": ["shape", "big", "flood", "start"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

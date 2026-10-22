@@ -8,9 +8,10 @@
 //! a JSON object only (never serde's array form), every schema rule re-checked.
 
 use super::constants::{
-    CONGA_CAP, MAX_POSITION_S, MAX_ROOM_MEMBERS, PING_ID_MAX, PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS,
-    QUEUE_MAX, SEAT_COUNT,
+    CONGA_CAP, COUNTDOWN_MAX_MS, MAX_MEDIA_MS, MAX_POSITION_S, MAX_ROOM_MEMBERS, MAX_START_SECONDS, PING_ID_MAX, PLAYBACK_RATE_MAX,
+    PLAYBACK_RATE_MIN, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, QUEUE_MAX, SEAT_COUNT,
 };
+use super::embed::NowPlaying;
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, RoomId};
 use super::layout::RoomLayout;
@@ -200,6 +201,46 @@ impl<'de> Deserialize<'de> for Rate {
     }
 }
 
+/// `StartSecondsSchema` (OME-1625): whole seconds into the video a share or queue item starts at, `0..=MAX_START_SECONDS`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(transparent)]
+pub struct StartSeconds(u32);
+
+impl StartSeconds {
+    pub fn new(s: u32) -> Option<Self> {
+        (s <= MAX_START_SECONDS).then_some(Self(s))
+    }
+    pub fn get(self) -> u32 {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for StartSeconds {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::new(u32::deserialize(d)?).ok_or_else(|| serde::de::Error::custom("invalid startSeconds"))
+    }
+}
+
+/// `MediaMsSchema` (OME-1625): ms into the current item on the server's room clock, `0..=MAX_MEDIA_MS`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(transparent)]
+pub struct MediaMs(u64);
+
+impl MediaMs {
+    pub fn new(ms: u64) -> Option<Self> {
+        (ms <= MAX_MEDIA_MS).then_some(Self(ms))
+    }
+    pub fn get(self) -> u64 {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for MediaMs {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::new(u64::deserialize(d)?).ok_or_else(|| serde::de::Error::custom("invalid mediaMs"))
+    }
+}
+
 // ---- picklists
 
 /// Why the playback state last changed. `load` = a new embed started at 0.
@@ -228,6 +269,16 @@ pub enum EmoteKind {
     Dance,
 }
 
+/// `REACTION_KINDS` (OME-1625): the timed reaction glyphs. Sent by clients in `react`, echoed in `reacted`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReactionKind {
+    Heart,
+    Laugh,
+    Wow,
+    Clap,
+}
+
 /// `PAIR_POSES` (OME-1671): sent in `pair`, echoed in `pair-invited`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -239,8 +290,9 @@ pub enum PairPose {
 // ---- playback, members, queue
 
 wire_type!(
-    /// The room's shared playback clock (ADR 0002, ADR 0011): `PlaybackStateSchema`.
-    PlaybackState, PlaybackStateWire, check = always_ok,
+    /// The room's shared playback clock (ADR 0002, ADR 0011): `PlaybackStateSchema`. With `start_at` (a countdown
+    /// play, ADR 0056) the clock holds at `position` until then and runs from `start_at`.
+    PlaybackState, PlaybackStateWire, check = check_playback,
     {
         playing: bool,
         position: Position,
@@ -251,6 +303,28 @@ wire_type!(
         /// Who caused the change; `null` when it came from `POST /rooms/:id/share`.
         #[serde(deserialize_with = "nullable")]
         by: Option<MemberId>,
+        /// A shared 3-2-1 (OME-1625): server time the room starts. Only on a `play`, `at..=at + COUNTDOWN_MAX_MS`.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        start_at: Option<ServerTime>,
+    }
+);
+
+fn check_playback(p: &PlaybackState) -> Result<(), &'static str> {
+    match p.start_at {
+        Some(ServerTime(s)) if !(p.playing && p.action == PlaybackAction::Play && s >= p.at.0 && s - p.at.0 <= COUNTDOWN_MAX_MS) => {
+            Err("startAt off a countdown play")
+        }
+        _ => Ok(()),
+    }
+}
+
+wire_type!(
+    /// One timed reaction (OME-1625): `ReactionSchema`, in the snapshot's `reactions`.
+    Reaction, ReactionWire, check = always_ok,
+    {
+        member_id: MemberId,
+        kind: ReactionKind,
+        media_ms: MediaMs,
     }
 );
 
@@ -296,6 +370,9 @@ wire_type!(
         embed: AnyEmbed,
         #[serde(deserialize_with = "nullable")]
         by: Option<MemberId>,
+        /// Where the room starts it (OME-1625); absent means 0. In memory only, like `by`.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        start_seconds: Option<StartSeconds>,
     }
 );
 
@@ -480,7 +557,8 @@ fn check_room_state(r: &RoomState) -> Result<(), &'static str> {
 }
 
 wire_type!(
-    /// One row of `GET /rooms`: `RoomSummarySchema`. `title` is absent for an untitled room.
+    /// One row of `GET /rooms`: `RoomSummarySchema`. `title` is absent for an untitled room; `now_playing` for none,
+    /// an unlisted or a generic video (OME-1625, ADR 0056).
     RoomSummary, RoomSummaryWire, check = check_room_summary,
     {
         id: RoomId,
@@ -488,6 +566,11 @@ wire_type!(
         seated_count: u8,
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         title: Option<RoomTitle>,
+        /// Members whose tab is visible (not `away`).
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        watching_count: Option<u8>,
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        now_playing: Option<NowPlaying>,
     }
 );
 
@@ -497,6 +580,9 @@ fn check_room_summary(r: &RoomSummary) -> Result<(), &'static str> {
     }
     if r.seated_count > r.member_count {
         return Err("more seated than members");
+    }
+    if r.watching_count.is_some_and(|w| w > r.member_count) {
+        return Err("more watching than members");
     }
     Ok(())
 }

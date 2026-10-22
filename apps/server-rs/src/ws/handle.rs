@@ -13,7 +13,7 @@ use crate::contract::constants::{TYPING_TIMEOUT_MS, close};
 use crate::contract::ids::MemberId;
 use crate::contract::room::ControlPolicy;
 use crate::contract::server_message::{ErrorCode, ServerMessage};
-use crate::contract::state::{EmoteKind, PingId, ServerTime};
+use crate::contract::state::{EmoteKind, PingId, Reaction, ServerTime};
 use crate::outbox::publish_msg;
 use crate::owner_edits;
 use crate::playback::Control;
@@ -175,6 +175,8 @@ fn admit_type(
         }
         // Unjoined sockets get not_joined in `handle`.
         ClientMessage::Emote { .. } | ClientMessage::Pair { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
+        // A timed reaction spends from the emote bucket; over it dropped silently, like a walk (OME-1625).
+        ClientMessage::React { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.emote).is_none(),
         // Cosmetic broadcasts share one bucket (ADR 0053).
         ClientMessage::SetTint { .. } => owner.is_none() || admit!(emote, "too many tint changes, slow down"),
         ClientMessage::SetAccessory { .. } => owner.is_none() || admit!(emote, "too many accessory changes, slow down"),
@@ -438,7 +440,13 @@ fn handle(
         }
         ClientMessage::Vote { poll_id, option } => poll::vote(inner, conn.id, member, &poll_id, option),
         ClientMessage::PollClose { poll_id } => poll::close_by(inner, conn.id, member, owner, &poll_id),
-        ClientMessage::Control { url, playing, position } => {
+        // `countdown` lands with OME-1634.
+        ClientMessage::Control {
+            url,
+            playing,
+            position,
+            countdown: _,
+        } => {
             if inner.room.control_policy() == ControlPolicy::Owner && !owner {
                 send_error(
                     inner,
@@ -497,7 +505,7 @@ fn handle(
             let refused = queue::admit(app, inner, &actor)
                 .err()
                 .map(Refusal::from)
-                .or_else(|| queue::add(app, inner, &actor, url.as_str()).err().map(Refusal::from));
+                .or_else(|| queue::add(app, inner, &actor, url.as_str(), None).err().map(Refusal::from));
             if let Some(refused) = refused {
                 queue_refused(inner, conn, refused);
             }
@@ -531,6 +539,12 @@ fn handle(
         }
         // Handled above.
         ClientMessage::Join { .. } | ClientMessage::Ping { .. } | ClientMessage::Ended { .. } => {}
+        // Stamped and kept by the room (ADR 0056); dropped silently without a synced item, like over the bucket.
+        ClientMessage::React { kind } => {
+            if let Some(Reaction { member_id, kind, media_ms }) = inner.room.react(member, kind, app.wall()) {
+                publish_msg(inner, &ServerMessage::Reacted { member_id, kind, media_ms });
+            }
+        }
     }
 }
 

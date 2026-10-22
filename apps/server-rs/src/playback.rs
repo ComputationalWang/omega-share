@@ -50,6 +50,7 @@ pub fn load_playback(prev_rev: i64, now_wall: i64, by: Option<MemberId>) -> Play
         rev: Rev(u64::try_from(prev_rev.saturating_add(1)).unwrap_or(0)),
         action: PlaybackAction::Load,
         by,
+        start_at: None,
     }
 }
 
@@ -63,6 +64,7 @@ pub fn restored_playback(now_wall: i64) -> PlaybackState {
         rev: Rev(0),
         action: PlaybackAction::Pause,
         by: None,
+        start_at: None,
     }
 }
 
@@ -106,6 +108,7 @@ pub fn apply_control(
         rev: Rev(state.rev.0.saturating_add(1)),
         action,
         by: Some(by.clone()),
+        start_at: None,
     })
 }
 

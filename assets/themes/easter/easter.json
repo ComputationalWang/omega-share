@@ -2136,6 +2136,246 @@
     "y": 2.7222222222222223
    }
   },
+  "easter/hat/watch/base/juno/ne/0": {
+   "frame": {
+    "x": 108,
+    "y": 19,
+    "w": 20,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.55,
+    "y": 2.7777777777777777
+   }
+  },
+  "easter/hat/watch/laugh/juno/ne/0": {
+   "frame": {
+    "x": 108,
+    "y": 19,
+    "w": 20,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.6,
+    "y": 2.9444444444444446
+   }
+  },
+  "easter/hat/watch/laugh/juno/ne/1": {
+   "frame": {
+    "x": 108,
+    "y": 19,
+    "w": 20,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.55,
+    "y": 2.7777777777777777
+   }
+  },
+  "easter/hat/watch/gasp/juno/ne/0": {
+   "frame": {
+    "x": 108,
+    "y": 19,
+    "w": 20,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.55,
+    "y": 2.888888888888889
+   }
+  },
+  "easter/hat/watch/gasp/juno/ne/1": {
+   "frame": {
+    "x": 108,
+    "y": 19,
+    "w": 20,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.55,
+    "y": 2.7222222222222223
+   }
+  },
+  "easter/hat/watch/base/juno/nw/0": {
+   "frame": {
+    "x": 152,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 2.7777777777777777
+   }
+  },
+  "easter/hat/watch/laugh/juno/nw/0": {
+   "frame": {
+    "x": 152,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.42857142857142855,
+    "y": 2.9444444444444446
+   }
+  },
+  "easter/hat/watch/laugh/juno/nw/1": {
+   "frame": {
+    "x": 152,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 2.7777777777777777
+   }
+  },
+  "easter/hat/watch/gasp/juno/nw/0": {
+   "frame": {
+    "x": 152,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 2.888888888888889
+   }
+  },
+  "easter/hat/watch/gasp/juno/nw/1": {
+   "frame": {
+    "x": 152,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 18
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 18
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 2.7222222222222223
+   }
+  },
   "easter/hat/walk/juno/se/0": {
    "frame": {
     "x": 196,
@@ -4822,6 +5062,246 @@
    "anchor": {
     "x": 0.5,
     "y": 3.066666666666667
+   }
+  },
+  "easter/hat/watch/base/pip/ne/0": {
+   "frame": {
+    "x": 172,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/laugh/pip/ne/0": {
+   "frame": {
+    "x": 172,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5238095238095238,
+    "y": 3.1875
+   }
+  },
+  "easter/hat/watch/laugh/pip/ne/1": {
+   "frame": {
+    "x": 172,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/gasp/pip/ne/0": {
+   "frame": {
+    "x": 172,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 3.125
+   }
+  },
+  "easter/hat/watch/gasp/pip/ne/1": {
+   "frame": {
+    "x": 172,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 2.9375
+   }
+  },
+  "easter/hat/watch/base/pip/nw/0": {
+   "frame": {
+    "x": 194,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5238095238095238,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/laugh/pip/nw/0": {
+   "frame": {
+    "x": 194,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47619047619047616,
+    "y": 3.1875
+   }
+  },
+  "easter/hat/watch/laugh/pip/nw/1": {
+   "frame": {
+    "x": 194,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5238095238095238,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/gasp/pip/nw/0": {
+   "frame": {
+    "x": 194,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5238095238095238,
+    "y": 3.125
+   }
+  },
+  "easter/hat/watch/gasp/pip/nw/1": {
+   "frame": {
+    "x": 194,
+    "y": 19,
+    "w": 21,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5238095238095238,
+    "y": 2.9375
    }
   },
   "easter/hat/walk/pip/se/0": {
@@ -7512,6 +7992,246 @@
     "y": 3.066666666666667
    }
   },
+  "easter/hat/watch/base/mo/ne/0": {
+   "frame": {
+    "x": 190,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/laugh/mo/ne/0": {
+   "frame": {
+    "x": 190,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 3.1875
+   }
+  },
+  "easter/hat/watch/laugh/mo/ne/1": {
+   "frame": {
+    "x": 190,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/gasp/mo/ne/0": {
+   "frame": {
+    "x": 190,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 3.125
+   }
+  },
+  "easter/hat/watch/gasp/mo/ne/1": {
+   "frame": {
+    "x": 190,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.9375
+   }
+  },
+  "easter/hat/watch/base/mo/nw/0": {
+   "frame": {
+    "x": 230,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/laugh/mo/nw/0": {
+   "frame": {
+    "x": 230,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 3.1875
+   }
+  },
+  "easter/hat/watch/laugh/mo/nw/1": {
+   "frame": {
+    "x": 230,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 3
+   }
+  },
+  "easter/hat/watch/gasp/mo/nw/0": {
+   "frame": {
+    "x": 230,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 3.125
+   }
+  },
+  "easter/hat/watch/gasp/mo/nw/1": {
+   "frame": {
+    "x": 230,
+    "y": 36,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.9375
+   }
+  },
   "easter/hat/walk/mo/se/0": {
    "frame": {
     "x": 84,
@@ -10200,6 +10920,246 @@
     "y": 3.142857142857143
    }
   },
+  "easter/hat/watch/base/kiki/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.9375
+   }
+  },
+  "easter/hat/watch/laugh/kiki/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 3.125
+   }
+  },
+  "easter/hat/watch/laugh/kiki/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.9375
+   }
+  },
+  "easter/hat/watch/gasp/kiki/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 3.0625
+   }
+  },
+  "easter/hat/watch/gasp/kiki/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.875
+   }
+  },
+  "easter/hat/watch/base/kiki/nw/0": {
+   "frame": {
+    "x": 62,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.9375
+   }
+  },
+  "easter/hat/watch/laugh/kiki/nw/0": {
+   "frame": {
+    "x": 62,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 3.125
+   }
+  },
+  "easter/hat/watch/laugh/kiki/nw/1": {
+   "frame": {
+    "x": 62,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.9375
+   }
+  },
+  "easter/hat/watch/gasp/kiki/nw/0": {
+   "frame": {
+    "x": 62,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 3.0625
+   }
+  },
+  "easter/hat/watch/gasp/kiki/nw/1": {
+   "frame": {
+    "x": 62,
+    "y": 42,
+    "w": 19,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.875
+   }
+  },
   "easter/hat/walk/kiki/se/0": {
    "frame": {
     "x": 104,
@@ -11036,7 +11996,7 @@
    },
    "hat": {
     "prefix": "easter/hat/",
-    "count": 448,
+    "count": 488,
     "rects": 32,
     "replaces": false
    }

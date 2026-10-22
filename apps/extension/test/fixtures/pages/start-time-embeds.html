@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: embeds that start part-way through</title></head>
+<body>
+<iframe src="https://www.youtube.com/embed/aqz-KE-bpKQ?start=75" title="YouTube, start="></iframe>
+<iframe src="https://player.twitch.tv/?video=v1234567890&parent=localhost&time=1h2m3s" title="Twitch VOD, time="></iframe>
+<iframe src="https://player.vimeo.com/video/76979871#t=30s" title="Vimeo, #t="></iframe>
+<!-- A live channel has no position: the t= is ignored. -->
+<iframe src="https://player.twitch.tv/?channel=somechannel&parent=localhost&t=40" title="Twitch live, t="></iframe>
+</body></html>

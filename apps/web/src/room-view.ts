@@ -7,11 +7,12 @@ import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
-import { createAnimator, type FurnitureLoop } from "./walk/animator";
+import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
+import { oneShotFrame } from "./walk/motion";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
 import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
-import { createWalks, emptyPose, type Dir } from "./walk/walks";
+import { createWalks, emptyPose, type Dir, type Pose } from "./walk/walks";
 import { wearsBare, wornHat } from "./accessory/hat";
 import type { TintableSheets } from "./walk/tint-sheets";
 import type { AccessoryAtlas } from "./accessory/accessories-sheet";
@@ -56,6 +57,14 @@ export interface RoomViewOptions {
   readonly roomId?: string;
   /** Server time now (clock.ts), so every client's cats change slot together; the local clock without one. */
   readonly serverNow?: () => number;
+  /** The room's sounds (OME-1638, audio/): each drawn pose (footfalls, sit/stand), the door, emote pops. */
+  readonly sound?: RoomSound;
+}
+
+/** What the room view tells the sound engine; room.ts forwards it to the lazy audio chunk once loaded. */
+export interface RoomSound {
+  pose(id: MemberId, pose: Pose): void;
+  play(name: string): void;
 }
 
 export interface RoomView {
@@ -68,6 +77,10 @@ export interface RoomView {
   loops(): { key: string; frame: number }[];
   /** The wandering cats (OME-1520), for e2e: each one's floor cell ("col,row"), whether it walks, and the 20 s slot it is in. */
   cats(): { cell: string; walking: boolean; slot: number }[];
+  /** The cats' cells now (walk cells; a walking cat: the one it crosses), for /pet and a pet's heart (OME-1669). */
+  catCells(): number[];
+  /** The cat on `cell` shows a heart for one play (OME-1669); nothing under reduced motion. */
+  petCat(cell: number): void;
   /** Where members stand (walk cells: a cat waits rather than walk into one), and the owner editor's freeze (cats home). Per change. */
   setCatRules(taken: ReadonlySet<number>, frozen: boolean): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
@@ -103,11 +116,18 @@ export interface RoomView {
   confetti(): void;
   /** How many confetti bursts have played, for e2e. */
   confettiBursts(): number;
+  /**
+   * Reaction glyph bursts (OME-1631) may play now: Smooth, no reduced motion, and the last render's work under
+   * REACTION_NEAR_BUDGET_MS. Read once per burst.
+   */
+  reactionsAllowed(): boolean;
   destroy(): void;
 }
 
 /** A hidden member's avatar (OME-769): still there, plainly set apart. */
 export const DIMMED_ALPHA = 0.4;
+/** A Smooth render that took this long (ms) is near the 8 ms walk25 budget: reaction glyphs sit it out (OME-1631). */
+export const REACTION_NEAR_BUDGET_MS = 6;
 /** An away member's avatar (OME-911): dimmed, but less than a hidden one. */
 export const AWAY_ALPHA = 0.55;
 
@@ -457,6 +477,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   showTier();
   /** The rAF timestamp of the frame being drawn; one callback made once, so a frame allocates nothing. */
   let frameTs = 0;
+  /** The last render's own work (ms), for the reaction glyphs' gate. */
+  let lastWorkMs = 0;
   let frameFn: (() => void) | null = null;
   const onFrame = (t: number): void => {
     frameTs = t;
@@ -466,6 +488,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     reducedMotion: () => reduced.matches,
     smooth: tier.smooth,
     onDoor: () => {
+      opts.sound?.play("door");
       arrive();
     },
     onTeleport: (from, to) => {
@@ -493,6 +516,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     smooth: tier.smooth,
     drawProps: (now) => drawCats(now),
     rendered(start, walking) {
+      lastWorkMs = performance.now() - start;
       probe.rendered(start, frameTs, walking);
       showTier();
     },
@@ -525,6 +549,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       }
       if (!pose.walking && (entry.walking || moved)) opts.onStop?.(id, x, y);
       entry.walking = pose.walking;
+      opts.sound?.pose(id, pose);
     },
     drawEmote(id, frame, x, y) {
       const entry = pool.get(id);
@@ -569,6 +594,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     readonly sprite: Sprite;
     /** Where this slot's walk ends (or ended). */
     cell: number;
+    /** Petted (OME-1669): when the heart sticker over the cat started (-1: none), and its sprite, made on the first pet. */
+    petAt: number;
+    heart: Sprite | null;
   }
   const catWalks = createWalks({ reducedMotion: () => reduced.matches, smooth: tier.smooth });
   const catPose = emptyPose();
@@ -606,7 +634,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   };
   /** The scene's cats, put on this slot's resting cell like on every other client. */
   const setCats = (found: readonly { readonly w: CatWalker; readonly bedSprite: Sprite; readonly asleep: Texture }[], sheets: readonly (Sheet | null)[], grid: Uint8Array): void => {
-    for (const c of cats) c.sprite.destroy();
+    for (const c of cats) {
+      c.sprite.destroy();
+      c.heart?.destroy();
+    }
     const tex = (k: string): Texture | undefined => sheets.map((sh) => sh?.texture(k)).find((t) => t !== undefined);
     const was = new Map(cats.map((c) => [c.id, c.cell]));
     const key = `${found.map((f) => String(f.w.home)).join(",")}|${grid.join("")}`;
@@ -623,7 +654,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const id = `cat:${String(f.w.piece)}`;
       const sprite = new Sprite({ texture: se, label: id, visible: false });
       objectLayer.addChild(sprite);
-      return [{ id, w: f.w, bedSprite: f.bedSprite, asleep: f.asleep, bed, walk, sit: { se, sw }, sprite, cell: keep ? (was.get(id) ?? f.w.home) : f.w.home }];
+      return [{ id, w: f.w, bedSprite: f.bedSprite, asleep: f.asleep, bed, walk, sit: { se, sw }, sprite, cell: keep ? (was.get(id) ?? f.w.home) : f.w.home, petAt: -1, heart: null }];
     });
     catWalks.setGrid(grid);
     if (keep) catWalks.place(cats.map(catTarget), performance.now());
@@ -635,6 +666,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     let walking = false;
     for (const c of cats) {
       if (!catWalks.sample(c.id, now, catPose)) continue;
+      // Drawn first and unconditionally: `walking ||= drawHeart()` would skip it once another cat walks.
+      if (drawHeart(c, now)) walking = true;
       const home = !catPose.walking && c.cell === c.w.home;
       const bedTexture = home ? c.asleep : c.bed;
       if (c.bedSprite.texture !== bedTexture) c.bedSprite.texture = bedTexture;
@@ -654,6 +687,26 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       walking ||= catPose.walking;
     }
     return walking;
+  }
+  /** The petted cat's heart (OME-1669: `emote/heart`, one play over `catPose`; allocates only its sprite, once); true while it plays so frames keep coming. */
+  function drawHeart(c: Cat, now: number): boolean {
+    if (c.petAt < 0) return false;
+    const cycle = motion?.frames.emote.heart;
+    const f = cycle === undefined ? null : oneShotFrame(cycle.ms, now - c.petAt);
+    const key = f === null || f.index < 0 ? undefined : cycle?.frames[f.index];
+    const t = key === undefined ? undefined : motion?.texture(key);
+    if (t === undefined) {
+      if (c.heart !== null) c.heart.visible = false;
+      if (f === null || f.nextIn === Infinity) c.petAt = -1;
+      return false;
+    }
+    if (c.heart === null) {
+      c.heart = new Sprite({ texture: t, label: `emote:${c.id}` });
+      emoteLayer.addChild(c.heart);
+    } else if (c.heart.texture !== t) c.heart.texture = t;
+    c.heart.position.set(catPose.x, catPose.y - EMOTE_LIFT.idle);
+    c.heart.visible = true;
+    return true;
   }
 
   // The theme's effect (ADR 0052): particles on a small overlay canvas over the effect's band only, at 1 px per stage px
@@ -1025,6 +1078,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         return [{ cell: `${String(colOf(cell))},${String(rowOf(cell))}`, walking: catPose.walking, slot }];
       });
     },
+    catCells() {
+      const now = performance.now();
+      return cats.flatMap((c) => (catWalks.sample(c.id, now, catPose) ? [cellAt(catPose)] : []));
+    },
+    petCat(cell) {
+      if (reduced.matches) return;
+      const now = performance.now();
+      for (const c of cats) if (catWalks.sample(c.id, now, catPose) && cellAt(catPose) === cell) c.petAt = now;
+      animator.wake();
+    },
     setCatRules(taken, frozen) {
       catTaken = taken;
       if (frozen === catsFrozen) return;
@@ -1117,6 +1180,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     paused: () => paused,
     renders: () => renders,
     emote(id, kind) {
+      opts.sound?.play("pop");
       animator.emote(id, kind);
     },
     setDimmed(id, on) {
@@ -1170,6 +1234,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (confetti.fire()) confettiBursts++;
     },
     confettiBursts: () => confettiBursts,
+    reactionsAllowed: () => !reduced.matches && tier.smooth() && lastWorkMs < REACTION_NEAR_BUDGET_MS,
     destroy() {
       destroyed = true;
       clearTimeout(catTimer);

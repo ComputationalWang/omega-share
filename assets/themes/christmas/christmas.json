@@ -2160,6 +2160,246 @@
     "y": 3.0625
    }
   },
+  "christmas/hat/watch/base/juno/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.56,
+    "y": 3.125
+   }
+  },
+  "christmas/hat/watch/laugh/juno/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.6,
+    "y": 3.3125
+   }
+  },
+  "christmas/hat/watch/laugh/juno/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.56,
+    "y": 3.125
+   }
+  },
+  "christmas/hat/watch/gasp/juno/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.56,
+    "y": 3.25
+   }
+  },
+  "christmas/hat/watch/gasp/juno/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.56,
+    "y": 3.0625
+   }
+  },
+  "christmas/hat/watch/base/juno/nw/0": {
+   "frame": {
+    "x": 164,
+    "y": 34,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.44,
+    "y": 3.125
+   }
+  },
+  "christmas/hat/watch/laugh/juno/nw/0": {
+   "frame": {
+    "x": 164,
+    "y": 34,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.4,
+    "y": 3.3125
+   }
+  },
+  "christmas/hat/watch/laugh/juno/nw/1": {
+   "frame": {
+    "x": 164,
+    "y": 34,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.44,
+    "y": 3.125
+   }
+  },
+  "christmas/hat/watch/gasp/juno/nw/0": {
+   "frame": {
+    "x": 164,
+    "y": 34,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.44,
+    "y": 3.25
+   }
+  },
+  "christmas/hat/watch/gasp/juno/nw/1": {
+   "frame": {
+    "x": 164,
+    "y": 34,
+    "w": 25,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.44,
+    "y": 3.0625
+   }
+  },
   "christmas/hat/walk/juno/se/0": {
    "frame": {
     "x": 42,
@@ -4825,6 +5065,246 @@
    }
   },
   "christmas/hat/yawn/pip/sit/nw/1": {
+   "frame": {
+    "x": 158,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.4
+   }
+  },
+  "christmas/hat/watch/base/pip/ne/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.45
+   }
+  },
+  "christmas/hat/watch/laugh/pip/ne/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5416666666666666,
+    "y": 2.6
+   }
+  },
+  "christmas/hat/watch/laugh/pip/ne/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.45
+   }
+  },
+  "christmas/hat/watch/gasp/pip/ne/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.55
+   }
+  },
+  "christmas/hat/watch/gasp/pip/ne/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.4
+   }
+  },
+  "christmas/hat/watch/base/pip/nw/0": {
+   "frame": {
+    "x": 158,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.45
+   }
+  },
+  "christmas/hat/watch/laugh/pip/nw/0": {
+   "frame": {
+    "x": 158,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.4583333333333333,
+    "y": 2.6
+   }
+  },
+  "christmas/hat/watch/laugh/pip/nw/1": {
+   "frame": {
+    "x": 158,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.45
+   }
+  },
+  "christmas/hat/watch/gasp/pip/nw/0": {
+   "frame": {
+    "x": 158,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 2.55
+   }
+  },
+  "christmas/hat/watch/gasp/pip/nw/1": {
    "frame": {
     "x": 158,
     "y": 0,
@@ -7536,6 +8016,246 @@
     "y": 2.6875
    }
   },
+  "christmas/hat/watch/base/mo/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 17,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.75
+   }
+  },
+  "christmas/hat/watch/laugh/mo/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 17,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5555555555555556,
+    "y": 2.9375
+   }
+  },
+  "christmas/hat/watch/laugh/mo/ne/1": {
+   "frame": {
+    "x": 183,
+    "y": 17,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.75
+   }
+  },
+  "christmas/hat/watch/gasp/mo/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 17,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.875
+   }
+  },
+  "christmas/hat/watch/gasp/mo/ne/1": {
+   "frame": {
+    "x": 183,
+    "y": 17,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.6875
+   }
+  },
+  "christmas/hat/watch/base/mo/nw/0": {
+   "frame": {
+    "x": 136,
+    "y": 21,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.75
+   }
+  },
+  "christmas/hat/watch/laugh/mo/nw/0": {
+   "frame": {
+    "x": 136,
+    "y": 21,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.4444444444444444,
+    "y": 2.9375
+   }
+  },
+  "christmas/hat/watch/laugh/mo/nw/1": {
+   "frame": {
+    "x": 136,
+    "y": 21,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.75
+   }
+  },
+  "christmas/hat/watch/gasp/mo/nw/0": {
+   "frame": {
+    "x": 136,
+    "y": 21,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.875
+   }
+  },
+  "christmas/hat/watch/gasp/mo/nw/1": {
+   "frame": {
+    "x": 136,
+    "y": 21,
+    "w": 27,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 16
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.6875
+   }
+  },
   "christmas/hat/walk/mo/se/0": {
    "frame": {
     "x": 183,
@@ -10224,6 +10944,246 @@
     "y": 3.066666666666667
    }
   },
+  "christmas/hat/watch/base/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 34,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.6190476190476191,
+    "y": 3.1333333333333333
+   }
+  },
+  "christmas/hat/watch/laugh/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 34,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.6666666666666666,
+    "y": 3.3333333333333335
+   }
+  },
+  "christmas/hat/watch/laugh/kiki/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 34,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.6190476190476191,
+    "y": 3.1333333333333333
+   }
+  },
+  "christmas/hat/watch/gasp/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 34,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.6190476190476191,
+    "y": 3.2666666666666666
+   }
+  },
+  "christmas/hat/watch/gasp/kiki/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 34,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.6190476190476191,
+    "y": 3.066666666666667
+   }
+  },
+  "christmas/hat/watch/base/kiki/nw/0": {
+   "frame": {
+    "x": 94,
+    "y": 38,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.38095238095238093,
+    "y": 3.1333333333333333
+   }
+  },
+  "christmas/hat/watch/laugh/kiki/nw/0": {
+   "frame": {
+    "x": 94,
+    "y": 38,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.3333333333333333,
+    "y": 3.3333333333333335
+   }
+  },
+  "christmas/hat/watch/laugh/kiki/nw/1": {
+   "frame": {
+    "x": 94,
+    "y": 38,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.38095238095238093,
+    "y": 3.1333333333333333
+   }
+  },
+  "christmas/hat/watch/gasp/kiki/nw/0": {
+   "frame": {
+    "x": 94,
+    "y": 38,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.38095238095238093,
+    "y": 3.2666666666666666
+   }
+  },
+  "christmas/hat/watch/gasp/kiki/nw/1": {
+   "frame": {
+    "x": 94,
+    "y": 38,
+    "w": 21,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 21,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 21,
+    "h": 15
+   },
+   "anchor": {
+    "x": 0.38095238095238093,
+    "y": 3.066666666666667
+   }
+  },
   "christmas/hat/walk/kiki/se/0": {
    "frame": {
     "x": 190,
@@ -11053,7 +12013,7 @@
    },
    "hat": {
     "prefix": "christmas/hat/",
-    "count": 448,
+    "count": 488,
     "rects": 16,
     "replaces": true
    }

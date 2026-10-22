@@ -83,6 +83,14 @@ impl AnyEmbed {
         matches!(self, Self::Synced(_))
     }
 
+    /// `nowPlayingOf` (OME-1625): what `GET /rooms` may say a listed room plays; none for a generic embed.
+    pub fn now_playing(&self) -> Option<super::embed::NowPlaying> {
+        match self {
+            Self::Generic(_) => None,
+            Self::Synced(e) => e.now_playing(),
+        }
+    }
+
     pub fn url(&self) -> &str {
         match self {
             Self::Generic(e) => e.url(),

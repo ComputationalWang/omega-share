@@ -8,7 +8,11 @@ import { initialState, reduce, type ViewState } from "../src/state";
 // player, or a generic page's load card (ADR 0024 §3) with no sync chrome.
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "https://omega.example/r/main" });
+  // No network in tests: a script load fails the way a content blocker makes it fail (OME-1665).
+  GlobalRegistrator.register({
+    url: "https://omega.example/r/main",
+    settings: { disableJavaScriptFileLoading: true, handleDisabledFileLoadingAsSuccess: false, navigation: { disableChildFrameNavigation: true } },
+  });
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();
@@ -70,5 +74,20 @@ describe("room TV", () => {
     tv.sync(withEmbed(null));
     expect(tv.personal.hidden).toBe(false);
     expect(tv.controls.childElementCount).toBeGreaterThan(2);
+  });
+
+  test("a Twitch VOD whose player API is blocked still plays, unsynced, in a plain player iframe (OME-1665)", async () => {
+    const { tv } = await setup();
+    tv.sync(withEmbed({ provider: "twitch", kind: "vod", videoId: "1234567890", url: "https://player.twitch.tv/?video=v1234567890" }));
+    for (let i = 0; i < 100 && tv.notice.hidden; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(tv.notice.hidden).toBe(false);
+    expect(tv.notice.textContent).toContain("The video plays here without sync");
+    const frames = tv.tv.querySelectorAll("iframe");
+    expect(frames).toHaveLength(1);
+    const src = new URL(frames[0]?.getAttribute("src") ?? "");
+    expect(src.origin).toBe("https://player.twitch.tv");
+    expect(src.searchParams.get("video")).toBe("v1234567890");
+    expect(src.searchParams.get("parent")).toBe("omega.example");
+    expect(frames[0]?.getAttribute("sandbox")).toContain("allow-scripts");
   });
 });

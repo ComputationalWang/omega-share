@@ -320,6 +320,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
+    // Timed reactions (OME-1625): the moments strip and replay (OME-1628/1631) keep their own timeline.
+    case "reacted":
     // The dank-dungeon pair (OME-1671): drawn by OME-1672, never part of the view state.
     case "pair-invited":
     case "paired":

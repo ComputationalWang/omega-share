@@ -17,7 +17,8 @@ export type ConnectionEvent =
   | { readonly type: "room-closed"; readonly takenDown?: true }
   /** 4005: the owner kicked us, or we came back inside the rejoin cooldown (ADR 0030). Terminal, like room-closed. */
   | { readonly type: "kicked"; readonly wasIn: boolean }
-  | { readonly type: "message"; readonly msg: ServerMessage }
+  /** Never a `batch`: the connection reads one as its messages, in order (OME-1627). */
+  | { readonly type: "message"; readonly msg: SingleMessage }
   /** A snapshot carried a resume token (ADR 0043): the caller persists it. Never log it. */
   | { readonly type: "session"; readonly token: ResumeToken }
   /** `resume_expired` before a snapshot. Terminal: clear the stored record and show the ordinary Enter; never rejoin tokenless automatically. */
@@ -29,6 +30,9 @@ export type ConnectionEvent =
   | { readonly type: "session-lost" }
   /** 4007: another socket resumed this identity. Terminal until the user asks for `reclaim()`. */
   | { readonly type: "replaced" };
+
+/** A server message other than the relay `batch` frame that carries them (OME-1624). */
+export type SingleMessage = Exclude<ServerMessage, { readonly type: "batch" }>;
 
 export interface ConnectionOptions<Timer = unknown> {
   readonly url: string;
@@ -123,8 +127,9 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
     const base = { ...opts.join };
     delete base.durableSession;
     delete base.resumeToken;
-    if (token !== null) return { ...base, resumeToken: token };
-    return opts.durable === true ? { ...base, durableSession: true } : base;
+    // Opt in to relay batch frames (OME-1624); onmessage unwraps them.
+    if (token !== null) return { ...base, resumeToken: token, batch: true };
+    return opts.durable === true ? { ...base, durableSession: true, batch: true } : { ...base, batch: true };
   };
 
   const connect = (): void => {
@@ -143,13 +148,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       opts.onOpen?.();
       s.send(JSON.stringify(joinMessage()));
     };
-    s.onmessage = (ev) => {
-      // A socket we already let go of (close(), a reconnect) says nothing more.
-      if (socket !== s) return;
-      if (typeof ev.data !== "string") return;
-      const msg = parseServerMessage(ev.data);
-      if (msg === null) return;
-      clearProbe();
+    const onServerMessage = (msg: SingleMessage): void => {
       if (!joined && msg.type === "error" && msg.code === "resume_expired" && everJoined && token !== null) {
         // We were in the room on this page, so this is a server that lost its tokens (restart, crash), not a cold boot
         // on an old record: rejoin once, tokenless and durable. That join can't be resume_expired again, and a kick is
@@ -207,6 +206,23 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       } else if (msg.code === "rate_limited") {
         retryAfter = msg.retryAfterMs ?? RATE_LIMITED_RECONNECT_MS;
         s.close(1000);
+      }
+    };
+    s.onmessage = (ev) => {
+      // A socket we already let go of (close(), a reconnect) says nothing more.
+      if (socket !== s) return;
+      if (typeof ev.data !== "string") return;
+      const frame = parseServerMessage(ev.data);
+      if (frame === null) return;
+      clearProbe();
+      if (frame.type !== "batch") {
+        onServerMessage(frame);
+        return;
+      }
+      // shortcut: only a let-go socket stops the rest of a batch; a refusal's s.close() doesn't, fine while batches only carry relays to joined members.
+      for (const msg of frame.msgs) {
+        if (socket !== s) return;
+        onServerMessage(msg);
       }
     };
     s.onerror = null;

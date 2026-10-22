@@ -10,7 +10,7 @@ interface Atlas {
   meta: { omega: { accessories: Record<string, { prefix: string; count: number }> } };
 }
 const a = JSON.parse(read("accessories/accessories.json").toString("utf8")) as Atlas;
-const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expressions.json"]
+const avatarKeys = ["avatars/avatars.json", "avatars/motion.json", "avatars/expressions.json", "avatars/watching.json"]
   .flatMap((f) => Object.keys((JSON.parse(read(f).toString("utf8")) as Atlas).frames))
   .filter((k) => !k.startsWith("emote/"));
 
@@ -43,9 +43,9 @@ test("bare-head frames for Pip and Mo, every frame key, in the avatar cell shape
   expect(avatars).toEqual(["pip", "mo"]);
   expect(accessories).toEqual(["partyhat", "crown", "headphones", "cap", "bow"]);
   const keys = avatarKeys.filter((k) => /(^|\/)(pip|mo)\//.test(k));
-  expect(keys.length).toBe(224);
+  expect(keys.length).toBe(244);
   expect(keys.filter((k) => !bare.frames[`${prefix}${k}`])).toEqual([]);
-  expect(Object.keys(bare.frames).length).toBe(224);
+  expect(Object.keys(bare.frames).length).toBe(244);
   for (const f of Object.values(bare.frames)) {
     expect([f.frame.w, f.frame.h]).toEqual([32, 64]);
     expect(f.anchor).toEqual({ x: 0.5, y: 61 / 64 });
@@ -55,8 +55,9 @@ test("bare-head frames for Pip and Mo, every frame key, in the avatar cell shape
 test("the bare sheet is PNG-8 and small", () => {
   const png = read("accessories/bare.png");
   expect([png[24], png[25]]).toEqual([8, 3]);
-  // 18 KB since OME-1697 added the reach frames (16 KB before).
-  expect(png.length).toBeLessThan(18 * 1024);
+  // OME-1640: the watching poses add 20 bare frames (+1.9 KB).
+  // OME-1697: the reach frames add 16 more (+1.6 KB).
+  expect(png.length).toBeLessThan(19 * 1024);
 });
 
 // OME-1530: the web swaps each avatar's tint and hair slots in its hat overlays, so the new four keep off those ramps.
