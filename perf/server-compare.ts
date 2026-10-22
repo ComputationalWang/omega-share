@@ -4,6 +4,7 @@
  *   bun perf/server-compare.ts --server "bun apps/server/src/index.ts" --label ts > ts-1.json
  *   bun perf/server-compare.ts --server "apps-server-rs/target/release/omega-server serve" --label rs > rs-1.json
  *   bun perf/server-compare.ts --compare ts-1.json rs-1.json [--noise 5]
+ *   add `--batch 1` to a run to have every member join with `batch: true` (relay batch frames, OME-1624)
  *
  * The server is any command that honours the env contract (PORT, HOST, DB_PATH, ...) and prints
  * `omega-share server on http://host:port/`. Rooms are seeded into a fresh DB before it starts. Each room
@@ -67,7 +68,7 @@ export function parseArgs(argv: string[]): Args {
     duration: intIn("--duration", flags.get("duration"), 60, 1, 3600),
     probes: intIn("--probes", flags.get("probes"), 60, 1, 100_000),
     noise,
-    batch: false,
+    batch: intIn("--batch", flags.get("batch"), 0, 0, 1) === 1,
   };
 }
 
@@ -95,13 +96,16 @@ interface Report {
   server: string;
   rooms: number;
   members: number;
+  /** `--batch 1`: every member joined with `batch: true` (OME-1624). */
+  batch: boolean;
   durationS: number;
   samples: number;
   latencyMs: { count: number; p50: number; p95: number; p99: number; max: number };
   probeTimeouts: number;
   rssBytes: { idle: number; avg: number; peak: number };
   cpuPct: { avg: number; peak: number };
-  frames: { sent: number; received: number };
+  /** `received` counts messages, a `batch` frame as the messages inside it; `batches` counts those frames. */
+  frames: { sent: number; received: number; batches: number };
   rateLimited: number;
   unexpectedCloses: number;
   serverExit: { code: number | null; signal: string | null; stderrTail: string };
@@ -167,6 +171,7 @@ async function run(args: Extract<Args, { mode: "run" }>): Promise<Report> {
   const timers: Timer[] = [];
   let sent = 0;
   let received = 0;
+  let batches = 0;
   let rateLimited = 0;
   let unexpectedCloses = 0;
   let stopping = false;
@@ -199,25 +204,31 @@ async function run(args: Extract<Args, { mode: "run" }>): Promise<Report> {
         const m: Member = { ws: null, self: "", onPlayback: null };
         const ws = new WsConn(port, addr, `/rooms/${room}/ws`, {
           open: () => {
-            ws.send(JSON.stringify({ type: "join", nickname: `${room}-m${String(i)}`, avatar: i % 4 }));
+            ws.send(JSON.stringify({ type: "join", nickname: `${room}-m${String(i)}`, avatar: i % 4, ...(args.batch ? { batch: true } : {}) }));
             sent++;
           },
-          text: (d) => {
-            received++;
-            if (d.startsWith('{"type":"playback"') && m.onPlayback !== null) {
-              const p = (JSON.parse(d) as { playback: { by: string; position: number } }).playback;
-              m.onPlayback(p.by, p.position);
-            } else if (d.includes('"rate_limited"')) rateLimited++;
-            else if (m.self === "" && d.startsWith('{"type":"snapshot"')) {
-              m.self = (JSON.parse(d) as { self: string }).self;
-              resolve(m);
-            } else if (d.startsWith('{"type":"room-full"')) reject(new Error("room full"));
+          text: (frame) => {
+            if (frame.startsWith('{"type":"batch"')) {
+              batches++;
+              for (const msg of (JSON.parse(frame) as { msgs: unknown[] }).msgs) onMessage(JSON.stringify(msg));
+            } else onMessage(frame);
           },
           close: (why) => {
             if (!stopping) unexpectedCloses++;
             reject(new Error(`closed before join: ${why}`));
           },
         });
+        const onMessage = (d: string): void => {
+          received++;
+          if (d.startsWith('{"type":"playback"') && m.onPlayback !== null) {
+            const p = (JSON.parse(d) as { playback: { by: string; position: number } }).playback;
+            m.onPlayback(p.by, p.position);
+          } else if (d.includes('"rate_limited"')) rateLimited++;
+          else if (m.self === "" && d.startsWith('{"type":"snapshot"')) {
+            m.self = (JSON.parse(d) as { self: string }).self;
+            resolve(m);
+          } else if (d.startsWith('{"type":"room-full"')) reject(new Error("room full"));
+        };
         m.ws = ws;
         sockets.push(ws);
       });
@@ -294,13 +305,14 @@ async function run(args: Extract<Args, { mode: "run" }>): Promise<Report> {
       server: args.label,
       rooms: args.rooms,
       members: args.members,
+      batch: args.batch,
       durationS: Math.round(dur * 10) / 10,
       samples: samples.length,
       latencyMs: { count: lat.length, p50: percentile(lat, 50), p95: percentile(lat, 95), p99: percentile(lat, 99), max: lat[lat.length - 1] ?? 0 },
       probeTimeouts,
       rssBytes: { idle, avg: avg(samples.map((s) => s.rss)), peak: Math.max(hwm, ...samples.map((s) => s.rss)) },
       cpuPct: { avg: avg(samples.map((s) => s.cpu)), peak: Math.max(0, ...samples.map((s) => s.cpu)) },
-      frames: { sent, received },
+      frames: { sent, received, batches },
       rateLimited,
       unexpectedCloses,
       serverExit: { code: proc.exitCode, signal: proc.signalCode, stderrTail: stderr().slice(-500) },

@@ -12,6 +12,8 @@
  *  - ephemeral rooms created over HTTP, joined by an owner and guests, shared into, then deleted;
  *  - abuse that must be cut without touching anyone else: chat floods, oversize frames, malformed frames, a stalled reader and a slow body;
  *  - abuse reports over HTTP;
+ *  - every other steady member joins with `batch: true` and unwraps relay `batch` frames; `--relay-batch-ms` (default 8) is the
+ *    server's RELAY_BATCH_MS, and above 0 the opted-in members must see batch frames. The TS reference never batches: pass 0;
  *  - every `--restart-every-min`, a quiesce (metrics gauges and counters checked against this client's own counts), SIGTERM,
  *    exit 0 within 10 s with empty stderr, a new process on the same DB, and every seated member rejoining by name to find its seat held.
  * Clients use TRUST_PROXY=loopback and a distinct X-Forwarded-For each, so per-client limits apply as behind Caddy.
@@ -97,6 +99,8 @@ class Client {
     readonly ip: string,
     readonly durable: boolean,
     readonly owner: boolean,
+    /** Joins with `batch: true` (OME-1624), as every web client does since OME-1627. */
+    readonly batch = false,
   ) {}
   send(msg: object): boolean {
     return this.ws?.send(JSON.stringify(msg)) ?? false;
@@ -120,7 +124,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
   const timeline = join(out, "timeline.jsonl");
   writeFileSync(timeline, "");
   const [port, metricsPort] = [await freePort(), await freePort()];
-  const env = { HOST: "127.0.0.1", PORT: String(port), DB_PATH: dbPath, ADMIN_SOCKET: "off", METRICS_PORT: String(metricsPort), SITE_ORIGIN, TRUST_PROXY: "loopback" };
+  const env = { HOST: "127.0.0.1", PORT: String(port), DB_PATH: dbPath, ADMIN_SOCKET: "off", METRICS_PORT: String(metricsPort), SITE_ORIGIN, TRUST_PROXY: "loopback", RELAY_BATCH_MS: String(args.relayBatchMs) };
 
   const t0 = performance.now();
   const now = (): number => performance.now() - t0;
@@ -141,6 +145,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
   let unplannedExits = 0;
   let probeTimeouts = 0;
   let badMessages = 0;
+  const batch: SoakResult["batch"] = { relayBatchMs: args.relayBatchMs, frames: 0, msgs: 0, unopted: 0 };
   let stopping = false as boolean;
   let paused = false as boolean;
   const stopped = (): boolean => stopping;
@@ -225,7 +230,17 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
   };
   const open = new Set<Client>();
   const onText = (c: Client, d: string, done: { ok: () => void; fail: (why: string) => void }): void => {
-    if (d.startsWith('{"type":"playback"')) {
+    if (d.startsWith('{"type":"batch"')) {
+      const msgs = (JSON.parse(d) as { msgs: unknown[] }).msgs;
+      if (!c.batch) {
+        batch.unopted++;
+        note("batch frame to a member that did not opt in", c.nickname);
+      }
+      batch.frames++;
+      batch.msgs += msgs.length;
+      // Re-serialized, the inner messages keep their key order, so the prefix dispatch below still works.
+      for (const m of msgs) onText(c, JSON.stringify(m), done);
+    } else if (d.startsWith('{"type":"playback"')) {
       const p = (JSON.parse(d) as { playback: { by: string; position: number } }).playback;
       c.onPlayback?.(p.by, p.position);
     } else if (d.startsWith('{"type":"snapshot"')) {
@@ -291,6 +306,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
               ...(c.owner ? { ownerToken: c.room.ownerToken } : {}),
               ...(c.room.inviteKey !== null && !c.owner ? { inviteKey: c.room.inviteKey } : {}),
               ...(resume === undefined ? (c.durable ? { durableSession: true } : {}) : { resumeToken: resume }),
+              ...(c.batch ? { batch: true } : {}),
             });
           },
           text: (d) => { onText(c, d, done); },
@@ -357,8 +373,8 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
 
   // ---- steady rooms ----
   const rooms: RoomRef[] = [];
-  const addMember = async (room: RoomRef, name: string, owner = false): Promise<Client> => {
-    const c = new Client(room, name, rnd(4), nextIp(), !owner && rnd(2) === 0, owner);
+  const addMember = async (room: RoomRef, name: string, owner = false, batch = false): Promise<Client> => {
+    const c = new Client(room, name, rnd(4), nextIp(), !owner && rnd(2) === 0, owner, batch);
     await connectClient(c);
     startTraffic(c);
     return c;
@@ -369,7 +385,8 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
       const room: RoomRef = { ...made, kind: i < Math.ceil(args.rooms / 2) ? "probe" : "churn", embedUrl: watchUrl(0), itemId: null, queueLen: 0, clients: [] };
       rooms.push(room);
       room.clients.push(await addMember(room, `r${String(i)}owner`, true));
-      for (let j = 1; j < args.members; j++) room.clients.push(await addMember(room, `r${String(i)}m${String(j)}`));
+      // Every other member opts into relay batch frames; the rest keep covering one frame per message.
+      for (let j = 1; j < args.members; j++) room.clients.push(await addMember(room, `r${String(i)}m${String(j)}`, false, j % 2 === 1));
       const owner = room.clients[0];
       if (owner !== undefined) {
         const r = await api("POST", `/rooms/${room.id}/share`, { ip: nextIp(), bearer: owner.shareToken, body: JSON.stringify({ url: watchUrl(0) }) });
@@ -397,13 +414,13 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
       c.ws?.close();
     } else c.ws?.drop();
     await sleep(500 + rnd(1500));
-    const fresh = new Client(room, c.nickname, c.avatar, c.ip, c.durable, false);
+    const fresh = new Client(room, c.nickname, c.avatar, c.ip, c.durable, false, c.batch);
     if (way === "resume") {
       try {
         await connectClient(fresh, c.resumeToken);
       } catch {
         op("resume-failed");
-        await connectClient(new Client(room, c.nickname, c.avatar, c.ip, c.durable, false)).then(() => undefined);
+        await connectClient(new Client(room, c.nickname, c.avatar, c.ip, c.durable, false, c.batch)).then(() => undefined);
         return;
       }
     } else await connectClient(fresh);
@@ -503,7 +520,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
       target.stopTraffic();
       owner.send({ type: "kick", memberId: target.self });
       await sleep(1500);
-      const fresh = new Client(room, `r${letters(8)}`, rnd(4), nextIp(), false, false);
+      const fresh = new Client(room, `r${letters(8)}`, rnd(4), nextIp(), false, false, target.batch);
       await connectClient(fresh);
       room.clients[idx] = fresh;
       startTraffic(fresh);
@@ -800,7 +817,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     let restored = 0;
     await Promise.all(
       all.map(async ({ room, i, c }) => {
-        const fresh = new Client(room, c.nickname, c.avatar, c.ip, c.durable, c.owner);
+        const fresh = new Client(room, c.nickname, c.avatar, c.ip, c.durable, c.owner, c.batch);
         try {
           await connectClient(fresh);
         } catch (err) {
@@ -879,7 +896,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     integrity,
     consistency,
     abuse: [...abuse].map(([kind, a]) => ({ kind, ...a })),
-    batch: { relayBatchMs: args.relayBatchMs, frames: 0, msgs: 0, unopted: 0 },
+    batch,
   };
   const checks = evaluate(result);
   const pass = checks.every((c) => !c.enforced || c.ok);
@@ -901,6 +918,9 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     errorsSeen: Object.fromEntries(errorsSeen),
     ops: Object.fromEntries(ops),
     abuse: result.abuse,
+    batchFrames: batch.frames,
+    batchMsgs: batch.msgs,
+    batchUnopted: batch.unopted,
     unexpected,
     unexpectedBy: Object.fromEntries(unexpectedBy),
     consistency,
