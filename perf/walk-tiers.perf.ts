@@ -17,12 +17,13 @@
 // to a random cell and each of the others, as Follow does, walks to where the one ahead was once that one's `walked`
 // comes back: one relay round trip per link, not all 12 in one tick. The other 12 keep churning seats and free-walking.
 // walk25.conga.<metric>.<profile>.
+// Then, on the phone only, Smooth again with a reaction burst (OME-1643, Movie night): 7 bots each send EMOTE_BURST
+// `react`s, then one a refill, so the observer gets ~7 `reacted` relays a second on top of the walks; ≤ 1 % of them may go
+// unrelayed. walk25.react.<metric>.phone. PENDING while the server relays no `reacted` (OME-1632).
 // OMEGA_PERF_WALK_RUN=1 (OME-1464): the bots jog (`walk.run`) instead, for the same rows with 25 joggers.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
-import * as v from "valibot";
-import { ACCESSORY_COUNT, CONGA_CAP, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, RoomLayoutSchema, isStandable } from "@omega/shared";
+import { ACCESSORY_COUNT, CONGA_CAP, EMOTE_BURST, EMOTE_REFILL_MS, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, isStandable } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { socketUrl } from "../e2e/support/bots";
 import { watchCsp } from "../e2e/support/csp";
@@ -30,6 +31,7 @@ import { joinRoom, leaveAll, testRoom } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
 import { VSYNC_MS, tracedFrames } from "./frames";
 import { p95, recordMetric } from "./metrics";
+import { presetFile, showLayout } from "./show-layout";
 import { summarizeFrames } from "./spread";
 import { shareVideo, waitPlaying } from "./sync";
 import { walkedInWindow } from "./walkers";
@@ -44,23 +46,32 @@ const PROFILES = ["desktop", "phone"] as const;
 const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
-interface Pass { readonly tier: Tier; readonly worn: boolean; readonly conga: boolean }
-/** Each tier bare, then Smooth with everyone wearing an accessory, then Smooth with a /conga line. */
-const PASSES: readonly Pass[] = [...TIERS.map((tier) => ({ tier, worn: false, conga: false })), { tier: "smooth", worn: true, conga: false }, { tier: "smooth", worn: false, conga: true }];
+interface Pass { readonly tier: Tier; readonly worn: boolean; readonly conga: boolean; readonly react: boolean }
+/** Each tier bare, then Smooth with everyone wearing an accessory, then Smooth with a /conga line, then (phone only) Smooth with a reaction burst. */
+const PASSES: readonly Pass[] = [
+  ...TIERS.map((tier) => ({ tier, worn: false, conga: false, react: false })),
+  { tier: "smooth", worn: true, conga: false, react: false },
+  { tier: "smooth", worn: false, conga: true, react: false },
+  { tier: "smooth", worn: false, conga: false, react: true },
+];
+const passesFor = (p: Profile): readonly Pass[] => PASSES.filter((pass) => !pass.react || p === "phone");
+/** OME-1643: bots reacting in the reaction-burst pass, each at the emote bucket's rate (EMOTE_BURST, then one per EMOTE_REFILL_MS). */
+const REACTERS = 7;
+/** Just over the refill, so timer and socket jitter never land a react on an empty bucket (dropped silently). */
+const REACT_EVERY_MS = EMOTE_REFILL_MS + 20;
 /** Bots in the /conga pass's line (the cap, CONGA_CAP), and its leader's walk period in walker ticks. */
 const CONGA_LINE = CONGA_CAP;
 const CONGA_EVERY_TICKS = 3;
 const BOT_PREFIX = "w25-bot";
 const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "cafe";
 const RUN = process.env["OMEGA_PERF_WALK_RUN"] === "1";
-if (!/^[a-z]{1,12}$/.test(LAYOUT_PRESET)) throw new Error(`OMEGA_PERF_WALK_LAYOUT must be a preset id or default, not ${JSON.stringify(LAYOUT_PRESET)}`);
-const SHOWN_LAYOUT = LAYOUT_PRESET === "default" ? null : v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../assets/presets/${LAYOUT_PRESET}.json`, import.meta.url), "utf8")));
+const SHOWN_LAYOUT = LAYOUT_PRESET === "default" ? null : presetFile(LAYOUT_PRESET);
 /** Every cell a bot may walk to: free in the room's own (default) layout, which the server checks, and in the one shown. */
 const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => ({ x: i % FLOOR_CELLS, y: Math.floor(i / FLOOR_CELLS) })).filter(
   (c) => isStandable(DEFAULT_LAYOUT, c) && (SHOWN_LAYOUT === null || isStandable(SHOWN_LAYOUT, c)),
 );
 
-const rowId = (m: string, p: Profile, pass: Pass): string => (pass.worn ? `walk25.accessories.${m}.${p}` : pass.conga ? `walk25.conga.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
+const rowId = (m: string, p: Profile, pass: Pass): string => (pass.react ? `walk25.react.${m}.${p}` : pass.worn ? `walk25.accessories.${m}.${p}` : pass.conga ? `walk25.conga.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
 const ids = (p: Profile, pass: Pass): string[] => ["frameP95", "workP95", "missedVsync"].map((m) => rowId(m, p, pass));
 
 interface WalkerStats {
@@ -68,24 +79,29 @@ interface WalkerStats {
   readonly changes: number;
   /** `walked` relays seen so far (free walks to a cell). */
   readonly walks: number;
+  /** Reaction-burst pass: `react`s sent, and `reacted` relays seen by bot 1. */
+  readonly reactsSent: number;
+  readonly reacted: number;
   readonly errors: readonly string[];
   /** Bot nicknames with a seat change since the last `mark()` (sat or stood up: they walked). */
   readonly seatChanged: readonly string[];
 }
 
 /** 24 raw-socket bots on a page of the site origin, sitting on free seats and standing up again, one change per tick, and free-walking standing bots. */
-async function startWalkers(browser: Browser, roomId: string, worn: boolean, conga: number): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
+async function startWalkers(browser: Browser, roomId: string, worn: boolean, conga: number, reacters: number): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
   const context = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
   await page.evaluate(
-    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run, accessories, conga, congaEvery }) => {
+    async ({ url, bots, prefix, everyMs, cells, walksPerTick, run, accessories, conga, congaEvery, reacters, emoteBurst, reactEvery }) => {
       interface Bot { ws: WebSocket; self: string }
       const all: Bot[] = [];
       /** seats[i] is the member id holding seat i, from the server's snapshot / seat-changed / member-left stream. */
       let seats: (string | null)[] = [];
       let changes = 0;
       let walks = 0;
+      let reactsSent = 0;
+      let reacted = 0;
       let members = 0;
       /** Bot nickname by member id, and the bots whose seat changed since the last mark(). */
       const names = new Map<string, string>();
@@ -121,7 +137,8 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
             else if (n === 0 && msg.type === "member-left") {
               members--;
               seats = seats.map((s) => (s === memberId ? null : s));
-            } else if (n === 0 && msg.type === "walked") {
+            } else if (n === 0 && msg.type === "reacted") reacted++;
+            else if (n === 0 && msg.type === "walked") {
               walks++;
               // Follow: the next in line walks to where this one was, once this one's walk is relayed.
               const i = memberId === null ? -1 : lineIndex.get(memberId) ?? -1;
@@ -157,6 +174,17 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
         b.ws.send(JSON.stringify({ type: "chat", text: "/conga" }));
         await new Promise((r) => setTimeout(r, 100));
       }
+      // The reaction burst (OME-1643): each reacter empties its bucket, then reacts once a refill.
+      const kinds = ["heart", "laugh", "wow", "clap"];
+      const react = (b: Bot): void => {
+        b.ws.send(JSON.stringify({ type: "react", kind: kinds[reactsSent % kinds.length] }));
+        reactsSent++;
+      };
+      const reacting = all.slice(line.length, line.length + reacters);
+      for (const b of reacting) for (let i = 0; i < emoteBurst; i++) react(b);
+      const reactTimer = reacting.length === 0 ? 0 : window.setInterval(() => {
+        for (const b of reacting) react(b);
+      }, reactEvery);
       let tick = 0;
       const timer = window.setInterval(() => {
         tick++;
@@ -181,7 +209,7 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
           if (bot !== undefined && cell !== undefined) bot.ws.send(JSON.stringify(run ? { type: "walk", cell, run } : { type: "walk", cell }));
         }
       }, everyMs);
-      const stats = () => ({ members, changes, walks, errors: [...errors], seatChanged: [...changedSinceMark] });
+      const stats = () => ({ members, changes, walks, reactsSent, reacted, errors: [...errors], seatChanged: [...changedSinceMark] });
       Object.assign(window, {
         omegaWalkers: {
           stats,
@@ -192,13 +220,14 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
           },
           stop: () => {
             clearInterval(timer);
+            clearInterval(reactTimer);
             for (const b of all) b.ws.close();
             return stats();
           },
         },
       });
     },
-    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN, accessories: worn ? ACCESSORY_COUNT : 0, conga, congaEvery: CONGA_EVERY_TICKS },
+    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK, run: RUN, accessories: worn ? ACCESSORY_COUNT : 0, conga, congaEvery: CONGA_EVERY_TICKS, reacters, emoteBurst: EMOTE_BURST, reactEvery: REACT_EVERY_MS },
   );
   const call = async (fn: "stats" | "mark" | "stop"): Promise<WalkerStats> => {
     const raw: unknown = await page.evaluate((f): unknown => {
@@ -211,10 +240,12 @@ async function startWalkers(browser: Browser, roomId: string, worn: boolean, con
     const members: unknown = Reflect.get(raw, "members");
     const changes: unknown = Reflect.get(raw, "changes");
     const walks: unknown = Reflect.get(raw, "walks");
+    const reactsSent: unknown = Reflect.get(raw, "reactsSent");
+    const reacted: unknown = Reflect.get(raw, "reacted");
     const errors: unknown = Reflect.get(raw, "errors");
     const seatChanged: unknown = Reflect.get(raw, "seatChanged");
-    if (typeof members !== "number" || typeof changes !== "number" || typeof walks !== "number" || !Array.isArray(errors) || !Array.isArray(seatChanged)) throw new Error("walkers: bad stats");
-    return { members, changes, walks, errors: errors.map(String), seatChanged: seatChanged.map(String) };
+    if (typeof members !== "number" || typeof changes !== "number" || typeof walks !== "number" || typeof reactsSent !== "number" || typeof reacted !== "number" || !Array.isArray(errors) || !Array.isArray(seatChanged)) throw new Error("walkers: bad stats");
+    return { members, changes, walks, reactsSent, reacted, errors: errors.map(String), seatChanged: seatChanged.map(String) };
   };
   return {
     stats: () => call("stats"),
@@ -243,7 +274,7 @@ for (const profile of PROFILES) {
   test(`walk tiers: 25 members walking, ${profile}, Basic, Smooth, Smooth with accessories, Smooth with a /conga line (video playing)`, async ({ browser, request }) => {
     const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
     if (why !== null) {
-      for (const pass of PASSES) for (const id of ids(profile, pass)) recordMetric({ id, pending: why });
+      for (const pass of passesFor(profile)) for (const id of ids(profile, pass)) recordMetric({ id, pending: why });
       test.skip(true, why);
       return;
     }
@@ -265,8 +296,8 @@ for (const profile of PROFILES) {
       .toBe(true);
     const phone: BrowserContextOptions | undefined = profile === "phone" ? { ...devices["Pixel 7"] } : undefined;
     const results: { row: string; p95: number; missedPct: number; workP95: number; walking: number }[] = [];
-    for (const pass of PASSES) {
-      const { tier, worn, conga } = pass;
+    for (const pass of passesFor(profile)) {
+      const { tier, worn, conga, react } = pass;
       const clients = await joinRoom(browser, {
         roomUrl: room.url,
         count: 1,
@@ -280,38 +311,10 @@ for (const profile of PROFILES) {
             },
             { t: tier, accessory: worn ? ACCESSORY_COUNT - 1 : 0 },
           );
-          if (SHOWN_LAYOUT !== null) {
-            // In the page, not through routeWebSocket: a routed socket hands every frame over the driver, which cost the
-            // observer ~1 ms on its worst frames and made a furnished room look dearer than it is (OME-1448).
-            await context.addInitScript((layout) => {
-              const onmessage = Object.getOwnPropertyDescriptor(WebSocket.prototype, "onmessage");
-              Object.defineProperty(WebSocket.prototype, "onmessage", {
-                configurable: true,
-                get(this: WebSocket): unknown {
-                  return onmessage?.get?.call(this);
-                },
-                set(this: WebSocket, fn: ((ev: MessageEvent<unknown>) => unknown) | null) {
-                  const room = /\/rooms\/[^/]+\/ws$/.test(this.url);
-                  onmessage?.set?.call(
-                    this,
-                    fn === null || !room
-                      ? fn
-                      : (ev: MessageEvent<unknown>) => {
-                          if (typeof ev.data !== "string" || !ev.data.includes('"snapshot"')) return fn.call(this, ev);
-                          const msg: unknown = JSON.parse(ev.data);
-                          const r: unknown = typeof msg === "object" && msg !== null && Reflect.get(msg, "type") === "snapshot" ? Reflect.get(msg, "room") : null;
-                          if (typeof r !== "object" || r === null) return fn.call(this, ev);
-                          Reflect.set(r, "layout", layout);
-                          return fn.call(this, new MessageEvent("message", { data: JSON.stringify(msg) }));
-                        },
-                  );
-                },
-              });
-            }, SHOWN_LAYOUT);
-          }
+          if (SHOWN_LAYOUT !== null) await showLayout(context, SHOWN_LAYOUT);
         },
       });
-      const walkers = await startWalkers(browser, room.id, worn, conga ? CONGA_LINE : 0);
+      const walkers = await startWalkers(browser, room.id, worn, conga ? CONGA_LINE : 0, react ? REACTERS : 0);
       try {
         const [observer] = clients;
         if (observer === undefined) throw new Error("no observer");
@@ -334,6 +337,9 @@ for (const profile of PROFILES) {
         const w = await tracedFrames(browser, page, WINDOW_MS);
         const end = await botTags(page);
         const s = await walkers.stats();
+        // Reactions still in flight at the window's end get 500 ms to come back before they count as missed.
+        const reacted = react ? (await page.waitForTimeout(500), (await walkers.stats()).reacted) : 0;
+        const missedReacts = s.reactsSent === 0 ? 0 : (100 * Math.max(0, s.reactsSent - reacted)) / s.reactsSent;
         const loops: unknown =
           SHOWN_LAYOUT === null
             ? null
@@ -347,14 +353,20 @@ for (const profile of PROFILES) {
         const congaLines = await page.locator(site.chatLogLine).filter({ hasText: "/conga" }).count();
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${conga ? `, ${String(congaLines)}-person /conga line` : ""}${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${conga ? `, ${String(congaLines)}-person /conga line` : ""}${react ? `, ${String(REACTERS)} members reacting at the rate limit: ${String(reacted)} of ${String(s.reactsSent)} reactions relayed (${missedReacts.toFixed(1)} % missed)` : ""}${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
+        if (react && reacted === 0) {
+          // shortcut: until OME-1632 the server takes `react` but relays nothing, so the burst costs the observer nothing; drop this branch once it lands.
+          for (const id of ids(profile, pass)) recordMetric({ id, pending: `the server relayed no \`reacted\` (OME-1632 not merged); ${what}` });
+          continue;
+        }
+        expect(missedReacts, `≤ 1 % of the reactions go unrelayed: ${what}`).toBeLessThanOrEqual(1);
         recordMetric({ id: rowId("frameP95", profile, pass), value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: rowId("workP95", profile, pass), value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: rowId("missedVsync", profile, pass), value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
         expect(s.members).toBe(MAX_ROOM_MEMBERS);
         expect(congaLines, `the observer saw the whole /conga line: ${what}`).toBe(conga ? CONGA_LINE : 0);
         expect(walking, `the window measures walking: ${what}`).toBeGreaterThanOrEqual(MIN_WALKERS);
-        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}${conga ? " with a /conga line" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
+        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}${conga ? " with a /conga line" : ""}${react ? " with a reaction burst" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
       } finally {
         await walkers.stop();
         await leaveAll(clients);

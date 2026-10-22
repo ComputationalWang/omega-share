@@ -140,7 +140,7 @@ export const ERROR_MESSAGE_MAX_LENGTH = 200;
 /** Longest seekable playback position we accept, in seconds (12 h). */
 export const MAX_POSITION_S = 12 * 60 * 60;
 /** Most timed reactions the snapshot carries for the current item (OME-1625, ADR 0056); the server keeps the latest. */
-export const REACTIONS_MAX = 256;
+export const REACTIONS_MAX = 200;
 /** A countdown `control` starts the room this long after the press (OME-1625, ADR 0056). */
 export const COUNTDOWN_MS = 3_000;
 /** A playback `startAt` is at most this long after its `at`. */

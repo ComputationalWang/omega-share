@@ -1,29 +1,16 @@
 // Soak (docs/perf-budgets.md: JS heap after 10 min in room ≤ 150 MB). One site client sits in the lobby for 10 min
 // chatting and changing seats while bots chat, sit/stand and churn; heap is read over CDP after a forced GC.
 // Only under `bun run perf --soak` (see soak.ts); otherwise the budget reports PENDING.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { startTraffic } from "../e2e/support/bots";
 import { joinRoom, leaveAll } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
 import { recordMetric } from "./metrics";
-import { soakPlan } from "./soak";
+import { heapAfterGcMb, soakPlan } from "./soak";
 
-const MB = 1024 * 1024;
 const SITE_SEAT = 7;
-
-async function heapAfterGcMb(page: Page): Promise<number> {
-  const cdp = await page.context().newCDPSession(page);
-  try {
-    await cdp.send("HeapProfiler.enable");
-    await cdp.send("HeapProfiler.collectGarbage");
-    const { usedSize } = await cdp.send("Runtime.getHeapUsage");
-    return usedSize / MB;
-  } finally {
-    await cdp.detach();
-  }
-}
 
 test("site: JS heap after a 10 min soak in the lobby", async ({ browser }) => {
   const plan = soakPlan(process.env);

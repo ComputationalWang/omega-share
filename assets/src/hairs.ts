@@ -112,7 +112,7 @@ export function hairsTable(): object {
   return {
     license: "CC-BY-SA-4.0",
     method: "runtime PLTE swap, like tints.json: in each sheet replace PLTE entry slots[t] with hairs[n].colors[t] (t = 0 highlight, 1 base, 2 shade); use the copy only for that avatar's frames. Hair slots and tint slots never overlap, so apply both to the same copy in either order",
-    sheets: ["avatars.png", "motion.png", "expressions.png", "watching.png", "../accessories/bare.png"],
+    sheets: ["avatars.png", "motion.png", "expressions.png", "watching.png", "dungeon.png", "../accessories/bare.png"],
     // Hat overlays redraw the hair around the hat in the avatar's hair slots; swap them for that avatar's hat frames too.
     overlays: ["../accessories/accessories.png", ...["halloween", "sinterklaas", "christmas", "valentines", "easter"].map((t) => `../themes/${t}/${t}.png`)],
     avatars: Object.fromEntries(

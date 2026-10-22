@@ -50,6 +50,13 @@ const PHONE: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `phone.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs on a phone, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs on a phone, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
 ]);
 
+// OME-1643 (Movie night Q1): the same three frame budgets in the theatre layout on a Pixel 7 with the chat burst, all 8 seated (perf/theatre.perf.ts).
+const THEATRE: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
+  { id: `theatre.frameP95.${p}`, area: "Site", metric: `p95 frame time in the theatre layout, chat burst, phone, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate in the theatre layout with a chat burst on a phone, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: `theatre.workP95.${p}`, area: "Site", metric: `Main-thread work p95 per frame in the theatre layout, chat burst, phone, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Main-thread work per frame in the theatre layout with a chat burst on a phone, 8 avatars + video playing", unit: "ms", limit: 8, comparator: "<=" },
+  { id: `theatre.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs in the theatre layout, chat burst, phone, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs in the theatre layout with a chat burst on a phone, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
+]);
+
 // OME-597 (M7 W2): the same three frame budgets in full screen with the chat strip open, and the longest task while entering
 // or leaving full screen (perf/fullscreen.perf.ts).
 const FULLSCREEN: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
@@ -102,6 +109,13 @@ const WALK25_CONGA: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(
   })),
 );
 
+// OME-1643 (Movie night Q2): Smooth on the Pixel 7 again with 7 members reacting at the reaction (emote bucket) rate limit (perf/reactions.perf.ts).
+const WALK25_REACT: readonly Budget[] = [
+  { id: "walk25.react.frameP95.phone", area: "Site", metric: "p95 frame time with 25 members walking and a reaction burst, Pixel 7 emulation, Smooth tier", docMetric: "Frame rate with a reaction burst while 25 members walk", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: "walk25.react.workP95.phone", area: "Site", metric: "Main-thread work p95 per frame with 25 members walking and a reaction burst, Pixel 7 emulation, Smooth tier", docMetric: "Main-thread work per frame with a reaction burst while 25 members walk", unit: "ms", limit: 8, comparator: "<=" },
+  { id: "walk25.react.missedVsync.phone", area: "Site", metric: "Missed vsyncs with 25 members walking and a reaction burst, Pixel 7 emulation, Smooth tier", docMetric: "Missed vsyncs with a reaction burst while 25 members walk", unit: "%", limit: 1, comparator: "<=" },
+];
+
 // OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
 const LANDING: readonly Budget[] = [
   { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
@@ -123,13 +137,17 @@ export const BUDGETS: readonly Budget[] = [
   ...CHAT_BURST,
   ...WIDE,
   ...PHONE,
+  ...THEATRE,
   ...FULLSCREEN,
   ...POPOUT,
   ...POPOUT_ROOM,
   ...WALK25,
   ...WALK25_ACCESSORIES,
   ...WALK25_CONGA,
+  ...WALK25_REACT,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
+  // OME-1643 (Movie night Q6): the same soak in a playing room with reactions, the moments strip and the recap card (perf/heap-movie.perf.ts).
+  { id: "site.heapMovieNight", area: "Site", metric: "JS heap after 10 min with the moments strip and recap card (after GC)", docMetric: "JS heap after 10 min in room with the moments strip and recap card", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.
   { id: "sync.spread.twitchVod", area: "Sync", metric: "Spread after play/pause/seek, Twitch VOD", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },

@@ -31,6 +31,8 @@ import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, t
 import type { ExtensionBridge } from "./extension-bridge";
 import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
+import { createEmoteBucket } from "./emote/emotes";
+import { createReactionBar } from "./reactions/bar";
 import { createCommandPalette } from "./chat/palette";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
@@ -412,6 +414,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   const { tv, controls } = tvBox;
   wrap.append(tv, controls, clip);
+  // One local bucket for emotes and reactions: the server charges both to the emote limit (OME-1631).
+  const emoteBucket = createEmoteBucket(performance.now());
+  // The reaction bar (OME-1631) under the room and its TV, while something plays.
+  const reactionBar = createReactionBar({
+    bucket: emoteBucket,
+    send: (m) => send(m),
+    now: () => performance.now(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+    },
+  });
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
@@ -425,6 +439,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The emote key and its picker (OME-415) lead the chat row: both are how you speak up.
   const iSit = (): boolean => state.self !== null && ((state.room?.seats.includes(state.self) ?? false) || state.room?.members.some((m) => m.id === state.self && m.floorSit === true) === true);
   const picker = createEmotePicker({
+    bucket: emoteBucket,
     seated: iSit,
     send: (m) => send(m),
     now: () => performance.now(),
@@ -694,7 +709,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, reactionBar.root, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
@@ -865,6 +880,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
+    reactionBar.root.hidden = !shown.stage || s.status !== "open" || s.room?.embed == null;
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
     snapKey.hidden = !shown.stage;
@@ -945,6 +961,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (document.title !== t) document.title = t;
   };
   const dispatch = (e: ViewEvent): void => {
+    // A reaction (OME-1631) bursts over the sender; never view state. Hidden members' too stay hidden (OME-769).
+    if (e.type === "server" && e.msg.type === "reacted" && !isHidden(e.msg.memberId) && !roomOut()) roomStage.react(e.msg.memberId, e.msg.kind);
     if (e.type === "server" && e.msg.type === "walked" && e.msg.teleport === true) roomStage.teleported(e.msg.memberId);
     const next = reduce(state, e);
     if (next === state) return;
@@ -1231,6 +1249,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (ev.key === "Escape") firstHint.dismiss();
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
+    // Before the picker: on some layouts Shift+digit types a digit, which the picker would take as an emote.
+    else if (!reactionBar.root.hidden && reactionBar.key(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {

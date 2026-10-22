@@ -119,6 +119,39 @@ describe("budgets", () => {
     }
   });
 
+  test("each provider has frame, work and missed-vsync rows in the theatre layout with a chat burst on a phone, at the plain room's budgets (OME-1643)", () => {
+    const rows = [
+      { base: "theatre.frameP95", plain: "site.frameP95.generic", docMetric: "Frame rate in the theatre layout with a chat burst on a phone, 8 avatars + video playing" },
+      { base: "theatre.workP95", plain: "site.frameWorkP95.generic", docMetric: "Main-thread work per frame in the theatre layout with a chat burst on a phone, 8 avatars + video playing" },
+      { base: "theatre.missedVsync", plain: "site.missedVsync.generic", docMetric: "Missed vsyncs in the theatre layout with a chat burst on a phone, 8 avatars + video playing" },
+    ];
+    for (const r of rows) {
+      const plain = BUDGETS.find((x) => x.id === r.plain);
+      for (const provider of FRAME_PROVIDERS) {
+        const b = BUDGETS.find((x) => x.id === `${r.base}.${provider}`);
+        expect(b, `${r.base}.${provider}`).toBeDefined();
+        expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual(["Site", r.docMetric, plain?.unit, plain?.limit, "<="]);
+      }
+    }
+  });
+
+  test("walk25 has frame, work and missed-vsync rows with 7 members reacting at the rate limit, Pixel 7 Smooth, at the plain walk25 budgets (OME-1643)", () => {
+    for (const m of ["frameP95", "workP95", "missedVsync"]) {
+      const plain = BUDGETS.find((x) => x.id === `walk25.${m}.phone.smooth`);
+      const b = BUDGETS.find((x) => x.id === `walk25.react.${m}.phone`);
+      expect(b, `walk25.react.${m}.phone`).toBeDefined();
+      expect([b?.area, b?.unit, b?.limit, b?.comparator]).toEqual([plain?.area, plain?.unit, plain?.limit, "<="]);
+      expect(b?.docMetric).toContain("reaction burst");
+    }
+  });
+
+  test("the movie-night heap row (moments strip + recap card) holds the 10 min heap budget (OME-1643)", () => {
+    const plain = BUDGETS.find((x) => x.id === "site.heapAfterSoak");
+    const b = BUDGETS.find((x) => x.id === "site.heapMovieNight");
+    expect([b?.area, b?.unit, b?.limit, b?.comparator]).toEqual([plain?.area, plain?.unit, plain?.limit, "<="]);
+    expect(b?.docMetric).toBe("JS heap after 10 min in room with the moments strip and recap card");
+  });
+
   test("each provider has frame, work and missed-vsync rows in full screen, at the plain room's budgets, and a long-task row for entering and leaving (OME-597)", () => {
     const rows = [
       { base: "fs.frameP95", plain: "site.frameP95.generic", docMetric: "Frame rate in full screen, 8 avatars + video playing" },
