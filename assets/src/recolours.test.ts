@@ -136,3 +136,11 @@ describe.each(Object.keys(RECOLOURS).filter((k) => !oneColour(k)))("%s (by pixel
     for (const v of r?.variants ?? []) for (const b of v.to) expect(contrast(RAMPS[b][1], SITE_BG)).toBeGreaterThanOrEqual(3);
   });
 });
+
+// OME-1707 judge polish: a new arc lamp holds 3:1 on the dark site bg; a new case (its shade tone) or plank holds 1.5:1 on its backdrop in every mood.
+test("OME-1707: new arc lamps, cases and planks don't vanish on the site bg or the lightest mood", () => {
+  const moodMin = (h: string, bg: string): number => Math.min(...MOODS.map((m) => contrast(mix(h, m), mix(bg, m))));
+  for (const v of RECOLOURS.arclamp?.variants ?? []) expect(contrast(RAMPS[v.to[0] ?? "outline"][1], SITE_BG)).toBeGreaterThanOrEqual(3);
+  for (const v of RECOLOURS.bookshelf?.variants ?? []) expect(moodMin(RAMPS[v.shade ?? v.to[0] ?? "floor"][2], RAMPS.floor[1])).toBeGreaterThanOrEqual(1.5);
+  for (const v of RECOLOURS.wallshelf?.variants ?? []) expect(moodMin(RAMPS[v.to[0] ?? "wall"][1], RAMPS.wall[1])).toBeGreaterThanOrEqual(1.5);
+});
