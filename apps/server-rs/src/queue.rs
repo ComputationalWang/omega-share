@@ -21,7 +21,7 @@ use crate::log::{LogEvent, log_error};
 use crate::outbox::publish_msg;
 use crate::playback::expected_position;
 use crate::registry::RoomInner;
-use crate::room::Advance;
+use crate::room::{Advance, start_of};
 use crate::secrets::mint_item_id;
 use crate::store::{RoomStore, StoreError, StoredQueueItem};
 
@@ -153,7 +153,6 @@ pub fn add(
     url: &str,
     start: Option<StartSeconds>,
 ) -> Result<QueueItem, QueueAddRefusal> {
-    let _ = start;
     if inner.closed {
         return Err(QueueAddRefusal::RoomClosed);
     }
@@ -177,9 +176,9 @@ pub fn add(
     };
     let item = QueueItem {
         id,
+        start_seconds: start_of(&embed, start),
         embed,
         by: Some(actor.member_id.clone()),
-        start_seconds: None,
     };
     let new = StoredQueueItem {
         id: item.id.clone(),

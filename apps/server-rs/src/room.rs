@@ -7,6 +7,7 @@
 //! (a JS `Map`'s insertion order, which snapshots expose). Seats hold slot indices and the flags live in the
 //! member's record: no per-member sets, no string clones on the relay path.
 
+use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
 use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
@@ -15,7 +16,7 @@ use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, RoomState, RoomSummary, ServerTime, StartSeconds};
+use crate::contract::state::{Conga, Member, PlaybackState, Position, QueueItem, RoomState, RoomSummary, ServerTime, StartSeconds};
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
@@ -846,7 +847,14 @@ impl Room {
     /// (nobody for an advance, the adder when an add starts an empty room). `None` with an empty queue.
     pub fn advance(&mut self, since: f64, by: Option<MemberId>, now_wall: i64) -> Option<Advance> {
         let item = self.upcoming.pop_front()?;
-        let embed_switch = self.install(Some(item.embed.clone()), by, Some(item.id.clone()), since, now_wall);
+        let embed_switch = self.install(
+            Some(item.embed.clone()),
+            by,
+            Some(item.id.clone()),
+            item.start_seconds,
+            since,
+            now_wall,
+        );
         Some(Advance { item, embed_switch })
     }
 
@@ -862,14 +870,13 @@ impl Room {
         since: f64,
         now_wall: i64,
     ) -> Result<EmbedSwitch, EntropyError> {
-        let _ = start;
         // Minted first: an entropy failure leaves the room as it was.
         let item_id = match (&embed, item_id) {
             (None, _) => None,
             (Some(_), Some(item)) => Some(item),
             (Some(_), None) => Some(mint_item_id()?),
         };
-        Ok(self.install(embed, by, item_id, since, now_wall))
+        Ok(self.install(embed, by, item_id, start, since, now_wall))
     }
 
     /// `set_embed` with the item id already settled (`None` iff `embed` is).
@@ -878,14 +885,19 @@ impl Room {
         embed: Option<AnyEmbed>,
         by: Option<MemberId>,
         item_id: Option<QueueItemId>,
+        start: Option<StartSeconds>,
         since: f64,
         now_wall: i64,
     ) -> EmbedSwitch {
         let synced = embed.as_ref().is_some_and(AnyEmbed::is_synced);
+        let start = embed.as_ref().and_then(|e| start_of(e, start));
         self.embed = embed;
         self.current_item_id = item_id;
         self.current_since = since;
-        self.playback = synced.then(|| load_playback(self.rev, now_wall, by));
+        self.playback = synced.then(|| PlaybackState {
+            position: start.and_then(|s| Position::new(f64::from(s.get()))).unwrap_or(Position::ZERO),
+            ..load_playback(self.rev, now_wall, by)
+        });
         if let Some(playback) = &self.playback {
             self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
             return EmbedSwitch {
@@ -962,10 +974,20 @@ impl Room {
             member_count: u8::try_from(self.order.len()).unwrap_or(u8::MAX),
             seated_count: u8::try_from(seated).unwrap_or(u8::MAX),
             title: self.title.clone(),
-            // `GET /rooms` watching summary: OME-1633.
-            watching_count: None,
-            now_playing: None,
+            watching_count: Some(u8::try_from(self.order_recs().filter(|r| !r.away).count()).unwrap_or(u8::MAX)),
+            // Only a listed room shows its video (ADR 0056); `list` never asks a private one, and this says no too.
+            now_playing: (self.visibility == RoomVisibility::Public)
+                .then(|| self.embed.as_ref().and_then(AnyEmbed::now_playing))
+                .flatten(),
         }
+    }
+}
+
+/// Where `embed` starts for a share's or queue item's `start` (ADR 0056): none for a live or generic embed.
+pub fn start_of(embed: &AnyEmbed, start: Option<StartSeconds>) -> Option<StartSeconds> {
+    match embed {
+        AnyEmbed::Synced(e) if !playback_caps(e).live => start,
+        _ => None,
     }
 }
 
@@ -1897,14 +1919,17 @@ mod tests {
     #[test]
     fn summary_counts_members_and_seated_and_omits_an_empty_title() {
         let mut r = room();
-        assert_eq!(json(&r.summary()), r#"{"id":"film-club","memberCount":0,"seatedCount":0}"#);
+        assert_eq!(
+            json(&r.summary()),
+            r#"{"id":"film-club","memberCount":0,"seatedCount":0,"watchingCount":0}"#
+        );
         let a = join(&mut r, "m1", "alice", None);
         join(&mut r, "m2", "bob", None);
         r.sit(&a, Some(seat(1)));
         r.set_title(RoomTitle::parse("Friday films"));
         assert_eq!(
             json(&r.summary()),
-            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films"}"#
+            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films","watchingCount":2}"#
         );
         r.set_title(None);
         assert!(r.title().is_none());
