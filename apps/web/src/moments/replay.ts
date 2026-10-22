@@ -41,7 +41,9 @@ export function createReplay<Timer>(o: ReplayOptions<Timer>): Replay {
   let burst: Reaction[] = [];
   let timer: Timer | null = null;
 
-  const show = (r: Reaction): void => o.show(r.memberId, REACTION_EMOTE[r.kind]);
+  const show = (r: Reaction): void => {
+    o.show(r.memberId, REACTION_EMOTE[r.kind]);
+  };
   const clear = (): void => {
     if (timer !== null) o.clearTimeout(timer);
     timer = null;

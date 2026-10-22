@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import type { MemberId, Reaction, ReactionKind } from "@omega/shared";
+import type { Reaction, ReactionKind } from "@omega/shared";
 
 // OME-1628: "catch me up": a late joiner sees the stored reactions ahead of them replayed as emotes, at their timestamp.
 
-const r = (mediaMs: number, kind: ReactionKind = "heart", id = "m1"): Reaction => ({ memberId: id as MemberId, kind, mediaMs });
+const r = (mediaMs: number, kind: ReactionKind = "heart", id = "m1"): Reaction => ({ memberId: id, kind, mediaMs });
 
 /** A fake clock: the video plays from `start` media ms at `rate` while `playing`. */
 async function setup(start: number) {

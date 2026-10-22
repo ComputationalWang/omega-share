@@ -80,7 +80,7 @@ export function createMomentsStrip(o: { readonly seek: (seconds: number) => bool
   });
   root.append(bar, ...pips);
   const label = (b: HTMLButtonElement, ms: number, count: number): void => {
-    const what = `${formatClock(ms / 1000)}, ${count} ${count === 1 ? "reaction" : "reactions"}`;
+    const what = `${formatClock(ms / 1000)}, ${String(count)} ${count === 1 ? "reaction" : "reactions"}`;
     b.ariaLabel = canSeek ? `Jump to ${what}` : what;
     b.title = canSeek ? b.ariaLabel : `${what}. ${HELD_TITLE}`;
     b.disabled = !canSeek;
@@ -92,13 +92,13 @@ export function createMomentsStrip(o: { readonly seek: (seconds: number) => bool
       root.hidden = m.pips.length === 0;
       if (root.hidden) return;
       const step = 100 / STRIP_BINS;
-      bar.style.background = `linear-gradient(to right, ${m.density.map((d, i) => `rgb(255 214 102 / ${(d * 0.9).toFixed(2)}) ${i * step}% ${(i + 1) * step}%`).join(", ")})`;
+      bar.style.background = `linear-gradient(to right, ${m.density.map((d, i) => `rgb(255 214 102 / ${(d * 0.9).toFixed(2)}) ${String(i * step)}% ${String((i + 1) * step)}%`).join(", ")})`;
       pips.forEach((b, i) => {
         const p = m.pips[i];
         b.hidden = p === undefined;
         if (p === undefined) return;
         at[i] = p.mediaMs;
-        b.style.left = `${(p.mediaMs / durationMs) * 100}%`;
+        b.style.left = `${String((p.mediaMs / durationMs) * 100)}%`;
         b.replaceChildren(sprite(emoteIcon(REACTION_EMOTE[p.kind])));
         b.dataset["count"] = String(p.count);
         label(b, p.mediaMs, p.count);

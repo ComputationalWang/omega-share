@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { MemberId, Reaction, ReactionKind } from "@omega/shared";
+import type { Reaction, ReactionKind } from "@omega/shared";
 
 // OME-1628: the moments strip under the player: a density bar and up to 8 pips that seek, redrawn only on a reaction.
 
@@ -11,7 +11,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const r = (mediaMs: number, kind: ReactionKind = "heart"): Reaction => ({ memberId: "m1" as MemberId, kind, mediaMs });
+const r = (mediaMs: number, kind: ReactionKind = "heart"): Reaction => ({ memberId: "m1", kind, mediaMs });
 
 describe("moments", () => {
   test("a single reaction's pip sits at its own position, within 1 s", async () => {
