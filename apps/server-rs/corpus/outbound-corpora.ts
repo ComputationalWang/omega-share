@@ -373,7 +373,7 @@ const EDGE_TEXTS: string[] = [
   ...[true, false, 1, "true", null, undefined].map((on) => JSON.stringify({ type: "typing-changed", memberId: "m1", on })),
   ...[[6, 0], [6, 7], [6, 6], [1, 1], [101, 1], [6.5, 1], [6, 2.5], [6, -1], ["6", 1], [6, null], [6, undefined]].map(([sides, value]) => JSON.stringify({ type: "rolled", memberId: "m1", sides, value })),
   // timed reactions and the item's peak (OME-1625)
-  ...[0, 1, 256, 257].map((n) => snap(ROOM(), { reactions: Array.from({ length: n }, (_, i) => ({ memberId: "m1", kind: "heart", mediaMs: i })) })),
+  ...[0, 1, 200, 201].map((n) => snap(ROOM(), { reactions: Array.from({ length: n }, (_, i) => ({ memberId: "m1", kind: "heart", mediaMs: i })) })),
   ...[{ memberId: "m1", kind: "wave", mediaMs: 0 }, { memberId: "m1", kind: "heart", mediaMs: -1 }, { memberId: "m1", kind: "heart", mediaMs: 43_200_001 }, { memberId: "m1", kind: "heart", mediaMs: 1.5 },
     { memberId: "a b", kind: "heart", mediaMs: 0 }, { kind: "heart", mediaMs: 0 }, { memberId: "m1", kind: "heart" }, { memberId: "m1", kind: "heart", mediaMs: 0, at: 1 }, null].map((r) => snap(ROOM(), { reactions: [r] })),
   snap(ROOM(), { reactions: null }), snap(ROOM(), { reactions: {} }),
