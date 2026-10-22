@@ -174,7 +174,9 @@ fn admit_type(
             owner != Some(true) || admit!(edit, "too many room edits, slow down")
         }
         // Unjoined sockets get not_joined in `handle`.
-        ClientMessage::Emote { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
+        ClientMessage::Emote { .. } | ClientMessage::Pair { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
+        // A timed reaction spends from the emote bucket; over it dropped silently, like a walk (OME-1625).
+        ClientMessage::React { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.emote).is_none(),
         // Cosmetic broadcasts share one bucket (ADR 0053).
         ClientMessage::SetTint { .. } => owner.is_none() || admit!(emote, "too many tint changes, slow down"),
         ClientMessage::SetAccessory { .. } => owner.is_none() || admit!(emote, "too many accessory changes, slow down"),
@@ -438,7 +440,13 @@ fn handle(
         }
         ClientMessage::Vote { poll_id, option } => poll::vote(inner, conn.id, member, &poll_id, option),
         ClientMessage::PollClose { poll_id } => poll::close_by(inner, conn.id, member, owner, &poll_id),
-        ClientMessage::Control { url, playing, position } => {
+        // `countdown` lands with OME-1634.
+        ClientMessage::Control {
+            url,
+            playing,
+            position,
+            countdown: _,
+        } => {
             if inner.room.control_policy() == ControlPolicy::Owner && !owner {
                 send_error(
                     inner,
@@ -484,6 +492,8 @@ fn handle(
                 },
             );
         }
+        // shortcut: refused everywhere until OME-1672 lands the pair (invites, the teleport, `paired`).
+        ClientMessage::Pair { .. } => send_error(inner, conn.id, ErrorCode::PairsOff, "no /thrust or /bendover in this room"),
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }
@@ -529,6 +539,8 @@ fn handle(
         }
         // Handled above.
         ClientMessage::Join { .. } | ClientMessage::Ping { .. } | ClientMessage::Ended { .. } => {}
+        // Contract only (OME-1625): the reaction timeline and its `reacted` relay land with OME-1632.
+        ClientMessage::React { .. } => {}
     }
 }
 

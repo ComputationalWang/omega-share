@@ -1,7 +1,7 @@
 // The "?" help dialog (OME-768, M9 W2). A key in the room bar, or `?` under T's rules (never in a text field, never with
 // Ctrl/Alt/Meta, never over another dialog), opens a modal <dialog>: the keyboard and touch controls, the owner's tools
 // (owners only), how to report a room, and the footer pages. Its content is static DOM built on the first open; nothing
-// in it touches the room's canvas. Focus is trapped inside and goes back where it was. Text, plus the Cinema dim checkbox (OME-1406) and Show tips again (OME-1587).
+// in it touches the room's canvas. Focus is trapped inside and goes back where it was. Text, plus the Cinema dim checkbox (OME-1406), the Sound volume and Mute (OME-1638) and Show tips again (OME-1587).
 import { el } from "../controls/dom";
 
 export interface HelpOptions {
@@ -9,8 +9,17 @@ export interface HelpOptions {
   readonly owner: () => boolean;
   /** The Cinema dim setting (OME-1406): a checkbox in the dialog. */
   readonly cinema?: { on(): boolean; set(on: boolean): void };
+  /** The sound setting (OME-1638): a volume slider and Mute; null until the lazy sound engine is in (the entry is hidden). */
+  readonly sound?: () => SoundSetting | null;
   /** Show tips again (OME-1587): starts the first-visit tour over; the dialog closes first. */
   readonly tips?: () => void;
+}
+
+export interface SoundSetting {
+  volume(): number;
+  setVolume(v: number): void;
+  muted(): boolean;
+  setMuted(m: boolean): void;
 }
 
 export interface Help {
@@ -82,6 +91,7 @@ export function createHelp(o: HelpOptions): Help {
   let reportPart: HTMLElement | null = null;
   let closeKey: HTMLButtonElement | null = null;
   let cinemaBox: HTMLInputElement | null = null;
+  let soundPart: { row: HTMLElement; slider: HTMLInputElement; mute: HTMLInputElement } | null = null;
   /** What had focus when the dialog opened; it gets it back on close. */
   let before: HTMLElement | null = null;
 
@@ -125,6 +135,25 @@ export function createHelp(o: HelpOptions): Help {
       settings.append(label);
       cinemaBox = box;
     }
+    const sound = o.sound;
+    if (sound !== undefined) {
+      const slider = el("input", { type: "range", id: `sound-volume-${n}`, min: "0", max: "100", step: "5" }, "sound-volume");
+      slider.addEventListener("input", () => {
+        sound()?.setVolume(Number(slider.value) / 100);
+      });
+      const mute = el("input", { type: "checkbox", id: `sound-mute-${n}` }, "sound-mute");
+      mute.addEventListener("change", () => {
+        sound()?.setMuted(mute.checked);
+      });
+      const volume = el("label", { className: "help-setting", htmlFor: slider.id });
+      volume.append("Sound volume", slider);
+      const muteLabel = el("label", { className: "help-setting", htmlFor: mute.id });
+      muteLabel.append(mute, "Mute room sounds");
+      const row = el("div");
+      row.append(volume, muteLabel);
+      settings.append(row);
+      soundPart = { row, slider, mute };
+    }
     const tips = o.tips;
     if (tips !== undefined) {
       const again = el("button", { type: "button", className: "ui-button secondary", textContent: "Show tips again" }, "help-tips");
@@ -134,7 +163,7 @@ export function createHelp(o: HelpOptions): Help {
       });
       settings.append(again);
     }
-    settings.hidden = cinema === undefined && tips === undefined;
+    settings.hidden = cinema === undefined && tips === undefined && sound === undefined;
 
     const owner = section("Your room's tools", "help-owner");
     owner.append(list(OWNER));
@@ -174,6 +203,14 @@ export function createHelp(o: HelpOptions): Help {
     // An owner never reports their own room (room.ts makes no Report key for them).
     if (reportPart !== null) reportPart.hidden = owns;
     if (cinemaBox !== null && o.cinema !== undefined) cinemaBox.checked = o.cinema.on();
+    if (soundPart !== null) {
+      const sound = o.sound?.() ?? null;
+      soundPart.row.hidden = sound === null;
+      if (sound !== null) {
+        soundPart.slider.value = String(Math.round(sound.volume() * 100));
+        soundPart.mute.checked = sound.muted();
+      }
+    }
     dialog.showModal();
     closeKey?.focus();
     // A phone opens it at its top, not scrolled down to the Close key (OME-1597).
