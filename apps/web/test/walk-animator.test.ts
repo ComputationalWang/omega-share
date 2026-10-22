@@ -447,6 +447,27 @@ describe("emotes", () => {
     expect(b[2]).toMatch(/^(kiki\/sit\/nw\/0|breathe\/kiki\/sit\/nw\/1)$/);
   });
 
+  // OME-1734: the pet's reach (OME-1697) is standing only, 5 × 160 ms; a seated avatar keeps its pose.
+  test("a standing reach plays reach/<avatar>/idle/<dir> on 160 ms frames, then the pose comes back", () => {
+    const s = ready();
+    s.at(1000);
+    s.anim.emote(id("a"), "reach");
+    const at = run(s, 1000, 2000);
+    for (const t of [1000, 1160, 1320, 1480, 1640, 1800]) expect(at).toContain(t);
+    const a = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]);
+    expect(a.slice(0, 5)).toEqual(["reach/juno/idle/ne/0", "reach/juno/idle/ne/1", "reach/juno/idle/ne/0", "reach/juno/idle/ne/1", "reach/juno/idle/ne/0"]);
+    expect(a[5]).toMatch(/^(juno\/idle\/ne\/0|breathe\/juno\/idle\/ne\/1)$/);
+    expect(s.stickers.every((x) => x.frame === null)).toBe(true);
+  });
+
+  test("a seated reach does nothing: the sit pose stays", () => {
+    const s = ready();
+    s.at(500);
+    s.anim.emote(id("b"), "reach");
+    s.frame(500);
+    expect(framesOf(s, "b").some((f) => f?.startsWith("reach") === true)).toBe(false);
+  });
+
   test("cheer and yawn play seated in every facing, and standing in both resting facings", () => {
     const s = setup();
     s.anim.setFrames(frames);
