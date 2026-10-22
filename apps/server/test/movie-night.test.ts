@@ -1,19 +1,27 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { CreateRoomResponseSchema, type CreateRoomResponse } from "@omega/shared";
 import * as v from "valibot";
-import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
+import { Client, postShare, start, TestClock, tokenOf, type TestServer } from "./helpers";
 
 // OME-1633 (ADR 0056): the watching summary in `GET /rooms` and a share's `startSeconds`. Landed after the Rust
 // switch: the frozen TS server ignores both, so every test here runs against the binary only.
 const binaryOnly = test.skipIf(process.env["OMEGA_SERVER_BIN"] === undefined);
 
 let t: TestServer | null = null;
+/** Set by a test that shares more often than the room's share bucket refills; each share then steps it 10 s. */
+let clock: TestClock | null = null;
 const clients: Client[] = [];
 afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
   await t?.server.stop(true);
   t = null;
+  clock = null;
 });
+/** A server on a fake clock, so back-to-back shares aren't rate limited. */
+function startClocked(): void {
+  clock = new TestClock();
+  t = start({ now: clock.now, wallNow: clock.wallNow });
+}
 
 function fail(): never {
   throw new Error("no server");
@@ -58,6 +66,7 @@ async function row(id: string): Promise<Record<string, unknown> | undefined> {
 
 /** Shares `body` into `roomId` as `member`; the `embed-changed` the sharer hears. */
 async function shared(member: Awaited<ReturnType<typeof joined>>, body: unknown, roomId = "lobby") {
+  await clock?.set({ mono: clock.mono + 10_000 });
   const res = await postShare(server(), JSON.stringify(body), { roomId, token: tokenOf(member.snapshot) });
   expect(res.status).toBe(200);
   return member.client.next("embed-changed");
@@ -88,7 +97,7 @@ describe("GET /rooms watching summary (OME-1633, ADR 0056)", () => {
   });
 
   binaryOnly("nowPlaying names the provider and id only: YouTube, Twitch live and VOD, public Vimeo", async () => {
-    t = start();
+    startClocked();
     const alice = await joined();
     const cases: [string, unknown][] = [
       [YT, { provider: "youtube", id: "dQw4w9WgXcQ" }],
@@ -144,18 +153,19 @@ describe("share startSeconds (OME-1633, ADR 0056)", () => {
   });
 
   binaryOnly("without startSeconds a share starts at 0; on a live stream startSeconds is ignored", async () => {
-    t = start();
+    startClocked();
     const alice = await joined();
     expect((await share(alice, { url: YT }))?.position).toBe(0);
     expect((await share(alice, { url: TWITCH_LIVE, startSeconds: 90 }))?.position).toBe(0);
   });
 
   binaryOnly("the bounds: 0 and 43200 start there; -1, 43201, 1.5, a string or null are refused as invalid_body", async () => {
-    t = start();
+    startClocked();
     const alice = await joined();
     expect((await share(alice, { url: YT, startSeconds: 0 }))?.position).toBe(0);
     expect((await share(alice, { url: YT, startSeconds: 43_200 }))?.position).toBe(43_200);
     for (const startSeconds of [-1, 43_201, 1.5, "90", null]) {
+      await clock?.set({ mono: clock.mono + 10_000 });
       const res = await postShare(server(), JSON.stringify({ url: YT, startSeconds }), { token: tokenOf(alice.snapshot) });
       expect(res.status).toBe(400);
       expect(((await res.json()) as { error: { code: string } }).error.code).toBe("invalid_body");
@@ -169,7 +179,7 @@ describe("share startSeconds (OME-1633, ADR 0056)", () => {
     const res = await postQueue({ url: VIMEO, startSeconds: 42 }, tokenOf(alice.snapshot));
     expect(res.status).toBe(200);
     const queued = await alice.client.next("queue-changed");
-    expect(queued.queue).toEqual([expect.objectContaining({ startSeconds: 42 })]);
+    expect(queued.queue.map((i) => i.startSeconds)).toEqual([42]);
     alice.client.send({ type: "queue-advance", fromItemId: current });
     const next = await alice.client.next("embed-changed");
     expect(next.playback).toMatchObject({ position: 42, action: "load" });
