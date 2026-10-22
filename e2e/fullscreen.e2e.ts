@@ -456,6 +456,11 @@ test("full screen hides the chat by default; the bottom edge and Enter bring it 
   await page.mouse.move(r.x + r.width / 2, r.y + r.height / 3);
   await expect(strip).toBeHidden({ timeout: 5000 });
   await expect(input).toBeHidden();
+  // QA OME-1754: a real provider's iframe swallows the pointer's events, the leave too. With no event after the peek,
+  // the chat still goes ~2 s after the last one.
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height - 2);
+  await expect(strip).toBeVisible();
+  await expect(strip).toBeHidden({ timeout: 5000 });
   await page.keyboard.press("Enter");
   await expect(input).toBeFocused();
   await page.keyboard.type("a draft");
