@@ -7,6 +7,7 @@ import {
   RoomLayoutSchema,
   SEAT_COUNT,
   footprintCells,
+  isScreen,
   layoutSeats,
   type Facing,
   type Furniture,
@@ -139,7 +140,7 @@ export function problems(layout: Layout): Problem[] {
   const out: Problem[] = [];
   const f = layout.furniture;
   if (f.length > MAX_FURNITURE) out.push({ code: "too-many", have: f.length, max: MAX_FURNITURE });
-  const tvs = f.filter((p) => p.kind === "tv").length;
+  const tvs = f.filter((p) => isScreen(p.kind)).length;
   if (tvs !== 1) out.push({ code: "tv", have: tvs });
   const seats = layoutSeats(layout).length;
   if (seats !== SEAT_COUNT) out.push({ code: "seats", have: seats, need: SEAT_COUNT });
@@ -176,9 +177,7 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-// shortcut: the theatre kinds (OME-1625) have no sheet until furniture-v5 (OME-1639) lands; OME-1630 wires it and drops this.
-export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["theatrerow", "curtain", "bigscreen", "aislelight", "carpet"]);
-const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => !AWAITING_ART.has(k) && pick(k));
+const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter(pick);
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */
 export function parseDoorTarget(text: string, origin: string, current: RoomId): { readonly ok: true; readonly id: RoomId } | { readonly ok: false; readonly error: string } {

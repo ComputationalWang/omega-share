@@ -4,12 +4,13 @@ import type { FurnitureKind } from "@omega/shared";
 import furnitureJson from "../../../../assets/furniture/furniture.json";
 import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
 import furnitureV4Json from "../../../../assets/furniture/furniture-v4.json";
+import furnitureV5Json from "../../../../assets/furniture/furniture-v5.json";
 import { FurnitureManifestSchema } from "../furniture";
 import { recolourIds } from "../recolours";
 
-/** Colour names per catalogue piece, set (g), v2 and batch 6 (the kilim runner is atlas id `rug`); the room atlas pieces have none. */
+/** Colour names per catalogue piece, set (g), v2, batch 6 and the theatre set (the kilim runner is atlas id `rug`); the room atlas pieces have none. */
 const COLOURS: ReadonlyMap<string, readonly string[]> = new Map(
-  [furnitureJson, furnitureV2Json, furnitureV4Json].flatMap((json) => v.parse(FurnitureManifestSchema, json).meta.omega.pieces.map((p) => [p.id, p.colours] as const)),
+  [furnitureJson, furnitureV2Json, furnitureV4Json, furnitureV5Json].flatMap((json) => v.parse(FurnitureManifestSchema, json).meta.omega.pieces.map((p) => [p.id, p.colours] as const)),
 );
 export const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;

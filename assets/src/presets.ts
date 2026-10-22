@@ -1,7 +1,7 @@
 // Set (n) (OME-906, M10): pre-furnished room presets. A creator picks one when they make a room; each is a plain layout v1
 // (ADR 0021, packages/shared/src/layout.ts), so the server stores it like any owner edit and nothing new ships but the
 // thumbnails. Rules every preset keeps:
-//   - the TV console stays in the back corner (0,0): the picture is page chrome above the room, the console "throws" it;
+//   - the TV console (or the Theatre's big screen) stays in the back corner (0,0): the picture is page chrome above the room, the console "throws" it;
 //   - exactly 8 seat cells, all facing the TV corner (ne / nw), seat 0 in the front row so the first guest sits up close;
 //   - a clear walk line down the middle diagonal, so avatars reach every seat;
 //   - nothing on the window / poster / sconce wall segments (5, 6, 8), even wall-backed pieces.
@@ -38,19 +38,20 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "cinema",
-    name: "Cinema",
-    blurb: "Red velvet sofas in rows, posters and a popcorn cart.",
+    name: "Theatre",
+    blurb: "Rows on risers facing the big screen, curtains drawn back.",
     layout: {
       furniture: [
-        TV,
-        // Front row, then back row: a V of club sofas pointing at the screen, the aisle down the middle.
-        p("sofa", 2, 4, "ne"), p("sofa", 4, 2, "nw"),
-        p("sofa", 3, 7, "ne"), p("sofa", 7, 3, "nw"),
-        p("runner", 5, 5, "nw"),
-        p("sidetable", 1, 4, "se"), p("sidetable", 4, 1, "sw"),
-        p("popcorn", 6, 9, "se"), p("popcorn", 9, 6, "sw"),
-        p("frame", 0, 2, "se", 1), p("frame", 0, 3, "se"), p("frame", 2, 0, "sw"), p("frame", 3, 0, "sw", 1),
-        p("monstera", 0, 9, "se"), p("monstera", 9, 0, "sw", 1),
+        // The theatre set (OME-1639's judged theatre room, OME-1630): the big screen in the TV corner between two
+        // curtains, two tiers of rows on carpet (front on the floor, back one riser up), aisle lights down the middle.
+        p("bigscreen", 0, 0, "se"),
+        p("curtain", 2, 0, "sw"), p("curtain", 0, 2, "se"),
+        p("carpet", 1, 1, "se"), p("carpet", 3, 1, "se"), p("carpet", 5, 1, "se"), p("carpet", 1, 3, "se"),
+        p("carpet", 3, 3, "se"), p("carpet", 5, 3, "se"), p("carpet", 1, 5, "se"), p("carpet", 3, 5, "se"),
+        p("aislelight", 5, 5, "nw"), p("aislelight", 6, 6, "nw"), p("aislelight", 7, 7, "nw"), p("aislelight", 8, 8, "nw"),
+        p("theatrerow", 1, 4, "ne"), p("theatrerow", 4, 1, "nw"),
+        p("theatrerow", 2, 5, "ne", 1), p("theatrerow", 5, 2, "nw", 1),
+        p("popcorn", 0, 8, "se"), p("monstera", 9, 0, "sw", 1),
       ],
     },
   },

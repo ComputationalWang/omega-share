@@ -17,8 +17,8 @@
   },
   {
    "id": "cinema",
-   "name": "Cinema",
-   "blurb": "Red velvet sofas in rows, posters and a popcorn cart.",
+   "name": "Theatre",
+   "blurb": "Rows on risers facing the big screen, curtains drawn back.",
    "layout": "cinema.json",
    "thumb": "thumbs/cinema.png"
   },

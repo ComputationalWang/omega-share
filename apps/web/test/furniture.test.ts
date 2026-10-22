@@ -617,4 +617,10 @@ describe("theatre set: rows on risers, curtain, big screen, aisle lights, carpet
     expect(seatPoints(l)).toEqual([up(1, 4, 0), up(2, 4, 0), up(4, 1, 10), up(4, 2, 10), up(3, 7, 20), up(4, 7, 20), up(7, 3, 20), up(7, 4, 20)]);
     expect(sceneOf(l, [v5]).seats.map((x) => x.at)).toEqual(seatPoints(l));
   });
+
+  test("the lifts are the art's riser heights (furniture-v5.json seatLiftByColour)", async () => {
+    const raw: unknown = await Bun.file(new URL("../../../assets/furniture/furniture-v5.json", import.meta.url)).json();
+    expect(JSON.stringify(raw)).toContain('"colours":["floor","step","high"]');
+    expect(JSON.stringify(raw)).toContain('"seatLiftByColour":{"floor":0,"step":10,"high":20}');
+  });
 });
