@@ -119,6 +119,8 @@ export interface RoomLayout {
 }
 
 const HANDLE_ARROWS = { left: "◀", right: "▶", up: "▲", down: "▼" } as const;
+/** How near the screen's bottom edge the pointer peeks the hidden chat (OME-1668). */
+const FS_PEEK_ZONE = 80;
 
 export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   const { root, wrap, clip, stage, tv: tvBox, log: chatLog, queue: queuePanel, notice, roomAway, invite, side, phone, wide } = o;
@@ -150,10 +152,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     })(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => { clearTimeout(h); },
-    onChange: (hidden) => {
+    onChange: (hidden, peek) => {
       // Hiding takes the strip and the shelf away: focus in them goes to the toggle, now in the pill.
       const focused = document.activeElement;
       wrap.classList.toggle("fs-chat-hidden", hidden);
+      wrap.classList.toggle("fs-peek", peek);
       if (hidden && focused instanceof HTMLElement && (strip.contains(focused) || controls.contains(focused))) fsChat.toggle.focus({ preventScroll: true });
       renderStrip();
       fit();
@@ -166,6 +169,22 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   wrap.addEventListener("pointermove", wakePill, { passive: true });
   wrap.addEventListener("pointerdown", wakePill, { passive: true });
+  // OME-1668: a pointer (or a tap) near the screen's bottom edge or over the chat peeks the hidden chat, which goes
+  // FS_PEEK_MS after the last such event. No leave event is needed: a real provider's iframe swallows those (QA OME-1754).
+  const peekAt = (ev: PointerEvent): void => {
+    if (fs.mode() === "off") return;
+    const t = ev.target;
+    if (ev.clientY >= wrap.getBoundingClientRect().bottom - FS_PEEK_ZONE || (t instanceof Node && (strip.contains(t) || controls.contains(t)))) fsChat.peek(true);
+    fsChat.peek(false);
+  };
+  wrap.addEventListener("pointermove", peekAt, { passive: true });
+  wrap.addEventListener("pointerdown", peekAt, { passive: true });
+  // Focus in the chat or the shelf, or a draft in the field, holds the peek: never hidden under the caret.
+  const holdAt = (to: EventTarget | null): void => {
+    fsChat.hold((to instanceof Node && (strip.contains(to) || controls.contains(to))) || (chatForm.querySelector("input")?.value ?? "") !== "");
+  };
+  wrap.addEventListener("focusin", (ev) => { holdAt(ev.target); });
+  wrap.addEventListener("focusout", (ev) => { holdAt(ev.relatedTarget); });
   let stripMode: StripMode = storedStrip();
   let unread = 0;
   let displayedStripMode = stripMode;

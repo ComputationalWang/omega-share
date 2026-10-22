@@ -1380,6 +1380,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
     // Esc ends the first-visit tour and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
+    // Tab peeks full screen's hidden chat (OME-1668), so it can take the focus; focus elsewhere lets it go again.
+    if (ev.key === "Tab") {
+      layout.fsChat.peek(true);
+      layout.fsChat.peek(false);
+    }
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
     // Before the picker, shown or not: on some layouts Shift+digit types a digit, which the picker would take as an emote.
@@ -1391,7 +1396,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const k = chatKey(ev, chatInput);
       if (k === null) return;
       ev.preventDefault();
-      if (k === "focus") chatInput.focus();
+      if (k === "focus") {
+        // Full screen's hidden chat comes back first (OME-1668): a hidden field takes no focus.
+        layout.fsChat.peek(true);
+        chatInput.focus();
+      }
       else chatInput.blur();
     }
   });

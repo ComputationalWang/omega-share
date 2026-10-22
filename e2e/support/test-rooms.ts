@@ -31,7 +31,7 @@ export const SPEC_ROOMS = {
   "phone-perf": ["frames"],
   "theatre-perf": ["frames"],
   "heap-movie": ["main"],
-  fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle"],
+  fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle", "peek"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],

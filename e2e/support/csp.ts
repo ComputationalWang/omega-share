@@ -161,6 +161,15 @@ export async function watchCsp<C extends BrowserContext>(context: C, { tour = fa
       // Opaque origins (about:blank, data:) have no storage.
     }
   }, PINNED_THEME);
+  // Full screen hides the chat by default (OME-1668): specs written for the strip start with it pinned shown, as before.
+  // A spec that wants the default removes the key in its own init script.
+  await context.addInitScript(() => {
+    try {
+      if (localStorage.getItem("omega.fsChatHidden") === null) localStorage.setItem("omega.fsChatHidden", "0");
+    } catch {
+      // Opaque origins have no storage.
+    }
+  });
   if (!tour) {
     await context.addInitScript(() => {
       try {

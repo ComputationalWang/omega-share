@@ -747,6 +747,11 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
  * "hidden"). Still nothing of ours over the player (ADR 0012, YouTube's RMF): the handle sits in its own margin and the bubbles
  * in what the screen leaves (the strip's box). Bubbles never take the pointer; CSS animates transform and opacity only. ---- */
 .stage-wrap.fs-chat-hidden > .fs-strip, .stage-wrap.fs-chat-hidden > .controls { display: none; }
+/* OME-1668: a peek slides the hidden chat back in from the bottom edge (compositor-only); entering or pinning it doesn't. */
+@media (prefers-reduced-motion: no-preference) {
+  .stage-wrap.is-fs.fs-peek > .fs-strip, .stage-wrap.is-fs.fs-peek > .controls { animation: fs-peek-in 160ms ease-out; }
+}
+@keyframes fs-peek-in { from { translate: 0 100%; opacity: 0; } }
 .fs-chat-pill { position: absolute; z-index: 4; --ui-px: 1px; opacity: 0.9; transition: opacity 400ms; }
 /* Dimmed, not gone: a pointer over the provider's iframe never reaches us, so the way back stays in sight. */
 .fs-chat-pill.is-idle:not(:focus-within) { opacity: 0.25; }
