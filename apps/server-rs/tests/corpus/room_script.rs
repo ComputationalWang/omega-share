@@ -266,6 +266,8 @@ fn apply(room: &mut Room, op: &Op, op_now: Option<i64>, now: i64) -> Option<Valu
                 url: &control.url,
                 playing: control.playing,
                 position: control.position,
+                // The TS reference has no countdown (ADR 0056: Rust only).
+                countdown: false,
             };
             val(&room.control(m, &c, now))?
         }

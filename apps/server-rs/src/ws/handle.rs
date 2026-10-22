@@ -440,12 +440,11 @@ fn handle(
         }
         ClientMessage::Vote { poll_id, option } => poll::vote(inner, conn.id, member, &poll_id, option),
         ClientMessage::PollClose { poll_id } => poll::close_by(inner, conn.id, member, owner, &poll_id),
-        // `countdown` lands with OME-1634.
         ClientMessage::Control {
             url,
             playing,
             position,
-            countdown: _,
+            countdown,
         } => {
             if inner.room.control_policy() == ControlPolicy::Owner && !owner {
                 send_error(
@@ -460,6 +459,7 @@ fn handle(
                 url: url.as_str(),
                 playing,
                 position: position.get(),
+                countdown: countdown.unwrap_or(false),
             };
             let Some(playback) = inner.room.control(member, &control, app.wall()) else {
                 send_error(inner, conn.id, ErrorCode::NoEmbed, "that video is not playing here");
