@@ -11,16 +11,16 @@ use crate::app::{App, lock};
 use crate::contract::client_message::{ClientMessage, EmoteKind as InEmote, parse_client_message};
 use crate::contract::constants::{TYPING_TIMEOUT_MS, close};
 use crate::contract::ids::MemberId;
-use crate::contract::room::ControlPolicy;
+use crate::contract::room::{ControlPolicy, FloorCell};
 use crate::contract::server_message::{ErrorCode, ServerMessage};
-use crate::contract::state::{EmoteKind, PingId, ServerTime};
+use crate::contract::state::{EmoteKind, PairPose, PingId, ServerTime};
 use crate::outbox::publish_msg;
 use crate::owner_edits;
 use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::{RoomCell, RoomInner};
-use crate::room::{FloorSitResult, SitResult, WalkResult};
+use crate::room::{FloorSitResult, PairResult, SitResult, WalkResult};
 use crate::secrets;
 use std::sync::Arc;
 
@@ -309,25 +309,9 @@ fn handle(
             WalkResult::Blocked => send_error(inner, conn.id, ErrorCode::BadCell, "you can't stand there"),
             WalkResult::NotMember => {}
             WalkResult::Walked { stood_up } => {
+                inner.room.cancel_pair(member);
                 get_up(inner, member);
-                if stood_up {
-                    publish_msg(
-                        inner,
-                        &ServerMessage::SeatChanged {
-                            member_id: member.clone(),
-                            seat: None,
-                        },
-                    );
-                }
-                publish_msg(
-                    inner,
-                    &ServerMessage::Walked {
-                        member_id: member.clone(),
-                        cell: Some(cell),
-                        run,
-                        teleport,
-                    },
-                );
+                relay_walk(inner, member, cell, stood_up, run, teleport);
             }
         },
         ClientMessage::SetTint { tint } => {
@@ -492,8 +476,7 @@ fn handle(
                 },
             );
         }
-        // shortcut: refused everywhere until OME-1672 lands the pair (invites, the teleport, `paired`).
-        ClientMessage::Pair { .. } => send_error(inner, conn.id, ErrorCode::PairsOff, "no /thrust or /bendover in this room"),
+        ClientMessage::Pair { pose } => pair(app, inner, conn, member, pose),
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }
@@ -708,4 +691,56 @@ fn real_wall_ms() -> ServerTime {
 fn real_mono_ms() -> f64 {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64() * 1000.0
+}
+
+/// A walk that took: `seat-changed` null if it stood them up, then `walked`.
+fn relay_walk(inner: &mut RoomInner, member: &MemberId, cell: FloorCell, stood_up: bool, run: Option<bool>, teleport: Option<bool>) {
+    if stood_up {
+        publish_msg(
+            inner,
+            &ServerMessage::SeatChanged {
+                member_id: member.clone(),
+                seat: None,
+            },
+        );
+    }
+    publish_msg(
+        inner,
+        &ServerMessage::Walked {
+            member_id: member.clone(),
+            cell: Some(cell),
+            run,
+            teleport,
+        },
+    );
+}
+
+/// `pair` (OME-1672): an invite, or a match that stands the inviter up and moves them beside the sender.
+fn pair(app: &App, inner: &mut RoomInner, conn: &Conn, member: &MemberId, pose: PairPose) {
+    match inner.room.pair(member, pose, app.wall()) {
+        PairResult::NotMember => {}
+        PairResult::PairsOff => send_error(inner, conn.id, ErrorCode::PairsOff, "no /thrust or /bendover in this room"),
+        PairResult::NoCell => send_error(inner, conn.id, ErrorCode::BadCell, "there is no free cell beside you"),
+        PairResult::Invited => {
+            publish_msg(
+                inner,
+                &ServerMessage::PairInvited {
+                    member_id: member.clone(),
+                    pose,
+                },
+            );
+        }
+        PairResult::Paired {
+            thrust,
+            bendover,
+            inviter,
+            cell,
+        } => {
+            get_up(inner, &inviter);
+            if let WalkResult::Walked { stood_up } = inner.room.walk(&inviter, cell) {
+                relay_walk(inner, &inviter, cell, stood_up, None, Some(true));
+                publish_msg(inner, &ServerMessage::Paired { thrust, bendover });
+            }
+        }
+    }
 }

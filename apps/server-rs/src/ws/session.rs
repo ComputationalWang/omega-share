@@ -155,6 +155,7 @@ fn hold(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, member: &Me
         };
     }
     clear_typing(inner, member);
+    inner.room.cancel_pair(member);
     inner.room.set_catching(member, false);
     if inner.room.take_catching_change(member).is_some() {
         publish_msg(

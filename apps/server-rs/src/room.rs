@@ -8,7 +8,7 @@
 //! member's record: no per-member sets, no string clones on the relay path.
 
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
@@ -170,6 +170,8 @@ struct Rec {
     announced: Option<u64>,
     /// Typing a chat line (OME-1387). Ephemeral: never in a snapshot.
     typing: bool,
+    /// Unit step of their last walk, for `/thrust`: where they face. West until they take one. Ephemeral.
+    facing: (i8, i8),
 }
 
 type Slot = u8;
@@ -228,6 +230,8 @@ pub struct Room {
     conga: Vec<MemberId>,
     /// Server time of the last join; `None` before the first.
     conga_last: Option<u64>,
+    /// Open `/thrust` and `/bendover` invites, oldest first, at most one per member (OME-1672). Never stored or sent in a snapshot.
+    pair_invites: Vec<(MemberId, PairPose, i64)>,
 }
 
 /// `Map.get(key)` of an expiry map, then the "live" rule: the entry runs while `now < until`; an expired one is dropped.
@@ -295,6 +299,7 @@ impl Room {
             holds_until: 0,
             conga: Vec::new(),
             conga_last: None,
+            pair_invites: Vec::new(),
             layout: init.layout.unwrap_or_else(default_layout),
             title: init.title,
             control_policy: init.control_policy.unwrap_or(DEFAULT_CONTROL_POLICY),
@@ -320,6 +325,9 @@ impl Room {
     /// door too (ADR 0053); returns them, in join order, with where they went.
     pub fn set_layout(&mut self, layout: RoomLayout) -> Vec<(MemberId, Option<FloorCell>)> {
         self.layout = layout;
+        if !self.layout.pairs() {
+            self.pair_invites.clear();
+        }
         let door = door_cell().filter(|&d| self.layout.standable(d));
         let mut moved = Vec::new();
         for &s in &self.order {
@@ -345,19 +353,90 @@ impl Room {
         let stood_up = self.seats.contains(&Some(slot));
         self.free(slot);
         if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
+            if let Some(from) = rec.member.cell {
+                rec.facing = step_facing(from, cell, rec.facing);
+            }
             rec.member.cell = Some(cell);
         }
         WalkResult::Walked { stood_up }
     }
 
     /// `/thrust` or `/bendover` from `member` at Unix ms `now` (OME-1672); see `PairResult`. Moves nobody: the caller
-    /// walks the inviter to the returned cell.
-    pub fn pair(&mut self, _member: &MemberId, _pose: PairPose, _now: i64) -> PairResult {
-        PairResult::NotMember
+    /// walks the inviter to the returned cell. Invites are checked against `now` here, so they need no timer.
+    pub fn pair(&mut self, member: &MemberId, pose: PairPose, now: i64) -> PairResult {
+        if !self.layout.pairs() {
+            return PairResult::PairsOff;
+        }
+        let Some(&slot) = self.index.get(member) else {
+            return PairResult::NotMember;
+        };
+        self.pair_invites
+            .retain(|&(_, _, at)| now.saturating_sub(at) < PAIR_INVITE_TTL_MS as i64);
+        let Some(inviter) = self
+            .pair_invites
+            .iter()
+            .rev()
+            .find(|(m, p, _)| m != member && *p != pose)
+            .map(|(m, _, _)| m.clone())
+        else {
+            self.cancel_pair(member);
+            self.pair_invites.push((member.clone(), pose, now));
+            return PairResult::Invited;
+        };
+        let facing = |m: &MemberId| {
+            self.index
+                .get(m)
+                .and_then(|&s| self.slots.get(usize::from(s))?.as_ref())
+                .map_or((-1, 0), |r| r.facing)
+        };
+        let Some(at) = self
+            .slots
+            .get(usize::from(slot))
+            .and_then(Option::as_ref)
+            .and_then(|r| r.member.cell)
+        else {
+            return PairResult::NoCell;
+        };
+        // The bender is the sender: the inviter goes behind them. Otherwise the inviter bends, and goes where the
+        // sender is behind them. Either way the cell is beside the sender.
+        let (dx, dy) = facing(if pose == PairPose::Bendover { member } else { &inviter });
+        let sign = if pose == PairPose::Bendover { -1 } else { 1 };
+        let behind = (i16::from(dx) * sign, i16::from(dy) * sign);
+        // shortcut: the fallback order is fixed (east, south, west, north, then the diagonals), not nearest-to-facing; refine if play shows it looks odd.
+        let ring = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)];
+        let free = |(ox, oy): (i16, i16)| {
+            let x = u64::try_from(i16::from(at.x.get()) + ox).ok()?;
+            let y = u64::try_from(i16::from(at.y.get()) + oy).ok()?;
+            let c = FloorCell::new(x, y)?;
+            let taken = self
+                .slots
+                .iter()
+                .flatten()
+                .any(|r| r.member.cell == Some(c) && r.member.id != inviter);
+            (self.layout.standable(c) && !taken).then_some(c)
+        };
+        let Some(cell) = std::iter::once(behind).chain(ring).find_map(free) else {
+            return PairResult::NoCell;
+        };
+        self.cancel_pair(&inviter);
+        self.cancel_pair(member);
+        let (thrust, bendover) = if pose == PairPose::Thrust {
+            (member, &inviter)
+        } else {
+            (&inviter, member)
+        };
+        PairResult::Paired {
+            thrust: thrust.clone(),
+            bendover: bendover.clone(),
+            inviter,
+            cell,
+        }
     }
 
     /// Drops `member`'s open invite, if any.
-    pub fn cancel_pair(&mut self, _member: &MemberId) {}
+    pub fn cancel_pair(&mut self, member: &MemberId) {
+        self.pair_invites.retain(|(m, _, _)| m != member);
+    }
 
     /// `join.via` (OME-1556, ADR 0054): stands a member who just joined in front of the door back to `via`, if that
     /// cell is free of solid pieces and other members; otherwise they keep the default spot.
@@ -653,6 +732,7 @@ impl Room {
                 away: false,
                 announced: None,
                 typing: false,
+                facing: (-1, 0),
             });
         }
         self.order.push(slot);
@@ -700,6 +780,7 @@ impl Room {
         self.free(slot);
         self.order.retain(|&s| s != slot);
         self.conga.retain(|m| m != member);
+        self.cancel_pair(member);
         let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::take) else {
             return;
         };
@@ -992,6 +1073,17 @@ impl Room {
             watching_count: None,
             now_playing: None,
         }
+    }
+}
+
+/// The step from `from` to `to` as a unit vector along its longer axis (x on a tie); `keep` if they are the same cell.
+fn step_facing(from: FloorCell, to: FloorCell, keep: (i8, i8)) -> (i8, i8) {
+    let dx = i16::from(to.x.get()) - i16::from(from.x.get());
+    let dy = i16::from(to.y.get()) - i16::from(from.y.get());
+    match (dx, dy) {
+        (0, 0) => keep,
+        _ if dx.abs() >= dy.abs() => (dx.signum() as i8, 0),
+        _ => (0, dy.signum() as i8),
     }
 }
 

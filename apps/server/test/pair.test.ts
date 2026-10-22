@@ -45,8 +45,13 @@ async function setup(pairs: boolean, furniture = DEFAULT_LAYOUT.furniture, opts:
 async function stand(m: Member, ...cells: [number, number][]) {
   for (const [x, y] of cells) {
     m.client.send({ type: "walk", cell: { x, y } });
-    await m.client.next("walked");
+    for (const c of clients) await c.next("walked");
   }
+}
+/** `m` sends an invite; every socket has seen the pair-invited before this returns, so the next `next` is about what follows. */
+async function invite(m: Member, pose: "thrust" | "bendover") {
+  m.client.send({ type: "pair", pose });
+  for (const c of clients) await c.next("pair-invited");
 }
 
 describe("pairs (OME-1672)", () => {
@@ -67,9 +72,8 @@ describe("pairs (OME-1672)", () => {
     const { a, b } = await setup(true);
     await stand(b, [5, 5], [4, 5]);
     a.client.send({ type: "sit", seat: 2 });
-    await b.client.next("seat-changed");
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    for (const c of clients) await c.next("seat-changed");
+    await invite(a, "thrust");
     b.client.send({ type: "pair", pose: "bendover" });
     expect(await a.client.next("seat-changed")).toEqual({ type: "seat-changed", memberId: a.snapshot.self, seat: null });
     expect(await a.client.next("walked")).toMatchObject({ memberId: a.snapshot.self, cell: { x: 5, y: 5 }, teleport: true });
@@ -82,8 +86,7 @@ describe("pairs (OME-1672)", () => {
     await stand(a, [8, 8]);
     a.client.send({ type: "floor-sit", on: true });
     await a.client.next("floor-sat");
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    await invite(a, "thrust");
     b.client.send({ type: "pair", pose: "bendover" });
     expect(await a.client.next("floor-sat")).toEqual({ type: "floor-sat", memberId: a.snapshot.self, on: false });
     expect((await a.client.next("walked")).cell).toEqual({ x: 5, y: 5 });
@@ -95,8 +98,7 @@ describe("pairs (OME-1672)", () => {
     const furniture = [...DEFAULT_LAYOUT.furniture, { kind: "sidetable" as const, col: 5, row: 5, facing: "se" as const }];
     const { a, b } = await setup(true, furniture);
     await stand(b, [6, 5], [4, 5]);
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    await invite(a, "thrust");
     b.client.send({ type: "pair", pose: "bendover" });
     expect((await a.client.next("walked")).cell).toEqual({ x: 3, y: 5 });
     await a.client.next("paired");
@@ -105,9 +107,8 @@ describe("pairs (OME-1672)", () => {
   binaryOnly("with no free cell (the sender is seated) the sender gets bad_cell and the invite stays", async () => {
     const { a, b } = await setup(true);
     b.client.send({ type: "sit", seat: 2 });
-    await a.client.next("seat-changed");
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    for (const c of clients) await c.next("seat-changed");
+    await invite(a, "thrust");
     b.client.send({ type: "pair", pose: "bendover" });
     expect((await b.client.next("error")).code).toBe("bad_cell");
     await a.client.none("paired", 100);
@@ -120,8 +121,7 @@ describe("pairs (OME-1672)", () => {
     const clock = new TestClock();
     const { a, b } = await setup(true, DEFAULT_LAYOUT.furniture, { now: clock.now, wallNow: clock.wallNow });
     await stand(b, [4, 5]);
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    await invite(a, "thrust");
     await clock.set({ wall: clock.wall + PAIR_INVITE_TTL_MS });
     b.client.send({ type: "pair", pose: "bendover" });
     expect(await a.client.next("pair-invited")).toMatchObject({ memberId: b.snapshot.self, pose: "bendover" });
@@ -131,8 +131,7 @@ describe("pairs (OME-1672)", () => {
   binaryOnly("walking cancels the walker's invite", async () => {
     const { a, b } = await setup(true);
     await stand(b, [4, 5]);
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    await invite(a, "thrust");
     await stand(a, [8, 8]);
     b.client.send({ type: "pair", pose: "bendover" });
     expect(await a.client.next("pair-invited")).toMatchObject({ memberId: b.snapshot.self });
@@ -143,8 +142,7 @@ describe("pairs (OME-1672)", () => {
     const { a, b } = await setup(true);
     await stand(b, [4, 5]);
     a.client.send({ type: "pair", pose: "thrust" });
-    a.client.send({ type: "pair", pose: "bendover" });
-    await b.client.next("pair-invited");
+    await invite(a, "bendover");
     await b.client.next("pair-invited");
     b.client.send({ type: "pair", pose: "thrust" });
     expect((await a.client.next("paired")).bendover).toBe(a.snapshot.self);
@@ -153,10 +151,8 @@ describe("pairs (OME-1672)", () => {
   binaryOnly("the old pose of a replaced invite no longer matches", async () => {
     const { a, b } = await setup(true);
     await stand(b, [4, 5]);
-    a.client.send({ type: "pair", pose: "thrust" });
-    a.client.send({ type: "pair", pose: "bendover" });
-    await b.client.next("pair-invited");
-    await b.client.next("pair-invited");
+    await invite(a, "thrust");
+    await invite(a, "bendover");
     b.client.send({ type: "pair", pose: "bendover" });
     expect(await a.client.next("pair-invited")).toMatchObject({ memberId: b.snapshot.self });
     await a.client.none("paired", 100);
@@ -165,10 +161,9 @@ describe("pairs (OME-1672)", () => {
   binaryOnly("the same pose never matches", async () => {
     const { a, b } = await setup(true);
     await stand(b, [4, 5]);
-    a.client.send({ type: "pair", pose: "thrust" });
-    await b.client.next("pair-invited");
+    await invite(a, "thrust");
     b.client.send({ type: "pair", pose: "thrust" });
-    await a.client.next("pair-invited");
+    expect(await a.client.next("pair-invited")).toMatchObject({ memberId: b.snapshot.self, pose: "thrust" });
     await a.client.none("paired", 100);
   });
 
@@ -176,8 +171,7 @@ describe("pairs (OME-1672)", () => {
     const { a, b } = await setup(true);
     await stand(a, [4, 5]);
     a.client.send({ type: "pair", pose: "thrust" });
-    a.client.send({ type: "pair", pose: "bendover" });
-    await b.client.next("pair-invited");
+    await invite(a, "bendover");
     await b.client.next("pair-invited");
     await a.client.none("paired", 100);
   });
