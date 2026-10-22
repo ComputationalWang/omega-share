@@ -4,7 +4,7 @@
 // the column's box (width and height) and keeps ADR 0012's player minimum. OME-1050 (board): the room fills what the
 // shelf leaves, scaled up past 1× where the column has room, and is the larger part of the column at 16:9.
 import { describe, expect, test } from "bun:test";
-import { CONTROL_BAR_H, ROOM_VIEW, WIDE_CHAT_W, WIDE_QUERY, wideLayout, type Rect } from "../src/layout";
+import { CONTROL_BAR_H, ROOM_VIEW, WIDE_CHAT_W, WIDE_QUERY, chromeZoom, wideLayout, type Rect } from "../src/layout";
 
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const inside = (r: Rect, w: number, h: number): boolean => r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h;
@@ -88,5 +88,40 @@ describe("wideLayout", () => {
   test("`height` is the column's content height (the stage's foot)", () => {
     const l = wideLayout(920, 640, "youtube");
     expect(l.height).toBe(l.stage.y + l.stage.h);
+  });
+});
+
+// OME-1667 (board): on a 2K screen the chrome was 1280's, floating in a big canvas. From 1920×900 it zooms 1.5×, from
+// 2560×1200 2×, so every key is at least 40 px and the page looks like 1280×720's, only larger.
+describe("chrome zoom (OME-1667)", () => {
+  test("1× below 1920×900, 1.5× from there, 2× from 2560×1200", () => {
+    for (const [w, h, z] of [[1280, 720, 1], [1919, 1080, 1], [1920, 899, 1], [1920, 900, 1.5], [1920, 1080, 1.5], [2559, 1440, 1.5], [2560, 1199, 1.5], [2560, 1200, 2], [2560, 1440, 2], [3840, 2160, 2]] as const) {
+      expect(chromeZoom(w, h)).toBe(z);
+    }
+  });
+  test("the shelf grows with the chrome and the stage still fits under it", () => {
+    for (const z of [1.5, 2]) {
+      const l = wideLayout(2200, 1320, null, z);
+      expect(l.controls.h).toBe(CONTROL_BAR_H * z);
+      expect(l.stage.y).toBeGreaterThanOrEqual(l.controls.y + l.controls.h);
+      expect(inside(l.stage, 2200, 1320)).toBe(true);
+      expect(intersects(l.stage, l.controls)).toBe(false);
+    }
+    expect(wideLayout(2200, 1320, null).controls.h).toBe(CONTROL_BAR_H);
+  });
+  // QA OME-1696: stepping the shelf down for a narrow TV (People open) put 27 px keys back at 1920×1080, and a Twitch VOD's
+  // longer shelf left its seek bar 12 px wide. The shelf keeps the chrome's zoom and grows past a narrow TV instead,
+  // centred under it: Twitch's never under 560 px (its 534 px 1280 shelf, with room for wider fonts), zoomed.
+  test("the shelf keeps the chrome's zoom and is wide enough for its keys, centred under a narrow TV", () => {
+    for (const [w, h, z] of [[2200, 1320, 2], [1300, 1000, 1.5], [1300, 760, 1.5], [1300, 600, 1.5], [1888, 1000, 2], [1408, 700, 1.5]] as const) {
+      for (const [provider, min] of [[null, 420], ["twitch", 560]] as const) {
+        const l = wideLayout(w, h, provider, z);
+        expect(l.controls.h).toBe(CONTROL_BAR_H * z);
+        expect(l.controls.w).toBeGreaterThanOrEqual(Math.min(min * z, w));
+        expect(l.controls.w).toBeGreaterThanOrEqual(l.tv.w);
+        expect(Math.abs(l.controls.x + l.controls.w / 2 - (l.tv.x + l.tv.w / 2))).toBeLessThanOrEqual(1);
+        expect(inside(l.controls, w, h)).toBe(true);
+      }
+    }
   });
 });

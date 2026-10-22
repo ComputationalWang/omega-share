@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
@@ -53,6 +53,8 @@ export interface RoomLayoutOptions {
     setFullscreen(on: boolean): void;
     place(): void;
   };
+  /** The moments strip (OME-1628): boxed under the shelf, or set aside where it has no room. */
+  readonly moments?: HTMLElement;
   readonly log: ChatLog;
   /** The poll card (OME-1454): always right above the log. */
   readonly poll: HTMLElement;
@@ -343,9 +345,19 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
   /** The TV and its shelf take their boxes, compact where they're small. */
-  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }): void => {
+  /** `zoom`: the wide page's chrome zoom (OME-1667); the shelf's and the moments strip's boxes are in their own, zoomed, px. */
+  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }, height: number, fsAt?: FullscreenLayout["at"], zoom = 1): void => {
+    const z = (r: Rect): Rect => (zoom === 1 ? r : { x: r.x / zoom, y: r.y / zoom, w: r.w / zoom, h: r.h / zoom });
+    const zoomed = zoom === 1 ? "" : String(zoom);
     box(tv, l.tv);
-    box(controls, l.controls);
+    box(controls, z(l.controls));
+    controls.style.zoom = zoomed;
+    if (o.moments !== undefined) {
+      const m = momentsBox({ tv: z(l.tv), controls: z(l.controls) }, height / zoom, fsAt);
+      o.moments.classList.toggle("no-room", m === null);
+      o.moments.style.zoom = zoomed;
+      if (m !== null) box(o.moments, m);
+    }
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
   };
@@ -353,10 +365,14 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap.
     wrap.style.minHeight = "";
+    // Set before the wrap is measured: room.css widens the chat column with it.
+    const zoom = wide.matches && fs.mode() === "off" ? chromeZoom(window.innerWidth, window.innerHeight) : 1;
+    if (zoom === 1) delete root.dataset["chrome"];
+    else root.dataset["chrome"] = String(zoom);
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
-      boxTv(l);
+      boxTv(l, wrap.clientHeight, l.at);
       box(fsChat.bubbles, l.strip);
       // The hide/show-chat handle (OME-1593): on the strip's edge, or the screen's while hidden; none on the band.
       fsChat.pill.hidden = l.handle === undefined;
@@ -403,8 +419,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
-      boxTv(l);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom);
+      boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
         // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
@@ -430,7 +446,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))
       : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
-    boxTv(l);
+    boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
       root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);

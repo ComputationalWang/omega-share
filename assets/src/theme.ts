@@ -1,7 +1,7 @@
 // Holiday themes (OME-1140): the shared machinery behind every theme set. A theme module (halloween.ts, sinterklaas.ts, …) supplies a
 // hat, wall/window decor and effect frames; build.ts packs each into themes/<id>/<id>.png + .json. Style rules: STYLE.md § Holiday themes.
 import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, composeMotion, viewOf, type AvatarDef, type Dir, type Motion, type Pose } from "./avatars";
-import { BREATHE, CHEER_FRAMES, WALK8_FRAMES, WALK_FRAMES, WAVE_FRAMES, YAWN_FRAMES, cheerMotion, walk8Motion, walkMotion, waveMotion, yawnMotion } from "./motion";
+import { BREATHE, CHEER_FRAMES, REACH_FRAMES, WALK8_FRAMES, WALK_FRAMES, WATCH_STATES, WAVE_FRAMES, YAWN_FRAMES, cheerMotion, reachMotion, walk8Motion, walkMotion, watchMotion, waveMotion, yawnMotion } from "./motion";
 import { colorIndex, type RampName, type Tone } from "./palette";
 import type { RoomFrame } from "./room";
 import { blank, render, stamp, type Grid, type RoleMap } from "./sprite";
@@ -90,8 +90,10 @@ export function allAvatarFrames(): AvatarFrameSpec[] {
         for (let n = 0; n < WAVE_FRAMES; n++) add(`wave/${a.id}/${pose}/${dir}/${String(n)}`, pose, dir, waveMotion(v, n));
         for (let n = 0; n < CHEER_FRAMES; n++) add(`cheer/${a.id}/${pose}/${dir}/${String(n)}`, pose, dir, cheerMotion(v, pose, n, holds));
         for (let n = 0; n < YAWN_FRAMES; n++) add(`yawn/${a.id}/${pose}/${dir}/${String(n)}`, pose, dir, yawnMotion(v, n, holds));
+        if (pose === "idle") for (let n = 0; n < REACH_FRAMES; n++) add(`reach/${a.id}/idle/${dir}/${String(n)}`, pose, dir, reachMotion(v, n));
       }
     }
+    for (const dir of BACK_DIRS) for (const st of WATCH_STATES) for (let n = 0; n < st.frames; n++) add(`watch/${st.id}/${a.id}/${dir}/${String(n)}`, "sit", dir, watchMotion(st.id, n, holds));
     for (const dir of DIRS) {
       const v = viewOf(dir);
       for (let n = 0; n < WALK_FRAMES; n++) add(`walk/${a.id}/${dir}/${String(n)}`, "idle", dir, walkMotion(v, n, holds));

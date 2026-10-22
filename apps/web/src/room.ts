@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
+import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, REACTIONS_MAX, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type Member, type MemberId, type Nickname, type Reaction, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -16,6 +16,10 @@ import { el, sprite } from "./controls/dom";
 import { snapRoom } from "./snap";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createRoomTv, syncedOnly } from "./room-tv";
+import { expectedPosition } from "./sync";
+import { createReplay } from "./moments/replay";
+import { createMomentsStrip } from "./moments/strip";
+import { createRecapCard, recapOf } from "./moments/recap";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
@@ -31,12 +35,16 @@ import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, t
 import type { ExtensionBridge } from "./extension-bridge";
 import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
+import { createEmoteBucket } from "./emote/emotes";
+import { createReactionBar } from "./reactions/bar";
 import { createCommandPalette } from "./chat/palette";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
 import { CONGA_FULL_LINE, DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { hugHint, hugStep, matchMember } from "./chat/hug";
+import { cellOf as cellIndex, colOf, rowOf, walkGrid } from "./walk/path";
+import { isPetting, petArrival, petSpot } from "./walk/pet";
 import { attachMentionComplete } from "./chat/complete";
 import { mentionOptions } from "./chat/mention";
 import type { SystemLine } from "./controls/sysline";
@@ -61,6 +69,8 @@ import { NO_CONGA, congaAhead, congaJoin, congaStep, congaText } from "./chat/co
 import { createPads } from "./walk/pad";
 import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
+import type { FloorKind, Sound } from "./audio";
+import { cellAt } from "./walk/path";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -168,14 +178,33 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   // /hug and /highfive (OME-1453): the walk over that's on its way, and the emote it ends with once I've stopped there.
-  let hug: { readonly target: MemberId; readonly cell: FloorCell; readonly kind: EmoteKind; arrived: boolean } | null = null;
+  // `tries`: how often a /pet walk re-targeted a cat that moved on (OME-1704).
+  let hug: { readonly target: MemberId | null; readonly cell: FloorCell; readonly kind: EmoteKind; arrived: boolean; readonly tries?: number } | null = null;
   function hugNow(): void {
-    const kind = hug?.kind;
+    const h = hug;
     hug = null;
-    if (kind !== undefined) picker.emote(kind);
+    if (h === null) return;
+    // The cat may have wandered while I walked: only a heart from beside it is a pet, so chase it or say so.
+    const self = state.self;
+    const me = h.target === null && self !== null ? (state.room?.members.find((m) => m.id === self)?.cell ?? roomStage.cellOf(self)) : null;
+    const tries = h.tries ?? 0;
+    const step = me === null ? "pet" : petArrival(cellIndex(me.x, me.y), roomStage.catCells(), tries);
+    if (step === "pet") picker.emote(h.kind);
+    else if (step === "retarget") startPet(tries + 1);
+    else hint(hugHint("The cat wandered off"));
   }
+  // Room sounds (OME-1638): the engine is its own lazy chunk, loaded once the room is up; until then nothing sounds.
+  let sound: Sound | null = null;
   const roomStage: Stage = await createStage({
     reducedMotion,
+    sound: {
+      pose: (id, p) => {
+        sound?.pose(id, p);
+      },
+      play: (name) => {
+        sound?.play(name);
+      },
+    },
     roomId: opts.roomId,
     serverNow: () => clock.serverNow(),
     dim: cinema.el,
@@ -194,6 +223,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       layout.seats(points);
     },
     onFloor: (cell, run) => {
+      // A tap on a cat's cell pets it (OME-1669); a cat's cell isn't somewhere to walk anyway.
+      if (roomStage.catCells().includes(cellIndex(cell.x, cell.y))) return startPet();
       quitConga();
       stopFollow();
       return walkTo(cell, run);
@@ -365,7 +396,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let pbView: PlaybackView | null = null;
   let ctlFrame = 0;
   const playback = createPlaybackController({
-    send,
+    send: (m) => {
+      if (m.type === "ended") showRecap(m.itemId);
+      return send(m);
+    },
     clock,
     now: () => performance.now(),
     setInterval: (fn, ms) => setInterval(fn, ms),
@@ -374,6 +408,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     onView: (v) => {
       pbView = v;
+      if (v.duration !== momentsDuration) {
+        momentsDuration = v.duration;
+        drawMoments();
+      }
+      strip.setControl(v.canControl && !v.held && !v.live);
       // The room window's plate and my hourglass there: from the player's timer, not a frame (a hidden tab draws none).
       relay?.tv({ video: v.hasVideo, playing: v.playing, position: Math.max(0, Math.floor(v.position)), live: v.live, catching: v.catching });
       if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
@@ -399,7 +438,52 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   const { tv, controls } = tvBox;
-  wrap.append(tv, controls, clip);
+  // Moments (OME-1628): the current item's reactions, as the strip under the shelf and the late joiner's replay.
+  let reactions: Reaction[] = [];
+  let momentsDuration = 0;
+  const strip = createMomentsStrip({ seek: (s) => playback.seek(s) });
+  const drawMoments = (): void => {
+    strip.render(reactions, momentsDuration * 1000);
+  };
+  const replay = createReplay({
+    position: () => {
+      const pb = state.room?.playback;
+      return pb == null || !pb.playing || pbView?.live === true ? null : { ms: expectedPosition(pb, clock.serverNow()) * 1000, rate: pb.rate };
+    },
+    show: (id, kind) => {
+      if (!isHidden(id)) emoted(id, kind);
+    },
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h) => {
+      clearTimeout(h);
+    },
+  });
+  wrap.append(tv, controls, strip.root, clip);
+  // One local bucket for emotes and reactions: the server charges both to the emote limit (OME-1631).
+  const emoteBucket = createEmoteBucket(performance.now());
+  // The reaction bar (OME-1631) under the room and its TV, while something plays.
+  const reactionBar = createReactionBar({
+    bucket: emoteBucket,
+    send: (m) => send(m),
+    now: () => performance.now(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+    },
+  });
+  // Recap (OME-1629): once per item, when it ends or the queue moves on; who watched = everyone in the room during it.
+  const recap = createRecapCard();
+  const watched = new Map<string, Nickname>();
+  let recapped: string | undefined;
+  const see = (members: readonly Member[] | undefined): void => {
+    for (const m of members ?? []) watched.set(m.id, m.nickname);
+  };
+  const showRecap = (id: string | undefined): void => {
+    if (id === undefined || id === recapped) return;
+    recapped = id;
+    const d = recapOf(reactions, momentsDuration * 1000, [...watched].filter(([m]) => !isHidden(m)).map(([, n]) => n));
+    if (d !== null) recap.show(d);
+  };
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
@@ -413,6 +497,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The emote key and its picker (OME-415) lead the chat row: both are how you speak up.
   const iSit = (): boolean => state.self !== null && ((state.room?.seats.includes(state.self) ?? false) || state.room?.members.some((m) => m.id === state.self && m.floorSit === true) === true);
   const picker = createEmotePicker({
+    bucket: emoteBucket,
     seated: iSit,
     send: (m) => send(m),
     now: () => performance.now(),
@@ -475,6 +560,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const help = createHelp({
     owner: () => state.owner && opts.secret?.ownerToken !== undefined,
     cinema,
+    sound: () =>
+      sound === null
+        ? null
+        : {
+            volume: () => sound?.volume() ?? 0,
+            setVolume: (v) => {
+              sound?.setVolume(v);
+              sound?.play("ui.tick");
+            },
+            muted: () => sound?.muted() ?? false,
+            setMuted: (m) => {
+              sound?.setMuted(m);
+              sound?.play("ui.toggle");
+            },
+          },
     tips: () => {
       firstHint.restart();
     },
@@ -667,7 +767,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, reactionBar.root, recap.root, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
@@ -683,6 +783,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       roomStage.labelScale(k);
     },
     tv: tvBox,
+    moments: strip.root,
     log: chatLog,
     poll: pollCard.root,
     composer: { form: chatForm, away: chatAway, popOut, picker },
@@ -723,9 +824,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }
 
   /** The room dims while the video plays, lifted while the editor is open (OME-1406); the mood shown is the drawn layout's (OME-1502). */
+  let lightsDown = false;
   const dim = (): void => {
-    cinema.update(pbView?.hasVideo === true && pbView.playing, owner.editing());
-    cinema.mood((owner.preview() ?? layoutOf(state.room)).mood ?? "none");
+    const playing = pbView?.hasVideo === true && pbView.playing;
+    cinema.update(playing, owner.editing());
+    const mood = (owner.preview() ?? layoutOf(state.room)).mood ?? "none";
+    cinema.mood(mood);
+    sound?.tone(mood);
+    // The lights-down swell (OME-1638) as the dim comes on.
+    const down = cinema.on() && playing && !owner.editing();
+    if (down && !lightsDown) sound?.play("swell");
+    lightsDown = down;
   };
 
   const requestRender = (): void => {
@@ -830,6 +939,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
+    reactionBar.root.hidden = !shown.stage || s.status !== "open" || s.room?.embed == null;
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
     snapKey.hidden = !shown.stage;
@@ -864,6 +974,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (s.lastError !== null && !queueClaimed) {
         notice.textContent = ERROR_TEXT[s.lastError.code];
         notice.hidden = false;
+        sound?.play("ui.error");
         if (noticeTimer !== null) clearTimeout(noticeTimer);
         noticeTimer = setTimeout(() => {
           notice.hidden = true;
@@ -909,7 +1020,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (document.title !== t) document.title = t;
   };
   const dispatch = (e: ViewEvent): void => {
+    // A reaction (OME-1631) bursts over the sender; never view state. Hidden members' too stay hidden (OME-769).
+    if (e.type === "server" && e.msg.type === "reacted" && !isHidden(e.msg.memberId) && !roomOut()) roomStage.react(e.msg.memberId, e.msg.kind);
     if (e.type === "server" && e.msg.type === "walked" && e.msg.teleport === true) roomStage.teleported(e.msg.memberId);
+    // Never view state (state.ts): straight to the moments.
+    if (e.type === "server" && e.msg.type === "reacted") {
+      const r: Reaction = { memberId: e.msg.memberId, kind: e.msg.kind, mediaMs: e.msg.mediaMs };
+      reactions.push(r);
+      if (reactions.length > REACTIONS_MAX) reactions.shift();
+      replay.push(r);
+      drawMoments();
+    }
     const next = reduce(state, e);
     if (next === state) return;
     const unreadBefore = unread;
@@ -963,11 +1084,26 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       else if (step === "arrived") hug.arrived = true;
     }
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
+    // Moments (OME-1628): a snapshot brings the item's reactions and catches me up; a new item starts empty.
+    if (e.type === "server" && e.msg.type === "snapshot") {
+      reactions = [...(e.msg.reactions ?? [])];
+      replay.start(reactions);
+      drawMoments();
+    } else if (next.room?.itemId !== prevRoom?.itemId) {
+      showRecap(prevRoom?.itemId);
+      watched.clear();
+      see(next.room?.members);
+      reactions = [];
+      replay.stop();
+      drawMoments();
+    }
+    if (next.room?.members !== prevRoom?.members) see(next.room?.members);
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
       playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
       tvBox.sync(next);
+      replay.sync();
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
     if (expiriesChanged) scheduleExpiry();
@@ -1030,6 +1166,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
     if (cmd.type === "hug") return startHug(cmd.kind, cmd.name);
+    if (cmd.type === "pet") return startPet();
     if (cmd.type === "sit") return floorSit();
     if (cmd.type === "snap") return snap();
     hint(cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
@@ -1065,10 +1202,48 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     hint(hugHint(`No free spot beside ${m.nickname}`));
     return true;
   }
+  /** /pet or a tap on the cat (OME-1669): walk beside the nearest cat, then the heart (at once if I'm beside one). Zero wire. */
+  function startPet(tries = 0): boolean {
+    const room = state.room;
+    const self = state.self;
+    const me = self === null ? null : (room?.members.find((m) => m.id === self)?.cell ?? roomStage.cellOf(self));
+    if (room === null || state.status !== "open" || me === null) return false;
+    const cats = roomStage.catCells();
+    if (cats.length === 0) {
+      hint(hugHint("There's no cat here"));
+      return true;
+    }
+    hug = null;
+    const here = cellIndex(me.x, me.y);
+    if (isPetting(here, cats)) return picker.emote("heart");
+    const taken = new Set<number>();
+    for (const m of room.members) if (m.cell !== undefined && m.id !== self) taken.add(cellIndex(m.cell.x, m.cell.y));
+    const spot = petSpot(walkGrid(room.layout ?? DEFAULT_LAYOUT), cats, here, taken);
+    if (spot === null) {
+      hint(hugHint("No free spot beside the cat"));
+      return true;
+    }
+    quitConga();
+    stopFollow();
+    const cell = { x: colOf(spot), y: rowOf(spot) };
+    walkGate.push({ type: "walk", cell });
+    hug = { target: null, cell, kind: "heart", arrived: false, tries };
+    return true;
+  }
   // Crowd applause (OME-1389): from the relayed emotes only (a chat sticker isn't one), so every client agrees.
   const applause = createApplause();
   const relayedEmote = (id: MemberId, kind: EmoteKind): void => {
-    emoted(id, kind);
+    // A heart from beside a cat is a pet (OME-1669): the avatar reaches out (OME-1697), the cat gets the heart. Reduced motion: the plain badge.
+    const at = kind === "heart" && !reducedMotion.matches ? roomStage.cellOf(id) : null;
+    const cats = at === null ? [] : roomStage.catCells();
+    const cat = at === null ? undefined : cats.find((c) => isPetting(cellIndex(at.x, at.y), [c]));
+    if (cat === undefined) emoted(id, kind);
+    else {
+      // shortcut: the pop-out channel carries EmoteKind only, so a popped-out room still sees a wave; widen the channel if that matters.
+      relay?.emote(id, "wave");
+      if (!roomOut()) roomStage.emote(id, "reach", state);
+      roomStage.petCat(cat);
+    }
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
   };
   const kickedStore = sessionStorage;
@@ -1195,6 +1370,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (ev.key === "Escape") firstHint.dismiss();
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
+    // Before the picker: on some layouts Shift+digit types a digit, which the picker would take as an emote.
+    else if (!reactionBar.root.hidden && reactionBar.key(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
@@ -1275,5 +1452,31 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
+  // Sound (OME-1638): unlocked by the Enter gesture that got us here (its activation still holds), and by the next
+  // pointer or key press if the browser kept it suspended (a resumed session had no gesture).
+  void import("./audio")
+    .then(({ loadSound, floorKinds }) => {
+      let floors: { layout: RoomLayout; at: (cell: number) => FloorKind } | null = null;
+      sound = loadSound({
+        store: {
+          getItem: (k) => localStorage.getItem(k),
+          setItem: (k, v) => {
+            localStorage.setItem(k, v);
+          },
+        },
+        listener: () => (state.self === null ? null : (view.position(state.self) ?? null)),
+        floorAt: (p) => {
+          const l = layoutOf(state.room);
+          if (floors?.layout !== l) floors = { layout: l, at: floorKinds(l.furniture) };
+          return floors.at(cellAt(p));
+        },
+      });
+      sound.unlock();
+      for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => sound?.unlock(), { capture: true, passive: true });
+      dim();
+    })
+    .catch((e: unknown) => {
+      console.warn("sound: not loaded", e);
+    });
   return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }

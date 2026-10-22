@@ -2,11 +2,12 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
+import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
@@ -14,10 +15,11 @@ import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
-import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
+import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
+import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
 import { awayChanges } from "./session-lifecycle";
 import tintsJson from "../../../assets/avatars/tints.json";
@@ -55,6 +57,8 @@ export interface StageOptions {
   /** The room and server time (OME-1520): every client's cats wander alike from them (room-view.ts). */
   readonly roomId?: string;
   readonly serverNow?: () => number;
+  /** The room's sounds (OME-1638), passed to the room view. */
+  readonly sound?: RoomSound;
 }
 
 export interface Stage {
@@ -70,7 +74,9 @@ export interface Stage {
   render(s: StageState, layout: RoomLayout, selfCatching: boolean, editing: boolean): void;
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
-  emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  emote(id: MemberId, kind: AvatarEmote, s: StageState): void;
+  /** A received reaction (OME-1631): a glyph burst over their head, if the view allows it now. Returns the glyphs shown. */
+  react(id: MemberId, kind: ReactionKind): number;
   /** Their next move is a teleport (OME-1548, `walked.teleport`): marked before the state change that draws it. */
   teleported(id: MemberId): void;
   /** The member started or stopped typing (OME-1390): the "…" over their head. */
@@ -85,6 +91,9 @@ export interface Stage {
   anchor(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
   cellOf(id: MemberId): FloorCell | null;
+  /** The cats' cells now and a heart over the cat on one (OME-1669, room-view.ts). */
+  catCells(): number[];
+  petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
@@ -153,6 +162,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     else typers.delete(id);
   };
   const badges = createEmoteBadges(bubbles, timers);
+  const reactionLayer = el("div", { className: "reactions" });
+  const glyphs = createReactionGlyphs(reactionLayer, { allowed: () => view.reactionsAllowed(), now: () => performance.now(), ...timers });
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
@@ -164,6 +175,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const view = await createRoomView({
     ...(o.roomId === undefined ? {} : { roomId: o.roomId }),
     ...(o.serverNow === undefined ? {} : { serverNow: o.serverNow }),
+    ...(o.sound === undefined ? {} : { sound: o.sound }),
     onMove: (id, x, y) => {
       const head = y - liftOf(id);
       badges.move(id, x, head);
@@ -182,7 +194,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
+  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
@@ -553,7 +565,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return;
       }
       const p = view.position(id) ?? placedAt.get(id);
-      if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+      // The reach has no badge; room.ts never sends it under reduced motion.
+      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+    },
+    react(id, kind) {
+      const p = view.position(id) ?? placedAt.get(id);
+      return p === undefined ? 0 : glyphs.burst({ x: p.x, y: p.y - liftOf(id) }, kind);
     },
     teleported(id) {
       teleporting.add(id);
@@ -575,6 +592,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    catCells: () => view.catCells(),
+    petCat: (cell) => {
+      view.petCat(cell);
+    },
     cellOf(id) {
       const p = view.position(id) ?? placedAt.get(id);
       const c = p === undefined ? -1 : cellAt(p);

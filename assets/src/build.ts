@@ -12,7 +12,14 @@ import {
   CHEER_SEQUENCE,
   YAWN_FRAMES,
   YAWN_SEQUENCE,
+  WATCH_SEQUENCES,
+  WATCH_STATES,
+  watchMotion,
   cheerMotion,
+  reachMotion,
+  REACH_FRAMES,
+  REACH_MS,
+  REACH_SEQUENCE,
   yawnMotion,
   EMOTES,
   EMOTE_CELL,
@@ -36,7 +43,7 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
-import { CATALOGUE_V2, CATALOGUE_V4, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -64,6 +71,7 @@ import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
 import { ACCESSORIES, BARE } from "./accessories";
 import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, lieGrid, type LieStyle } from "./lying";
+import { BEND_FLOOR, DUNGEON_CELL, DUNGEON_DIRS, THRUST_FLOOR, THRUST_FRAMES, THRUST_MS, THRUST_OFFSET, THRUST_SEQUENCE, bendGrid, thrustGrid } from "./dungeon";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
@@ -900,7 +908,9 @@ function buildMotion(base: Map<string, Uint8Array>): void {
 /** Set (p): cheer and yawn/doze, 2 frames × pose × dir per avatar, in `avatars/expressions.png` + `.json`. motion.png is full, so
  *  this is a second lazy sheet with motion.json's schema: one row per avatar, cheer then yawn, each poses × dirs × frames. */
 function buildExpressions(base: Map<string, Uint8Array>): void {
-  const sheetW = 1024, sheetH = pow2(AVATARS.length * CELL.h);
+  // One more row under the four: reach (OME-1697), standing only, avatar i in columns 8i–8i+7. Not rounded up to 512, because the web
+  // keeps one tinted copy of this sheet per look in use.
+  const sheetW = 1024, sheetH = (AVATARS.length + 1) * CELL.h;
   const sheet = new Uint8Array(sheetW * sheetH);
   const frames: Record<string, Frame> = {};
   const images = new Map<string, { img: Uint8Array; w: number; h: number }>();
@@ -939,6 +949,27 @@ function buildExpressions(base: Map<string, Uint8Array>): void {
         }
       }
     }
+    DIRS.forEach((dir, d) => {
+      const keys: string[] = [];
+      for (let n = 0; n < REACH_FRAMES; n++) {
+        const key = `reach/${a.id}/idle/${dir}/${String(n)}`;
+        const img = render(composeMotion(a, "idle", dir, reachMotion(viewOf(dir), n)), a.roles);
+        assertInside(key, img, CELL.w, CELL.h);
+        const x = (i * DIRS.length * REACH_FRAMES + d * REACH_FRAMES + n) * CELL.w, y = AVATARS.length * CELL.h;
+        blit(sheet, sheetW, img, CELL.w, CELL.h, x, y);
+        frames[key] = {
+          frame: { x, y, w: CELL.w, h: CELL.h },
+          rotated: false,
+          trimmed: false,
+          spriteSourceSize: { x: 0, y: 0, w: CELL.w, h: CELL.h },
+          sourceSize: { w: CELL.w, h: CELL.h },
+          anchor: { x: FLOOR.x / CELL.w, y: FLOOR.y / CELL.h },
+        };
+        images.set(key, { img, w: CELL.w, h: CELL.h });
+        keys.push(key);
+      }
+      anims[`reach/${a.id}/idle/${dir}`] = { frames: REACH_SEQUENCE.map((n) => keys[n] ?? ""), ms: REACH_SEQUENCE.map(() => REACH_MS), loop: false };
+    });
   });
   registerKeys("expressions", Object.keys(frames));
   const dir = join(ROOT, "avatars");
@@ -972,6 +1003,8 @@ function buildExpressions(base: Map<string, Uint8Array>): void {
   const rows = AVATARS.flatMap((a) => (["cheer", "yawn"] as const).map((id) =>
     POSES.flatMap((p) => DIRS.flatMap((d) => [`${a.id}/${p}/${d}/0`, `${id}/${a.id}/${p}/${d}/0`, `${id}/${a.id}/${p}/${d}/1`, ""]))));
   strip("expressions-strip@4x.png", 32, rows, all, CELL.w, CELL.h, true);
+  // Reach: per avatar the base pose then frames 0 and 1, in se sw ne nw.
+  strip("reach-strip@4x.png", 16, AVATARS.map((a) => DIRS.flatMap((d) => [`${a.id}/idle/${d}/0`, `reach/${a.id}/idle/${d}/0`, `reach/${a.id}/idle/${d}/1`, ""])), all, CELL.w, CELL.h, true);
   buildExpressionScene(all);
 }
 
@@ -1010,6 +1043,136 @@ function buildExpressionScene(sprites: Sprites): void {
   }
   writeFileSync(join(ROOT, "preview", "expressions-scene@1x.png"), encodeIndexedPng(W, H, img, PALETTE));
   writeFileSync(join(ROOT, "preview", "expressions-scene@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
+// ---------------------------------------------------------------- watching poses (OME-1640, lazy)
+
+/** Seated from behind (ne, nw) for the theatre: `watch/base` plus a laugh shake and a gasp lean, in `avatars/watching.png` + `.json`
+ *  (expressions.json's schema). One row per avatar: per dir, base 0, laugh 0–1, gasp 0–1. */
+function buildWatching(base: Map<string, Uint8Array>, furniture: { pieces: readonly PieceMeta[]; all: FurnSprites }): void {
+  const perRow = BACK_DIRS.length * WATCH_STATES.reduce((n, s) => n + s.frames, 0);
+  const sheetW = pow2(perRow * CELL.w), sheetH = pow2(AVATARS.length * CELL.h);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const frames: Record<string, Frame> = {};
+  const images = new Map<string, Uint8Array>();
+  const anims: Record<string, Anim> = {};
+  AVATARS.forEach((a, i) => {
+    let col = 0;
+    for (const dir of BACK_DIRS) {
+      for (const st of WATCH_STATES) {
+        const keys: string[] = [];
+        for (let n = 0; n < st.frames; n++) {
+          const key = `watch/${st.id}/${a.id}/${dir}/${String(n)}`;
+          const img = render(composeMotion(a, "sit", dir, watchMotion(st.id, n, a.holds === true)), a.roles);
+          assertInside(key, img, CELL.w, CELL.h);
+          const x = col * CELL.w, y = i * CELL.h;
+          blit(sheet, sheetW, img, CELL.w, CELL.h, x, y);
+          frames[key] = {
+            frame: { x, y, w: CELL.w, h: CELL.h },
+            rotated: false,
+            trimmed: false,
+            spriteSourceSize: { x: 0, y: 0, w: CELL.w, h: CELL.h },
+            sourceSize: { w: CELL.w, h: CELL.h },
+            anchor: { x: FLOOR.x / CELL.w, y: FLOOR.y / CELL.h },
+          };
+          images.set(key, img);
+          keys.push(key);
+          col++;
+        }
+        if (st.id === "base") continue;
+        const seq = WATCH_SEQUENCES[st.id];
+        anims[`watch/${st.id}/${a.id}/${dir}`] = { frames: seq.map(([n]) => keys[n] ?? ""), ms: seq.map(([, ms]) => ms), loop: false };
+      }
+    }
+  });
+  registerKeys("watching", Object.keys(frames));
+  const dir = join(ROOT, "avatars");
+  writeFileSync(join(dir, "watching.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const animations: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(anims)) animations[k] = v.frames;
+  const atlas = {
+    frames,
+    animations,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "watching.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        tile: TILE,
+        cell: CELL,
+        floorPoint: FLOOR,
+        states: WATCH_STATES.map((s) => ({ id: s.id, frames: s.frames })),
+        anims,
+      },
+    },
+  };
+  writeFileSync(join(dir, "watching.json"), JSON.stringify(atlas, null, 1) + "\n");
+  // Strip: per avatar, the plain seated back (sit/<dir>/0) then base, laugh 0–1, gasp 0–1, for ne and nw.
+  const all = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  for (const [k, img] of [...base, ...images]) all.set(k, { img, w: CELL.w, h: CELL.h });
+  const rows = AVATARS.map((a) => BACK_DIRS.flatMap((d) => [`${a.id}/sit/${d}/0`, ...WATCH_STATES.flatMap((s) => Array.from({ length: s.frames }, (_, n) => `watch/${s.id}/${a.id}/${d}/${String(n)}`)), ""]));
+  strip("watching-strip@4x.png", 32, rows, all, CELL.w, CELL.h, true);
+  buildWatchingTheatre(images, furniture);
+}
+
+/** `watching-theatre@1x/2x.png`: the theatre set with three raised rows of 4 on each side (every row holds all 4 avatars, in a
+ *  different order). 3 × 2 panels, one per frame: base, laugh 0, laugh 1 / gasp 0, gasp 1, and a mixed house (front row laughing,
+ *  middle row gasping, back row plain). */
+function buildWatchingTheatre(images: ReadonlyMap<string, Uint8Array>, furniture: { pieces: readonly PieceMeta[]; all: FurnSprites }): void {
+  const orders = [["juno", "pip", "mo", "kiki"], ["mo", "kiki", "juno", "pip"], ["kiki", "juno", "pip", "mo"]];
+  const tiers = ["floor", "step", "high"] as const;
+  const frames = WATCH_STATES.flatMap((s) => Array.from({ length: s.frames }, (_, n) => `${s.id}/${String(n)}`));
+  // Per panel, the frame each tier (front, middle, back) shows.
+  const panels = [...frames.map((f) => [f, f, f]), ["laugh/1", "gasp/1", "base/0"]];
+  // Crop to the seating block: the screen down to the front aisle light.
+  const crop = { x: 236, y: 70, w: 488, h: 380 }, cols = 3, G = 4;
+  const W = cols * crop.w + (cols - 1) * G, H = 2 * crop.h + G;
+  const out = new Uint8Array(W * H).fill(OUTLINE);
+  panels.forEach((tierFrames, pi) => {
+    const all: FurnSprites = new Map(furniture.all);
+    const alias = (t: number, id: string): string => `${String(pi)}.${String(t)}:${id}`;
+    tierFrames.forEach((f, t) => {
+      for (const a of AVATARS) for (const d of BACK_DIRS) {
+        const [state = "", n = ""] = f.split("/");
+        const img = images.get(`watch/${state}/${a.id}/${d}/${n}`);
+        if (!img) throw new Error(`missing watch frame ${f} for ${a.id}/${d}`);
+        all.set(`${alias(t, a.id)}/sit/${d}/0`, { img, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
+      }
+    });
+    const carpet = (col: number, row: number): Placement => ({ id: "carpet", colour: "navy", dir: "se", col, row });
+    const placements: Placement[] = [
+      { id: "bigscreen", colour: "charcoal", dir: "se", col: 0, row: 0 },
+      { id: "curtain", colour: "velvet", dir: "sw", col: 2, row: 0 },
+      { id: "curtain", colour: "velvet", dir: "se", col: 0, row: 2 },
+      ...[1, 3, 5, 7].flatMap((c) => [1, 3, 5, 7].map((r) => carpet(c, r))),
+      ...[5, 6, 7, 8].map((k): Placement => ({ id: "aislelight", colour: "warm", dir: "nw", col: k, row: k })),
+    ];
+    tiers.forEach((colour, t) => {
+      const who = (orders[t] ?? []).map((id) => alias(t, id));
+      placements.push({ id: "theatrerow", colour, dir: "ne", col: 1, row: 5 + t, sitters: who.slice(0, 2) });
+      placements.push({ id: "theatrerow", colour, dir: "ne", col: 3, row: 5 + t, sitters: who.slice(2) });
+      placements.push({ id: "theatrerow", colour, dir: "nw", col: 5 + t, row: 1, sitters: who.slice(0, 2) });
+      placements.push({ id: "theatrerow", colour, dir: "nw", col: 5 + t, row: 3, sitters: who.slice(2) });
+    });
+    const room = composeFurnitureRoom(furniture.pieces, all, { rug: false, tv: false, placements, standing: [] });
+    const ox = (pi % cols) * (crop.w + G), oy = Math.floor(pi / cols) * (crop.h + G);
+    for (let y = 0; y < crop.h; y++) for (let x = 0; x < crop.w; x++) out[(oy + y) * W + ox + x] = room.img[(crop.y + y) * room.W + crop.x + x] ?? 0;
+  });
+  writeFileSync(join(ROOT, "preview", "watching-theatre@1x.png"), encodeIndexedPng(W, H, out, PALETTE));
+  writeFileSync(join(ROOT, "preview", "watching-theatre@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(out, W, H, 2), PALETTE));
+  // `watching-rows@3x.png`: the same six panels cut to the seats only, 2 across, so each reaction can be read sitter by sitter.
+  const rows = { x: 14, y: 212, w: 460, h: 128 }, RW = 2 * rows.w + G, RH = 3 * rows.h + 2 * G;
+  const cut = new Uint8Array(RW * RH).fill(OUTLINE);
+  panels.forEach((_, pi) => {
+    const sx = (pi % cols) * (crop.w + G) + rows.x, sy = Math.floor(pi / cols) * (crop.h + G) + rows.y;
+    const ox = (pi % 2) * (rows.w + G), oy = Math.floor(pi / 2) * (rows.h + G);
+    for (let y = 0; y < rows.h; y++) cut.set(out.subarray((sy + y) * W + sx, (sy + y) * W + sx + rows.w), (oy + y) * RW + ox);
+  });
+  writeFileSync(join(ROOT, "preview", "watching-rows@3x.png"), encodeIndexedPng(RW * 3, RH * 3, upscale(cut, RW, RH, 3), PALETTE));
 }
 
 type Sprites = ReadonlyMap<string, { img: Uint8Array; w: number; h: number }>;
@@ -1204,11 +1367,12 @@ function placePiece(meta: PieceMeta, colour: string, dir: FurnDir, ax: number, a
   const sort = meta.sortByDir[dir] ?? { x: 0, y: 0 };
   const sx = ax + sort.x, sy = ay + sort.y;
   const base = `furniture/${meta.id}/${colour}/${dir}`;
+  const lift = meta.seatLiftByColour?.[colour] ?? 0;
   const out: FurnItem[] = [{ key: `${base}/back`, x: ax, y: ay, sx, sy, layer: 2 }];
   (meta.seatsByDir?.[dir] ?? []).forEach((seat, i) => {
     const who = sitters[i];
     if (who === undefined || who === "") return; // "" = a free seat before a taken one
-    out.push({ key: `${who}/sit/${seat.dir}/0`, x: ax + (seat.col - seat.row) * 32, y: ay + (seat.col + seat.row) * 16, sx, sy, layer: 3 });
+    out.push({ key: `${who}/sit/${seat.dir}/0`, x: ax + (seat.col - seat.row) * 32, y: ay + (seat.col + seat.row) * 16 - lift, sx, sy, layer: 3 });
   });
   if (meta.layersByDir[dir]?.includes("front") === true) out.push({ key: `${base}/front`, x: ax, y: ay, sx, sy, layer: 4 });
   return out;
@@ -1223,10 +1387,10 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     seen.add(f.key);
   }
   // Catalogue v2 and batch 6 are their own lazy sheets with the same schema, so rooms that only use v1 pieces don't download them.
-  const sheetOf = (id: string): string => (CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
-  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256]] as const) {
+  const sheetOf = (id: string): string => (CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
+  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256], ["furniture-v6", 256]] as const) {
     const ids = new Set(pieces.filter((p) => sheetOf(p.id) === name).map((p) => p.id));
-    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4");
+    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4" || name === "furniture-v5" || name === "furniture-v6");
   }
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
   for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
@@ -1240,6 +1404,9 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildFurnitureRoom(pieces, all, "furniture-v4-room", showroomV4());
   buildSeatContact(pieces, all, V2_SEATS, "furniture-v2-seats@2x.png");
   buildSeatContact(pieces, all, V4_SEATS, "furniture-v4-seats@2x.png");
+  buildFurnitureRoom(pieces, all, "theatre-room", theatreRoom());
+  buildSeatContact(pieces, all, ["theatrerow"], "theatre-seats@2x.png");
+  buildDungeon(pieces, all);
   buildLying(pieces, all);
   return { frames, pieces, all };
 }
@@ -1436,6 +1603,31 @@ function showroom(): { placements: Placement[]; standing: [string, number, numbe
 const V2_SEATS: readonly string[] = ["floorcushion", "bench", "pouf"];
 const V4_SEATS: readonly string[] = ["hammock", "stool"];
 
+/** Theatre set v2 (OME-1639): the big screen between two curtains, two tiers of rows on carpet (front on the floor, back one
+ *  riser up), aisle lights down the middle and a full house. */
+function theatreRoom(): RoomPlan {
+  const carpet = (col: number, row: number): Placement => ({ id: "carpet", colour: "navy", dir: "se", col, row });
+  const light = (col: number, row: number, dir: FurnDir): Placement => ({ id: "aislelight", colour: "warm", dir, col, row });
+  return {
+    rug: false,
+    tv: false,
+    placements: [
+      { id: "bigscreen", colour: "charcoal", dir: "se", col: 0, row: 0 },
+      { id: "curtain", colour: "velvet", dir: "sw", col: 2, row: 0 },
+      { id: "curtain", colour: "velvet", dir: "se", col: 0, row: 2 },
+      carpet(1, 1), carpet(3, 1), carpet(5, 1), carpet(1, 3), carpet(3, 3), carpet(5, 3), carpet(1, 5), carpet(3, 5),
+      light(5, 5, "nw"), light(6, 6, "nw"), light(7, 7, "nw"), light(8, 8, "nw"),
+      { id: "theatrerow", colour: "floor", dir: "ne", col: 1, row: 4, sitters: ["juno", "pip"] },
+      { id: "theatrerow", colour: "floor", dir: "nw", col: 4, row: 1, sitters: ["mo", "kiki"] },
+      { id: "theatrerow", colour: "step", dir: "ne", col: 2, row: 5, sitters: ["kiki", "mo"] },
+      { id: "theatrerow", colour: "step", dir: "nw", col: 5, row: 2, sitters: ["pip", "juno"] },
+      { id: "popcorn", colour: "rust", dir: "se", col: 0, row: 8 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+    ],
+    standing: [["juno/idle/sw/0", 7, 8]],
+  };
+}
+
 /** `furniture-v2-seats@2x.png`: one row per v2 seat piece × colour × avatar, one column per facing (ne nw se sw); a 2-seat piece holds
  *  the same avatar on both seats, so every avatar is checked on every seat in every facing. Empty seats lead each piece's block. */
 function buildSeatContact(pieces: readonly PieceMeta[], all: FurnSprites, ids: readonly string[], name: string): void {
@@ -1451,7 +1643,8 @@ function buildSeatContact(pieces: readonly PieceMeta[], all: FurnSprites, ids: r
   rows.forEach((r, ri) => {
     const ay = 10 + ri * RH + 66;
     (["ne", "nw", "se", "sw"] as const).forEach((d, di) => {
-      const ax = 50 + di * CW;
+      if (!r.meta.dirs.includes(d)) return;
+      const ax = 50 + r.meta.dirs.filter((x) => (["ne", "nw", "se", "sw"] as const).indexOf(x) < di).length * CW;
       const fp = r.meta.footprintByDir[d] ?? { cols: 1, rows: 1 };
       for (let c = 0; c < fp.cols; c++) for (let rr = 0; rr < fp.rows; rr++) drawSprite(img, W, H, all, `floor/${String((c + rr) % 2)}`, ax + (c - rr) * 32, ay + (c + rr) * 16);
       const seats = r.meta.seatsByDir?.[d] ?? [];
@@ -1607,6 +1800,8 @@ interface RoomPlan {
   standing: [string, number, number][];
   /** Set (n): false draws bare planks where the default room has its big rug. */
   rug?: boolean;
+  /** False leaves the corner console out (a layout with the big screen instead, OME-1639). */
+  tv?: boolean;
 }
 
 function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: RoomPlan, hooks: RoomHooks = {}): void {
@@ -1654,7 +1849,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   draw("wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
   draw("wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
   draw("wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
-  draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
+  if (plan.tv !== false) draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
   // Floor layer (rugs) and wall layer (frames) go with the static background; everything else is depth-sorted.
   if (!hooks.floor) drawLayer("floor");
   hooks.wall?.(draw);
@@ -1662,7 +1857,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   const items: (FurnItem & { ghost?: boolean })[] = [];
   for (const p of plan.placements.filter((q) => meta(q.id).layer === "object")) {
     const a = cellAt(p.col, p.row);
-    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : undefined;
+    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : p.use !== undefined ? `furniture/${p.id}/${p.colour}/use/${p.dir}/${String(p.use)}` : undefined;
     items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []).map((it) => ({ ...it, key: open !== undefined && it.layer === 2 ? open : it.key, ghost: p.ghost === true })));
   }
   for (const [key, c, r] of plan.standing) {
@@ -1673,6 +1868,175 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   for (const it of items) (it.ghost === true ? ghost : draw)(it.key, it.x, it.y);
   hooks.top?.(draw);
   return { img, W, H };
+}
+
+// ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
+
+const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "avatars/dungeon.png", "avatars/dungeon.json"];
+const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
+
+/** The draft "Dank Dungeon" preset (layout v1 + `mood: "night"`). It can't join `PRESETS` until the six v6 ids are `FURNITURE`
+ *  kinds (the hookup issue, OME-1672), so it lives here and in the README. Seats: 2 per bed, 2 in the tub, 2 wingbacks. */
+const DUNGEON_PRESET = {
+  id: "dungeon",
+  name: "Dank Dungeon",
+  blurb: "Twin beds, a whirlpool for two and the lights way down.",
+  layout: {
+    mood: "night",
+    furniture: [
+      { kind: "tv", col: 0, row: 0, facing: "se" },
+      { kind: "bed", col: 4, row: 0, facing: "nw" },
+      { kind: "bed", col: 0, row: 3, facing: "ne" },
+      { kind: "wingback", col: 7, row: 2, facing: "nw" },
+      { kind: "wingback", col: 7, row: 4, facing: "nw" },
+      { kind: "whirlpool", col: 2, row: 7, facing: "ne" },
+      { kind: "coffeetable", col: 7, row: 3, facing: "sw" },
+      { kind: "desk", col: 7, row: 0, facing: "sw" },
+      { kind: "minibar", col: 9, row: 0, facing: "sw" },
+      { kind: "washbasin", col: 0, row: 7, facing: "se" },
+      { kind: "mirror", col: 0, row: 7, facing: "se" },
+      { kind: "neonsign", col: 0, row: 2, facing: "se" },
+      { kind: "arclamp", col: 1, row: 5, facing: "se" },
+      { kind: "runner", col: 4, row: 4, facing: "nw", variant: 1 },
+      { kind: "monstera", col: 9, row: 9, facing: "sw", variant: 1 },
+    ],
+  },
+} as const;
+
+/** The night mood (OME-1502, `apps/web/src/room.css`): rgb(36 48 110 / 0.5) multiplied over the room. Per colour, so a palette. */
+const NIGHT_PALETTE: RGBA[] = PALETTE.map((c) => {
+  const m = (v: number, t: number): number => Math.round(v * (0.5 + (0.5 * t) / 255));
+  return { r: m(c.r, 36), g: m(c.g, 48), b: m(c.b, 110), a: c.a };
+});
+
+/** `avatars/dungeon.png` + `.json` (the bend-over / thrust emote, lazy), the v6 showroom and seat contact sheet, and the preset
+ *  preview with a pair mid-emote, plain and under the night mood. */
+function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
+  const { w: CW, h: CH } = DUNGEON_CELL;
+  const sheetW = pow2(4 * CW), sheetH = pow2(AVATARS.length * DUNGEON_DIRS.length * CH);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const frames: Record<string, Frame> = {};
+  const anims: Record<string, Anim> = {};
+  const all: FurnSprites = new Map(all0);
+  AVATARS.forEach((a, i) => {
+    DUNGEON_DIRS.forEach((dir, j) => {
+      const y = (i * DUNGEON_DIRS.length + j) * CH;
+      const cells: [string, Grid, { x: number; y: number }][] = [
+        [`bendover/${a.id}/${dir}/0`, bendGrid(a, dir), BEND_FLOOR],
+        ...Array.from({ length: THRUST_FRAMES }, (_, n): [string, Grid, { x: number; y: number }] => [`thrust/${a.id}/${dir}/${String(n)}`, thrustGrid(a, dir, n), THRUST_FLOOR]),
+      ];
+      cells.forEach(([key, grid, fp], c) => {
+        const img = render(grid, a.roles);
+        assertInside(key, img, CW, CH);
+        blit(sheet, sheetW, img, CW, CH, c * CW, y);
+        const ax = dir === "sw" ? CW - 1 - fp.x : fp.x;
+        frames[key] = {
+          frame: { x: c * CW, y, w: CW, h: CH },
+          rotated: false,
+          trimmed: false,
+          spriteSourceSize: { x: 0, y: 0, w: CW, h: CH },
+          sourceSize: { w: CW, h: CH },
+          anchor: { x: ax / CW, y: fp.y / CH },
+        };
+        all.set(key, { img, w: CW, h: CH, ax, ay: fp.y });
+      });
+      const keys = Array.from({ length: THRUST_FRAMES }, (_, n) => `thrust/${a.id}/${dir}/${String(n)}`);
+      anims[`thrust/${a.id}/${dir}`] = { frames: THRUST_SEQUENCE.map((n) => keys[n] ?? ""), ms: THRUST_SEQUENCE.map(() => THRUST_MS), loop: true };
+    });
+  });
+  registerKeys("dungeon", Object.keys(frames));
+  writeFileSync(join(ROOT, "avatars", "dungeon.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const animations: Record<string, string[]> = {};
+  for (const [k, an] of Object.entries(anims)) animations[k] = an.frames;
+  const atlas = {
+    frames,
+    animations,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "dungeon.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        tile: TILE,
+        cell: DUNGEON_CELL,
+        dirs: DUNGEON_DIRS,
+        bendover: { floorPoint: BEND_FLOOR, anchor: "the bender's floor point" },
+        thrust: { floorPoint: THRUST_FLOOR, anchor: "the partner's floor point", feetOffset: THRUST_OFFSET, frames: THRUST_FRAMES, sequence: THRUST_SEQUENCE, ms: THRUST_MS, draw: "just behind the partner" },
+        anims,
+      },
+    },
+  };
+  writeFileSync(join(ROOT, "avatars", "dungeon.json"), JSON.stringify(atlas, null, 1) + "\n");
+
+  // Strip: per avatar and dir, the plain idle then bend over and thrust 0–2; then each pair mid-emote (thrust 0 and 2).
+  const strips = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  for (const [k, s] of all) if (s.w === CW || s.w === CELL.w) strips.set(k, { img: s.img, w: s.w, h: s.h });
+  const pairKey = (b: string, t: string, dir: Dir, n: number): string => {
+    const key = `pair/${b}/${t}/${dir}/${String(n)}`;
+    const out = new Uint8Array(CW * CH);
+    const T = all.get(`thrust/${t}/${dir}/${String(n)}`), B = all.get(`bendover/${b}/${dir}/0`);
+    if (!T || !B) throw new Error(`missing pair ${key}`);
+    const dx = B.ax - T.ax;
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) { const v = T.img[y * CW + x] ?? 0; if (v && x + dx >= 0 && x + dx < CW) out[y * CW + x + dx] = v; }
+    for (let i = 0; i < out.length; i++) if (B.img[i]) out[i] = B.img[i] ?? 0;
+    strips.set(key, { img: out, w: CW, h: CH });
+    return key;
+  };
+  const rows = AVATARS.map((a, i) => {
+    const t = AVATARS[(i + 1) % AVATARS.length]?.id ?? a.id;
+    return DUNGEON_DIRS.flatMap((d) => [`${a.id}/idle/${d}/0`, `bendover/${a.id}/${d}/0`, ...[0, 1, 2].map((n) => `thrust/${a.id}/${d}/${String(n)}`), pairKey(a.id, t, d, 0), pairKey(a.id, t, d, 2)]);
+  });
+  strip("dungeon-poses@4x.png", 14, rows, strips, CW, CH, false);
+
+  buildFurnitureRoom(pieces, all, "furniture-v6-room", showroomV6());
+  buildSeatContact(pieces, all, V6_SEATS, "furniture-v6-seats@2x.png");
+  // The preset with a full house: every seat taken, plus juno bent over at (5,6) with mo behind her.
+  const sit = new Map<string, string[]>([["bed:4,0", ["kiki", "pip"]], ["bed:0,3", ["mo", "juno"]], ["wingback:7,2", ["pip"]], ["wingback:7,4", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
+  const placements: Placement[] = DUNGEON_PRESET.layout.furniture.filter((f) => f.kind !== "tv").map((f) => {
+    const kind: string = f.kind === "runner" ? "rug" : f.kind;
+    const meta = pieces.find((p) => p.id === kind);
+    if (!meta) throw new Error(`no piece ${kind}`);
+    const colour = meta.colours["variant" in f ? f.variant : 0] ?? meta.colours[0] ?? "";
+    const p: Placement = { id: kind, colour, dir: f.facing, col: f.col, row: f.row };
+    const who = sit.get(`${f.kind}:${String(f.col)},${String(f.row)}`);
+    if (who) p.sitters = who;
+    if (f.kind === "whirlpool") p.use = 0;
+    return p;
+  });
+  const plan: RoomPlan = { placements, standing: [["thrust/mo/se/2", 5, 6], ["bendover/juno/se/0", 5, 6]], rug: false };
+  const { img, W, H } = composeFurnitureRoom(pieces, all, plan);
+  for (const [name, pal] of [["dungeon-room", PALETTE], ["dungeon-room-night", NIGHT_PALETTE]] as const) {
+    writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, pal));
+    writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), pal));
+  }
+}
+
+/** Every v6 piece in both facings (seats in all four), a few taken. */
+function showroomV6(): RoomPlan {
+  return {
+    placements: [
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "ne", col: 0, row: 3, sitters: ["", "mo"] },
+      { id: "bed", colour: "velvet", dir: "se", col: 8, row: 6 },
+      { id: "bed", colour: "velvet", dir: "sw", col: 5, row: 8, sitters: ["juno", "pip"] },
+      { id: "whirlpool", colour: "teal", dir: "ne", col: 2, row: 7, sitters: ["pip", "kiki"], use: 1 },
+      { id: "whirlpool", colour: "teal", dir: "nw", col: 7, row: 2, sitters: ["juno"] },
+      { id: "desk", colour: "wood", dir: "sw", col: 3, row: 0 },
+      { id: "desk", colour: "wood", dir: "se", col: 0, row: 4 },
+      { id: "minibar", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "minibar", colour: "wood", dir: "se", col: 4, row: 5 },
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 7 },
+      { id: "washbasin", colour: "cream", dir: "sw", col: 9, row: 0 },
+      { id: "mirror", colour: "brass", dir: "se", col: 0, row: 7 },
+      { id: "mirror", colour: "brass", dir: "sw", col: 9, row: 0 },
+      { id: "mirror", colour: "brass", dir: "sw", col: 2, row: 0 },
+    ],
+    standing: [],
+    rug: false,
+  };
 }
 
 // ---------------------------------------------------------------- lying pose (OME-1687, lazy)
@@ -2216,12 +2580,12 @@ function buildReactions(): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -2328,6 +2692,7 @@ buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);
 buildMotion(avatarImages);
 buildExpressions(avatarImages);
+buildWatching(avatarImages, furnitureSet);
 buildTints();
 buildHairs();
 buildRecolours();

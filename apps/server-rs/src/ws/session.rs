@@ -348,6 +348,8 @@ fn resume(app: &App, inner: &mut RoomInner, conn: &mut Conn, token: &ResumeToken
         owner: session.owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
         conga: inner.room.conga(),
+        reactions: inner.room.reactions(),
+        peak_members: inner.room.peak_members(),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);
@@ -501,6 +503,8 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         owner: owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
         conga: inner.room.conga(),
+        reactions: inner.room.reactions(),
+        peak_members: inner.room.peak_members(),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);

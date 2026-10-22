@@ -93,6 +93,7 @@ const good = (): SoakResult => ({
   integrity: "ok",
   consistency: [{ name: "reports", client: 4, server: 4 }],
   abuse: [{ kind: "flood", started: 3, cut: 3 }],
+  batch: { relayBatchMs: 8, frames: 40, msgs: 95, unopted: 0 },
 });
 
 describe("evaluate", () => {
@@ -101,7 +102,7 @@ describe("evaluate", () => {
     expect(checks.filter((c) => !c.ok)).toEqual([]);
     expect(checks.every((c) => c.enforced)).toBe(true);
     const names = checks.map((c) => c.name);
-    for (const n of ["no unplanned exits", "no unexpected error lines", "rss slope", "fd slope", "thread slope", "wal slope", "p99 per window", "planned restarts", "integrity_check", "metrics consistency", "abusive clients cut", "unexpected closes", "client frames well-formed"]) expect(names).toContain(n);
+    for (const n of ["no unplanned exits", "no unexpected error lines", "rss slope", "fd slope", "thread slope", "wal slope", "p99 per window", "planned restarts", "integrity_check", "metrics consistency", "abusive clients cut", "unexpected closes", "client frames well-formed", "relay batch frames"]) expect(names).toContain(n);
   });
   const fails = (r: SoakResult, name: string): boolean => evaluate(r).some((c) => c.name === name && !c.ok);
   test("each criterion fails loudly", () => {
@@ -113,6 +114,12 @@ describe("evaluate", () => {
     expect(fails({ ...good(), badMessages: 1 }, "client frames well-formed")).toBe(true);
     expect(fails({ ...good(), consistency: [{ name: "reports", client: 4, server: 5 }] }, "metrics consistency")).toBe(true);
     expect(fails({ ...good(), abuse: [{ kind: "flood", started: 3, cut: 2 }] }, "abusive clients cut")).toBe(true);
+  });
+  test("relay batch frames: opted-in members must get some while RELAY_BATCH_MS > 0, the others none", () => {
+    const none = { relayBatchMs: 8, frames: 0, msgs: 0, unopted: 0 };
+    expect(fails({ ...good(), batch: none }, "relay batch frames")).toBe(true);
+    expect(fails({ ...good(), batch: { ...none, relayBatchMs: 0 } }, "relay batch frames")).toBe(false);
+    expect(fails({ ...good(), batch: { relayBatchMs: 8, frames: 3, msgs: 7, unopted: 1 } }, "relay batch frames")).toBe(true);
   });
   test("restarts: exit code, time, stderr and seats", () => {
     const r = good();
@@ -146,7 +153,13 @@ describe("evaluate", () => {
 describe("parseSoakArgs", () => {
   test("defaults: 24 h, a restart every 3 h", () => {
     const a = parseSoakArgs(["--server", "bun x.ts"]);
-    expect(a).toMatchObject({ server: "bun x.ts", minutes: 24 * 60, restartEveryMin: 180, sampleS: 10, rooms: 8, members: 22 });
+    expect(a).toMatchObject({ server: "bun x.ts", minutes: 24 * 60, restartEveryMin: 180, sampleS: 10, rooms: 8, members: 22, relayBatchMs: 8 });
+  });
+  test("--relay-batch-ms: 0 (the TS reference never batches) up to the server's 1000", () => {
+    expect(parseSoakArgs(["--server", "s", "--relay-batch-ms", "0"]).relayBatchMs).toBe(0);
+    expect(parseSoakArgs(["--server", "s", "--relay-batch-ms", "25"]).relayBatchMs).toBe(25);
+    expect(() => parseSoakArgs(["--server", "s", "--relay-batch-ms", "1001"])).toThrow();
+    expect(() => parseSoakArgs(["--server", "s", "--relay-batch-ms", "2.5"])).toThrow();
   });
   test("--minutes shortens the run and the restart spacing follows", () => {
     const a = parseSoakArgs(["--server", "s", "--minutes", "5"]);

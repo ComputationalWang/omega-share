@@ -110,6 +110,8 @@
     {
       "paths": [
         "e2e/*.e2e.ts",
+        "e2e/safety/*.e2e.ts",
+        "e2e/sync/*.e2e.ts",
         "e2e/*.firefox.ts",
         "e2e/real/*.real.ts",
         "perf/*.perf.ts"
@@ -203,6 +205,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
         "e2e/doors.e2e.ts"
@@ -243,6 +247,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -497,6 +503,18 @@
     },
     {
       "paths": [
+        "apps/web/src/moments/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts"
+      ]
+    },
+    {
+      "paths": [
         "apps/web/src/emote/**"
       ],
       "except": [
@@ -510,10 +528,25 @@
         "e2e/m9-help.e2e.ts",
         "e2e/polish.e2e.ts",
         "e2e/poll.e2e.ts",
+        "e2e/reactions.e2e.ts",
         "e2e/roll.e2e.ts",
         "perf/chat.perf.ts",
         "perf/polish.perf.ts"
       ]
+    },
+    {
+      "paths": [
+        "apps/web/src/reactions/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts",
+        "e2e/reactions.e2e.ts"
+      ],
+      "why": "reaction bar and glyph bursts, OME-1631"
     },
     {
       "paths": [
@@ -599,6 +632,23 @@
     },
     {
       "paths": [
+        "apps/web/src/audio/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/m9-help.e2e.ts",
+        "e2e/walk.e2e.ts",
+        "e2e/emotes.e2e.ts",
+        "perf/site.perf.ts",
+        "perf/walk-tiers.perf.ts"
+      ],
+      "why": "procedural sound engine, a lazy chunk fed by the walk poses (OME-1638)"
+    },
+    {
+      "paths": [
         "apps/web/src/walk/**"
       ],
       "except": [
@@ -615,6 +665,8 @@
         "perf/polish.perf.ts",
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "e2e/teleport.e2e.ts",
         "e2e/doors.e2e.ts"
@@ -680,6 +732,8 @@
         "perf/queue.perf.ts",
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -886,6 +940,7 @@
         "e2e/extension-a11y.e2e.ts",
         "e2e/extension-phone.e2e.ts",
         "e2e/extension-queue.e2e.ts",
+        "e2e/extension-watching.e2e.ts",
         "e2e/extension.e2e.ts",
         "e2e/extension.firefox.ts",
         "e2e/provider-generic.e2e.ts",
@@ -942,6 +997,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ],

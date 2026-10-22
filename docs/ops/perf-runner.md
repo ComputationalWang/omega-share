@@ -1,6 +1,6 @@
 # Perf runner (OME-819)
 
-Perf runs take 5 to 25 minutes. Agent runs end before that, and a background job dies with the run, so agents used to sleep and poll (about 23 h in 10 days). Now an agent **submits a job and ends its run**; a user service on the operator machine works the queue; the agent reads the verdict on its **next heartbeat**. No `sleep`, no `flock`.
+Perf runs take 5 to 25 minutes. Agent runs end before that, and a background job dies with the run, so agents used to sleep and poll (about 23 h in 10 days). Now an agent **submits a job and ends its run**; a user service on the operator machine works the queue; the agent reads the verdict on its **next heartbeat**. No `sleep`, no `flock` for the agent: the runner takes the perf flock (`$XDG_RUNTIME_DIR/omega-share-perf.lock`) around each job, so it waits for a flocked soak or `affected --run` and they wait for it (OME-1724).
 
 ## For agents
 
