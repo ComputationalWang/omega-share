@@ -13,7 +13,7 @@ const sheet = v.parse(AccessoryManifestSchema, await Bun.file(asset("accessories
 
 const bare: unknown = await Bun.file(asset("accessories/bare.json")).json();
 const bodyFrames: string[] = [];
-for (const f of ["avatars", "motion", "expressions"]) {
+for (const f of ["avatars", "motion", "expressions", "watching"]) {
   const { frames } = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), await Bun.file(asset(`avatars/${f}.json`)).json());
   for (const k of Object.keys(frames)) if (!k.startsWith("emote/")) bodyFrames.push(k);
 }

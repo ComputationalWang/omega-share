@@ -7,6 +7,7 @@
 //! (a JS `Map`'s insertion order, which snapshots expose). Seats hold slot indices and the flags live in the
 //! member's record: no per-member sets, no string clones on the relay path.
 
+use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
 use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, REACTIONS_MAX, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
@@ -16,7 +17,7 @@ use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
 use crate::contract::state::{
-    Conga, MediaMs, Member, PlaybackState, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
+    Conga, MediaMs, Member, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime, StartSeconds,
 };
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
@@ -855,11 +856,18 @@ impl Room {
     /// (nobody for an advance, the adder when an add starts an empty room). `None` with an empty queue.
     pub fn advance(&mut self, since: f64, by: Option<MemberId>, now_wall: i64) -> Option<Advance> {
         let item = self.upcoming.pop_front()?;
-        let embed_switch = self.install(Some(item.embed.clone()), by, Some(item.id.clone()), since, now_wall);
+        let embed_switch = self.install(
+            Some(item.embed.clone()),
+            by,
+            Some(item.id.clone()),
+            item.start_seconds,
+            since,
+            now_wall,
+        );
         Some(Advance { item, embed_switch })
     }
 
-    /// Sets the embed and restarts playback at 0. `by` is the sharer. The embed becomes the current item
+    /// Sets the embed and restarts playback at `start` (0 if `None`; ignored for a live or generic embed). `by` is the sharer. The embed becomes the current item
     /// `item_id` (minted if `None`) at `since`; a `None` embed has no item. A `None` or generic embed clears
     /// playback and every catching flag (ADR 0024 section 7): `uncaught` lists the members to tell.
     pub fn set_embed(
@@ -867,6 +875,7 @@ impl Room {
         embed: Option<AnyEmbed>,
         by: Option<MemberId>,
         item_id: Option<QueueItemId>,
+        start: Option<StartSeconds>,
         since: f64,
         now_wall: i64,
     ) -> Result<EmbedSwitch, EntropyError> {
@@ -876,7 +885,7 @@ impl Room {
             (Some(_), Some(item)) => Some(item),
             (Some(_), None) => Some(mint_item_id()?),
         };
-        Ok(self.install(embed, by, item_id, since, now_wall))
+        Ok(self.install(embed, by, item_id, start, since, now_wall))
     }
 
     /// `set_embed` with the item id already settled (`None` iff `embed` is).
@@ -885,16 +894,21 @@ impl Room {
         embed: Option<AnyEmbed>,
         by: Option<MemberId>,
         item_id: Option<QueueItemId>,
+        start: Option<StartSeconds>,
         since: f64,
         now_wall: i64,
     ) -> EmbedSwitch {
         let synced = embed.as_ref().is_some_and(AnyEmbed::is_synced);
+        let start = embed.as_ref().and_then(|e| start_of(e, start));
         self.embed = embed;
         self.current_item_id = item_id;
         self.current_since = since;
         self.reactions.clear();
         self.peak_members = self.order.len();
-        self.playback = synced.then(|| load_playback(self.rev, now_wall, by));
+        self.playback = synced.then(|| PlaybackState {
+            position: start.and_then(|s| Position::new(f64::from(s.get()))).unwrap_or(Position::ZERO),
+            ..load_playback(self.rev, now_wall, by)
+        });
         if let Some(playback) = &self.playback {
             self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
             return EmbedSwitch {
@@ -1003,10 +1017,20 @@ impl Room {
             member_count: u8::try_from(self.order.len()).unwrap_or(u8::MAX),
             seated_count: u8::try_from(seated).unwrap_or(u8::MAX),
             title: self.title.clone(),
-            // `GET /rooms` watching summary: OME-1633.
-            watching_count: None,
-            now_playing: None,
+            watching_count: Some(u8::try_from(self.order_recs().filter(|r| !r.away).count()).unwrap_or(u8::MAX)),
+            // Only a listed room shows its video (ADR 0056); `list` never asks a private one, and this says no too.
+            now_playing: (self.visibility == RoomVisibility::Public)
+                .then(|| self.embed.as_ref().and_then(AnyEmbed::now_playing))
+                .flatten(),
         }
+    }
+}
+
+/// Where `embed` starts for a share's or queue item's `start` (ADR 0056): none for a live or generic embed.
+pub fn start_of(embed: &AnyEmbed, start: Option<StartSeconds>) -> Option<StartSeconds> {
+    match embed {
+        AnyEmbed::Synced(e) if !playback_caps(e).live => start,
+        _ => None,
     }
 }
 
@@ -1121,7 +1145,7 @@ mod tests {
     fn a_reaction_is_stamped_with_the_room_clock_not_the_client() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         let got = r.react(&a, ReactionKind::Heart, T0 + 12_345).unwrap();
         assert_eq!(json(&got), r#"{"memberId":"m1","kind":"heart","mediaMs":12345}"#);
         // Paused: the position, whatever the wall clock says.
@@ -1141,9 +1165,9 @@ mod tests {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
-        r.set_embed(Some(generic()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(generic()), None, None, None, 0.0, T0).unwrap();
         assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         assert!(r.react(&mid("ghost"), ReactionKind::Wow, T0).is_none());
         assert!(r.reactions().is_none());
     }
@@ -1152,7 +1176,7 @@ mod tests {
     fn the_ring_keeps_the_latest_reactions_max_oldest_first() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         for i in 0..=REACTIONS_MAX as i64 {
             r.react(&a, ReactionKind::Laugh, T0 + i * 1000).unwrap();
         }
@@ -1171,7 +1195,7 @@ mod tests {
         let members: Vec<MemberId> = (0..MAX_ROOM_MEMBERS)
             .map(|i| join(&mut r, &format!("m{i:063}"), &format!("{}{i:02}", "語".repeat(18)), None))
             .collect();
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         r.control(&members[0], &ctl(false, 43_199.0), T0).unwrap();
         for i in 0..REACTIONS_MAX {
             r.react(&members[i % members.len()], ReactionKind::Laugh, T0).unwrap();
@@ -1200,7 +1224,7 @@ mod tests {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert!(r.peak_members().is_none());
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         let b = join(&mut r, "m2", "bob", None);
         join(&mut r, "m3", "carol", None);
         r.react(&b, ReactionKind::Heart, T0).unwrap();
@@ -1210,7 +1234,7 @@ mod tests {
         r.advance(1.0, None, T0).unwrap();
         assert!(r.reactions().is_none());
         assert_eq!(r.peak_members(), Some(2));
-        r.set_embed(None, None, None, 2.0, T0).unwrap();
+        r.set_embed(None, None, None, None, 2.0, T0).unwrap();
         assert!(r.peak_members().is_none());
         assert!(r.react(&a, ReactionKind::Heart, T0).is_none());
     }
@@ -1276,7 +1300,7 @@ mod tests {
         );
         assert_eq!((r.item_id(), r.item_since()), (Some(&iid("cur1")), 7.5));
         let next = r
-            .set_embed(Some(vimeo()), None, Some(iid("n1")), 1.0, T0 + 1)
+            .set_embed(Some(vimeo()), None, Some(iid("n1")), None, 1.0, T0 + 1)
             .unwrap()
             .playback
             .unwrap();
@@ -1291,7 +1315,11 @@ mod tests {
             ..RoomInit::default()
         });
         assert!(r.current_playback().is_none() && r.has_generic_embed());
-        let next = r.set_embed(Some(yt()), None, Some(iid("n1")), 0.0, T0).unwrap().playback.unwrap();
+        let next = r
+            .set_embed(Some(yt()), None, Some(iid("n1")), None, 0.0, T0)
+            .unwrap()
+            .playback
+            .unwrap();
         assert_eq!(next.rev, Rev(0));
     }
 
@@ -1768,7 +1796,9 @@ mod tests {
     fn sharing_a_synced_embed_loads_it_at_0_by_the_sharer_and_makes_it_the_current_item() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        let sw = r.set_embed(Some(yt()), Some(a.clone()), Some(iid("item1")), 12.5, T0 + 5).unwrap();
+        let sw = r
+            .set_embed(Some(yt()), Some(a.clone()), Some(iid("item1")), None, 12.5, T0 + 5)
+            .unwrap();
         assert!(sw.uncaught.is_empty());
         assert_eq!(
             json(&sw.playback),
@@ -1785,12 +1815,12 @@ mod tests {
     #[test]
     fn set_embed_mints_an_item_id_unless_given_or_unset() {
         let mut r = room();
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         let first = r.item_id().cloned().unwrap();
         assert_eq!(first.as_str().len(), 16);
-        r.set_embed(Some(vimeo()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(vimeo()), None, None, None, 0.0, T0).unwrap();
         assert_ne!(r.item_id(), Some(&first));
-        r.set_embed(None, None, Some(iid("ignored")), 3.0, T0).unwrap();
+        r.set_embed(None, None, Some(iid("ignored")), None, 3.0, T0).unwrap();
         assert!(r.item_id().is_none() && r.current_embed().is_none());
         assert_eq!(r.item_since(), 3.0);
     }
@@ -1799,7 +1829,12 @@ mod tests {
     fn rev_never_goes_back_across_embed_changes() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        let rev = |r: &mut Room, e: Option<AnyEmbed>| r.set_embed(e, None, Some(iid("i")), 0.0, T0).unwrap().playback.map(|p| p.rev.0);
+        let rev = |r: &mut Room, e: Option<AnyEmbed>| {
+            r.set_embed(e, None, Some(iid("i")), None, 0.0, T0)
+                .unwrap()
+                .playback
+                .map(|p| p.rev.0)
+        };
         assert_eq!(rev(&mut r, Some(yt())), Some(0));
         assert_eq!(r.control(&a, &ctl(false, 0.0), T0 + 1).unwrap().rev, Rev(1));
         assert_eq!(rev(&mut r, Some(vimeo())), Some(2));
@@ -1815,31 +1850,31 @@ mod tests {
         let a = join(&mut r, "m1", "alice", None);
         let b = join(&mut r, "m2", "bob", None);
         let c = join(&mut r, "m3", "carol", None);
-        r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         for m in [&a, &b, &c] {
             r.set_catching(m, true);
         }
         // Announced b, then a: the room was told in that order; c was never told.
         r.take_catching_change(&b);
         r.take_catching_change(&a);
-        let sw = r.set_embed(Some(generic()), None, Some(iid("g")), 0.0, T0).unwrap();
+        let sw = r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
         assert_eq!(sw.playback, None);
         assert_eq!(sw.uncaught, [b.clone(), a.clone()]);
         assert!(r.current_playback().is_none() && r.has_generic_embed());
         assert!([&a, &b, &c].iter().all(|m| !r.is_catching(m)));
         assert!(json(&r.snapshot().members).find("catching").is_none());
         // Nothing left to announce.
-        assert_eq!(r.set_embed(None, None, None, 0.0, T0).unwrap().uncaught, []);
+        assert_eq!(r.set_embed(None, None, None, None, 0.0, T0).unwrap().uncaught, []);
     }
 
     #[test]
     fn a_synced_embed_keeps_catching_flags() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         r.set_catching(&a, true);
         r.take_catching_change(&a);
-        let sw = r.set_embed(Some(vimeo()), None, Some(iid("j")), 0.0, T0).unwrap();
+        let sw = r.set_embed(Some(vimeo()), None, Some(iid("j")), None, 0.0, T0).unwrap();
         assert!(sw.uncaught.is_empty() && r.is_catching(&a));
     }
 
@@ -1856,7 +1891,7 @@ mod tests {
         r.take_catching_change(&a);
         r.set_catching(&a, true);
         r.take_catching_change(&a);
-        let sw = r.set_embed(None, None, None, 0.0, T0).unwrap();
+        let sw = r.set_embed(None, None, None, None, 0.0, T0).unwrap();
         assert_eq!(sw.uncaught, [b, a]);
     }
 
@@ -1865,7 +1900,7 @@ mod tests {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert_eq!(r.control(&a, &ctl(true, 0.0), T0), None);
-        r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         let other = Control {
             url: "https://www.youtube.com/embed/aaaaaaaaaaa",
             playing: true,
@@ -1875,7 +1910,7 @@ mod tests {
         let next = r.control(&a, &ctl(false, 40.0), T0 + 10_000).unwrap();
         assert_eq!((next.action, next.by.as_ref(), next.rev), (PlaybackAction::Seek, Some(&a), Rev(1)));
         assert_eq!(r.current_playback(), Some(&next));
-        r.set_embed(Some(generic()), None, Some(iid("g")), 0.0, T0).unwrap();
+        r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
         let url = r.current_embed().unwrap().url().to_owned();
         assert_eq!(
             r.control(
@@ -1896,7 +1931,7 @@ mod tests {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         let e = live();
-        r.set_embed(Some(e.clone()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(e.clone()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         let c = Control {
             url: e.url(),
             playing: false,
@@ -1932,7 +1967,7 @@ mod tests {
         assert_eq!(r.advance(1.0, None, T0), None);
         r.enqueue(queued("q1", vimeo(), Some("m1")));
         r.enqueue(queued("q2", live(), None));
-        r.set_embed(Some(yt()), None, Some(iid("cur")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("cur")), None, 0.0, T0).unwrap();
         let adv = r.advance(500.0, Some(a.clone()), T0 + 9).unwrap();
         assert_eq!(adv.item, queued("q1", vimeo(), Some("m1")));
         let p = adv.embed_switch.playback.unwrap();
@@ -1956,7 +1991,7 @@ mod tests {
     fn advancing_into_a_generic_embed_clears_playback_and_catching() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        r.set_embed(Some(yt()), None, Some(iid("cur")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("cur")), None, 0.0, T0).unwrap();
         r.set_catching(&a, true);
         r.take_catching_change(&a);
         r.enqueue(queued("g1", generic(), None));
@@ -1991,7 +2026,7 @@ mod tests {
         r.set_muted(&a, true);
         r.set_away(&c, true);
         r.set_catching(&b2, true);
-        r.set_embed(Some(yt()), Some(a.clone()), Some(iid("cur1")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), Some(a.clone()), Some(iid("cur1")), None, 0.0, T0).unwrap();
         r.enqueue(queued("q1", vimeo(), Some("m3")));
         let snap = r.snapshot();
         assert_eq!(ids(&snap.members), ["m1", "m3", "m4"]);
@@ -2035,17 +2070,75 @@ mod tests {
     #[test]
     fn summary_counts_members_and_seated_and_omits_an_empty_title() {
         let mut r = room();
-        assert_eq!(json(&r.summary()), r#"{"id":"film-club","memberCount":0,"seatedCount":0}"#);
+        assert_eq!(
+            json(&r.summary()),
+            r#"{"id":"film-club","memberCount":0,"seatedCount":0,"watchingCount":0}"#
+        );
         let a = join(&mut r, "m1", "alice", None);
         join(&mut r, "m2", "bob", None);
         r.sit(&a, Some(seat(1)));
         r.set_title(RoomTitle::parse("Friday films"));
         assert_eq!(
             json(&r.summary()),
-            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films"}"#
+            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films","watchingCount":2}"#
         );
         r.set_title(None);
         assert!(r.title().is_none());
+    }
+
+    // apps/server/test/movie-night.test.ts (OME-1633, ADR 0056)
+    #[test]
+    fn summary_counts_the_watching_and_names_a_public_video() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        join(&mut r, "m2", "bob", None);
+        r.set_away(&a, true);
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
+        assert_eq!(
+            json(&r.summary()),
+            r#"{"id":"film-club","memberCount":2,"seatedCount":0,"watchingCount":1,"nowPlaying":{"provider":"youtube","id":"dQw4w9WgXcQ"}}"#
+        );
+        r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
+        assert!(!json(&r.summary()).contains("nowPlaying"));
+    }
+
+    #[test]
+    fn a_private_rooms_summary_never_names_its_video() {
+        let mut r = room_with(RoomInit {
+            visibility: Some(RoomVisibility::Private),
+            ..RoomInit::default()
+        });
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
+        assert!(r.summary().now_playing.is_none());
+    }
+
+    #[test]
+    fn a_share_starts_at_its_start_seconds_but_a_live_one_at_0() {
+        let mut r = room();
+        let start = StartSeconds::new(90);
+        let p = r
+            .set_embed(Some(yt()), None, Some(iid("i")), start, 0.0, T0)
+            .unwrap()
+            .playback
+            .unwrap();
+        assert_eq!((p.position.get(), p.action), (90.0, PlaybackAction::Load));
+        let p = r
+            .set_embed(Some(live()), None, Some(iid("j")), start, 0.0, T0)
+            .unwrap()
+            .playback
+            .unwrap();
+        assert_eq!(p.position.get(), 0.0);
+    }
+
+    #[test]
+    fn an_advanced_item_starts_at_its_start_seconds() {
+        let mut r = room();
+        r.enqueue(QueueItem {
+            start_seconds: StartSeconds::new(42),
+            ..queued("q1", vimeo(), None)
+        });
+        let p = r.advance(1.0, None, T0).unwrap().embed_switch.playback.unwrap();
+        assert_eq!(p.position.get(), 42.0);
     }
 
     #[test]

@@ -4,7 +4,7 @@
 import { loadavg, cpus } from "node:os";
 import { existsSync, copyFileSync, createWriteStream } from "node:fs";
 import { join, resolve } from "node:path";
-import { jobEnv, queueDir, recoverCrashed, runPending, type Executor, type LoadGate } from "./queue";
+import { jobEnv, perfLock, queueDir, recoverCrashed, runPending, type Executor, type LoadGate } from "./queue";
 
 const repo = resolve(process.env["OMEGA_PERF_REPO"] ?? join(import.meta.dir, "../.."));
 const dir = queueDir();
@@ -56,7 +56,7 @@ recoverCrashed(dir);
 console.log(`perf runner: queue ${dir}, worktree ${worktree}`);
 for (;;) {
   try {
-    const n = await runPending(dir, exec, { load });
+    const n = await runPending(dir, exec, { load, lock: () => perfLock() });
     if (n > 0) console.log(`ran ${String(n)} job(s)`);
   } catch (e) {
     console.error(e);

@@ -505,7 +505,7 @@ fn handle(
             let refused = queue::admit(app, inner, &actor)
                 .err()
                 .map(Refusal::from)
-                .or_else(|| queue::add(app, inner, &actor, url.as_str()).err().map(Refusal::from));
+                .or_else(|| queue::add(app, inner, &actor, url.as_str(), None).err().map(Refusal::from));
             if let Some(refused) = refused {
                 queue_refused(inner, conn, refused);
             }
