@@ -7,6 +7,7 @@
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
 import type { MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
+import { PAIR_MS, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
@@ -63,6 +64,8 @@ export interface Animator {
   setFrames(frames: MotionFrames): void;
   /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
   emote(id: MemberId, kind: AvatarEmote): void;
+  /** The dank-dungeon pair (OME-1672): `thruster` and `bender` play their poses for PAIR_MS, then go back to idle. Nothing under reduced motion. */
+  pair(thruster: MemberId, bender: MemberId): void;
   /** A prop started walking (OME-1520): draw on the next frame and keep going while it walks. */
   wake(): void;
   /** Full screen hides the room (OME-597): paused, nothing is drawn or scheduled; on resume one frame draws everyone now. */
@@ -80,7 +83,9 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let paused = false;
   const pose = emptyPose();
   /** Per member: the gesture playing (null: none) since when, the sticker playing (null: none) since when, and the dance's start (null: none). */
-  const plays = new Map<MemberId, { gesture: GestureKind | null; gestureAt: number; sticker: StickerKind | null; stickerAt: number; danceAt: number | null }>();
+  const plays = new Map<MemberId, { gesture: GestureKind | null; gestureAt: number; sticker: StickerKind | null; stickerAt: number; danceAt: number | null; pair: { readonly bender: boolean; readonly other: MemberId; readonly at: number } | null }>();
+  /** The partner's sampled pose, and the pose a thruster is drawn at (the bender's spot). Scratch, never allocated per frame. */
+  const partner = emptyPose();
   /** Set by drawAll: ms until the next emote frame change (Infinity if none). */
   let nextEmote = Infinity;
   /** Furniture "in use" loops running now (OME-1407). */
@@ -91,6 +96,15 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let dancing = false;
   /** Set by drawAll: a prop (the cat, OME-1520) walked in it; same clock. */
   let propWalking = false;
+
+  function playOf(id: MemberId) {
+    let play = plays.get(id);
+    if (play === undefined) {
+      play = { gesture: null, gestureAt: 0, sticker: null, stickerAt: 0, danceAt: null, pair: null };
+      plays.set(id, play);
+    }
+    return play;
+  }
 
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
     if (frames === null) return null;
@@ -129,6 +143,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       if (!o.walks.sample(a.id, now, pose)) continue;
       let frame = frameKey(a.avatar, pose, still);
       let sticker: string | null = null;
+      let drawn = pose;
       const play = plays.get(a.id);
       if (play !== undefined && frames !== null && !still) {
         if (play.danceAt !== null) {
@@ -144,6 +159,26 @@ export function createAnimator(o: AnimatorOptions): Animator {
             frame = frames.walk8[a.avatar]?.[SPIN[turn] ?? 0]?.[(k % per) * (smooth ? 1 : 2)] ?? frame;
             dancing = true;
             nextEmote = Math.min(nextEmote, DANCE_MS - t);
+          }
+        }
+        const pair = play.pair;
+        if (pair !== null) {
+          const t = now - pair.at;
+          // Either of them walking, sitting or leaving ends it.
+          if (pose.walking || pose.sitting || t >= PAIR_MS || !o.walks.sample(pair.other, now, partner) || partner.walking || partner.sitting) play.pair = null;
+          else {
+            const bender = pair.bender ? pose : partner;
+            const keys = pairKeys(a.avatar, frontIndex(bender.dir));
+            if (keys !== undefined) {
+              if (pair.bender) frame = keys.bend;
+              else {
+                frame = keys.thrust[THRUST_SEQUENCE[Math.floor(t / THRUST_FRAME_MS) % THRUST_SEQUENCE.length] ?? 0] ?? frame;
+                // Anchored on the bender's floor point, drawn there, just behind them.
+                partner.z -= 0.5;
+                drawn = partner;
+              }
+            }
+            nextEmote = Math.min(nextEmote, pair.bender ? PAIR_MS - t : Math.min(PAIR_MS - t, THRUST_FRAME_MS - (t % THRUST_FRAME_MS)));
           }
         }
         if (play.gesture !== null && !pose.walking) {
@@ -166,7 +201,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
           }
         }
       }
-      o.draw(a.id, a.avatar, pose, frame);
+      o.draw(a.id, a.avatar, drawn, frame);
       o.drawEmote(a.id, sticker, pose.x, pose.y - (pose.sitting ? EMOTE_LIFT.sit : EMOTE_LIFT.idle));
       if (pose.walking || still || frames === null) continue;
       const cycle = (pose.sitting ? frames.rest[a.avatar]?.sit : frames.rest[a.avatar]?.idle)?.[DIRS.indexOf(pose.dir)];
@@ -241,11 +276,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     },
     emote(id, kind) {
       if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === id)) return;
-      let play = plays.get(id);
-      if (play === undefined) {
-        play = { gesture: null, gestureAt: 0, sticker: null, stickerAt: 0, danceAt: null };
-        plays.set(id, play);
-      }
+      const play = playOf(id);
       const now = o.now();
       // One avatar plays one of its own animations at a time: a gesture stops a dance and a dance a gesture.
       if (kind === "dance") {
@@ -258,6 +289,17 @@ export function createAnimator(o: AnimatorOptions): Animator {
       } else {
         play.sticker = kind;
         play.stickerAt = now;
+      }
+      requestFrame();
+    },
+    pair(thruster, bender) {
+      if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === thruster) || !list.some((a) => a.id === bender)) return;
+      const at = o.now();
+      for (const [who, other, isBender] of [[thruster, bender, false], [bender, thruster, true]] as const) {
+        const play = playOf(who);
+        play.pair = { bender: isBender, other, at };
+        play.danceAt = null;
+        play.gesture = null;
       }
       requestFrame();
     },

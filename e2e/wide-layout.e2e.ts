@@ -6,6 +6,7 @@
 import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
+import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
@@ -106,6 +107,26 @@ for (const [name, w, h] of [["w1920", 1920, 1080], ["w2560", 2560, 1440]] as con
     const found = await keys(page);
     expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["play-toggle", "mute-toggle", "fullscreen-toggle", "chat-send", "chat-popout", "emote-key", "room-popout", "help-key"]));
     expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// OME-1748: the moments strip's markers (OME-1628) are keys too: 16×14 zoomed, they were 24×21 at 1920 and 32×28 at
+// 2560. At least 40×40 from 1920, 44×44 to the finger, and clear of the shelf above them.
+for (const [name, opts, min] of [["mo1920", DESKTOP(1920, 1080), 40], ["mo2560", DESKTOP(2560, 1440), 40], ["mophone", PHONE, 44]] as const) {
+  test(`${name}: a moments marker is at least ${String(min)}×${String(min)} and below the shelf`, async ({ browser, request }) => {
+    const room = testRoom("wide", name);
+    await shareVideo(request, room.id);
+    const page = await one(browser, name, opts);
+    await waitPlaying(clients);
+    await page.getByTestId("reaction-bar").getByRole("button", { name: "Heart" }).click();
+    const pip = page.getByTestId("moments-pip").first();
+    await expect(pip).toBeVisible();
+    const p = await box(pip);
+    expect(p.width).toBeGreaterThanOrEqual(min - 0.5);
+    expect(p.height).toBeGreaterThanOrEqual(min - 0.5);
+    const play = await box(page.locator(site.playToggle));
+    expect(p.y).toBeGreaterThanOrEqual(play.y + play.height);
+    if (min === 40) expect((await keys(page)).filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
   });
 }
 

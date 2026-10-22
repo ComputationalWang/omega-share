@@ -1,8 +1,8 @@
 // Chat effects (OME-1349), all at zero wire cost: a slash command sends the existing `emote`; a chat sticker and the
 // shout bubble are read locally from the relayed text by every viewer.
 import * as v from "valibot";
-import { DICE_MAX_SIDES, DICE_MIN_SIDES, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, PollOptionSchema, PollQuestionSchema, type EmoteKind, type MemberId } from "@omega/shared";
-import { COMMANDS, type SlashEntry } from "./commands";
+import { DICE_MAX_SIDES, DICE_MIN_SIDES, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, PollOptionSchema, PollQuestionSchema, type EmoteKind, type MemberId, type PairPose } from "@omega/shared";
+import { commandsFor, type SlashEntry } from "./commands";
 import type { SystemLine } from "../controls/sysline";
 
 export type SlashCommand =
@@ -17,6 +17,8 @@ export type SlashCommand =
   | { readonly type: "poll-usage" }
   | { readonly type: "hug"; readonly kind: "heart" | "clap"; readonly name: string }
   | { readonly type: "hug-usage" }
+  /** `/thrust` or `/bendover` (OME-1672), only where the room's layout has `pairs`. */
+  | { readonly type: "pair"; readonly pose: PairPose }
   /** `/me`, `/think`, `/conga`, `/stop`: commands that travel as a chat line. */
   | { readonly type: "line" };
 
@@ -29,14 +31,16 @@ function pollCommand(rest: string): SlashCommand {
   return { type: "poll", question: question.output, options: options.output };
 }
 
-const SLASHES = COMMANDS.filter((c): c is SlashEntry => c.section !== "moves");
+const slashes = (pairs: boolean): readonly SlashEntry[] => commandsFor(pairs).filter((c): c is SlashEntry => c.section !== "moves");
+const SLASHES = slashes(false);
+const PAIR_SLASHES = slashes(true);
 
 /** A word of the command table (OME-1586) after a slash: the emotes (or an alias), `/help`, `/snap` (OME-1565), `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive [@]<name>` (OME-1453), and the chat-line ones; anything else, `/x` included, is chat. */
-export function slashCommand(text: string): SlashCommand | null {
+export function slashCommand(text: string, pairs = false): SlashCommand | null {
   const m = /^\s*\/(\S+)(?:\s+(.*?))?\s*$/s.exec(text);
   const word = m?.[1]?.toLowerCase() ?? "";
   const rest = m?.[2] ?? "";
-  const c = SLASHES.find((e) => e.name === word || e.aliases.includes(word));
+  const c = (pairs ? PAIR_SLASHES : SLASHES).find((e) => e.name === word || e.aliases.includes(word));
   if (c === undefined) return null;
   if (c.emote !== undefined) return rest === "" ? { type: "emote", kind: c.emote } : null;
   switch (c.name) {
@@ -57,6 +61,9 @@ export function slashCommand(text: string): SlashCommand | null {
       const name = rest.replace(/^@/, "");
       return name === "" ? { type: "hug-usage" } : { type: "hug", kind: c.name === "hug" ? "heart" : "clap", name };
     }
+    case "thrust":
+    case "bendover":
+      return rest !== "" ? null : { type: "pair", pose: c.name };
     default:
       return { type: "line" };
   }
@@ -72,8 +79,17 @@ export function thinkText(text: string): string | null {
   return /^\s*\/think\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
 }
 
-/** What `/help` says, to me only: the command table, emotes first. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${SLASHES.filter((c) => c.section === "emotes").map((c) => c.help).join(" ")} · ${SLASHES.filter((c) => c.section === "fun").map((c) => c.help).join(" · ")}`, time: null, self: true };
+/** What `/help` says, to me only: the command table, emotes first; the pair commands only where `pairs` is on. */
+export const helpLine = (pairs: boolean): SystemLine => {
+  const all = pairs ? PAIR_SLASHES : SLASHES;
+  return { glyph: "host", actor: null, verb: `Emotes: ${all.filter((c) => c.section === "emotes").map((c) => c.help).join(" ")} · ${all.filter((c) => c.section === "fun").map((c) => c.help).join(" · ")}`, time: null, self: true };
+};
+export const HELP_LINE: SystemLine = helpLine(false);
+
+const OTHER_POSE: Readonly<Record<PairPose, PairPose>> = { thrust: "bendover", bendover: "thrust" };
+
+/** A member's open pair invite (OME-1672): "Bob wants to /thrust, to join in use /bendover"; mine reads "You want to …". */
+export const pairInvitedLine = (actor: string, me: boolean, pose: PairPose): SystemLine => ({ glyph: "host", actor: me ? "You" : actor, verb: `${me ? "want" : "wants"} to /${pose}, to join in use /${OTHER_POSE[pose]}`, time: null });
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };

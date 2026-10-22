@@ -142,7 +142,9 @@
 .moments { position: absolute; z-index: 1; }
 .moments[hidden], .moments.no-room { display: none; }
 .moments-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background-color: var(--field-border); }
-.moments-pip { position: absolute; bottom: 3px; transform: translateX(-50%); display: grid; place-items: center; width: 16px; height: 14px; padding: 0; border: 0; background: none; cursor: pointer; }
+/* A pip's 16×14 icon sits on the bar; a larger key (--pip, OME-1748) grows down over the bar and the wall, never up into
+ * the shelf, and its bottom padding keeps the icon where it was. */
+.moments-pip { position: absolute; top: 1px; transform: translateX(-50%); display: grid; place-items: center; width: var(--pip, 16px); height: var(--pip, 14px); padding: 0 0 calc(var(--pip, 14px) - 14px); border: 0; background: none; cursor: pointer; }
 .moments-pip:disabled { cursor: default; opacity: 0.7; }
 .moments-pip:focus-visible { outline: 1px solid var(--ui-text); outline-offset: 1px; }
 .moments-pip .ui-sprite { transform: scale(0.5); }
@@ -427,6 +429,9 @@ body.room-is-wide[data-chrome="2"] { --wide-side: calc(640px + env(safe-area-ins
 .room-wide[data-chrome] .quality-menu .ui-modrow { min-height: 27px; }
 /* A 26 px icon key is 39 px at 1.5×. */
 .room-wide[data-chrome] .ui-button.icon:not(.stage-clip *) { min-width: 27px; }
+/* The moments pips: 40 px once zoomed (OME-1748), 44 px to the finger; [data-chrome] ties the touch rule, which comes last. */
+.room-wide[data-chrome] .moments { --pip: calc(40px / var(--chrome)); }
+.ui-touch .moments, .ui-touch[data-chrome] .moments { --pip: calc(44px / var(--chrome, 1)); }
 body.room-is-wide > main { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
 body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }
 .room-wide { box-sizing: border-box; height: 100%; margin-right: var(--wide-side); padding: 12px 16px 12px max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; overflow-y: auto; }

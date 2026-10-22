@@ -9,7 +9,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
+import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV6 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -75,6 +75,8 @@ export interface Stage {
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: AvatarEmote, s: StageState): void;
+  /** Two members paired (OME-1672): the pose animation, unless reduced motion asks for stillness. */
+  pair(thruster: MemberId, bender: MemberId): void;
   /** A received reaction (OME-1631): a glyph burst over their head, if the view allows it now. Returns the glyphs shown. */
   react(id: MemberId, kind: ReactionKind): number;
   /** Their next move is a teleport (OME-1548, `walked.teleport`): marked before the state change that draws it. */
@@ -281,6 +283,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let v2Atlas: FurnitureAtlas | null = null;
   /** Batch 6's atlas once loaded (OME-1439); same shape again. */
   let v4Atlas: FurnitureAtlas | null = null;
+  /** The Dank Dungeon's atlas once loaded (OME-1672). */
+  let v6Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
   /** The new colours' sheet copies (OME-1463), once a layout used one; `recolouring` names the copies asked for. */
@@ -302,9 +306,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [atlas, v2Atlas, v4Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    const catalogues = [atlas, v2Atlas, v4Atlas, v6Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, roomAtlas, recolours], grid);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v6Atlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
   };
 
@@ -375,6 +379,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     if (usesV2(next) && v2Atlas === null) {
       lazyAtlas("furniture v2", key, next, () => import("./furniture-v2-atlas").then((m) => m.loadFurnitureV2Atlas()), (a) => (v2Atlas = a));
     }
+    if (usesV6(next) && v6Atlas === null) {
+      lazyAtlas("furniture v6", key, next, () => import("./furniture-v6-atlas").then((m) => m.loadFurnitureV6Atlas()), (a) => (v6Atlas = a));
+    }
+    if (next.pairs === true) view.loadPairPoses();
     if (usesV4(next) && v4Atlas === null) {
       lazyAtlas("furniture v4", key, next, () => import("./furniture-v4-atlas").then((m) => m.loadFurnitureV4Atlas()), (a) => (v4Atlas = a));
     }
@@ -558,6 +566,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     view,
     render,
     applyCatching,
+    pair(thruster, bender) {
+      if (!o.reducedMotion.matches) view.pair(thruster, bender);
+    },
     emote(id, kind, s) {
       seated = s.room?.seats ?? seated;
       if (!o.reducedMotion.matches) {

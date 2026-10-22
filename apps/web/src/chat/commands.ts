@@ -60,3 +60,16 @@ export const COMMANDS: readonly Command[] = [
   move("Teleport pads", "Stand on one pad to come out at the other."),
   move("Doors", "Stand in front of a door, then Go, to visit that room."),
 ];
+
+/** The Dank Dungeon's pair (OME-1672): in a room whose layout has `pairs: true` only, nowhere else (not /help, not the palette). */
+const PAIR_COMMANDS: readonly SlashEntry[] = [
+  fun("thrust", "run", "/thrust", "/thrust", "Thrust", "Invite someone to pair up; they answer with /bendover"),
+  fun("bendover", "run", "/bendover", "/bendover", "Bend over", "Invite someone to pair up; they answer with /thrust"),
+];
+
+/** Before /help, so /help stays last among the fun ones. */
+const AT_HELP = COMMANDS.findIndex((c) => c.section !== "moves" && c.name === "help");
+const WITH_PAIRS: readonly Command[] = [...COMMANDS.slice(0, AT_HELP), ...PAIR_COMMANDS, ...COMMANDS.slice(AT_HELP)];
+
+/** The table a room shows: the base one, plus the pair commands where its layout has `pairs`. */
+export const commandsFor = (pairs: boolean): readonly Command[] => (pairs ? WITH_PAIRS : COMMANDS);

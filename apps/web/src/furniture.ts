@@ -21,6 +21,8 @@ const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp"
 const V2_KINDS: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
 /** Batch 6's pieces (assets/furniture/furniture-v4.json, its own lazy sheet). */
 const V4_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace"]);
+/** The Dank Dungeon's pieces (assets/furniture/furniture-v6.json, its own lazy sheet, OME-1672). */
+const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin"]);
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
 const atlasId = (kind: FurnitureKind): string => (kind === "runner" ? "rug" : kind);
 
@@ -85,7 +87,7 @@ export function layoutOf(room: RoomState | null): RoomLayout {
 
 /** True if the layout holds a set (g) piece, i.e. the furniture atlas must load. */
 export function usesSetG(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind));
+  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind) && !V6_KINDS.has(f.kind));
 }
 
 /** True if the layout holds a catalogue v2 piece, i.e. the v2 sheet must load. */
@@ -96,6 +98,11 @@ export function usesV2(layout: RoomLayout): boolean {
 /** True if the layout holds a batch 6 piece, i.e. the v4 sheet must load. */
 export function usesV4(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V4_KINDS.has(f.kind));
+}
+
+/** True if the layout holds a Dank Dungeon piece, i.e. the v6 sheet must load. */
+export function usesV6(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => V6_KINDS.has(f.kind));
 }
 
 /** Seat i's floor point (ADR 0021: the i-th seat cell across seat pieces, in furniture order). */

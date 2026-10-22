@@ -6,6 +6,7 @@ import bar from "../../../assets/presets/bar.json";
 import cafe from "../../../assets/presets/cafe.json";
 import cinema from "../../../assets/presets/cinema.json";
 import classic from "../../../assets/presets/classic.json";
+import dankDungeon from "../../../assets/presets/dank-dungeon.json";
 import empty from "../../../assets/presets/empty.json";
 import living from "../../../assets/presets/living.json";
 import lounge from "../../../assets/presets/lounge.json";
@@ -25,6 +26,7 @@ const PRESET_LAYOUTS: Readonly<Record<RoomPresetId, RoomLayout>> = {
   cafe: parse("cafe", cafe),
   bar: parse("bar", bar),
   empty: parse("empty", empty),
+  "dank-dungeon": parse("dank-dungeon", dankDungeon),
 };
 
 export const presetLayout = (id: RoomPresetId): RoomLayout => PRESET_LAYOUTS[id];
