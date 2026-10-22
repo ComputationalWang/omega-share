@@ -568,6 +568,10 @@ const SWATCH_ART: Record<string, readonly string[]> = {
   sunset: ["..........", ".aaaaaaaa.", ".aaaaaiia.", ".aaaaaiia.", ".aauaaaaa.", ".auuuauaa.", ".uuuuuuuu.", ".vvvvvvvv.", ".vvvvvvvv.", ".........."],
   frost: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".eNNggNNe.", ".eNNggNNe.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
   peach: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".bNNyyNNb.", ".bNNyyNNb.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
+  // Theatre row heights (OME-1639): a velvet seat on the planks, on one brass-nosed riser, on two.
+  floor: ["..........", ".NNNNNNNN.", ".NNNNNNNN.", ".NNvvNNNN.", ".NNvvNNNN.", ".NNvvvvNN.", ".NNxNNxNN.", ".wwwwwwww.", ".wwwwwwww.", ".........."],
+  step: ["..........", ".NNNNNNNN.", ".NNvvNNNN.", ".NNvvNNNN.", ".NNvvvvNN.", ".yyyyyyyy.", ".nnnnnnnn.", ".nnnnnnnn.", ".wwwwwwww.", ".........."],
+  high: ["..........", ".NNvvNNNN.", ".NNvvNNNN.", ".NNvvvvNN.", ".yyyyyyyy.", ".nnnnnnnn.", ".yyyyyyyy.", ".nnnnnnnn.", ".wwwwwwww.", ".........."],
 };
 function swatch(name: string): UiFrame {
   const ramp = SWATCH_RAMP[name];
@@ -602,7 +606,7 @@ function swatchRing(): UiFrame {
 }
 
 /** Every catalogue colour, in tray order. */
-export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach"] as const;
+export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach", "floor", "step", "high"] as const;
 
 /** Footprints the catalogue uses (`footprintByDir`), each marker state. */
 const FOOTPRINT_SIZES: readonly (readonly [number, number])[] = [[1, 1], [2, 1], [1, 2], [3, 2], [2, 3]];
