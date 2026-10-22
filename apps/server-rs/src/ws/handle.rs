@@ -719,7 +719,8 @@ fn relay_walk(inner: &mut RoomInner, member: &MemberId, cell: FloorCell, stood_u
     );
 }
 
-/// `pair` (OME-1672): an invite, or a match that stands the inviter up and moves them beside the sender.
+/// `pair` (OME-1672): an invite, or a match that stands the inviter up and moves them beside the sender (the sender
+/// first stood on a cell if they had none).
 fn pair(app: &App, inner: &mut RoomInner, conn: &Conn, member: &MemberId, pose: PairPose) {
     match inner.room.pair(member, pose, app.wall()) {
         PairResult::NotMember => {}
@@ -739,8 +740,15 @@ fn pair(app: &App, inner: &mut RoomInner, conn: &Conn, member: &MemberId, pose: 
             bendover,
             inviter,
             cell,
-            stand: _,
+            stand,
         } => {
+            // The sender had no cell: stand them first, so the inviter's teleport lands beside someone on the floor.
+            if let Some(at) = stand {
+                get_up(inner, member);
+                if let WalkResult::Walked { stood_up } = inner.room.walk(member, at) {
+                    relay_walk(inner, member, at, stood_up, None, Some(true));
+                }
+            }
             get_up(inner, &inviter);
             if let WalkResult::Walked { stood_up } = inner.room.walk(&inviter, cell) {
                 relay_walk(inner, &inviter, cell, stood_up, None, Some(true));

@@ -10,7 +10,7 @@
 use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
 use crate::contract::constants::{
-    CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT,
+    CONGA_CAP, CONGA_WINDOW_MS, FLOOR_CELLS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT,
 };
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
@@ -403,14 +403,11 @@ impl Room {
                 .and_then(|&s| self.slots.get(usize::from(s))?.as_ref())
                 .map_or((-1, 0), |r| r.facing)
         };
-        let Some(at) = self
+        let own = self
             .slots
             .get(usize::from(slot))
             .and_then(Option::as_ref)
-            .and_then(|r| r.member.cell)
-        else {
-            return PairResult::NoCell;
-        };
+            .and_then(|r| r.member.cell);
         // The bender is the sender: the inviter goes behind them. Otherwise the inviter bends, and goes where the
         // sender is behind them. Either way the cell is beside the sender.
         let (dx, dy) = facing(if pose == PairPose::Bendover { member } else { &inviter });
@@ -418,18 +415,30 @@ impl Room {
         let behind = (i16::from(dx) * sign, i16::from(dy) * sign);
         // shortcut: the fallback order is fixed (east, south, west, north, then the diagonals), not nearest-to-facing; refine if play shows it looks odd.
         let ring = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)];
-        let free = |(ox, oy): (i16, i16)| {
-            let x = u64::try_from(i16::from(at.x.get()) + ox).ok()?;
-            let y = u64::try_from(i16::from(at.y.get()) + oy).ok()?;
-            let c = FloorCell::new(x, y)?;
-            let taken = self
-                .slots
-                .iter()
-                .flatten()
-                .any(|r| r.member.cell == Some(c) && r.member.id != inviter);
-            (self.layout.standable(c) && !taken).then_some(c)
+        let free = |c: FloorCell, but: &MemberId| {
+            self.layout.standable(c) && !self.slots.iter().flatten().any(|r| r.member.cell == Some(c) && &r.member.id != but)
         };
-        let Some(cell) = std::iter::once(behind).chain(ring).find_map(free) else {
+        let beside = |at: FloorCell| {
+            std::iter::once(behind).chain(ring).find_map(|(ox, oy): (i16, i16)| {
+                let x = u64::try_from(i16::from(at.x.get()) + ox).ok()?;
+                let y = u64::try_from(i16::from(at.y.get()) + oy).ok()?;
+                FloorCell::new(x, y).filter(|&c| free(c, &inviter))
+            })
+        };
+        // A sender with no cell (standing spot, or seated) is stood first: the door cell, else the next free cell
+        // back from it (row-major, the door being the last cell) that has room beside it.
+        let found = match own {
+            Some(at) => beside(at).map(|c| (c, None)),
+            None => {
+                let n = u64::try_from(FLOOR_CELLS).unwrap_or(0);
+                (0..n * n)
+                    .rev()
+                    .filter_map(|i| FloorCell::new(i % n, i / n))
+                    .filter(|&c| free(c, member))
+                    .find_map(|at| beside(at).map(|c| (c, Some(at))))
+            }
+        };
+        let Some((cell, stand)) = found else {
             return PairResult::NoCell;
         };
         self.cancel_pair(&inviter);
@@ -444,7 +453,7 @@ impl Room {
             bendover: bendover.clone(),
             inviter,
             cell,
-            stand: None,
+            stand,
         }
     }
 
