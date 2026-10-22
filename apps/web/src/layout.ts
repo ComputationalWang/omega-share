@@ -453,8 +453,7 @@ export const MOMENTS_H = 18;
  * no shelf (full screen with the chat hidden), the chat under the shelf (full screen "below" and "band"), or off the wrap.
  */
 export function momentsBox(l: { readonly tv: Rect; readonly controls: Rect }, height: number, fsAt?: FullscreenLayout["at"]): Rect | null {
-  void l;
-  void height;
-  void fsAt;
-  return null;
+  if (l.controls.w === 0 || fsAt === "below" || fsAt === "band" || fsAt === "hidden") return null;
+  const y = l.controls.y + l.controls.h + 2;
+  return y + MOMENTS_H > height ? null : { x: l.tv.x, y, w: l.tv.w, h: MOMENTS_H };
 }

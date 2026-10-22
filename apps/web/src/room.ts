@@ -738,6 +738,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       roomStage.labelScale(k);
     },
     tv: tvBox,
+    moments: strip.root,
     log: chatLog,
     poll: pollCard.root,
     composer: { form: chatForm, away: chatAway, popOut, picker },

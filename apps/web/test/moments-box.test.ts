@@ -25,11 +25,15 @@ describe("momentsBox: under the shelf, the player's width", () => {
     const l = wideLayout(1000, 800, null);
     under(l, momentsBox(l, 800));
   });
-  test("full screen, chat beside or popped out", () => {
-    for (const mode of ["none", "open"] as const) {
-      const l = fullscreenLayout(1280, 720, null, mode);
-      if (l.at === "side" || l.at === "alone") under(l, momentsBox(l, 720, l.at));
-    }
+  test("full screen, chat beside or popped out, where the picture leaves room under the shelf", () => {
+    const side = fullscreenLayout(1280, 720, null, "open");
+    expect(side.at).toBe("side");
+    under(side, momentsBox(side, 720, side.at));
+    const alone = fullscreenLayout(1280, 1000, null, "none");
+    under(alone, momentsBox(alone, 1000, alone.at));
+    // A picture that fills the height: its shelf ends at the screen's edge, nothing under it.
+    const full = fullscreenLayout(1280, 720, null, "none");
+    expect(momentsBox(full, 720, full.at)).toBeNull();
   });
   test("never where the chat is under the shelf, the shelf is gone, or it would leave the wrap", () => {
     const band = fullscreenLayout(1280, 720, null, "band");
