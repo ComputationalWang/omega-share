@@ -64,7 +64,7 @@
 {"input":"QUEUE_ENDED_TOLERANCE_S","ok":true,"output":5},
 {"input":"QUEUE_MAX","ok":true,"output":20},
 {"input":"RATE_LIMITED_RECONNECT_MS","ok":true,"output":10000},
-{"input":"REACTIONS_MAX","ok":true,"output":256},
+{"input":"REACTIONS_MAX","ok":true,"output":200},
 {"input":"REPORT_KEY_BURST","ok":true,"output":3},
 {"input":"REPORT_KEY_REFILL_MS","ok":true,"output":600000},
 {"input":"REPORT_MAX_OPEN","ok":true,"output":1000},
