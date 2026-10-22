@@ -1,4 +1,4 @@
-import { PENDING, available } from "../e2e/support/apps";
+import { PENDING, URLS, available } from "../e2e/support/apps";
 import { expect, test } from "../e2e/support/extension";
 import { gotoFixture } from "../e2e/support/network";
 import { popup } from "../e2e/support/selectors";
@@ -28,6 +28,24 @@ test.describe("extension perf", () => {
       await p.close();
     }
     recordMetric({ id: "ext.popupToList", value: p95(runs), note: `p95 of ${String(runs.length)} opens on providers-embed (4 synced + 2 generic embeds)` });
+  });
+
+  test("popup opened → 20 rooms listed, the one playing the page's video first (OME-1637)", async ({ context, openPopup }) => {
+    // GET /rooms stubbed: 20 public rooms, one playing youtube-embed's video; owned (seeded) rooms are private, never listed.
+    const rooms = Array.from({ length: 20 }, (_, i) => ({ id: `perfroom${String(i)}`.padEnd(26, "a"), memberCount: 5, seatedCount: 0, watchingCount: 3, nowPlaying: { provider: "youtube", id: i === 13 ? "aqz-KE-bpKQ" : "bbbbbbbbbbb" } }));
+    await context.route(`${URLS.server}/rooms`, (route) => route.fulfill({ json: { rooms } }));
+    const page = await context.newPage();
+    await gotoFixture(page, "youtube-embed");
+    const runs: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const p = await openPopup(page);
+      await p.locator(popup.embedItem).first().waitFor();
+      await p.locator(`${popup.roomSelect} option:first-child`, { hasText: "3 watching · Join" }).waitFor({ state: "attached" });
+      runs.push(await p.evaluate(() => performance.now()));
+      await p.close();
+    }
+    // The ext.popupToList budget (docs/perf-budgets.md) holds with the room list sorted, too.
+    expect(p95(runs)).toBeLessThanOrEqual(300);
   });
 
   test("found indicator: main-thread time per page check (OME-1042)", async ({ context, serviceWorker }) => {
