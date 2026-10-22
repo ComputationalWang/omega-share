@@ -203,6 +203,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
         "e2e/doors.e2e.ts"
@@ -243,6 +245,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -522,10 +526,25 @@
         "e2e/m9-help.e2e.ts",
         "e2e/polish.e2e.ts",
         "e2e/poll.e2e.ts",
+        "e2e/reactions.e2e.ts",
         "e2e/roll.e2e.ts",
         "perf/chat.perf.ts",
         "perf/polish.perf.ts"
       ]
+    },
+    {
+      "paths": [
+        "apps/web/src/reactions/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts",
+        "e2e/reactions.e2e.ts"
+      ],
+      "why": "reaction bar and glyph bursts, OME-1631"
     },
     {
       "paths": [
@@ -644,6 +663,8 @@
         "perf/polish.perf.ts",
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "e2e/teleport.e2e.ts",
         "e2e/doors.e2e.ts"
@@ -709,6 +730,8 @@
         "perf/queue.perf.ts",
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -971,6 +994,8 @@
         "perf/site.perf.ts",
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
+        "perf/theatre.perf.ts",
+        "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ],

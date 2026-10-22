@@ -34,7 +34,7 @@
 .generic-hint { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .generic-strip-unlock { min-width: 0; min-height: 24px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent); color: #1d1a2b; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .generic-strip-unlock:disabled { opacity: 0.6; }
-.overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
+.overlay, .tags, .bubbles, .reactions { position: absolute; inset: 0; pointer-events: none; }
 /* Cinema dim (OME-1406, cinema.ts): one fixed rgba layer over the canvas, under the floor, seats, tags and bubbles. A class
  * flips on play/pause/editor; the 400 ms fade is a one-off background-colour transition of one flat layer, not a running
  * animation. The room mood (OME-1502) is a fixed tint on the same layer, multiplied into the canvas; multiply commutes, so
@@ -138,8 +138,9 @@
 .ui-seek:focus-within, .ui-vol-track:focus-within { outline: 1px solid var(--ui-text); outline-offset: 5px; }
 .ui-seek.is-disabled .ui-seek-head { display: none; }
 /* ---- Moments strip (OME-1628): under the shelf, a thin density bar and up to 8 pips that seek. Placeholder look. ---- */
-.moments { position: relative; height: 18px; margin: 2px 8px 0; }
-.moments[hidden] { display: none; }
+/* Boxed under the shelf at the player's width by layout.ts momentsBox; over the stage's headroom, so above its clip. */
+.moments { position: absolute; z-index: 1; }
+.moments[hidden], .moments.no-room { display: none; }
 .moments-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background-color: var(--field-border); }
 .moments-pip { position: absolute; bottom: 3px; transform: translateX(-50%); display: grid; place-items: center; width: 16px; height: 14px; padding: 0; border: 0; background: none; cursor: pointer; }
 .moments-pip:disabled { cursor: default; opacity: 0.7; }
@@ -217,6 +218,12 @@
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }
+/* Reactions (OME-1631): the bar under the room while something plays, and the glyph bursts (reactions/glyphs.ts writes
+   each glyph's transform and opacity on its step timer; nothing animates in CSS, ADR 0040). */
+.reactions { contain: layout paint; }
+.reaction-glyph { position: absolute; left: 0; top: 0; translate: -50% -100%; }
+.reaction-bar { --ui-px: 1px; display: flex; gap: 4px; justify-content: center; margin: 6px 0 0; }
+.reaction-bar.is-cooling > .reaction-key { opacity: 0.5; }
 
 /* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
 .tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }

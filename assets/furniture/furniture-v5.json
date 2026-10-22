@@ -1,0 +1,711 @@
+{
+ "frames": {
+  "furniture/aislelight/warm/ne/back": {
+   "frame": {
+    "x": 214,
+    "y": 324,
+    "w": 42,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "furniture/aislelight/warm/nw/back": {
+   "frame": {
+    "x": 214,
+    "y": 345,
+    "w": 42,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "furniture/bigscreen/charcoal/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 225,
+    "w": 154,
+    "h": 97
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 154,
+    "h": 97
+   },
+   "sourceSize": {
+    "w": 154,
+    "h": 97
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7628865979381443
+   }
+  },
+  "furniture/carpet/navy/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 466,
+    "w": 126,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 126,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 126,
+    "h": 64
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.25
+   }
+  },
+  "furniture/curtain/velvet/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 52,
+    "h": 224
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 52,
+    "h": 224
+   },
+   "sourceSize": {
+    "w": 52,
+    "h": 224
+   },
+   "anchor": {
+    "x": 0.6730769230769231,
+    "y": 0.9732142857142857
+   }
+  },
+  "furniture/curtain/velvet/sw/back": {
+   "frame": {
+    "x": 53,
+    "y": 0,
+    "w": 52,
+    "h": 224
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 52,
+    "h": 224
+   },
+   "sourceSize": {
+    "w": 52,
+    "h": 224
+   },
+   "anchor": {
+    "x": 0.3269230769230769,
+    "y": 0.9732142857142857
+   }
+  },
+  "furniture/theatrerow/floor/ne/back": {
+   "frame": {
+    "x": 127,
+    "y": 466,
+    "w": 86,
+    "h": 56
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 56
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 56
+   },
+   "anchor": {
+    "x": 0.3023255813953488,
+    "y": 0.48214285714285715
+   }
+  },
+  "furniture/theatrerow/floor/ne/front": {
+   "frame": {
+    "x": 127,
+    "y": 523,
+    "w": 86,
+    "h": 56
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 56
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 56
+   },
+   "anchor": {
+    "x": 0.3023255813953488,
+    "y": 0.48214285714285715
+   }
+  },
+  "furniture/theatrerow/floor/nw/back": {
+   "frame": {
+    "x": 0,
+    "y": 531,
+    "w": 86,
+    "h": 56
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 56
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 56
+   },
+   "anchor": {
+    "x": 0.6976744186046512,
+    "y": 0.48214285714285715
+   }
+  },
+  "furniture/theatrerow/floor/nw/front": {
+   "frame": {
+    "x": 87,
+    "y": 580,
+    "w": 86,
+    "h": 56
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 56
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 56
+   },
+   "anchor": {
+    "x": 0.6976744186046512,
+    "y": 0.48214285714285715
+   }
+  },
+  "furniture/theatrerow/high/ne/back": {
+   "frame": {
+    "x": 155,
+    "y": 0,
+    "w": 98,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 80
+   },
+   "anchor": {
+    "x": 0.336734693877551,
+    "y": 0.5875
+   }
+  },
+  "furniture/theatrerow/high/ne/front": {
+   "frame": {
+    "x": 155,
+    "y": 81,
+    "w": 98,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 80
+   },
+   "anchor": {
+    "x": 0.336734693877551,
+    "y": 0.5875
+   }
+  },
+  "furniture/theatrerow/high/nw/back": {
+   "frame": {
+    "x": 155,
+    "y": 162,
+    "w": 98,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 80
+   },
+   "anchor": {
+    "x": 0.6632653061224489,
+    "y": 0.5875
+   }
+  },
+  "furniture/theatrerow/high/nw/front": {
+   "frame": {
+    "x": 155,
+    "y": 243,
+    "w": 98,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 80
+   },
+   "anchor": {
+    "x": 0.6632653061224489,
+    "y": 0.5875
+   }
+  },
+  "furniture/theatrerow/step/ne/back": {
+   "frame": {
+    "x": 0,
+    "y": 323,
+    "w": 98,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 70
+   },
+   "anchor": {
+    "x": 0.336734693877551,
+    "y": 0.5285714285714286
+   }
+  },
+  "furniture/theatrerow/step/ne/front": {
+   "frame": {
+    "x": 99,
+    "y": 324,
+    "w": 98,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 70
+   },
+   "anchor": {
+    "x": 0.336734693877551,
+    "y": 0.5285714285714286
+   }
+  },
+  "furniture/theatrerow/step/nw/back": {
+   "frame": {
+    "x": 0,
+    "y": 394,
+    "w": 98,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 70
+   },
+   "anchor": {
+    "x": 0.6632653061224489,
+    "y": 0.5285714285714286
+   }
+  },
+  "furniture/theatrerow/step/nw/front": {
+   "frame": {
+    "x": 99,
+    "y": 395,
+    "w": 98,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 98,
+    "h": 70
+   },
+   "anchor": {
+    "x": 0.6632653061224489,
+    "y": 0.5285714285714286
+   }
+  }
+ },
+ "meta": {
+  "app": "omega-share assets/src/build.ts",
+  "version": "1",
+  "image": "furniture-v5.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 1024
+  },
+  "scale": "1",
+  "omega": {
+   "license": "CC-BY-SA-4.0",
+   "tile": {
+    "w": 64,
+    "h": 32
+   },
+   "seatHeight": 8,
+   "key": "furniture/<id>/<colour>/<dir>/<back|front>",
+   "layers": {
+    "floor": 0,
+    "wall": 1,
+    "back": 2,
+    "avatar": 3,
+    "front": 4
+   },
+   "pieces": [
+    {
+     "id": "theatrerow",
+     "label": "Theatre row",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "floor",
+      "step",
+      "high"
+     ],
+     "dirs": [
+      "ne",
+      "nw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 2,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 2
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 16,
+       "y": 8
+      },
+      "nw": {
+       "x": -16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back",
+       "front"
+      ],
+      "nw": [
+       "back",
+       "front"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "nw"
+       }
+      ]
+     },
+     "seatLiftByColour": {
+      "floor": 0,
+      "step": 10,
+      "high": 20
+     }
+    },
+    {
+     "id": "curtain",
+     "label": "Stage curtain",
+     "kind": "wall",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "velvet"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "bigscreen",
+     "label": "Big screen",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "charcoal"
+     ],
+     "dirs": [
+      "se"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "aislelight",
+     "label": "Aisle lights",
+     "kind": "light",
+     "mount": "floor",
+     "layer": "floor",
+     "colours": [
+      "warm"
+     ],
+     "dirs": [
+      "ne",
+      "nw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 1,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 0,
+       "y": 0
+      },
+      "nw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ],
+      "nw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "carpet",
+     "label": "Theatre carpet",
+     "kind": "rug",
+     "mount": "floor",
+     "layer": "floor",
+     "colours": [
+      "navy"
+     ],
+     "dirs": [
+      "se"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 2
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 2,
+       "rows": 2
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 16
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

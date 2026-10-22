@@ -105,6 +105,8 @@ export function createMomentsStrip(o: { readonly seek: (seconds: number) => bool
       });
     },
     setControl(can) {
+      // onView fires several times a second; a rewritten aria-label is re-announced on a focused pip (QA OME-1715).
+      if (can === canSeek) return;
       canSeek = can;
       pips.forEach((b, i) => {
         const ms = at[i];
