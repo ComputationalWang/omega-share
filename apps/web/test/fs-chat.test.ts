@@ -50,8 +50,9 @@ async function make(store = shown()) {
   const { createFsChat } = await import("../src/fs-chat");
   const c = clock();
   const changes: boolean[] = [];
-  const chat = createFsChat({ store, setTimer: c.setTimer, clearTimer: c.clearTimer, onChange: (h) => { changes.push(h); } });
-  return { chat, c, changes, store };
+  const slides: boolean[] = [];
+  const chat = createFsChat({ store, setTimer: c.setTimer, clearTimer: c.clearTimer, onChange: (h, peek) => { changes.push(h); slides.push(peek); } });
+  return { chat, c, changes, slides, store };
 }
 
 const texts = (region: HTMLElement): string[] => [...region.children].map((b) => b.querySelector(".fs-bubble-text")?.textContent ?? "");
@@ -208,6 +209,15 @@ describe("the peek", () => {
     c.advance(1);
     expect(chat.hidden()).toBe(true);
     expect(changes).toEqual([true, false, true]);
+  });
+
+  test("only a peek slides in: pinning it shown or entering full screen doesn't animate (reduced motion, stable boxes)", async () => {
+    const { chat, slides } = await make(memory());
+    chat.setActive(true);
+    chat.peek(true);
+    chat.setHidden(false);
+    chat.setHidden(true);
+    expect(slides).toEqual([false, true, false]);
   });
 
   test("coming back before the countdown ends keeps it shown", async () => {
