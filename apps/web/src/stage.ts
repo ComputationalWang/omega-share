@@ -90,6 +90,9 @@ export interface Stage {
   anchor(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
   cellOf(id: MemberId): FloorCell | null;
+  /** The cats' cells now and a heart over the cat on one (OME-1669, room-view.ts). */
+  catCells(): number[];
+  petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
@@ -587,6 +590,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    catCells: () => view.catCells(),
+    petCat: (cell) => {
+      view.petCat(cell);
+    },
     cellOf(id) {
       const p = view.position(id) ?? placedAt.get(id);
       const c = p === undefined ? -1 : cellAt(p);
