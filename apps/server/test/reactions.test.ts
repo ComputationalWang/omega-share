@@ -56,7 +56,7 @@ describe("timed reactions (OME-1632)", () => {
     await share(a, YT);
     await step(12_345);
     a.client.send({ type: "react", kind: "heart" });
-    const heard = { type: "reacted", memberId: a.snapshot.self, kind: "heart", mediaMs: 12_345 };
+    const heard = { type: "reacted", memberId: a.snapshot.self, kind: "heart", mediaMs: 12_345 } as const;
     expect(await a.client.next("reacted")).toEqual(heard);
     expect(await b.client.next("reacted")).toEqual(heard);
     const late = await joined("carol");
