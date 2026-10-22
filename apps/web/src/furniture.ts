@@ -98,6 +98,11 @@ export function usesV4(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V4_KINDS.has(f.kind));
 }
 
+/** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
+export function usesV5(layout: RoomLayout): boolean {
+  return layout.furniture.length < 0; // stub (OME-1630 red)
+}
+
 /** Seat i's floor point (ADR 0021: the i-th seat cell across seat pieces, in furniture order). */
 export function seatPoints(layout: RoomLayout): Point[] {
   return layoutSeats(layout).map((s) => cellCenter(s.col, s.row));

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { cellOf } from "../src/walk/path";
 
@@ -10,6 +10,7 @@ import { cellOf } from "../src/walk/path";
 const manifest = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture.json", import.meta.url)).json());
 const v2 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v2.json", import.meta.url)).json());
 const v4 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v4.json", import.meta.url)).json());
+const v5 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v5.json", import.meta.url)).json());
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
 /** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
 const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
@@ -573,5 +574,47 @@ describe("batch 6: hammock, stool, bar counter, piano, fireplace", () => {
   test("the fireplace burns while a video plays, and only then", () => {
     expect(piecesInUse(l, cells([7, 1]), false)).toEqual(new Set());
     expect(piecesInUse(l, cells(), true)).toEqual(new Set([3]));
+  });
+});
+
+// OME-1630: the theatre set (OME-1639 art, furniture-v5, its own lazy sheet); a row's variant is its riser.
+describe("theatre set: rows on risers, curtain, big screen, aisle lights, carpet", () => {
+  const l: RoomLayout = {
+    furniture: [
+      { kind: "bigscreen", col: 0, row: 0, facing: "se" },
+      { kind: "curtain", col: 2, row: 0, facing: "sw" },
+      { kind: "carpet", col: 1, row: 1, facing: "se" },
+      { kind: "aislelight", col: 6, row: 6, facing: "nw" },
+      { kind: "theatrerow", col: 1, row: 4, facing: "ne" },
+      { kind: "theatrerow", col: 4, row: 1, facing: "nw", variant: 1 },
+      { kind: "theatrerow", col: 3, row: 7, facing: "ne", variant: 2 },
+      { kind: "theatrerow", col: 7, row: 3, facing: "nw", variant: 2 },
+    ],
+  };
+
+  test("only these pieces load the theatre sheet, and they load no other", () => {
+    expect(usesV5(l)).toBe(true);
+    expect(usesV5(DEFAULT_LAYOUT)).toBe(false);
+    expect(usesV5(V2_SEATS)).toBe(false);
+    expect(usesSetG(l)).toBe(false);
+    expect(usesV2(l)).toBe(false);
+    expect(usesV4(l)).toBe(false);
+  });
+
+  test("they draw from the theatre sheet, the row's riser by variant", () => {
+    const s = sceneOf(l, [manifest, v2, v4, v5]);
+    const keys = keysOf(s).filter((k) => k.startsWith("furniture/"));
+    expect(keys.length).toBeGreaterThan(0);
+    for (const k of keys) expect(v5.frames[k]).toBeDefined();
+    expect(keys).toContain("furniture/bigscreen/charcoal/se/back");
+    expect(keys).toContain("furniture/theatrerow/floor/ne/back");
+    expect(keys).toContain("furniture/theatrerow/step/nw/front");
+    expect(keys).toContain("furniture/theatrerow/high/ne/back");
+  });
+
+  test("a sitter sits on the riser: 0 px up on the floor, 10 on one step, 20 on two", () => {
+    const up = (c: number, r: number, px: number): { x: number; y: number } => ({ x: cellCenter(c, r).x, y: cellCenter(c, r).y - px });
+    expect(seatPoints(l)).toEqual([up(1, 4, 0), up(2, 4, 0), up(4, 1, 10), up(4, 2, 10), up(3, 7, 20), up(4, 7, 20), up(7, 3, 20), up(7, 4, 20)]);
+    expect(sceneOf(l, [v5]).seats.map((x) => x.at)).toEqual(seatPoints(l));
   });
 });
