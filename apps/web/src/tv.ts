@@ -144,6 +144,23 @@ function twitchFrame(e: Extract<Embed, { provider: "twitch" }>, host: string): T
   return { kind: "twitch", key: `${e.url}#parent=${host}`, options };
 }
 
+const TWITCH_ALLOW = "autoplay; fullscreen";
+
+/**
+ * When the SDK can't load (a content blocker, OME-1665) it never builds the player: our own plain player iframe from
+ * the same frozen options, so the video still plays, unsynced. It passes `twitchIframeMatches` like the SDK's.
+ */
+export function twitchFallbackFrame(frame: TvTwitch): TvIframe {
+  const { channel, video, parent, autoplay, muted } = frame.options;
+  const src = new URL(`${TWITCH_PLAYER_ORIGIN}/`);
+  if (channel !== undefined) src.searchParams.set("channel", channel);
+  if (video !== undefined) src.searchParams.set("video", video);
+  for (const p of parent) src.searchParams.append("parent", p);
+  src.searchParams.set("autoplay", String(autoplay));
+  src.searchParams.set("muted", String(muted));
+  return { kind: "iframe", key: `${frame.key}#fallback`, src: src.href, sandbox: SANDBOX, allow: TWITCH_ALLOW, referrerPolicy: "strict-origin-when-cross-origin" };
+}
+
 /**
  * The post-render check on the iframe the Twitch SDK built (research §4.1 W1): exactly the
  * player origin, the one content parameter equal to ours, and `parent` = this page's host only.

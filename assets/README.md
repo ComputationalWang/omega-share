@@ -33,6 +33,8 @@ assets/
   furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner, a runtime PLTE swap table (no sheet changes)
   furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops, teleport pad (OME-1546)
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
+  furniture/furniture-v5.png  # theatre set v2 (OME-1639, lazy-load): 256×1024 indexed PNG-8, raised rows, curtain, big screen, aisle lights, carpet
+  furniture/furniture-v5.json # theatre set v2: v4's schema + `seatLiftByColour`
   furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×256 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin (v4 schema)
   avatars/dungeon.png|json  # Dank Dungeon (OME-1670, lazy): 256×512 PNG-8, the bendover / thrust emote poses, 48×64 cells
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
@@ -1176,6 +1178,35 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 - **Footprint check for M4:** the console still covers `col + row <= 2`. Don't place pieces there.
 - Contract: proposed here, for the M4 layout contract (Lead Engineer). Nothing in `apps/` reads it yet.
 
+**Theatre set v2 (OME-1639) is a fourth lazy sheet, `furniture/furniture-v5.png` + `.json` (256×1024), v4's schema plus one field.**
+Separate for the same reason as v4: the five ids become `FURNITURE` kinds in contract B ([OME-1625](/OME/issues/OME-1625)), and rooms
+without theatre pieces don't download it. Identical frames share one rect, as in v4. All static: no loops.
+
+| id | label | layer / mount | facings | colours | footprint |
+|---|---|---|---|---|---|
+| `theatrerow` | Theatre row (seat, `front` layer: the backrests) | object, floor | `ne nw` | `floor`, `step`, `high`: the riser height | 2×1, 2 seats |
+| `curtain` | Stage curtain | wall | `se` (left wall), `sw` (right wall) | `velvet` | 0×0 (a wall segment) |
+| `bigscreen` | Big screen (the 2× screen frame) | object, floor, corner | `se` | `charcoal` | 1×1 at (0,0) |
+| `aislelight` | Aisle lights | floor, walkable | `ne nw` (the strip's direction) | `warm` | 1×1 |
+| `carpet` | Theatre carpet | floor, walkable | `se` | `navy` | 2×2 |
+
+- **Raised rows.** `meta.omega.pieces[].seatLiftByColour` (`theatrerow` only: `{ "floor": 0, "step": 10, "high": 20 }`) is how many px
+  higher to draw a sitter than `seatHeight` puts them, because the seat stands on the riser. A reader without the field draws 0. The
+  backrests are the `front` layer, so from behind you see the head and shoulders over the seat back (`preview/theatre-seats@2x.png`: every
+  avatar on both seats of every height, both facings). Each riser's back edge has a lit brass nosing, so the tiers read from the aisle.
+- **Curtains** hang floor to pelmet (z 0–200) and stand 6 units off the wall. One kind covers both sides: put them on segment 2 of each wall
+  (`sw` at col 2, `se` at row 2), right where the big screen meets the walls. Segments 5, 6 and 8 have fixtures, as for frames.
+- **Big screen** replaces the corner console: a velvet-skirted stage across the corner (front plane u + v = 22, like the console's 24) and a
+  camera-facing screen 120 px wide with a 110 × 62 lit picture. Like the console, it's drawn past its 1×1 cell: keep (1,0) and (0,1) free.
+  Decorative: the live player stays page chrome (ADR 0012). The contract decides if it stands in for `tv` or is a `tv` variant (OME-1625).
+- **Carpet** has no outline and its pattern repeats every 16 units on the world grid, so 2×2 tiles join into one carpet anywhere.
+  The risers' tops use the same pattern. Floor pieces may not overlap, so aisle lights go on planks (the theatre preview's aisle).
+- **Editor:** thumbnails for all five, and 3 new swatches for the row heights (`swatch/floor`, `swatch/step`, `swatch/high`: a seat
+  on the planks, on one riser, on two).
+
+Previews: `preview/theatre-room@1x.png` / `@2x` (the theatre layout: screen, curtains, two tiers, carpet, aisle, a full house),
+`preview/theatre-seats@2x.png`, `preview/furniture-v5-atlas@2x.png`.
+
 ## Furniture recolours (`furniture/recolours.json`, OME-1462)
 
 Six kinds get **2 extra colours each** by the shirt tints' technique: a runtime PLTE swap of the piece's fabric ramp(s), no new
@@ -1391,6 +1422,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops + door, lazy) | 23 415 |
 | `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
 | `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437; + pad, OME-1546; lazy) | 19 477 + 1 915 gz |
+| `furniture/furniture-v5.png` + `.json` (theatre set v2, OME-1639, lazy) | 8 810 + 1 335 gz |
 | `furniture/recolours.json` (OME-1462, recolour table, ships with the web bundle) | 3 223 raw / 756 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
@@ -1402,7 +1434,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 325 947 B** after OME-1670 (Dank Dungeon, +17 159); 308 788 B after OME-1641 and its OME-1657 polish; was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 337 639 B** after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
@@ -1440,6 +1472,12 @@ loop) and the piano loop has 2 frames.
 
 The teleport pad (OME-1546) adds **1 130 B** (304 093 → 305 223 of 307 200), all lazy but `reference.css`: `furniture-v4.png` 18 733 →
 19 477 (+744, 4 frames), `edit.png` +180 (2 thumbnails), `furniture-v4.json` / `edit.json` / `reference.css` +206 gz together.
+
+The theatre set v2 (OME-1639) adds **11 955 B (≈ 11.7 KB)** of its +30 KB allowance (305 109 → 317 064, `bun assets/src/build.ts`): lazy
+`furniture-v5.png` 8 810 + `furniture-v5.json` 1 335 gz, `edit.png` +1 260 and `edit.json` +230 gz (5 thumbnails, 3 swatches); eager
+`reference.css` +320 gz. The other sheets are byte-identical. It fits the 400 KB cap (ADR 0056): 320 629 of 409 600 measured on top of OME-1641. (`gzip -9` on
+the command line shows the JSON at 1 353 B: it stores the file name in its header. The budget counts zlib level 9 without one, as
+`bun assets/src/build.ts` does.)
 
 Bare heads (OME-1409) add **17 154 B (≈ 16.8 KB)** as `bun assets/src/build.ts` measures it (255 904 of 307 200 on its own; 261 418 measured on top of OME-1405), all lazy:
 `bare.png` 15 445 + `bare.json` 1 488 gz, and `accessories.png` +264 / `.json` −19 gz for the refitted Pip and Mo overlays.

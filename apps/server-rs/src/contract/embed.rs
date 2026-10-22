@@ -131,6 +131,62 @@ fn vimeo_url(id: &str, hash: Option<&str>) -> String {
     }
 }
 
+// ---- what `GET /rooms` says a listed room plays (OME-1625, ADR 0056)
+
+/// `NowPlayingSchema`'s providers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NowPlayingProvider {
+    Youtube,
+    Twitch,
+    Vimeo,
+}
+
+/// `NowPlayingSchema`: a provider and the video's id, never a title or URL. Twitch: the channel login (live) or
+/// `videos/<id>` (VOD; "videos" is a reserved login, so the two never collide).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NowPlaying {
+    provider: NowPlayingProvider,
+    id: String,
+}
+
+impl NowPlaying {
+    fn new(provider: NowPlayingProvider, id: String) -> Option<Self> {
+        let ok = match provider {
+            NowPlayingProvider::Youtube => is_youtube_id(&id),
+            NowPlayingProvider::Vimeo => is_numeric_id(&id),
+            NowPlayingProvider::Twitch => is_twitch_login(&id) || id.strip_prefix("videos/").is_some_and(is_numeric_id),
+        };
+        ok.then_some(Self { provider, id })
+    }
+}
+
+#[derive(Deserialize)]
+struct NowPlayingWire {
+    provider: NowPlayingProvider,
+    id: String,
+}
+
+impl<'de> Deserialize<'de> for NowPlaying {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let Obj(w) = Obj::<NowPlayingWire>::deserialize(d)?;
+        Self::new(w.provider, w.id).ok_or_else(|| serde::de::Error::custom("invalid nowPlaying"))
+    }
+}
+
+impl Embed {
+    /// `nowPlayingOf`: public videos only, so an unlisted Vimeo (with a hash) gives none.
+    pub fn now_playing(&self) -> Option<NowPlaying> {
+        match self {
+            Self::Youtube(e) => NowPlaying::new(NowPlayingProvider::Youtube, e.video_id.clone()),
+            Self::TwitchLive(e) => NowPlaying::new(NowPlayingProvider::Twitch, e.channel.clone()),
+            Self::TwitchVod(e) => NowPlaying::new(NowPlayingProvider::Twitch, format!("videos/{}", e.video_id)),
+            Self::Vimeo(e) if e.hash.is_none() => NowPlaying::new(NowPlayingProvider::Vimeo, e.video_id.clone()),
+            Self::Vimeo(_) => None,
+        }
+    }
+}
+
 // ---- serialization: the TS object literal's key order
 
 impl Serialize for Embed {

@@ -96,6 +96,11 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   piano: "Upright piano",
   fireplace: "Fireplace",
   pad: "Teleport pads (pair)",
+  theatrerow: "Theatre row",
+  curtain: "Curtain",
+  bigscreen: "Big screen",
+  aislelight: "Aisle light",
+  carpet: "Theatre carpet",
 };
 
 const DELETED = "Room deleted.";

@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { ERROR_MESSAGE_MAX_LENGTH, MAX_URL_LENGTH, RETRY_AFTER_MAX_MS } from "./constants";
 import { AnyEmbedSchema } from "./generic-embed";
+import { StartSecondsSchema } from "./playback";
 import { QueueItemSchema } from "./queue";
 import { RoomIdSchema } from "./room";
 
@@ -40,10 +41,13 @@ export type ShareTokenRecord = v.InferOutput<typeof ShareTokenRecordSchema>;
 
 /**
  * Body of `POST /rooms/:id/share`. The raw page/embed URL; the server runs
- * `canonicalizeAnyEmbed` on it, so the extension never has to be trusted.
+ * `canonicalizeAnyEmbed` on it, so the extension never has to be trusted. `startSeconds` (OME-1625): the room
+ * starts the video there (a queued item keeps it until it plays); late joiners follow the room clock as always.
+ * Ignored for a live or generic embed.
  */
 export const ShareRequestSchema = v.strictObject({
   url: v.pipe(v.string(), v.maxLength(MAX_URL_LENGTH)),
+  startSeconds: v.optional(StartSecondsSchema),
 });
 export type ShareRequest = v.InferOutput<typeof ShareRequestSchema>;
 
