@@ -119,6 +119,11 @@ export function seatPoints(layout: RoomLayout): Point[] {
   return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => seatAt(f, c, r)) : []));
 }
 
+/** Seat i's floor tile, without the riser lift: where its key sits, so a riser's key doesn't cover the row in front. */
+export function seatTiles(layout: RoomLayout): Point[] {
+  return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => cellCenter(c, r)) : []));
+}
+
 /** Rows (col + row) for people without a seat, front of the room first, filled in order. */
 const STANDING_SUMS = [13, 15, 17, 12, 14, 16, 18, 11, 10, 9, 8, 7];
 

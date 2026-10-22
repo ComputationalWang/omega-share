@@ -9,7 +9,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5 } from "./furniture";
+import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -358,9 +358,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     grid = walkGrid(next);
     standing = standingPoints(next);
     buildScene(next);
-    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform.
+    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
+    // on the tile, not the lifted sitter: a riser's 44 px phone key would otherwise cover the row in front (QA OME-1743).
+    const tiles = seatTiles(next);
     seatButtons.forEach((b, i) => {
-      const p = seats[i];
+      const p = tiles[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
     loadRecolours(key, next);
