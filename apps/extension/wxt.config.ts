@@ -66,11 +66,9 @@ export default defineConfig({
     action: { default_icon: icons },
     // Opens the popup (OME-1287). Alt+Shift+O isn't taken by Chrome or Firefox; the user can change it in the browser.
     commands: { _execute_action: { suggested_key: { default: "Alt+Shift+O" } } },
-    // "Unlock with extension" (ADR 0047 §4): Chromium asks for DNR with the one host it unlocks. Firefox can't make it
-    // optional, and there it has no prompt and acts only on hosts the viewer granted. The e2e builds hold it because
-    // Playwright can't click the permission prompt.
-    permissions: ["activeTab", "scripting", "storage", ...(browser === "firefox" || mode === "e2e" ? [UNLOCK_PERMISSION] : [])],
-    ...(browser === "firefox" ? {} : { optional_permissions: [UNLOCK_PERMISSION] }),
+    // "Unlock with extension" (ADR 0047 §4): install-time everywhere. It has no prompt and acts only on hosts the viewer
+    // granted; granted at runtime, Chromium's updateSessionRules never settles (OME-1666).
+    permissions: ["activeTab", "scripting", "storage", UNLOCK_PERMISSION],
     host_permissions: [
       ...new Set([
         hostPermissionPattern(defaultServerBaseUrl(mode)),

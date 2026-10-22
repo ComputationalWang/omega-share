@@ -1452,6 +1452,165 @@ function washbasin(k: Kit): void {
   k.box(-5, 1, D0 - 1.6, D0 - 0.9, H - 9, H - 1.4, "teal", { paint: (p, f) => (f !== "top" && Math.abs(p.z - (H - 7.5)) < 0.4 ? ["cream", 0] : null) });
 }
 
+// ---------------------------------------------------------------- theatre set v2 (OME-1639): its own lazy sheet, furniture-v5
+
+/** Riser height per theatre-row variant, px (= z units): what the web lifts a sitter by (`meta.omega.pieces[].seatLiftByColour`). */
+export const THEATRE_LIFT = { floor: 0, step: 10, high: 20 } as const;
+type RowLevel = keyof typeof THEATRE_LIFT;
+const levelOf = (c: string): RowLevel => (c === "step" || c === "high" ? c : "floor");
+
+/** Theatre carpet in world units: a navy field on a 16-unit lattice, gold diamonds at the crossings, wine dots between.
+ *  Periodic in 16, so tiles and risers butt seamlessly wherever they land on the grid. */
+function carpetPaint(u: number, v: number): Paint {
+  const a = ((u % 16) + 16) % 16, b = ((v % 16) + 16) % 16;
+  const da = Math.min(a, 16 - a), db = Math.min(b, 16 - b);
+  if (da + db < 1.2) return ["mustard", 0];
+  if (da + db < 2.2) return ["mustard", 2];
+  const ca = Math.abs(a - 8), cb = Math.abs(b - 8);
+  if (ca + cb < 1.6) return ["velvet", 1];
+  if (da < 0.5 || db < 0.5) return ["night", 2];
+  return ["night", 1];
+}
+
+/** Two flip-down velvet seats on charcoal standards with wood arm caps; variants `step` and `high` stand them on a
+ *  carpeted riser whose back edge carries a lit brass nosing, so the rows read as tiers from behind. */
+function theatreRow(k: Kit, colour: string): void {
+  const L = THEATRE_LIFT[levelOf(colour)];
+  if (L > 0) {
+    k.box(-8, 24, -8, 8, 0, L, "night", {
+      paint: (p, f) => {
+        if (f === "top") return carpetPaint(p.x, p.y);
+        // The nosing: a brass strip under the riser's top edge with a warm step light every half seat.
+        if (p.z >= L - 2) return Math.abs(((p.x + p.y + 64) % 8) - 4) < 0.9 && p.z < L - 0.5 ? ["glow", 0] : ["mustard", p.z >= L - 1 ? 0 : 1];
+        return p.z < 1 ? ["night", 2] : ["night", 1];
+      },
+    });
+  }
+  const cap: LPaint = (p, f) => (p.z >= L + 11.5 ? (f === "top" ? ["wood", 0] : ["wood", 1]) : null);
+  const standard = (x0: number, front: boolean): void => { k.box(x0, x0 + 1.6, -5.5, 4.5, L, L + 12.8, "charcoal", { paint: cap, front }); };
+  standard(-8, false);
+  standard(7.2, false);
+  standard(22.4, true);
+  for (const c of [0, 16]) {
+    // Seat pan: piped front edge.
+    k.box(c - 6.2, c + 6.2, -5, 3, L + 4.5, L + SEAT_HEIGHT, "velvet", { paint: (p, f) => (f === "top" ? ["velvet", 0] : p.z < L + 5.4 ? ["velvet", 2] : null) });
+    // Backrest: rounded crown, two channel seams and a brass seat plate on the back the audience behind sees.
+    k.box(c - 6.2, c + 6.2, 3, 6.5, L + 4.5, L + 21, "velvet", {
+      front: true,
+      paint: (p, f) => {
+        if (f === "top") return ["velvet", 0];
+        if (p.z >= L + 20) return ["velvet", 0];
+        if (f !== "back") return null;
+        const dx = p.x - c;
+        if (Math.abs(dx) < 1.6 && p.z >= L + 16.5 && p.z < L + 18.5) return ["mustard", p.z >= L + 17.5 ? 0 : 1];
+        if (Math.abs(Math.abs(dx) - 2.6) < 0.4 && p.z < L + 15.5 && p.z > L + 6) return ["velvet", 2];
+        return p.z < L + 6 ? ["velvet", 2] : null;
+      },
+    });
+  }
+}
+
+/** Stage curtain for a wall segment: deep velvet folds from a gold-fringed pelmet to the floor, cinched by a brass tie-back
+ *  and flaring out below it. One kind: facing se it hangs on the left wall, sw on the right, so a pair frames the screen. */
+function curtain(k: Kit): void {
+  const TOP = 186, TIE = 64;
+  const half = (z: number): number => (z >= 110 ? 8 : z >= TIE ? 4.5 + (3.5 * (z - TIE)) / (110 - TIE) : 4.5 + (2.8 * (TIE - z)) / TIE);
+  const folds: LPaint = (p, f) => {
+    if (f === "top") return ["velvet", 1];
+    if (f !== "front") return ["velvet", 2];
+    // Folds: highlight on each fold's left flank (light from the top-left), shade in the trough; pinched toward the tie-back.
+    const w = half(p.z);
+    const t = (((p.x / w) * 2.5 + 10) % 1 + 1) % 1;
+    return t < 0.28 ? ["velvet", 0] : t < 0.72 ? ["velvet", 1] : ["velvet", 2];
+  };
+  for (let z = 0; z < TOP; z += 2) {
+    const w = half(z + 1);
+    k.box(-w, w, 2.5, 7.5, z, z + 2, "velvet", { paint: folds });
+  }
+  k.box(-5.5, 5.5, 2, 7.6, TIE - 2, TIE + 2, "mustard", { tones: { top: 0, sw: 0, se: 1 } });
+  k.ell({ x: 4.6, y: 2.2, z: TIE - 5 }, { x: 1.3, y: 1.3, z: 3.2 }, [-99, 99, -99, 99, TIE - 9, TIE - 1], "mustard", { tones: { top: 0, sw: 0, se: 1 } });
+  // Pelmet: a velvet box with gold piping and a scalloped fringe.
+  k.box(-9, 9, 1, 8, TOP, TOP + 14, "velvet", {
+    paint: (p, f) => {
+      if (f === "top") return ["velvet", 0];
+      if (p.z >= TOP + 12) return ["mustard", 0];
+      if (p.z < TOP + 2.5) return Math.floor(p.x + 20) % 3 === 0 ? ["mustard", 2] : ["mustard", 1];
+      return f === "front" ? ["velvet", 1] : ["velvet", 2];
+    },
+  });
+}
+
+/** The 2× screen frame: a raised stage across the back corner (front plane u + v = 22) with a pleated velvet skirt, and a
+ *  big camera-facing screen behind it in a charcoal frame with a brass lip. World units of cell (0,0), like the TV console. */
+function bigScreen(k: Kit): void {
+  const plane = (nu: number, nv: number, nz: number, d: number): { n: Vec3; d: number } => ({ n: { u: nu, v: nv, z: nz }, d });
+  const SF = 22, SZ = 7;
+  const stage: Solid = {
+    ramp: "wood",
+    planes: [plane(-1, 0, 0, 8), plane(0, -1, 0, 8), plane(1, 1, 0, SF), plane(0, 0, 1, SZ), plane(0, 0, -1, 0)],
+    paint: (p, f) => {
+      if (f === "top") return Math.floor(p.u - p.v + 64) % 6 === 0 ? ["wood", 2] : ["wood", 1];
+      if (p.z >= SZ - 1.2) return ["mustard", 0];
+      const x = 2 * (p.u - p.v);
+      return Math.abs(((x + 64) % 6) - 3) < 1 ? ["velvet", 2] : Math.abs(((x + 64) % 6) - 3) < 2 ? ["velvet", 1] : ["velvet", 0];
+    },
+  };
+  // The screen slab: the frame is the slab's rim, the picture its face. 2:1 → x = 2(u − v), so the face is 112 px wide.
+  const FB = 12, FF = 15, Z0 = SZ + 6, Z1 = SZ + 78, HW = 2 * (FF + 16) - 2;
+  const screen: Solid = {
+    ramp: "charcoal",
+    planes: [plane(-1, 0, 0, 8), plane(0, -1, 0, 8), plane(1, 1, 0, FF), plane(-1, -1, 0, -FB), plane(0, 0, 1, Z1), plane(0, 0, -1, -Z0)],
+    paint: (p, f) => {
+      if (f === "top") return ["charcoal", 0];
+      const x = 2 * (p.u - p.v), z = p.z;
+      const e = Math.min(HW - Math.abs(x), z - Z0, Z1 - z);
+      if (e < 2) return ["charcoal", x < 0 || z > Z1 - 2 ? 0 : 2];
+      if (e < 3) return ["mustard", x < 0 || z > Z1 - 3 ? 0 : 1];
+      if (e < 5) return ["outline", 1];
+      // The picture: lit white-blue, a soft sheen across the top-left, falling off toward the bottom edge.
+      const t = (x + HW) / (2 * HW) + (Z1 - z) / (Z1 - Z0);
+      return t < 0.55 ? ["glow", 0] : z - Z0 < 9 ? ["glow", 2] : ["glow", 1];
+    },
+  };
+  k.parts.push({ solid: stage, front: false }, { solid: screen, front: false });
+}
+
+/** Aisle floor light: a slim charcoal rail with three warm lamps along the aisle, each spilling a dithered pool on the floor. */
+function aisleLightImage(dir: FurnDir, s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const k = new Kit(dir);
+  k.box(-7, 7, -0.9, 0.9, 0, 0.8, "charcoal");
+  const lamps = [-4.8, 0, 4.8];
+  for (const x of lamps) k.ell({ x, y: 0, z: 0.8 }, { x: 1.6, y: 1.6, z: 1.2 }, [-99, 99, -99, 99, 0.8, 2.4], "mustard", { paint: (p, f) => (f === "top" && Math.hypot(p.x - x, p.y) < 0.9 ? ["cream", 0] : null), tones: { top: 0, sw: 0, se: 1 } });
+  const img = renderSolids(k.parts.map((q) => q.solid), cv.w, cv.h, cv.ax, cv.ay, "none", s).img;
+  addOutline(img, cv.w, cv.h);
+  // The pools stay unoutlined: every other pixel near each lamp, so the planks read through like light.
+  for (let py = 0; py < cv.h; py++) {
+    for (let px = 0; px < cv.w; px++) {
+      if ((img[py * cv.w + px] ?? 0) !== 0 || (px + py) % 2 !== 0) continue;
+      const sx = (px + 0.5 - cv.ax) / s, sy = (py + 0.5 - cv.ay) / s;
+      const u = (sy + sx / 2) / 2, v = (sy - sx / 2) / 2;
+      const { x, y } = dir === "ne" ? { x: u, y: v } : { x: v, y: u };
+      if (lamps.some((lx) => Math.hypot(x - lx, y) < 4)) img[py * cv.w + px] = colorIndex("mustard", 0);
+    }
+  }
+  return img;
+}
+
+/** Carpet tile, 2×2: the theatre carpet with no outline, so neighbouring tiles join into one floor. */
+function carpetImage(s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const img = new Uint8Array(cv.w * cv.h);
+  for (let py = 0; py < cv.h; py++) {
+    for (let px = 0; px < cv.w; px++) {
+      const sx = (px + 0.5 - cv.ax) / s, sy = (py + 0.5 - cv.ay) / s;
+      const u = (sy + sx / 2) / 2, v = (sy - sx / 2) / 2;
+      if (u < -8 || u >= 24 || v < -8 || v >= 24) continue;
+      const p = carpetPaint(u, v);
+      img[py * cv.w + px] = colorIndex(p[0], p[1]);
+    }
+  }
+  return img;
+}
+
 // ---------------------------------------------------------------- catalogue
 
 export interface PieceMeta {
@@ -1482,6 +1641,8 @@ export interface PieceMeta {
    *  walk clock), rests in `furniture/<id>/<colour>/sit/<dir>` (both anchored on the feet's centre) and leaves
    *  `furniture/<id>/<colour>/bed/<dir>` behind (the empty cushion, `back`'s rect and anchor). */
   walk?: { frames: number; ms: number };
+  /** A raised seat (the theatre rows, OME-1639): draw its sitters this many px higher, per colour. Absent = 0. */
+  seatLiftByColour?: Record<string, number>;
 }
 
 export interface PieceDef {
@@ -1506,6 +1667,8 @@ export interface PieceDef {
   image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas, n?: number) => Uint8Array;
   /** Walk loop, sit and empty-bed frames (see PieceMeta.walk). */
   walk?: { frames: number; ms: number; draw: (dir: FurnDir, colour: string, back: { x0: number; y0: number; w: number; h: number }) => RoomFrame[] };
+  /** How far a sitter is lifted per colour, px (see PieceMeta.seatLiftByColour). */
+  seatLift?: Readonly<Record<string, number>>;
 }
 
 const ALL: readonly FurnDir[] = ["ne", "nw", "se", "sw"];
@@ -1557,6 +1720,12 @@ export const PIECES: readonly PieceDef[] = [
   { id: "minibar", label: "Minibar", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { minibar(k); } },
   { id: "desk", label: "Writing desk", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { desk(k); } },
   { id: "washbasin", label: "Washbasin", kind: "fun", colours: ["cream"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { washbasin(k); } },
+  // Theatre set v2 (OME-1639): its own lazy sheet, furniture-v5. A row's colour is its riser height (THEATRE_LIFT).
+  { id: "theatrerow", label: "Theatre row", kind: "seat", colours: ["floor", "step", "high"], dirs: ["ne", "nw"], cols: 2, rows: 1, seats: [0, 1], seatLift: THEATRE_LIFT, build: (k, c) => { theatreRow(k, c); } },
+  { id: "curtain", label: "Stage curtain", kind: "wall", mount: "wall", layer: "wall", colours: ["velvet"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { curtain(k); } },
+  { id: "bigscreen", label: "Big screen", kind: "fun", colours: ["charcoal"], dirs: ["se"], cols: 1, rows: 1, build: (k) => { bigScreen(k); } },
+  { id: "aislelight", label: "Aisle lights", kind: "light", layer: "floor", colours: ["warm"], dirs: ["ne", "nw"], cols: 1, rows: 1, walkable: true, image: (d, _c, s, cv) => aisleLightImage(d, s, cv) },
+  { id: "carpet", label: "Theatre carpet", kind: "rug", layer: "floor", colours: ["navy"], dirs: ["se"], cols: 2, rows: 2, walkable: true, image: (_d, _c, s, cv) => carpetImage(s, cv) },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
@@ -1565,6 +1734,8 @@ export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench
 export const CATALOGUE_V4: ReadonlySet<string> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace", "pad"]);
 /** Dank Dungeon (OME-1670): `furniture/furniture-v6.json`, same schema, loaded only by rooms that use one of these. */
 export const CATALOGUE_V6: ReadonlySet<string> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin"]);
+/** Theatre set v2 (OME-1639): a fourth lazy atlas, `furniture/furniture-v5.json`, same schema plus `seatLiftByColour`. */
+export const CATALOGUE_V5: ReadonlySet<string> = new Set(["theatrerow", "curtain", "bigscreen", "aislelight", "carpet"]);
 
 export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
@@ -1695,6 +1866,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     if (def.seats) meta.seatsByDir = seatsByDir;
     if (def.use) meta.use = { ...def.use };
     if (def.open) meta.open = true;
+    if (def.seatLift) meta.seatLiftByColour = { ...def.seatLift };
     if (def.walk) meta.walk = { frames: def.walk.frames, ms: def.walk.ms };
     pieces.push(meta);
   }

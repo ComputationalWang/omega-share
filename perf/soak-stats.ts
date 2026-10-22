@@ -41,6 +41,8 @@ export interface SoakResult {
   integrity: string;
   consistency: { name: string; client: number; server: number }[];
   abuse: { kind: string; started: number; cut: number }[];
+  /** Relay `batch` frames (OME-1624) to the opted-in half of the steady members, the messages inside them, and any to a member that did not opt in. */
+  batch: { relayBatchMs: number; frames: number; msgs: number; unopted: number };
 }
 export interface Check {
   name: string;
@@ -208,6 +210,12 @@ export function evaluate(r: SoakResult): Check[] {
   const notCut = r.abuse.filter((a) => a.cut !== a.started);
   add("abusive clients cut", notCut.length === 0, notCut.length === 0 ? abuse(r.abuse) || "none ran" : abuse(notCut));
   add("client frames well-formed", r.badMessages === 0, `${String(r.badMessages)} bad_message answers to the soak's own clients (a harness bug if not 0)`);
+  const b = r.batch;
+  add(
+    "relay batch frames",
+    b.unopted === 0 && (b.relayBatchMs === 0 || b.frames > 0),
+    `${String(b.frames)} batch frames (${String(b.msgs)} messages) to opted-in members at RELAY_BATCH_MS ${String(b.relayBatchMs)}, ${String(b.unopted)} to members that did not opt in`,
+  );
   add("unexpected closes", r.unexpectedCloses === 0, `${String(r.unexpectedCloses)} sockets closed that the soak did not expect`);
   return checks;
 }
@@ -223,6 +231,14 @@ export interface SoakArgs {
   members: number;
   out: string;
   allowErrors: string[];
+  /** `RELAY_BATCH_MS` for the server; 0 for the TS reference, which never batches. */
+  relayBatchMs: number;
+}
+
+function intIn(name: string, raw: string | undefined, def: number, min: number, max: number): number {
+  const n = numIn(name, raw, def, min, max);
+  if (!Number.isInteger(n)) throw new Error(`${name} must be a whole number`);
+  return n;
 }
 
 function numIn(name: string, raw: string | undefined, def: number, min: number, max: number): number {
@@ -255,5 +271,6 @@ export function parseSoakArgs(argv: string[]): SoakArgs {
     members,
     out: flags.get("out") ?? "soak-out",
     allowErrors: (flags.get("allow-errors") ?? "").split(",").filter((e) => e !== ""),
+    relayBatchMs: intIn("--relay-batch-ms", flags.get("relay-batch-ms"), 8, 0, 1000),
   };
 }

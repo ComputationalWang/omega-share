@@ -14,6 +14,7 @@ interface BrowserStub {
   readonly tabsQuery?: (query: { readonly url?: readonly string[] }) => Promise<unknown[]>;
   readonly executeScript?: (details: { readonly target: { readonly tabId: number }; readonly args?: readonly unknown[] }) => Promise<unknown[]>;
   readonly calls?: unknown[][];
+  readonly badges?: unknown[];
 }
 
 const unhandled: unknown[] = [];
@@ -38,6 +39,7 @@ void mock.module("wxt/browser", () => ({
     windows: { update: (...args: unknown[]) => Promise.resolve(stubbed().calls?.push(["windows.update", ...args])) },
     scripting: { executeScript: (details: { readonly target: { readonly tabId: number }; readonly args?: readonly unknown[] }) => stubbed().executeScript?.(details) ?? Promise.reject(new Error("cannot access tab")) },
     runtime: { openOptionsPage: () => Promise.resolve() },
+    action: { setBadgeText: (details: unknown) => Promise.resolve(stubbed().badges?.push(details)) },
   },
 }));
 
@@ -188,6 +190,21 @@ describe("after a successful share", () => {
     expect(calls).toEqual([["tabs.create", { url: `${ORIGIN}/r/lobby` }]]);
   });
 
+  // OME-1636: the share starts where the page is.
+  test("Share sends the listed embed's start", async () => {
+    const document = await opened({}, [], ["lobby"], ["https://www.youtube.com/embed/aqz-KE-bpKQ?start=75"]);
+    const bodies: unknown[] = [];
+    const loaded = globalThis.fetch;
+    globalThis.fetch = ((url: string, init: RequestInit) => {
+      if (url.endsWith("/share")) bodies.push(JSON.parse(typeof init.body === "string" ? init.body : ""));
+      return loaded(url, init);
+    }) as typeof fetch;
+    (el(document, "room") as HTMLSelectElement).value = "lobby";
+    (el(document, "share-form") as HTMLFormElement).requestSubmit(el(document, "share"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(bodies).toEqual([{ url: "https://www.youtube.com/embed/aqz-KE-bpKQ", startSeconds: 75 }]);
+  });
+
   // OME-1635 E1: one embed and the remembered room preselected, so Enter or one click shares.
   test("one embed and a remembered room: Share has focus", async () => {
     const document = await opened({ lastRoom: "lobby" }, [], ["lobby"], ["https://www.youtube.com/embed/aqz-KE-bpKQ"]);
@@ -217,6 +234,17 @@ describe("after a successful share", () => {
   test("a remembered room without a share token gives way to the room tab that has one", async () => {
     const document = await shared({ lastRoom: "movies" });
     expect([...(el(document, "room") as HTMLSelectElement).options].find((o) => o.defaultSelected)?.value).toBe("lobby");
+  });
+
+  // OME-1637: the shared tab shows how many watch in that room, for that tab only (tab 1, the scanned page).
+  test("Share badges the page's tab with the room's watcher count", async () => {
+    const badges: unknown[] = [];
+    const document = await shared({}, [], ["movies", "lobby"]);
+    current = { ...stubbed(), badges };
+    (el(document, "room") as HTMLSelectElement).value = "movies";
+    (el(document, "share-form") as HTMLFormElement).requestSubmit(el(document, "share"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(badges).toEqual([{ tabId: 1, text: "2" }]);
   });
 
   test("a remembered room that's gone is ignored", async () => {

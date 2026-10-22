@@ -22,10 +22,12 @@ describe("playerErrorText", () => {
 });
 
 describe("mountErrorText", () => {
-  test("a player API that didn't load keeps the M1b wording, per provider", () => {
-    expect(mountErrorText("youtube", "load-failed")).toBe("The video plays here without sync: the YouTube player API didn't load.");
-    expect(mountErrorText("youtube", "timeout")).toBe("The video plays here without sync: the YouTube player API didn't load.");
-    expect(mountErrorText("vimeo", "load-failed")).toBe("The video plays here without sync: the Vimeo player API didn't load.");
+  // OME-1665: a content blocker that drops the SDK script is outside our control; the notice names the likely cause.
+  test("a player API that didn't load names the likely blocker, per provider", () => {
+    const blocked = "A content blocker in your browser may be stopping it.";
+    expect(mountErrorText("twitch", "load-failed")).toBe(`The video plays here without sync: the Twitch player API didn't load. ${blocked}`);
+    expect(mountErrorText("youtube", "timeout")).toBe(`The video plays here without sync: the YouTube player API didn't load. ${blocked}`);
+    expect(mountErrorText("vimeo", "load-failed")).toBe(`The video plays here without sync: the Vimeo player API didn't load. ${blocked}`);
   });
 
   test("a provider without an adapter yet, and a player that didn't match the room's video", () => {

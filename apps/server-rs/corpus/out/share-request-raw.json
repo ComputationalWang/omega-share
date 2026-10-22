@@ -26,5 +26,20 @@
 {"input":"{\"url\":\"x\"} x","ok":false},
 {"input":"{\"url\":\"x\",}","ok":false},
 {"input":"{\"url\":\"a\",\"url\":\"b\"}","ok":true,"output":{"url":"b"},"rust":"refuses"},
-{"input":"{\"url\":\"\\ud800\"}","ok":true,"output":{"url":"�"},"rust":"refuses"}
+{"input":"{\"url\":\"\\ud800\"}","ok":true,"output":{"url":"�"},"rust":"refuses"},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":0}","ok":true,"output":{"url":"https://youtu.be/dQw4w9WgXcQ","startSeconds":0}},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":1}","ok":true,"output":{"url":"https://youtu.be/dQw4w9WgXcQ","startSeconds":1}},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":90}","ok":true,"output":{"url":"https://youtu.be/dQw4w9WgXcQ","startSeconds":90}},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":43199}","ok":true,"output":{"url":"https://youtu.be/dQw4w9WgXcQ","startSeconds":43199}},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":43200}","ok":true,"output":{"url":"https://youtu.be/dQw4w9WgXcQ","startSeconds":43200}},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":43201}","ok":false},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":-1}","ok":false},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":1.5}","ok":false},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":\"90\"}","ok":false},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":null}","ok":false},
+{"input":"{\"url\":\"https://youtu.be/dQw4w9WgXcQ\",\"startSeconds\":true}","ok":false},
+{"input":"{\"url\":\"x\",\"startSeconds\":-0}","ok":true,"output":{"url":"x","startSeconds":0},"rust":"refuses"},
+{"input":"{\"url\":\"x\",\"startSeconds\":90.0}","ok":true,"output":{"url":"x","startSeconds":90},"rust":"refuses"},
+{"input":"{\"url\":\"x\",\"startSeconds\":9e1}","ok":true,"output":{"url":"x","startSeconds":90},"rust":"refuses"},
+{"input":"{\"url\":\"x\",\"startSeconds\":1,\"startSeconds\":2}","ok":true,"output":{"url":"x","startSeconds":2},"rust":"refuses"}
 ]

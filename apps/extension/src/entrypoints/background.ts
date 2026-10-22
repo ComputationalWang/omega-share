@@ -63,12 +63,11 @@ export default defineBackground(() => {
     consentUrl: browser.runtime.getURL("/consent.html"),
     version: browser.runtime.getManifest().version,
     ourOrigin: async () => readServerBaseUrl((await browser.storage.local.get(SERVER_BASE_URL_KEY))[SERVER_BASE_URL_KEY]),
-    // Chromium has no `declarativeNetRequest` until the optional permission is granted.
     dnr: () => browser.declarativeNetRequest,
     hasAccess: async (host) =>
       hasConsent(
         {
-          hostGranted: await browser.permissions.contains(unlockPermissions(host, BROWSER)),
+          hostGranted: await browser.permissions.contains(unlockPermissions(host)),
           everyHostGranted: await browser.permissions.contains({ origins: [...FOUND_ORIGINS] }),
           stored: (await browser.storage.local.get(UNLOCK_HOSTS_KEY))[UNLOCK_HOSTS_KEY],
         },

@@ -7,7 +7,7 @@
 //    pinned too) and summary after it; Rust replays the script and must
 //    produce the identical trace. The snapshot object drops its `layout` (the default layout throughout); the text keeps it,
 //    and the outbound corpora cover the layout bytes on their own.
-import { MAX_POSITION_S, SEAT_COUNT, canonicalizeEmbed, normalizeNickname, type AnyEmbed, type Embed, type PlaybackState } from "@omega/shared";
+import { MAX_POSITION_S, SEAT_COUNT, canonicalizeEmbed, normalizeNickname, nowPlayingOf, type AnyEmbed, type Embed, type PlaybackState, type RoomSummary } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { applyControl, expectedPosition, loadPlayback, restoredPlayback } from "../../server/src/playback";
 import { Room } from "../../server/src/room";
@@ -235,6 +235,20 @@ function apply(room: Room, op: Op): unknown {
   }
 }
 
+/**
+ * The frozen TS summary plus the watching summary the binary adds (OME-1633, ADR 0056), from the same room state:
+ * members not away, and `nowPlayingOf` the embed for a public room only.
+ */
+function summaryOf(room: Room): RoomSummary {
+  const state = room.snapshot();
+  const nowPlaying = room.visibility === "public" ? nowPlayingOf(state.embed) : undefined;
+  return {
+    ...room.summary(),
+    watchingCount: state.members.filter((m) => m.away !== true).length,
+    ...(nowPlaying === undefined ? {} : { nowPlaying }),
+  };
+}
+
 /** Replays `ops` on a fresh Room, pinning the clock and the id source; the trace is what Rust must reproduce. */
 function trace(script: Script): unknown[] {
   const realUuid = crypto.randomUUID.bind(crypto);
@@ -249,7 +263,7 @@ function trace(script: Script): unknown[] {
       const result = apply(room, op);
       const snapshot = asJson(room.snapshot()) as Json;
       delete snapshot["layout"];
-      return { result: asJson(result), snapshot, snapshotJson: JSON.stringify(room.snapshot()), summary: asJson(room.summary()) };
+      return { result: asJson(result), snapshot, snapshotJson: JSON.stringify(room.snapshot()), summary: asJson(summaryOf(room)) };
     });
   } finally {
     (crypto as { randomUUID: () => string }).randomUUID = realUuid;
@@ -515,6 +529,27 @@ const hand: Script[] = [
       { op: "hasOwner" },
     ],
   },
+  // OME-1633: a private room's summary never names its video, whatever plays; the watching count still follows `away`.
+  {
+    init: { visibility: "private", pinned: false, ownerToken: TOKEN, inviteKey: "zYxWvUtSrQpOnMlKjIhGfE" },
+    ops: [
+      { op: "join", id: "m1", nick: "alice", avatar: 0, client: null },
+      { op: "setEmbed", embed: YT, by: "m1", itemId: "i1", since: 1, now: T0 + 5 },
+      { op: "setEmbed", embed: VOD, by: null, itemId: "i2", since: 2, now: T0 + 6 },
+      { op: "setAway", m: "m1", away: true },
+    ],
+  },
+  // OME-1633: a public room names a public video only; an unlisted Vimeo and a live channel as the contract says.
+  {
+    init: {},
+    ops: [
+      { op: "join", id: "m1", nick: "alice", avatar: 0, client: null },
+      { op: "setEmbed", embed: VIMEO_H, by: "m1", itemId: "i1", since: 1, now: T0 + 5 },
+      { op: "setEmbed", embed: LIVE, by: null, itemId: "i2", since: 2, now: T0 + 6 },
+      { op: "setAway", m: "m1", away: true },
+      { op: "setEmbed", embed: null, by: null, itemId: null, since: 3, now: T0 + 7 },
+    ],
+  },
   { init: {}, ops: [{ op: "isOwner", token: "" }, { op: "isOwner", token: TOKEN }, { op: "isInvited", key: TOKEN }, { op: "hasOwner" }] },
 ];
 
@@ -627,7 +662,7 @@ function fuzz(seed: number): Case {
       const result = apply(room, op);
       const snapshot = asJson(room.snapshot()) as Json;
       delete snapshot["layout"];
-      outputs.push({ result: asJson(result), snapshot, snapshotJson: JSON.stringify(room.snapshot()), summary: asJson(room.summary()) });
+      outputs.push({ result: asJson(result), snapshot, snapshotJson: JSON.stringify(room.snapshot()), summary: asJson(summaryOf(room)) });
     }
   } finally {
     (crypto as { randomUUID: () => string }).randomUUID = realUuid;
