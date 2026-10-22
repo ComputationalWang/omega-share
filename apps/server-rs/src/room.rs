@@ -8,16 +8,18 @@
 //! member's record: no per-member sets, no string clones on the relay path.
 
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, REACTIONS_MAX, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime};
+use crate::contract::state::{
+    Conga, MediaMs, Member, PlaybackState, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
+};
 use crate::contract::text::{Nickname, RoomTitle};
-use crate::playback::{Control, apply_control, load_playback, restored_playback};
+use crate::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
 use std::collections::{HashMap, VecDeque};
 
@@ -209,6 +211,10 @@ pub struct Room {
     conga: Vec<MemberId>,
     /// Server time of the last join; `None` before the first.
     conga_last: Option<u64>,
+    /// The current item's timed reactions, oldest first, at most `REACTIONS_MAX` (ADR 0056): memory only.
+    reactions: VecDeque<Reaction>,
+    /// Most members at once since the current item started (ADR 0056).
+    peak_members: usize,
 }
 
 /// `Map.get(key)` of an expiry map, then the "live" rule: the entry runs while `now < until`; an expired one is dropped.
@@ -276,6 +282,8 @@ impl Room {
             holds_until: 0,
             conga: Vec::new(),
             conga_last: None,
+            reactions: VecDeque::new(),
+            peak_members: 0,
             layout: init.layout.unwrap_or_else(default_layout),
             title: init.title,
             control_policy: init.control_policy.unwrap_or(DEFAULT_CONTROL_POLICY),
@@ -628,6 +636,7 @@ impl Room {
             });
         }
         self.order.push(slot);
+        self.peak_members = self.peak_members.max(self.order.len());
         Ok(out)
     }
 
@@ -883,6 +892,8 @@ impl Room {
         self.embed = embed;
         self.current_item_id = item_id;
         self.current_since = since;
+        self.reactions.clear();
+        self.peak_members = self.order.len();
         self.playback = synced.then(|| load_playback(self.rev, now_wall, by));
         if let Some(playback) = &self.playback {
             self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
@@ -909,18 +920,33 @@ impl Room {
     /// A member's timed reaction (OME-1632, ADR 0056), stamped with the room clock and kept for the current item.
     /// `None`, and nothing kept, without a synced current item.
     pub fn react(&mut self, member: &MemberId, kind: ReactionKind, now_wall: i64) -> Option<Reaction> {
-        let _ = (member, kind, now_wall);
-        None
+        let playback = self.playback.as_ref()?;
+        if !self.index.contains_key(member) {
+            return None;
+        }
+        // Whole ms; `expected_position` is clamped to 0..=MAX_POSITION_S, so `MediaMs::new` only fails on a bug.
+        let media_ms = MediaMs::new((expected_position(playback, now_wall) * 1000.0).round() as u64)?;
+        let reaction = Reaction {
+            member_id: member.clone(),
+            kind,
+            media_ms,
+        };
+        if self.reactions.len() >= REACTIONS_MAX {
+            self.reactions.pop_front();
+        }
+        self.reactions.push_back(reaction.clone());
+        Some(reaction)
     }
 
     /// The current item's reactions for the snapshot, oldest first; `None` when there are none.
     pub fn reactions(&self) -> Option<Vec<Reaction>> {
-        None
+        (!self.reactions.is_empty()).then(|| self.reactions.iter().cloned().collect())
     }
 
     /// Most members at once since the current item started; `None` without an item.
     pub fn peak_members(&self) -> Option<u8> {
-        None
+        self.current_item_id.as_ref()?;
+        u8::try_from(self.peak_members).ok()
     }
 
     /// Applies a member's `control`; the new playback, or `None` if it's for no/another/a generic embed.

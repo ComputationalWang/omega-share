@@ -18,7 +18,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 
 | owner | A | A* | B | C | D | E | skipped | total |
 |---|---|---|---|---|---|---|---|---|
-| ? | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 61 |
+| ? | 68 | 0 | 0 | 0 | 0 | 0 | 0 | 68 |
 | S1 (ported: config.rs) | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 47 |
 | S1 (ported: log.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
@@ -28,7 +28,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S6 | 186 | 0 | 1 | 0 | 17 | 0 | 0 | 204 |
 | S7 | 6 | 0 | 0 | 2 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **470** | **1** | **1** | **3** | **271** | **82** | **1** | **829** |
+| **all** | **477** | **1** | **1** | **3** | **271** | **82** | **1** | **836** |
 
 ## Tests
 
@@ -784,6 +784,20 @@ Owner: S5. 14 tests: D 14.
 | 102 | D | clientKey (ADR 0015 §5) › behind the local proxy, only the rightmost entry counts: the one the tunnel appended (T-07) |
 | 110 | D | clientKey (ADR 0015 §5) › a forwarded IPv6 client is keyed by its /64 |
 | 114 | D | clientKey (ADR 0015 §5) › a missing or unparseable forwarded address falls into one shared bucket |
+
+### reactions.test.ts
+
+Owner: ?. 7 tests: A 7.
+
+| line | cat | test |
+|---|---|---|
+| 52 | A ✓ | timed reactions (OME-1632) › react is relayed to everyone with the server's own mediaMs, and a late joiner's snapshot replays it |
+| 68 | A ✓ | timed reactions (OME-1632) › a client's mediaMs is refused: the message is strict |
+| 77 | A ✓ | timed reactions (OME-1632) › a kind outside REACTION_KINDS is a bad_message and nothing is relayed or stored |
+| 87 | A ✓ | timed reactions (OME-1632) › over the emote bucket a reaction is dropped silently: no relay, no error |
+| 98 | A ✓ | timed reactions (OME-1632) › without a synced item a reaction is dropped silently |
+| 107 | A ✓ | timed reactions (OME-1632) › the ring keeps the latest 256, oldest first |
+| 122 | A ✓ | timed reactions (OME-1632) › a new current item clears the timeline and restarts the peak |
 
 ### relay-batch.test.ts
 
