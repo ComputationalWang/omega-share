@@ -1,4 +1,20 @@
 // Soak gating: the 10-minute heap soak only runs under `bun run perf --soak` (which sets OMEGA_PERF_SOAK=1).
+import type { Page } from "@playwright/test";
+
+const MB = 1024 * 1024;
+
+/** The page's used JS heap in MB after a forced GC, over CDP. */
+export async function heapAfterGcMb(page: Page): Promise<number> {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send("HeapProfiler.enable");
+    await cdp.send("HeapProfiler.collectGarbage");
+    const { usedSize } = await cdp.send("Runtime.getHeapUsage");
+    return usedSize / MB;
+  } finally {
+    await cdp.detach();
+  }
+}
 
 /** The soak length docs/perf-budgets.md budgets for ("JS heap after 10 min in room"). */
 export const SOAK_BUDGET_MS = 10 * 60_000;

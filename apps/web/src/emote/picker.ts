@@ -6,7 +6,7 @@
 import type { ClientMessage, EmoteKind } from "@omega/shared";
 import { el, sprite } from "../controls/dom";
 import type { Point, Rect } from "../layout";
-import { EMOTE_LABELS, PICKER_KINDS, createEmoteBucket, emoteIcon, kindForKey } from "./emotes";
+import { EMOTE_LABELS, PICKER_KINDS, createEmoteBucket, emoteIcon, kindForKey, type EmoteBucket } from "./emotes";
 import { placeWheel } from "./wheel-place";
 
 export interface EmotePickerOptions {
@@ -23,6 +23,8 @@ export interface EmotePickerOptions {
   readonly onOpen?: () => void;
   /** You're seated: dance (OME-1378) is greyed out and never sent. Read on each open and each send. */
   readonly seated?: () => boolean;
+  /** The local emote bucket, when something else spends from it too (OME-1631: reactions share the server's limit). */
+  readonly bucket?: EmoteBucket;
 }
 
 export interface EmotePicker {
@@ -58,7 +60,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   key.append(sprite("ui-icon-wheel"));
   root.append(key);
 
-  const bucket = createEmoteBucket(o.now());
+  const bucket = o.bucket ?? createEmoteBucket(o.now());
   let cooling = false;
   let timer: unknown = null;
   /** Built on the first open (DOM only, no chunk: it's six buttons). */
