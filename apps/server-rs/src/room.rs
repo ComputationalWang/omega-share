@@ -1161,6 +1161,40 @@ mod tests {
         assert_eq!((ms.first(), ms.last()), (Some(&1000), Some(&(REACTIONS_MAX as u64 * 1000))));
     }
 
+    // The server's own frame for packages/shared/test/queue-contract.test.ts:330 (OME-1701): a full room with a full ring.
+    #[test]
+    fn a_full_room_snapshot_with_a_full_ring_fits_the_frame_limit() {
+        use crate::contract::constants::MAX_SERVER_MESSAGE_BYTES;
+        use crate::contract::server_message::ServerMessage;
+        let mut r = room();
+        r.set_title(Some(RoomTitle::parse(&"語".repeat(32)).unwrap()));
+        let members: Vec<MemberId> = (0..MAX_ROOM_MEMBERS)
+            .map(|i| join(&mut r, &format!("m{i:063}"), &format!("{}{i:02}", "語".repeat(18)), None))
+            .collect();
+        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.control(&members[0], &ctl(false, 43_199.0), T0).unwrap();
+        for i in 0..REACTIONS_MAX {
+            r.react(&members[i % members.len()], ReactionKind::Laugh, T0).unwrap();
+        }
+        let frame = json(&ServerMessage::Snapshot {
+            self_id: members[0].clone(),
+            room: r.snapshot(),
+            share_token: None,
+            resume_token: None,
+            resumed: Some(true),
+            owner: Some(true),
+            poll: None,
+            conga: r.conga(),
+            reactions: r.reactions(),
+            peak_members: r.peak_members(),
+        });
+        assert!(
+            frame.contains(r#""peakMembers":25"#) && frame.contains(r#""mediaMs":43199000"#),
+            "{frame}"
+        );
+        assert!(frame.len() <= MAX_SERVER_MESSAGE_BYTES, "{} bytes", frame.len());
+    }
+
     #[test]
     fn a_new_item_clears_the_timeline_and_restarts_the_peak_from_who_is_there() {
         let mut r = room();

@@ -301,7 +301,7 @@
     "apps/server/test/reactions.test.ts::timed reactions (OME-1632)::a new current item clears the timeline and restarts the peak",
     "apps/server/test/reactions.test.ts::timed reactions (OME-1632)::over the emote bucket a reaction is dropped silently: no relay, no error",
     "apps/server/test/reactions.test.ts::timed reactions (OME-1632)::react is relayed to everyone with the server's own mediaMs, and a late joiner's snapshot replays it",
-    "apps/server/test/reactions.test.ts::timed reactions (OME-1632)::the ring keeps the latest 256, oldest first",
+    "apps/server/test/reactions.test.ts::timed reactions (OME-1632)::the ring keeps the latest 200, oldest first",
     "apps/server/test/reactions.test.ts::timed reactions (OME-1632)::without a synced item a reaction is dropped silently",
     "apps/server/test/relay-batch.test.ts::relay batching (OME-1583)::an opted-in observer gets a burst in fewer frames, same messages in order; a plain one byte for byte as before",
     "apps/server/test/relay-batch.test.ts::relay batching (OME-1583)::replies and non-relays are never batched: an error reaches an opted-in sender as its own frame",

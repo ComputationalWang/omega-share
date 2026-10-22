@@ -796,7 +796,7 @@ Owner: ?. 7 tests: A 7.
 | 77 | A ✓ | timed reactions (OME-1632) › a kind outside REACTION_KINDS is a bad_message and nothing is relayed or stored |
 | 87 | A ✓ | timed reactions (OME-1632) › over the emote bucket a reaction is dropped silently: no relay, no error |
 | 98 | A ✓ | timed reactions (OME-1632) › without a synced item a reaction is dropped silently |
-| 107 | A ✓ | timed reactions (OME-1632) › the ring keeps the latest 256, oldest first |
+| 107 | A ✓ | timed reactions (OME-1632) › the ring keeps the latest 200, oldest first |
 | 122 | A ✓ | timed reactions (OME-1632) › a new current item clears the timeline and restarts the peak |
 
 ### relay-batch.test.ts
