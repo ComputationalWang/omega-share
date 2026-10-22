@@ -36,7 +36,7 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
-import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -63,6 +63,7 @@ import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
 import { ACCESSORIES, BARE } from "./accessories";
+import { BEND_FLOOR, DUNGEON_CELL, DUNGEON_DIRS, THRUST_FLOOR, THRUST_FRAMES, THRUST_MS, THRUST_OFFSET, THRUST_SEQUENCE, bendGrid, thrustGrid } from "./dungeon";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
@@ -1223,10 +1224,10 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     seen.add(f.key);
   }
   // Catalogue v2 and batch 6 are their own lazy sheets with the same schema, so rooms that only use v1 pieces don't download them.
-  const sheetOf = (id: string): string => (CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
-  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256]] as const) {
+  const sheetOf = (id: string): string => (CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
+  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256], ["furniture-v6", 256]] as const) {
     const ids = new Set(pieces.filter((p) => sheetOf(p.id) === name).map((p) => p.id));
-    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4" || name === "furniture-v5");
+    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4" || name === "furniture-v5" || name === "furniture-v6");
   }
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
   for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
@@ -1242,6 +1243,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildSeatContact(pieces, all, V4_SEATS, "furniture-v4-seats@2x.png");
   buildFurnitureRoom(pieces, all, "theatre-room", theatreRoom());
   buildSeatContact(pieces, all, ["theatrerow"], "theatre-seats@2x.png");
+  buildDungeon(pieces, all);
   return { frames, pieces, all };
 }
 
@@ -1704,6 +1706,175 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   return { img, W, H };
 }
 
+// ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
+
+const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "avatars/dungeon.png", "avatars/dungeon.json"];
+const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
+
+/** The draft "Dank Dungeon" preset (layout v1 + `mood: "night"`). It can't join `PRESETS` until the six v6 ids are `FURNITURE`
+ *  kinds (the hookup issue, OME-1672), so it lives here and in the README. Seats: 2 per bed, 2 in the tub, 2 wingbacks. */
+const DUNGEON_PRESET = {
+  id: "dungeon",
+  name: "Dank Dungeon",
+  blurb: "Twin beds, a whirlpool for two and the lights way down.",
+  layout: {
+    mood: "night",
+    furniture: [
+      { kind: "tv", col: 0, row: 0, facing: "se" },
+      { kind: "bed", col: 4, row: 0, facing: "nw" },
+      { kind: "bed", col: 0, row: 3, facing: "ne" },
+      { kind: "wingback", col: 7, row: 2, facing: "nw" },
+      { kind: "wingback", col: 7, row: 4, facing: "nw" },
+      { kind: "whirlpool", col: 2, row: 7, facing: "ne" },
+      { kind: "coffeetable", col: 7, row: 3, facing: "sw" },
+      { kind: "desk", col: 7, row: 0, facing: "sw" },
+      { kind: "minibar", col: 9, row: 0, facing: "sw" },
+      { kind: "washbasin", col: 0, row: 7, facing: "se" },
+      { kind: "mirror", col: 0, row: 7, facing: "se" },
+      { kind: "neonsign", col: 0, row: 2, facing: "se" },
+      { kind: "arclamp", col: 1, row: 5, facing: "se" },
+      { kind: "runner", col: 4, row: 4, facing: "nw", variant: 1 },
+      { kind: "monstera", col: 9, row: 9, facing: "sw", variant: 1 },
+    ],
+  },
+} as const;
+
+/** The night mood (OME-1502, `apps/web/src/room.css`): rgb(36 48 110 / 0.5) multiplied over the room. Per colour, so a palette. */
+const NIGHT_PALETTE: RGBA[] = PALETTE.map((c) => {
+  const m = (v: number, t: number): number => Math.round(v * (0.5 + (0.5 * t) / 255));
+  return { r: m(c.r, 36), g: m(c.g, 48), b: m(c.b, 110), a: c.a };
+});
+
+/** `avatars/dungeon.png` + `.json` (the bend-over / thrust emote, lazy), the v6 showroom and seat contact sheet, and the preset
+ *  preview with a pair mid-emote, plain and under the night mood. */
+function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
+  const { w: CW, h: CH } = DUNGEON_CELL;
+  const sheetW = pow2(4 * CW), sheetH = pow2(AVATARS.length * DUNGEON_DIRS.length * CH);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const frames: Record<string, Frame> = {};
+  const anims: Record<string, Anim> = {};
+  const all: FurnSprites = new Map(all0);
+  AVATARS.forEach((a, i) => {
+    DUNGEON_DIRS.forEach((dir, j) => {
+      const y = (i * DUNGEON_DIRS.length + j) * CH;
+      const cells: [string, Grid, { x: number; y: number }][] = [
+        [`bendover/${a.id}/${dir}/0`, bendGrid(a, dir), BEND_FLOOR],
+        ...Array.from({ length: THRUST_FRAMES }, (_, n): [string, Grid, { x: number; y: number }] => [`thrust/${a.id}/${dir}/${String(n)}`, thrustGrid(a, dir, n), THRUST_FLOOR]),
+      ];
+      cells.forEach(([key, grid, fp], c) => {
+        const img = render(grid, a.roles);
+        assertInside(key, img, CW, CH);
+        blit(sheet, sheetW, img, CW, CH, c * CW, y);
+        const ax = dir === "sw" ? CW - 1 - fp.x : fp.x;
+        frames[key] = {
+          frame: { x: c * CW, y, w: CW, h: CH },
+          rotated: false,
+          trimmed: false,
+          spriteSourceSize: { x: 0, y: 0, w: CW, h: CH },
+          sourceSize: { w: CW, h: CH },
+          anchor: { x: ax / CW, y: fp.y / CH },
+        };
+        all.set(key, { img, w: CW, h: CH, ax, ay: fp.y });
+      });
+      const keys = Array.from({ length: THRUST_FRAMES }, (_, n) => `thrust/${a.id}/${dir}/${String(n)}`);
+      anims[`thrust/${a.id}/${dir}`] = { frames: THRUST_SEQUENCE.map((n) => keys[n] ?? ""), ms: THRUST_SEQUENCE.map(() => THRUST_MS), loop: true };
+    });
+  });
+  registerKeys("dungeon", Object.keys(frames));
+  writeFileSync(join(ROOT, "avatars", "dungeon.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const animations: Record<string, string[]> = {};
+  for (const [k, an] of Object.entries(anims)) animations[k] = an.frames;
+  const atlas = {
+    frames,
+    animations,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "dungeon.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        tile: TILE,
+        cell: DUNGEON_CELL,
+        dirs: DUNGEON_DIRS,
+        bendover: { floorPoint: BEND_FLOOR, anchor: "the bender's floor point" },
+        thrust: { floorPoint: THRUST_FLOOR, anchor: "the partner's floor point", feetOffset: THRUST_OFFSET, frames: THRUST_FRAMES, sequence: THRUST_SEQUENCE, ms: THRUST_MS, draw: "just behind the partner" },
+        anims,
+      },
+    },
+  };
+  writeFileSync(join(ROOT, "avatars", "dungeon.json"), JSON.stringify(atlas, null, 1) + "\n");
+
+  // Strip: per avatar and dir, the plain idle then bend over and thrust 0–2; then each pair mid-emote (thrust 0 and 2).
+  const strips = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  for (const [k, s] of all) if (s.w === CW || s.w === CELL.w) strips.set(k, { img: s.img, w: s.w, h: s.h });
+  const pairKey = (b: string, t: string, dir: Dir, n: number): string => {
+    const key = `pair/${b}/${t}/${dir}/${String(n)}`;
+    const out = new Uint8Array(CW * CH);
+    const T = all.get(`thrust/${t}/${dir}/${String(n)}`), B = all.get(`bendover/${b}/${dir}/0`);
+    if (!T || !B) throw new Error(`missing pair ${key}`);
+    const dx = B.ax - T.ax;
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) { const v = T.img[y * CW + x] ?? 0; if (v && x + dx >= 0 && x + dx < CW) out[y * CW + x + dx] = v; }
+    for (let i = 0; i < out.length; i++) if (B.img[i]) out[i] = B.img[i] ?? 0;
+    strips.set(key, { img: out, w: CW, h: CH });
+    return key;
+  };
+  const rows = AVATARS.map((a, i) => {
+    const t = AVATARS[(i + 1) % AVATARS.length]?.id ?? a.id;
+    return DUNGEON_DIRS.flatMap((d) => [`${a.id}/idle/${d}/0`, `bendover/${a.id}/${d}/0`, ...[0, 1, 2].map((n) => `thrust/${a.id}/${d}/${String(n)}`), pairKey(a.id, t, d, 0), pairKey(a.id, t, d, 2)]);
+  });
+  strip("dungeon-poses@4x.png", 14, rows, strips, CW, CH, false);
+
+  buildFurnitureRoom(pieces, all, "furniture-v6-room", showroomV6());
+  buildSeatContact(pieces, all, V6_SEATS, "furniture-v6-seats@2x.png");
+  // The preset with a full house: every seat taken, plus juno bent over at (5,6) with mo behind her.
+  const sit = new Map<string, string[]>([["bed:4,0", ["kiki", "pip"]], ["bed:0,3", ["mo", "juno"]], ["wingback:7,2", ["pip"]], ["wingback:7,4", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
+  const placements: Placement[] = DUNGEON_PRESET.layout.furniture.filter((f) => f.kind !== "tv").map((f) => {
+    const kind: string = f.kind === "runner" ? "rug" : f.kind;
+    const meta = pieces.find((p) => p.id === kind);
+    if (!meta) throw new Error(`no piece ${kind}`);
+    const colour = meta.colours["variant" in f ? f.variant : 0] ?? meta.colours[0] ?? "";
+    const p: Placement = { id: kind, colour, dir: f.facing, col: f.col, row: f.row };
+    const who = sit.get(`${f.kind}:${String(f.col)},${String(f.row)}`);
+    if (who) p.sitters = who;
+    if (f.kind === "whirlpool") p.use = 0;
+    return p;
+  });
+  const plan: RoomPlan = { placements, standing: [["thrust/mo/se/2", 5, 6], ["bendover/juno/se/0", 5, 6]], rug: false };
+  const { img, W, H } = composeFurnitureRoom(pieces, all, plan);
+  for (const [name, pal] of [["dungeon-room", PALETTE], ["dungeon-room-night", NIGHT_PALETTE]] as const) {
+    writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, pal));
+    writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), pal));
+  }
+}
+
+/** Every v6 piece in both facings (seats in all four), a few taken. */
+function showroomV6(): RoomPlan {
+  return {
+    placements: [
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "ne", col: 0, row: 3, sitters: ["", "mo"] },
+      { id: "bed", colour: "velvet", dir: "se", col: 8, row: 6 },
+      { id: "bed", colour: "velvet", dir: "sw", col: 5, row: 8, sitters: ["juno", "pip"] },
+      { id: "whirlpool", colour: "teal", dir: "ne", col: 2, row: 7, sitters: ["pip", "kiki"], use: 1 },
+      { id: "whirlpool", colour: "teal", dir: "nw", col: 7, row: 2, sitters: ["juno"] },
+      { id: "desk", colour: "wood", dir: "sw", col: 3, row: 0 },
+      { id: "desk", colour: "wood", dir: "se", col: 0, row: 4 },
+      { id: "minibar", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "minibar", colour: "wood", dir: "se", col: 4, row: 5 },
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 7 },
+      { id: "washbasin", colour: "cream", dir: "sw", col: 9, row: 0 },
+      { id: "mirror", colour: "brass", dir: "se", col: 0, row: 7 },
+      { id: "mirror", colour: "brass", dir: "sw", col: 9, row: 0 },
+      { id: "mirror", colour: "brass", dir: "sw", col: 2, row: 0 },
+    ],
+    standing: [],
+    rug: false,
+  };
+}
+
 // ---------------------------------------------------------------- set (h): owner edit mode in the room (1×, Pixi)
 
 /** `owner-edit@1x/2x.png`: the sample room in edit mode, one of each marker state at once (a real session shows one held piece):
@@ -2110,12 +2281,12 @@ function buildReactions(): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...DUNGEON_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...DUNGEON_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
