@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, REACTIONS_MAX, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type Reaction, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -16,6 +16,9 @@ import { el, sprite } from "./controls/dom";
 import { snapRoom } from "./snap";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createRoomTv, syncedOnly } from "./room-tv";
+import { expectedPosition } from "./sync";
+import { createReplay } from "./moments/replay";
+import { createMomentsStrip } from "./moments/strip";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
@@ -386,6 +389,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     onView: (v) => {
       pbView = v;
+      if (v.duration !== momentsDuration) {
+        momentsDuration = v.duration;
+        drawMoments();
+      }
+      strip.setControl(v.canControl && !v.held && !v.live);
       // The room window's plate and my hourglass there: from the player's timer, not a frame (a hidden tab draws none).
       relay?.tv({ video: v.hasVideo, playing: v.playing, position: Math.max(0, Math.floor(v.position)), live: v.live, catching: v.catching });
       if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
@@ -411,7 +419,27 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   const { tv, controls } = tvBox;
-  wrap.append(tv, controls, clip);
+  // Moments (OME-1628): the current item's reactions, as the strip under the shelf and the late joiner's replay.
+  let reactions: Reaction[] = [];
+  let momentsDuration = 0;
+  const strip = createMomentsStrip({ seek: (s) => playback.seek(s) });
+  const drawMoments = (): void => {
+    strip.render(reactions, momentsDuration * 1000);
+  };
+  const replay = createReplay({
+    position: () => {
+      const pb = state.room?.playback;
+      return pb == null || !pb.playing || pbView?.live === true ? null : { ms: expectedPosition(pb, clock.serverNow()) * 1000, rate: pb.rate };
+    },
+    show: (id, kind) => {
+      if (!isHidden(id)) emoted(id, kind);
+    },
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h) => {
+      clearTimeout(h);
+    },
+  });
+  wrap.append(tv, controls, strip.root, clip);
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
@@ -946,6 +974,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   const dispatch = (e: ViewEvent): void => {
     if (e.type === "server" && e.msg.type === "walked" && e.msg.teleport === true) roomStage.teleported(e.msg.memberId);
+    // Never view state (state.ts): straight to the moments.
+    if (e.type === "server" && e.msg.type === "reacted") {
+      const r: Reaction = { memberId: e.msg.memberId, kind: e.msg.kind, mediaMs: e.msg.mediaMs };
+      reactions.push(r);
+      if (reactions.length > REACTIONS_MAX) reactions.shift();
+      replay.push(r);
+      drawMoments();
+    }
     const next = reduce(state, e);
     if (next === state) return;
     const unreadBefore = unread;
@@ -999,11 +1035,22 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       else if (step === "arrived") hug.arrived = true;
     }
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
+    // Moments (OME-1628): a snapshot brings the item's reactions and catches me up; a new item starts empty.
+    if (e.type === "server" && e.msg.type === "snapshot") {
+      reactions = [...(e.msg.reactions ?? [])];
+      replay.start(reactions);
+      drawMoments();
+    } else if (next.room?.itemId !== prevRoom?.itemId) {
+      reactions = [];
+      replay.stop();
+      drawMoments();
+    }
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
       playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
       tvBox.sync(next);
+      replay.sync();
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
     if (expiriesChanged) scheduleExpiry();
