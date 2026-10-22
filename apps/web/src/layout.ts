@@ -443,3 +443,18 @@ export const SYSLINE_RAIL: Rect = { x: 12, y: 510, w: 288, h: 78 };
 
 /** Placeholder avatar colours: drawn until the motion atlas loads, or for good if it fails to load. */
 export const AVATAR_COLORS: readonly number[] = [0xe4572e, 0x29335c, 0xf3a712, 0x669bbc];
+
+/** The moments strip's height (OME-1628): its 14 px pips over a 3 px bar. */
+export const MOMENTS_H = 18;
+
+/**
+ * The moments strip's box (OME-1628): right under the shelf, as wide as the picture, so a pip's `left: %` is the
+ * player's. In the page it hangs over the stage's top (ROOM_VIEW's wall headroom). `null` where there is no room for it:
+ * no shelf (full screen with the chat hidden), the chat under the shelf (full screen "below" and "band"), or off the wrap.
+ */
+export function momentsBox(l: { readonly tv: Rect; readonly controls: Rect }, height: number, fsAt?: FullscreenLayout["at"]): Rect | null {
+  void l;
+  void height;
+  void fsAt;
+  return null;
+}
