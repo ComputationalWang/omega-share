@@ -59,7 +59,7 @@ const SHELF_SPEAKER = 38;
 const GAP = 8;
 /** The shelf's width at 1× for its keys and a usable seek bar; Twitch's also holds the quality key and a 1:00:00 time. */
 const SHELF_MIN_W = 420;
-const TWITCH_SHELF_MIN_W = 534;
+const TWITCH_SHELF_MIN_W = 560;
 /** Set (e) chrome at 1×: 8 px panel border + 4 px padding around a 20 px key, top and bottom. */
 export const CONTROL_BAR_H = 44;
 
