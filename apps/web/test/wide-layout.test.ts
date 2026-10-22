@@ -109,15 +109,19 @@ describe("chrome zoom (OME-1667)", () => {
     }
     expect(wideLayout(2200, 1320, null).controls.h).toBe(CONTROL_BAR_H);
   });
-  test("a TV too narrow for the zoomed shelf's keys (People open) steps the shelf down to a zoom they fit", () => {
-    for (const [w, h, z] of [[2200, 1320, 2], [1300, 1000, 1.5], [1300, 760, 1.5], [1300, 600, 1.5], [900, 600, 2]] as const) {
-      const l = wideLayout(w, h, null, z);
-      expect([1, 1.5, 2]).toContain(l.shelfZoom);
-      expect(l.shelfZoom).toBeLessThanOrEqual(z);
-      expect(l.controls.h).toBe(CONTROL_BAR_H * l.shelfZoom);
-      if (l.shelfZoom > 1) expect(l.tv.w).toBeGreaterThanOrEqual(320 * l.shelfZoom);
+  // QA OME-1696: stepping the shelf down for a narrow TV (People open) put 27 px keys back at 1920×1080, and a Twitch VOD's
+  // longer shelf left its seek bar 12 px wide. The shelf keeps the chrome's zoom and grows past a narrow TV instead,
+  // centred under it: Twitch's never under its 534 px 1280 shelf, zoomed.
+  test("the shelf keeps the chrome's zoom and is wide enough for its keys, centred under a narrow TV", () => {
+    for (const [w, h, z] of [[2200, 1320, 2], [1300, 1000, 1.5], [1300, 760, 1.5], [1300, 600, 1.5], [1888, 1000, 2], [1408, 700, 1.5]] as const) {
+      for (const [provider, min] of [[null, 420], ["twitch", 534]] as const) {
+        const l = wideLayout(w, h, provider, z);
+        expect(l.controls.h).toBe(CONTROL_BAR_H * z);
+        expect(l.controls.w).toBeGreaterThanOrEqual(Math.min(min * z, w));
+        expect(l.controls.w).toBeGreaterThanOrEqual(l.tv.w);
+        expect(Math.abs(l.controls.x + l.controls.w / 2 - (l.tv.x + l.tv.w / 2))).toBeLessThanOrEqual(1);
+        expect(inside(l.controls, w, h)).toBe(true);
+      }
     }
-    expect(wideLayout(2200, 1320, null, 2).shelfZoom).toBe(2);
-    expect(wideLayout(900, 600, null, 2).shelfZoom).toBe(1);
   });
 });

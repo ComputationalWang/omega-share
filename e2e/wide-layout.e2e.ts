@@ -5,6 +5,7 @@
 // back. The pure geometry is apps/web/test/wide-layout.test.ts; the key decision is apps/web/test/chat-enter.test.ts.
 import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
+import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
@@ -107,6 +108,46 @@ for (const [name, w, h] of [["w1920", 1920, 1080], ["w2560", 2560, 1440]] as con
     expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
   });
 }
+
+// QA OME-1696: People open narrowed the TV and the shelf stepped down to 27 px keys at 1920×1080; the People panel's
+// own keys were 25 px tall.
+for (const [name, w, h] of [["people1920", 1920, 1080], ["people2560", 2560, 1440]] as const) {
+  test(`${String(w)}×${String(h)} with People open: every key in the room's chrome is still at least 40×40`, async ({ browser }) => {
+    const page = await one(browser, name, DESKTOP(w, h));
+    await page.locator(site.peopleKey).click();
+    await expect(page.locator(site.peoplePanel)).toBeVisible();
+    const found = await keys(page);
+    expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["play-toggle", "mute-toggle", "fullscreen-toggle", "people-key"]));
+    expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// QA OME-1696: a Twitch VOD's shelf (the quality key, a 1:00:00 time) left its seek bar 12–16 px wide at 1920 and 2560;
+// it was 177 px at 1280×720. Its quality list's options stayed 25 px tall.
+for (const [name, w, h, z] of [["tw1920", 1920, 1080, 1.5], ["tw2560", 2560, 1440, 2]] as const) {
+  test(`${String(w)}×${String(h)} Twitch VOD: the seek bar keeps its 1280 width, zoomed; the quality list's keys are at least 40 px`, async ({ browser, request }) => {
+    const room = testRoom("wide", name);
+    await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
+    const page = await one(browser, name, DESKTOP(w, h));
+    await waitProviderPlaying(clients, "twitch");
+    expect((await box(page.getByTestId("seek"))).width).toBeGreaterThanOrEqual(160 * z);
+    await page.locator('[data-testid="quality-key"]').click();
+    await expect(page.locator('[data-testid="quality-menu"]')).toBeVisible();
+    const found = await keys(page);
+    expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["quality-option"]));
+    expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// QA OME-1696: the help dialog stayed 1×, a 520 px box of 12 px text in the middle of a 2560 screen.
+test("2560×1440: the help dialog scales with the chrome and still fits the screen", async ({ browser }) => {
+  const page = await one(browser, "help2560", DESKTOP(2560, 1440));
+  await page.locator(site.helpKey).click();
+  const dialog = page.locator(site.helpDialog);
+  await expect(dialog).toBeVisible();
+  expect((await box(dialog)).width).toBeGreaterThanOrEqual(1000);
+  await inView(page, dialog);
+});
 
 test("2560×1440: the chrome scales up with the screen, no 1280 page floating in it", async ({ browser }) => {
   const page = await one(browser, "w2560", DESKTOP(2560, 1440));
