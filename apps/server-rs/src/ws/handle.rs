@@ -13,7 +13,7 @@ use crate::contract::constants::{TYPING_TIMEOUT_MS, close};
 use crate::contract::ids::MemberId;
 use crate::contract::room::{ControlPolicy, FloorCell};
 use crate::contract::server_message::{ErrorCode, ServerMessage};
-use crate::contract::state::{EmoteKind, PairPose, PingId, ServerTime};
+use crate::contract::state::{EmoteKind, PairPose, PingId, Reaction, ServerTime};
 use crate::outbox::publish_msg;
 use crate::owner_edits;
 use crate::playback::Control;
@@ -488,7 +488,7 @@ fn handle(
             let refused = queue::admit(app, inner, &actor)
                 .err()
                 .map(Refusal::from)
-                .or_else(|| queue::add(app, inner, &actor, url.as_str()).err().map(Refusal::from));
+                .or_else(|| queue::add(app, inner, &actor, url.as_str(), None).err().map(Refusal::from));
             if let Some(refused) = refused {
                 queue_refused(inner, conn, refused);
             }
@@ -522,8 +522,12 @@ fn handle(
         }
         // Handled above.
         ClientMessage::Join { .. } | ClientMessage::Ping { .. } | ClientMessage::Ended { .. } => {}
-        // Contract only (OME-1625): the reaction timeline and its `reacted` relay land with OME-1632.
-        ClientMessage::React { .. } => {}
+        // Stamped and kept by the room (ADR 0056); dropped silently without a synced item, like over the bucket.
+        ClientMessage::React { kind } => {
+            if let Some(Reaction { member_id, kind, media_ms }) = inner.room.react(member, kind, app.wall()) {
+                publish_msg(inner, &ServerMessage::Reacted { member_id, kind, media_ms });
+            }
+        }
     }
 }
 

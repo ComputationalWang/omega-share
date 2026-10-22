@@ -299,7 +299,7 @@ fn embed_in_lobby(s: &Server, url: &str) {
         owner: false,
     };
     s.app
-        .with_open_room(&rid("lobby"), |inner| add(&s.app, inner, &actor, url).map(|_| ()))
+        .with_open_room(&rid("lobby"), |inner| add(&s.app, inner, &actor, url, None).map(|_| ()))
         .unwrap()
         .unwrap();
 }

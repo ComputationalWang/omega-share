@@ -116,11 +116,18 @@ export interface RoomView {
   confetti(): void;
   /** How many confetti bursts have played, for e2e. */
   confettiBursts(): number;
+  /**
+   * Reaction glyph bursts (OME-1631) may play now: Smooth, no reduced motion, and the last render's work under
+   * REACTION_NEAR_BUDGET_MS. Read once per burst.
+   */
+  reactionsAllowed(): boolean;
   destroy(): void;
 }
 
 /** A hidden member's avatar (OME-769): still there, plainly set apart. */
 export const DIMMED_ALPHA = 0.4;
+/** A Smooth render that took this long (ms) is near the 8 ms walk25 budget: reaction glyphs sit it out (OME-1631). */
+export const REACTION_NEAR_BUDGET_MS = 6;
 /** An away member's avatar (OME-911): dimmed, but less than a hidden one. */
 export const AWAY_ALPHA = 0.55;
 
@@ -474,6 +481,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   showTier();
   /** The rAF timestamp of the frame being drawn; one callback made once, so a frame allocates nothing. */
   let frameTs = 0;
+  /** The last render's own work (ms), for the reaction glyphs' gate. */
+  let lastWorkMs = 0;
   let frameFn: (() => void) | null = null;
   const onFrame = (t: number): void => {
     frameTs = t;
@@ -511,6 +520,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     smooth: tier.smooth,
     drawProps: (now) => drawCats(now),
     rendered(start, walking) {
+      lastWorkMs = performance.now() - start;
       probe.rendered(start, frameTs, walking);
       showTier();
     },
@@ -1219,6 +1229,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (confetti.fire()) confettiBursts++;
     },
     confettiBursts: () => confettiBursts,
+    reactionsAllowed: () => !reduced.matches && tier.smooth() && lastWorkMs < REACTION_NEAR_BUDGET_MS,
     destroy() {
       destroyed = true;
       clearTimeout(catTimer);

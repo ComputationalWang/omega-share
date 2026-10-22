@@ -2,11 +2,12 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
+import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV6 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
@@ -75,6 +76,8 @@ export interface Stage {
   emote(id: MemberId, kind: EmoteKind, s: StageState): void;
   /** Two members paired (OME-1672): the pose animation, unless reduced motion asks for stillness. */
   pair(thruster: MemberId, bender: MemberId): void;
+  /** A received reaction (OME-1631): a glyph burst over their head, if the view allows it now. Returns the glyphs shown. */
+  react(id: MemberId, kind: ReactionKind): number;
   /** Their next move is a teleport (OME-1548, `walked.teleport`): marked before the state change that draws it. */
   teleported(id: MemberId): void;
   /** The member started or stopped typing (OME-1390): the "…" over their head. */
@@ -157,6 +160,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     else typers.delete(id);
   };
   const badges = createEmoteBadges(bubbles, timers);
+  const reactionLayer = el("div", { className: "reactions" });
+  const glyphs = createReactionGlyphs(reactionLayer, { allowed: () => view.reactionsAllowed(), now: () => performance.now(), ...timers });
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
@@ -187,7 +192,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
+  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
@@ -568,6 +573,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       }
       const p = view.position(id) ?? placedAt.get(id);
       if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+    },
+    react(id, kind) {
+      const p = view.position(id) ?? placedAt.get(id);
+      return p === undefined ? 0 : glyphs.burst({ x: p.x, y: p.y - liftOf(id) }, kind);
     },
     teleported(id) {
       teleporting.add(id);

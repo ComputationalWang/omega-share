@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { jobEnv, jobStatus, readResult, recoverCrashed, runPending, submitJob, type Executor, type Job } from "./queue";
+import { jobEnv, jobStatus, perfLock, readResult, recoverCrashed, runPending, submitJob, type Executor, type Job } from "./queue";
 
 let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "perf-queue-")); });
@@ -236,5 +236,41 @@ describe("load gate", () => {
     const id = submit("a".repeat(40), [], 1000);
     await runPending(dir, ok);
     expect(readResult(dir, id)?.loadSamples).toBeUndefined();
+  });
+});
+
+// OME-1724: a flocked soak or `affected --run` overlapping a queue job made 6 of 7 jobs invalid; the runner takes the same perf lock per job.
+describe("perf lock", () => {
+  test("the lock is held from before the idle wait until result.json is written", async () => {
+    const id = submit("a".repeat(40), [], 1000);
+    const events: string[] = [];
+    const lock = () => { events.push("acquire"); return Promise.resolve(() => { events.push(`release:${String(existsSync(join(dir, id, "result.json")))}`); }); };
+    const read = () => { events.push("idle-check"); return 0; };
+    await runPending(dir, () => { events.push("exec"); return Promise.resolve({ exitCode: 0 }); }, {
+      lock,
+      load: { read, idleLoad: 2, idleMs: 0, maxWaitMs: 0, maxLoad: 10, sampleMs: 1000, maxRequeues: 0 },
+    });
+    expect(events).toEqual(["acquire", "idle-check", "exec", "release:true"]);
+  });
+
+  test("the lock is released even when the job throws", async () => {
+    submit("a".repeat(40), [], 1000);
+    let released = 0;
+    await runPending(dir, () => Promise.reject(new Error("boom")), { lock: () => Promise.resolve(() => { released++; }) });
+    expect(released).toBe(1);
+  });
+
+  test("perfLock waits while another flock holds the file, and releases on demand", async () => {
+    const path = join(dir, "perf.lock");
+    const holder = Bun.spawn(["flock", path, "sleep", "0.3"]);
+    await Bun.sleep(100); // let the holder take it
+    const began = Date.now();
+    const release = await perfLock(path);
+    expect(Date.now() - began).toBeGreaterThanOrEqual(150);
+    await holder.exited;
+    expect(Bun.spawnSync(["flock", "-n", path, "true"]).exitCode).toBe(1);
+    release();
+    await Bun.sleep(50);
+    expect(Bun.spawnSync(["flock", "-n", path, "true"]).exitCode).toBe(0);
   });
 });
