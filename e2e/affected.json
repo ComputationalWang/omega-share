@@ -510,10 +510,25 @@
         "e2e/m9-help.e2e.ts",
         "e2e/polish.e2e.ts",
         "e2e/poll.e2e.ts",
+        "e2e/reactions.e2e.ts",
         "e2e/roll.e2e.ts",
         "perf/chat.perf.ts",
         "perf/polish.perf.ts"
       ]
+    },
+    {
+      "paths": [
+        "apps/web/src/reactions/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts",
+        "e2e/reactions.e2e.ts"
+      ],
+      "why": "reaction bar and glyph bursts, OME-1631"
     },
     {
       "paths": [
