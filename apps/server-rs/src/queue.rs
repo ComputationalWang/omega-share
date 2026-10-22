@@ -16,7 +16,7 @@ use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId};
 use crate::contract::room::{ControlPolicy, QueueIndex};
 use crate::contract::server_message::ServerMessage;
-use crate::contract::state::QueueItem;
+use crate::contract::state::{QueueItem, StartSeconds};
 use crate::log::{LogEvent, log_error};
 use crate::outbox::publish_msg;
 use crate::playback::expected_position;
@@ -144,8 +144,16 @@ fn advance_now(app: &App, inner: &mut RoomInner, by: Option<MemberId>) {
 }
 
 /// After `admit`: parses `url` with the share parser, checks `QUEUE_MAX`, stores, then tells the room. In a room
-/// with no current item the same write starts the queue's head (ADR 0031 section 5).
-pub fn add(app: &App, inner: &mut RoomInner, actor: &QueueActor, url: &str) -> Result<QueueItem, QueueAddRefusal> {
+/// with no current item the same write starts the queue's head (ADR 0031 section 5). `start`: where the item starts
+/// (OME-1633), kept in memory only.
+pub fn add(
+    app: &App,
+    inner: &mut RoomInner,
+    actor: &QueueActor,
+    url: &str,
+    start: Option<StartSeconds>,
+) -> Result<QueueItem, QueueAddRefusal> {
+    let _ = start;
     if inner.closed {
         return Err(QueueAddRefusal::RoomClosed);
     }
@@ -352,13 +360,13 @@ mod tests {
 
         fn add(&self, who: &QueueActor, url: &str) -> Result<QueueItem, QueueAddRefusal> {
             let mut inner = self.cell.lock();
-            add(&self.app, &mut inner, who, url)
+            add(&self.app, &mut inner, who, url, None)
         }
 
         fn admit_add(&self, who: &QueueActor, url: &str) -> Result<QueueItem, QueueRefusal> {
             let mut inner = self.cell.lock();
             admit(&self.app, &mut inner, who)?;
-            Ok(add(&self.app, &mut inner, who, url).unwrap_or_else(|e| panic!("{e:?}")))
+            Ok(add(&self.app, &mut inner, who, url, None).unwrap_or_else(|e| panic!("{e:?}")))
         }
 
         fn queue_ids(&self) -> Vec<String> {
@@ -375,7 +383,7 @@ mod tests {
             let mut inner = self.cell.lock();
             inner
                 .room
-                .set_embed(Some(embed), None, None, self.app.mono(), self.app.wall())
+                .set_embed(Some(embed), None, None, None, self.app.mono(), self.app.wall())
                 .unwrap();
             inner.room.item_id().unwrap().clone()
         }
@@ -399,7 +407,7 @@ mod tests {
         f.app.remove_room(&rid("film-club"), crate::registry::RemoveReason::Closed);
         let mut inner = f.cell.lock();
         assert_eq!(admit(&f.app, &mut inner, &a), Err(QueueRefusal::RoomClosed));
-        assert_eq!(add(&f.app, &mut inner, &a, YT2).unwrap_err(), QueueAddRefusal::RoomClosed);
+        assert_eq!(add(&f.app, &mut inner, &a, YT2, None).unwrap_err(), QueueAddRefusal::RoomClosed);
         assert_eq!(remove(&f.app, &mut inner, &a, &queued.id), Err(QueueRefusal::RoomClosed));
         assert_eq!(advance(&f.app, &mut inner, &a, &current), Err(QueueRefusal::RoomClosed));
         assert_eq!(
@@ -791,7 +799,7 @@ mod tests {
         for _ in 0..QUEUE_ADD_MEMBER_BURST + 2 {
             let mut inner = cell.lock();
             admit(&app, &mut inner, &a).unwrap();
-            assert_eq!(add(&app, &mut inner, &a, YT1).unwrap_err(), QueueAddRefusal::Unavailable);
+            assert_eq!(add(&app, &mut inner, &a, YT1, None).unwrap_err(), QueueAddRefusal::Unavailable);
             assert!(inner.room.queue().is_empty() && inner.room.item_id().is_none());
         }
         assert!(rx.try_recv().is_none());
