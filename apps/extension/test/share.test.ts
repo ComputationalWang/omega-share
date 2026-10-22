@@ -13,8 +13,12 @@ const opaqueRedirect = (): Response => {
   Object.defineProperty(r, "ok", { value: false });
   return r;
 };
-const share = (fetch: (url: string, init: RequestInit) => Promise<Response>, over: { roomId?: string; url?: string; token?: string | null } = {}) =>
-  shareEmbed({ baseUrl: BASE, roomId: over.roomId ?? "lobby", url: over.url ?? EMBED.url, token: over.token === undefined ? TOKEN : over.token, fetch });
+const share = (fetch: (url: string, init: RequestInit) => Promise<Response>, over: { roomId?: string; url?: string; token?: string | null; startSeconds?: number } = {}) =>
+  shareEmbed({ baseUrl: BASE, roomId: over.roomId ?? "lobby", url: over.url ?? EMBED.url, token: over.token === undefined ? TOKEN : over.token, startSeconds: over.startSeconds, fetch });
+const sentBody = (fetch: { readonly mock: { readonly calls: readonly (readonly [string, RequestInit])[] } }): unknown => {
+  const body = fetch.mock.calls[0]?.[1].body;
+  return JSON.parse(typeof body === "string" ? body : "");
+};
 
 describe("shareEmbed", () => {
   test("POSTs the embed URL to /rooms/:id/share with the share token and returns the server's embed", async () => {
@@ -103,6 +107,20 @@ describe("shareEmbed", () => {
       expect(await share(mock(e.response))).toEqual({ ok: false, message: e.message });
     });
   }
+
+  // OME-1636: start where I am.
+  test("sends the embed's startSeconds with the URL", async () => {
+    const fetch = mock<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(json({ ok: true, embed: EMBED })));
+    await share(fetch, { startSeconds: 75 });
+    expect(sentBody(fetch)).toEqual({ url: EMBED.url, startSeconds: 75 });
+  });
+
+  test("a start outside the contract is never sent", async () => {
+    const fetch = mock(() => Promise.resolve(json({ ok: true, embed: EMBED })));
+    expect((await share(fetch, { startSeconds: -1 })).ok).toBe(false);
+    expect((await share(fetch, { startSeconds: 1.5 })).ok).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
 
   test("never sends an invalid room id or an oversized URL", async () => {
     const fetch = mock(() => Promise.resolve(json({ ok: true, embed: EMBED })));

@@ -2040,6 +2040,246 @@
     "y": 2.5238095238095237
    }
   },
+  "halloween/hat/watch/base/juno/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.5714285714285716
+   }
+  },
+  "halloween/hat/watch/laugh/juno/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.7142857142857144
+   }
+  },
+  "halloween/hat/watch/laugh/juno/ne/1": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.5714285714285716
+   }
+  },
+  "halloween/hat/watch/gasp/juno/ne/0": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.6666666666666665
+   }
+  },
+  "halloween/hat/watch/gasp/juno/ne/1": {
+   "frame": {
+    "x": 183,
+    "y": 66,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.5238095238095237
+   }
+  },
+  "halloween/hat/watch/base/juno/nw/0": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.5714285714285716
+   }
+  },
+  "halloween/hat/watch/laugh/juno/nw/0": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48148148148148145,
+    "y": 2.7142857142857144
+   }
+  },
+  "halloween/hat/watch/laugh/juno/nw/1": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.5714285714285716
+   }
+  },
+  "halloween/hat/watch/gasp/juno/nw/0": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.6666666666666665
+   }
+  },
+  "halloween/hat/watch/gasp/juno/nw/1": {
+   "frame": {
+    "x": 70,
+    "y": 68,
+    "w": 27,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 27,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 27,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5185185185185185,
+    "y": 2.5238095238095237
+   }
+  },
   "halloween/hat/walk/juno/se/0": {
    "frame": {
     "x": 183,
@@ -4513,6 +4753,246 @@
    }
   },
   "halloween/hat/yawn/pip/sit/nw/1": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.3333333333333335
+   }
+  },
+  "halloween/hat/watch/base/pip/ne/0": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "halloween/hat/watch/laugh/pip/ne/0": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "halloween/hat/watch/laugh/pip/ne/1": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "halloween/hat/watch/gasp/pip/ne/0": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "halloween/hat/watch/gasp/pip/ne/1": {
+   "frame": {
+    "x": 176,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.3333333333333335
+   }
+  },
+  "halloween/hat/watch/base/pip/nw/0": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "halloween/hat/watch/laugh/pip/nw/0": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "halloween/hat/watch/laugh/pip/nw/1": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "halloween/hat/watch/gasp/pip/nw/0": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "halloween/hat/watch/gasp/pip/nw/1": {
    "frame": {
     "x": 0,
     "y": 88,
@@ -7032,6 +7512,246 @@
     "y": 2.238095238095238
    }
   },
+  "halloween/hat/watch/base/mo/ne/0": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/watch/laugh/mo/ne/0": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.4285714285714284
+   }
+  },
+  "halloween/hat/watch/laugh/mo/ne/1": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/watch/gasp/mo/ne/0": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.380952380952381
+   }
+  },
+  "halloween/hat/watch/gasp/mo/ne/1": {
+   "frame": {
+    "x": 136,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.238095238095238
+   }
+  },
+  "halloween/hat/watch/base/mo/nw/0": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/watch/laugh/mo/nw/0": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.4827586206896552,
+    "y": 2.4285714285714284
+   }
+  },
+  "halloween/hat/watch/laugh/mo/nw/1": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.2857142857142856
+   }
+  },
+  "halloween/hat/watch/gasp/mo/nw/0": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.380952380952381
+   }
+  },
+  "halloween/hat/watch/gasp/mo/nw/1": {
+   "frame": {
+    "x": 196,
+    "y": 22,
+    "w": 29,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 29,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 29,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5172413793103449,
+    "y": 2.238095238095238
+   }
+  },
   "halloween/hat/walk/mo/se/0": {
    "frame": {
     "x": 136,
@@ -9528,6 +10248,246 @@
     "y": 2.5
    }
   },
+  "halloween/hat/watch/base/kiki/ne/0": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.55
+   }
+  },
+  "halloween/hat/watch/laugh/kiki/ne/0": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.7
+   }
+  },
+  "halloween/hat/watch/laugh/kiki/ne/1": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.55
+   }
+  },
+  "halloween/hat/watch/gasp/kiki/ne/0": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.65
+   }
+  },
+  "halloween/hat/watch/gasp/kiki/ne/1": {
+   "frame": {
+    "x": 68,
+    "y": 90,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5
+   }
+  },
+  "halloween/hat/watch/base/kiki/nw/0": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.55
+   }
+  },
+  "halloween/hat/watch/laugh/kiki/nw/0": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.7
+   }
+  },
+  "halloween/hat/watch/laugh/kiki/nw/1": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.55
+   }
+  },
+  "halloween/hat/watch/gasp/kiki/nw/0": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.65
+   }
+  },
+  "halloween/hat/watch/gasp/kiki/nw/1": {
+   "frame": {
+    "x": 26,
+    "y": 104,
+    "w": 25,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5
+   }
+  },
   "halloween/hat/walk/kiki/se/0": {
    "frame": {
     "x": 202,
@@ -10375,7 +11335,7 @@
    },
    "hat": {
     "prefix": "halloween/hat/",
-    "count": 416,
+    "count": 456,
     "rects": 32,
     "replaces": true
    }

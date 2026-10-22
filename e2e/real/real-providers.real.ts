@@ -49,6 +49,17 @@ function logTwitchSdk(): void {
     }
     log.push(pb === undefined ? { t: Date.now(), event: d.eventName } : { t: Date.now(), event: d.eventName, playback: pb });
   });
+  // OME-1703: also log each room frame carrying a `playback` op (alone or in a batch), so a gate drop can be tied to one.
+  const NativeWebSocket = WebSocket;
+  window.WebSocket = class extends NativeWebSocket {
+    constructor(url: string | URL, protocols?: string | string[]) {
+      super(url, protocols);
+      this.addEventListener("message", (ev: MessageEvent<unknown>) => {
+        // JSON escapes quotes inside strings, so chat text can't fake this key.
+        if (log.length < 1000 && typeof ev.data === "string" && ev.data.includes('"type":"playback"')) log.push({ t: Date.now(), event: "room-playback" });
+      });
+    }
+  };
 }
 
 /** Each page's raw Twitch SDK events, times relative to `zero` (ms). */
@@ -353,15 +364,14 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
       await action("viewer-1-start-watching", () => pressStartWatching(fa, "browser 1"));
       await a.page.waitForTimeout(3_000);
       const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v.playing, error: v.error })) };
-      // OME-1484: the browsers share no profile, so A's press can only reach B as a room op, and that needs a
-      // play/pause/seek from A's player. Without one, B's gate dropping in this window is upstream, like OME-1398.
+      // OME-1484: the browsers share no profile, so A's press can only reach B as a room op. OME-1703: A's press
+      // itself fires an SDK play, so the test is whether B received a playback op. Without one, B's drop is upstream.
       if (!halfway.bStillGated) {
         const pressedAt = actions.find((x) => x.action === "viewer-1-start-watching")?.atMs ?? 0;
         const since = (await sdkEvents([a, b], started)).map((log) => log.filter((e) => e.t >= pressedAt));
-        const aRelayable = (since[0] ?? []).filter((e) => e.event === "play" || e.event === "pause" || e.event === "seek");
-        if (aRelayable.length === 0) {
+        if (!(since[1] ?? []).some((e) => e.event === "room-playback")) {
           record("m3-twitch-gate", { notRun: "upstream gate dropped on browser 2 after browser 1's Start Watching", channel, actions, halfway, since });
-          test.skip(true, `Twitch dropped browser 2's gate with no room op from browser 1 (OME-1484): ${JSON.stringify(since[1] ?? [])}`);
+          test.skip(true, `Twitch dropped browser 2's gate with no room op reaching it (OME-1484, OME-1703): ${JSON.stringify(since[1] ?? [])}`);
           return;
         }
       }

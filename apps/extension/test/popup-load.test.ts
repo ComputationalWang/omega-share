@@ -188,6 +188,21 @@ describe("after a successful share", () => {
     expect(calls).toEqual([["tabs.create", { url: `${ORIGIN}/r/lobby` }]]);
   });
 
+  // OME-1636: the share starts where the page is.
+  test("Share sends the listed embed's start", async () => {
+    const document = await opened({}, [], ["lobby"], ["https://www.youtube.com/embed/aqz-KE-bpKQ?start=75"]);
+    const bodies: unknown[] = [];
+    const loaded = globalThis.fetch;
+    globalThis.fetch = ((url: string, init: RequestInit) => {
+      if (url.endsWith("/share")) bodies.push(JSON.parse(typeof init.body === "string" ? init.body : ""));
+      return loaded(url, init);
+    }) as typeof fetch;
+    (el(document, "room") as HTMLSelectElement).value = "lobby";
+    (el(document, "share-form") as HTMLFormElement).requestSubmit(el(document, "share"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(bodies).toEqual([{ url: "https://www.youtube.com/embed/aqz-KE-bpKQ", startSeconds: 75 }]);
+  });
+
   // OME-1635 E1: one embed and the remembered room preselected, so Enter or one click shares.
   test("one embed and a remembered room: Share has focus", async () => {
     const document = await opened({ lastRoom: "lobby" }, [], ["lobby"], ["https://www.youtube.com/embed/aqz-KE-bpKQ"]);
