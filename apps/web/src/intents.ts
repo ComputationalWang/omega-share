@@ -105,11 +105,15 @@ function control(t: PlaybackTarget, playing: boolean, position: number): Control
   return { type: "control", url: t.embed.url, playing, position: Math.min(MAX_POSITION_S, Math.max(0, position)) };
 }
 
-/** The shared play/pause key: flip the room, at the room's position now (server clock). */
+/**
+ * The shared play/pause key: flip the room, at the room's position now (server clock). A play from paused is a
+ * shared 3-2-1 (OME-1634; the server ignores it on a live embed and the frozen TS server ignores it altogether).
+ */
 export function togglePlayIntent(t: PlaybackTarget, serverNowMs: number): Control | null {
   const pb = t.playback ?? null;
   if (pb === null) return null;
-  return control(t, !pb.playing, expectedPosition(pb, serverNowMs));
+  const c = control(t, !pb.playing, expectedPosition(pb, serverNowMs));
+  return c === null || pb.playing ? c : { ...c, countdown: true };
 }
 
 /** The shared seek bar: move the room, keeping it playing or paused. */
@@ -119,7 +123,7 @@ export function seekIntent(t: PlaybackTarget, position: number): Control | null 
   return control(t, pb.playing, position);
 }
 
-/** A play/pause the user made inside the player itself. */
+/** A play/pause the user made inside the player itself. No countdown: that player already plays, a 3-2-1 would pull it back. */
 export function playerIntent(t: PlaybackTarget, playing: boolean, position: number): Control | null {
   return control(t, playing, position);
 }

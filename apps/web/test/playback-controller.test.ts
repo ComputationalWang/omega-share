@@ -320,7 +320,7 @@ describe("review follow-ups", () => {
     h.clock.ready = false;
     expect(h.c.view().canControl).toBe(true);
     expect(h.c.togglePlay()).toBe(true);
-    expect(h.sent).toEqual([{ type: "control", url: embedOf(VIDEO).url, playing: true, position: 42 }]);
+    expect(h.sent).toEqual([{ type: "control", url: embedOf(VIDEO).url, playing: true, position: 42, countdown: true }]);
   });
 
   test("pausing a playing room waits for the clock, and the key says so (canControl false)", () => {

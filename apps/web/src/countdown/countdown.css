@@ -1,0 +1,7 @@
+/* The shared 3-2-1 (OME-1634): one big digit over the room, under the controls; it never takes a click. */
+.countdown { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font: 700 clamp(64px, 18vmin, 160px) / 1 var(--ui-font, system-ui); color: var(--ui-text, #fff); text-shadow: 0 4px 0 rgb(8 6 18 / 0.6); }
+.countdown[hidden] { display: none; }
+.countdown > span { animation: countdown-pop 1000ms ease-out both; }
+.countdown[data-plain] > span { animation: none; }
+@keyframes countdown-pop { from { transform: scale(1.6); opacity: 0; } 20% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } to { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .countdown > span { animation: none; } }
