@@ -123,6 +123,7 @@ function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
       input.type = "radio";
       input.name = "embed";
       input.value = embed.url;
+      if (embed.startSeconds !== undefined) input.dataset["startSeconds"] = String(embed.startSeconds);
       input.checked = i === 0;
       const label = document.createElement("label");
       label.className = "ui-qrow pk-embed";
@@ -293,7 +294,8 @@ ui.form.addEventListener("submit", (event) => {
     });
     return;
   }
-  const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: fetchServer };
+  const start = selected.dataset["startSeconds"];
+  const options = { baseUrl: origin, roomId, url: selected.value, startSeconds: start === undefined ? undefined : Number(start), token: tabs.tokens.get(roomId) ?? null, fetch: fetchServer };
   // Enter in the form shares; only the "Add to queue" button queues (ADR 0031).
   const queue = event.submitter === ui.queue;
   setBusy(true);

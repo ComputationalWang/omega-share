@@ -14,7 +14,7 @@ const classic = sceneOf(DEFAULT_LAYOUT, [], room);
 
 /** Every avatar frame key the room draws a body for (emote bubbles float over the head; they are not the avatar). */
 const bodyFrames: string[] = [];
-for (const f of ["avatars", "motion", "expressions"]) {
+for (const f of ["avatars", "motion", "expressions", "watching"]) {
   const { frames } = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), await Bun.file(asset(`avatars/${f}.json`)).json());
   for (const k of Object.keys(frames)) if (!k.startsWith("emote/")) bodyFrames.push(k);
 }

@@ -10,6 +10,8 @@ export interface ShareOptions {
   readonly baseUrl: string;
   readonly roomId: string;
   readonly url: string;
+  /** Where the room starts the video (OME-1636), from the listed embed. */
+  readonly startSeconds?: number | undefined;
   /** The room tab's share token (ADR 0015), or `null` when no room tab was found. */
   readonly token: string | null;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
@@ -24,11 +26,11 @@ export type RoomPostReply =
  * `POST {baseUrl}/rooms/:id/{share|queue}` with `Authorization: Bearer` and a `ShareRequest` body
  * (ADR 0015, 0031). Token, room and body are parsed first, so nothing invalid is ever sent; never throws.
  */
-export async function postToRoom(path: "share" | "queue", { baseUrl, roomId, url, token, fetch }: ShareOptions): Promise<RoomPostReply> {
+export async function postToRoom(path: "share" | "queue", { baseUrl, roomId, url, startSeconds, token, fetch }: ShareOptions): Promise<RoomPostReply> {
   if (token === null) return { ok: false, message: STATUS_TEXT.noToken };
   const bearer = v.safeParse(ShareTokenSchema, token);
   const room = v.safeParse(RoomIdSchema, roomId);
-  const body = v.safeParse(ShareRequestSchema, { url });
+  const body = v.safeParse(ShareRequestSchema, { url, startSeconds });
   if (!bearer.success) return { ok: false, message: STATUS_TEXT.tokenRejected };
   if (!room.success) return { ok: false, message: "Invalid room." };
   if (!body.success) return { ok: false, message: "That video URL can't be shared." };
