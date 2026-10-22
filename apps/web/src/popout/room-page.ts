@@ -49,6 +49,9 @@ async function start(root: HTMLElement, roomId: RoomId, tab: string): Promise<vo
       emote: (id, kind) => {
         stage.emote(id, kind, shown);
       },
+      react: (id, kind) => {
+        stage.react(id, kind);
+      },
       typing: (id, on) => {
         stage.typing(id, on);
       },
