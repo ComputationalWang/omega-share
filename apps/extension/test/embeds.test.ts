@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AnyEmbed, Embed, GenericEmbed } from "@omega/shared";
+import { type AnyEmbed, type Embed, type GenericEmbed, MAX_POSITION_S } from "@omega/shared";
 import { type ListedEmbed, listEmbeds, scanTab } from "../src/embeds";
 
 const A = "aqz-KE-bpKQ";
@@ -212,4 +212,37 @@ describe("listEmbeds: known ad and SDK frames are never generic candidates (OME-
     const ok = ["https://notdoubleclick.net.example.org/e/1", "https://storage.googleapis.com/videos/clip.mp4"];
     expect(listEmbeds(scan([], ok))).toEqual(ok.map(generic));
   });
+});
+
+describe("listEmbeds: start where I am (OME-1636)", () => {
+  const at = (startSeconds: number, e: Embed = embed(A)): ListedEmbed => ({ ...e, startSeconds });
+  const cases: readonly { name: string; scan: unknown; expected: readonly ListedEmbed[] }[] = [
+    { name: "watch page t= in seconds", scan: scan([`https://www.youtube.com/watch?v=${A}&t=90`]), expected: [at(90)] },
+    { name: "t= with an s suffix", scan: scan([`https://www.youtube.com/watch?v=${A}&t=90s`]), expected: [at(90)] },
+    { name: "t= as h/m/s", scan: scan([`https://www.youtube.com/watch?v=${A}&t=1h2m3s`]), expected: [at(3723)] },
+    { name: "t= as m/s", scan: scan([`https://youtu.be/${A}?t=1m30s`]), expected: [at(90)] },
+    { name: "embed start=", scan: scan(["https://example.com/post", `https://www.youtube.com/embed/${A}?start=75`]), expected: [at(75)] },
+    { name: "t=0 is the start: no startSeconds", scan: scan([`https://www.youtube.com/watch?v=${A}&t=0`]), expected: [embed(A)] },
+    { name: "a malformed t= is ignored", scan: scan([`https://www.youtube.com/watch?v=${A}&t=abc`]), expected: [embed(A)] },
+    { name: "a negative t= is ignored", scan: scan([`https://www.youtube.com/watch?v=${A}&t=-5`]), expected: [embed(A)] },
+    { name: "a t= past the cap is clamped to MAX_POSITION_S", scan: scan([`https://www.youtube.com/watch?v=${A}&t=999999999`]), expected: [at(MAX_POSITION_S)] },
+    { name: "the page's <video> time beats the page URL's t=, floored to whole seconds", scan: { urls: [`https://www.youtube.com/watch?v=${A}&t=90`], currentTime: 754.9 }, expected: [at(754)] },
+    { name: "the page's <video> time past the cap is clamped", scan: { urls: [`https://www.youtube.com/watch?v=${A}`], currentTime: 1e9 }, expected: [at(MAX_POSITION_S)] },
+    { name: "the page's <video> time is only the page URL's embed, never an iframe's", scan: { urls: ["https://example.com/post", `https://www.youtube.com/embed/${A}`], currentTime: 754 }, expected: [embed(A)] },
+    { name: "a non-number currentTime is ignored", scan: { urls: [`https://www.youtube.com/watch?v=${A}`], currentTime: "754" }, expected: [embed(A)] },
+    { name: "a NaN currentTime is ignored", scan: { urls: [`https://www.youtube.com/watch?v=${A}&t=90`], currentTime: Number.NaN }, expected: [at(90)] },
+    { name: "a negative currentTime is ignored", scan: { urls: [`https://www.youtube.com/watch?v=${A}`], currentTime: -3 }, expected: [embed(A)] },
+    {
+      name: "a live channel has no position",
+      scan: { urls: ["https://www.twitch.tv/somechannel?t=40"], currentTime: 754 },
+      expected: [{ provider: "twitch", kind: "live", channel: "somechannel", url: "https://player.twitch.tv/?channel=somechannel" }],
+    },
+    { name: "generic embeds never carry a start", scan: { urls: ["https://example.com/post"], media: ["https://videos.example.org/e/1?t=90"], currentTime: 754 }, expected: [generic("https://videos.example.org/e/1?t=90")] },
+  ];
+
+  for (const c of cases) {
+    test(c.name, () => {
+      expect(listEmbeds(c.scan)).toEqual([...c.expected]);
+    });
+  }
 });

@@ -6,6 +6,7 @@ use super::constants::{MAX_CREATE_BODY_BYTES, MAX_REPORT_BODY_BYTES, MAX_SHARE_B
 use super::js_compat::utf16_len;
 use super::layout::RoomPresetId;
 use super::room::RoomVisibility;
+use super::state::StartSeconds;
 use super::text::{ReportNote, RoomTitle};
 use super::{Invalid, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -47,17 +48,23 @@ fn url_len(s: &str) -> Result<(), ValidationError> {
     }
 }
 
-/// Body of `POST /rooms/:id/share`: the raw page or embed URL, for the share parser.
+/// Body of `POST /rooms/:id/share` (and `/queue`): the raw page or embed URL, for the share parser, and where the
+/// room starts the video (OME-1625; ignored for a live or generic embed).
 #[derive(Serialize, Deserialize, Validate)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ShareRequest {
     #[validate(custom(function = "url_len"))]
     url: String,
+    #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+    start_seconds: Option<StartSeconds>,
 }
 
 impl ShareRequest {
     pub fn url(&self) -> &str {
         &self.url
+    }
+    pub fn start_seconds(&self) -> Option<StartSeconds> {
+        self.start_seconds
     }
 }
 

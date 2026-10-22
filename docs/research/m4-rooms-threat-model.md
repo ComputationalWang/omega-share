@@ -161,6 +161,7 @@ Optional M5 nicety, not in this contract: an "owner key" box in settings that sh
 | Probe | Today | M4 |
 |---|---|---|
 | `GET /rooms` | Lists every room (`http.ts:95-99`) | Lists **public rooms only**. Private rooms aren't counted or hinted at |
+| `GET /rooms` `nowPlaying` / `watchingCount` (OME-1625, ADR 0056) | — | A listed room's current video as `{provider, id}` only (no title, no URL), and how many members have the tab visible. CEO decision: anyone can join a listed room and see its video, so the list adds nothing. Private rooms never appear. An unlisted Vimeo video (hash) and generic embeds are never named. Ids are rebuilt from the parsed embed, never from client text |
 | WS upgrade to `/rooms/<guess>/ws` | 404 vs upgrade, **before any limiter** (`server.ts:96-97`) | With 128-bit ids, guessing is pointless (2¹²⁸ ids, ≤ 500 rooms). Still **move the per-key upgrade limiter (`ws.admitUpgrade`) before the room lookup**, so 404 probes cost a token like real upgrades. That also bounds log and CPU noise |
 | `join` to a private room with a guessed key | — | `invite_required`, a failed-invite bucket per key, 4400 after repeats. 2¹²⁸ keys |
 | `POST /rooms/<guess>/share` | `room_not_found` 404 before auth (`http.ts:116-117`) | Same answer. With the 128-bit argument this is fine. No change, so the extension keeps its error message |

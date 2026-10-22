@@ -453,7 +453,8 @@ describe("GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)", ()
     const pub = await created(await create({ title: "Open house", visibility: "public" }));
     await created(await create({ title: "Hidden", visibility: "private" }));
     const rooms = await listed();
-    expect(rooms).toEqual([
+    // toMatchObject: the binary adds the optional watching summary (OME-1633, ADR 0056); still exactly these rows.
+    expect(rooms).toMatchObject([
       { id: "lobby", memberCount: 0, seatedCount: 0 },
       { id: pub.room.id, title: "Open house", memberCount: 0, seatedCount: 0 },
     ]);

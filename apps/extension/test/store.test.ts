@@ -55,11 +55,10 @@ describe("checkStoreManifest (the packaging guard)", () => {
     name: "omega share",
     version: "1.2.3",
     icons: { "16": "icon/16.png", "32": "icon/32.png", "48": "icon/48.png", "128": "icon/128.png" },
-    permissions: ["activeTab", "scripting", "storage"],
+    // ADR 0047 §4 (OME-1040, OME-1666): "Unlock with extension", held at install.
+    permissions: ["activeTab", "scripting", "storage", "declarativeNetRequestWithHostAccess"],
     host_permissions: ["https://omega-share.duckdns.org/*"],
     optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
-    // ADR 0047 §4 (OME-1040): requested with the one host on "Unlock with extension".
-    optional_permissions: ["declarativeNetRequestWithHostAccess"],
     background: { service_worker: "background.js" },
   };
 
@@ -73,10 +72,9 @@ describe("checkStoreManifest (the packaging guard)", () => {
     ["<all_urls>", { ...good, host_permissions: ["<all_urls>"] }, /host_permissions/],
     ["an extra permission", { ...good, permissions: [...good.permissions, "tabs"] }, /permissions/],
     ["a cleartext optional wildcard", { ...good, optional_host_permissions: ["http://*/*", "https://*/*"] }, /optional_host_permissions/],
-    ["another optional API permission", { ...good, optional_permissions: ["declarativeNetRequestWithHostAccess", "downloads"] }, /optional_permissions/],
-    ["plain declarativeNetRequest (warns about blocking every page)", { ...good, optional_permissions: ["declarativeNetRequest"] }, /optional_permissions/],
-    ["no optional DNR permission (Unlock with extension can't ask for it)", { ...good, optional_permissions: undefined }, /optional_permissions/],
-    ["the DNR permission at install time", { ...good, permissions: [...good.permissions, "declarativeNetRequestWithHostAccess"] }, /permissions/],
+    ["optional API permissions", { ...good, optional_permissions: ["downloads"] }, /optional_permissions/],
+    ["the DNR permission only optional (granted at runtime, Chromium never applies its rules: OME-1666)", { ...good, permissions: ["activeTab", "scripting", "storage"], optional_permissions: ["declarativeNetRequestWithHostAccess"] }, /permissions/],
+    ["plain declarativeNetRequest (warns about blocking every page)", { ...good, permissions: ["activeTab", "scripting", "storage", "declarativeNetRequest"] }, /permissions/],
     ["content scripts", { ...good, content_scripts: [{ matches: ["https://*/*"], js: ["c.js"] }] }, /content_scripts/],
     ["a persistent background page", { ...good, background: { scripts: ["bg.js"], persistent: true } }, /background/],
     ["a version that isn't package.json's", { ...good, version: "0.0.1" }, /version/],

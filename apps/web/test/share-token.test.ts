@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { SHARE_TOKEN_STORAGE_KEY, ShareTokenRecordSchema, type RoomState, type ServerMessage } from "@omega/shared";
+import { SHARE_TOKEN_STORAGE_KEY, ShareTokenRecordSchema, type RoomState } from "@omega/shared";
+import type { SingleMessage } from "../src/connection";
 import { serverBaseUrl, wsUrl } from "../src/route";
 import { trackShareToken, type ShareTokenStorage } from "../src/share-token";
 
@@ -16,8 +17,8 @@ class MemoryStorage implements ShareTokenStorage {
     this.items.delete(key);
   }
 }
-const message = (msg: ServerMessage) => ({ type: "message", msg }) as const;
-const snapshot = (shareToken?: string): ServerMessage =>
+const message = (msg: SingleMessage) => ({ type: "message", msg }) as const;
+const snapshot = (shareToken?: string): SingleMessage =>
   shareToken === undefined ? { type: "snapshot", self: "me", room: ROOM } : { type: "snapshot", self: "me", room: ROOM, shareToken };
 
 describe("serverBaseUrl (ADR 0015 §1)", () => {

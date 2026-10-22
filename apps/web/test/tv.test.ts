@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { NOCOOKIE_ORIGIN, genericFrame, tvFrame, twitchIframeMatches, type TvFrame, type TvIframe, type TvTwitch } from "../src/tv";
+import { NOCOOKIE_ORIGIN, genericFrame, tvFrame, twitchFallbackFrame, twitchIframeMatches, type TvFrame, type TvIframe, type TvTwitch } from "../src/tv";
 
 const good = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" };
 const ORIGIN = "http://localhost:5173";
@@ -252,5 +252,22 @@ describe("genericFrame (ADR 0024 §2b)", () => {
     // A sibling or a look-alike suffix is someone else's site.
     expect(genericFrame(own("omega-share.org"), PAGE)).not.toBeNull();
     expect(genericFrame(own("evilwatch.omega-share.org"), PAGE)).not.toBeNull();
+  });
+});
+
+// OME-1665: when v1.js can't load (a content blocker), the SDK never builds the player, so the TV shows our own plain
+// player iframe instead: the video plays, unsynced.
+describe("twitchFallbackFrame", () => {
+  test("a plain player iframe for the same video or channel that passes the SDK frame's own check", () => {
+    for (const e of [twitchVod, twitchLive]) {
+      const t = twitch(tvFrame(e, ORIGIN));
+      const f = twitchFallbackFrame(t);
+      expect(f.kind).toBe("iframe");
+      expect(new URL(f.src).origin).toBe("https://player.twitch.tv");
+      expect(twitchIframeMatches(f.src, t)).toBe(true);
+      expect(f.key).not.toBe(t.key);
+    }
+    const vod = new URL(twitchFallbackFrame(twitch(tvFrame(twitchVod, ORIGIN))).src);
+    expect(Object.fromEntries(vod.searchParams)).toEqual({ video: "v1234567890", parent: "localhost", autoplay: "true", muted: "false" });
   });
 });

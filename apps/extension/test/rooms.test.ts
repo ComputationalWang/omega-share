@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { NEW_ROOM, loadRooms, newRoomUrl, roomUrl, withLastRoom, withNewRoom, withRoomTabs } from "../src/rooms";
+import { NEW_ROOM, loadRooms, newRoomUrl, roomUrl, watchingBadge, withLastRoom, withNewRoom, withRoomTabs, withWatching } from "../src/rooms";
 
 const BASE = "http://localhost:8787";
 const json = (body: unknown, status = 200) =>
@@ -30,8 +30,8 @@ describe("loadRooms", () => {
       kind: "ok",
       list: {
         rooms: [
-          { id: "movies", label: "movies (7)" },
-          { id: "lobby", label: "lobby (3)" },
+          { id: "movies", label: "movies (7)", watching: 7 },
+          { id: "lobby", label: "lobby (3)", watching: 3 },
         ],
         selected: "lobby",
       },
@@ -57,8 +57,8 @@ describe("loadRooms", () => {
       kind: "ok",
       list: {
         rooms: [
-          { id: "lobby", label: "lobby (3)" },
-          { id: "abcdefghijklmnopqrstuvwxyz", label: "Movie night (7)" },
+          { id: "lobby", label: "lobby (3)", watching: 3 },
+          { id: "abcdefghijklmnopqrstuvwxyz", label: "Movie night (7)", title: "Movie night", watching: 7 },
         ],
         selected: "lobby",
       },
@@ -78,7 +78,7 @@ describe("loadRooms", () => {
     const fetch = mock(() => Promise.resolve(json({ rooms: [{ id: "movies", memberCount: 0, seatedCount: 0 }] })));
     expect(await loadRooms({ baseUrl: BASE, fetch })).toEqual({
       kind: "ok",
-      list: { rooms: [{ id: "movies", label: "movies (0)" }], selected: "movies" },
+      list: { rooms: [{ id: "movies", label: "movies (0)", watching: 0 }], selected: "movies" },
     });
   });
 
@@ -225,4 +225,87 @@ describe("withLastRoom: the room shared into last is preselected while it's list
       expect(withLastRoom(LIST, stored, new Map([...TOKENS, ["gone", "t3"]]))).toEqual(LIST);
     });
   }
+});
+
+describe("loadRooms: who is watching what (OME-1637, ADR 0056)", () => {
+  test("each room carries its watching count (members as a fallback for an older server) and its nowPlaying", async () => {
+    const fetch = mock(() =>
+      Promise.resolve(
+        json({
+          rooms: [
+            { id: "movies", memberCount: 7, seatedCount: 2, title: "Movie night", watchingCount: 5, nowPlaying: { provider: "youtube", id: "dQw4w9WgXcQ" } },
+            { id: "lobby", memberCount: 3, seatedCount: 1 },
+          ],
+        }),
+      ),
+    );
+    expect(await loadRooms({ baseUrl: BASE, fetch })).toEqual({
+      kind: "ok",
+      list: {
+        rooms: [
+          { id: "movies", label: "Movie night (7)", title: "Movie night", watching: 5, nowPlaying: { provider: "youtube", id: "dQw4w9WgXcQ" } },
+          { id: "lobby", label: "lobby (3)", watching: 3 },
+        ],
+        selected: "lobby",
+      },
+    });
+  });
+});
+
+describe("withWatching: rooms already playing a video on the page sort first, \"N watching · Join\" (OME-1637)", () => {
+  const RICK = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" } as const;
+  const LIVE = { provider: "twitch", kind: "live", channel: "somechannel", url: "https://player.twitch.tv/?channel=somechannel" } as const;
+  const list = {
+    rooms: [
+      { id: "lobby", label: "lobby (3)", watching: 3 },
+      { id: "other", label: "other (4)", watching: 4, nowPlaying: { provider: "youtube", id: "aaaaaaaaaaa" } },
+      { id: "movies", label: "Movie night (7)", title: "Movie night", watching: 5, nowPlaying: { provider: "youtube", id: "dQw4w9WgXcQ" } },
+      { id: "stream", label: "stream (2)", watching: 2, nowPlaying: { provider: "twitch", id: "somechannel" } },
+    ],
+    selected: "lobby",
+  } as const;
+
+  test("the room playing the page's video moves first with its watching count; the rest keep their order and labels", () => {
+    expect(withWatching(list, [RICK])).toEqual({
+      rooms: [
+        { id: "movies", label: "Movie night · 5 watching · Join", title: "Movie night", watching: 5, nowPlaying: { provider: "youtube", id: "dQw4w9WgXcQ" } },
+        list.rooms[0],
+        list.rooms[1],
+        list.rooms[3],
+      ],
+      selected: "lobby",
+    });
+  });
+
+  test("an untitled match is named by its id; any embed on the page counts (Twitch live by channel)", () => {
+    expect(withWatching(list, [RICK, LIVE]).rooms.map((r) => r.label)).toEqual([
+      "Movie night · 5 watching · Join",
+      "stream · 2 watching · Join",
+      "lobby (3)",
+      "other (4)",
+    ]);
+  });
+
+  test("no match, no embeds, or a generic embed: the list unchanged", () => {
+    expect(withWatching(list, [])).toEqual(list);
+    expect(withWatching(list, [{ provider: "generic", url: "https://example.com/v", host: "example.com" }])).toEqual(list);
+    expect(withWatching(list, [{ ...RICK, videoId: "bbbbbbbbbbb" }])).toEqual(list);
+  });
+});
+
+describe("watchingBadge: the share's tab badge is the room's watcher count (OME-1637)", () => {
+  const list = { rooms: [{ id: "movies", label: "m", watching: 5 }, { id: "empty", label: "e", watching: 0 }, { id: "tab", label: "tab" }], selected: "movies" };
+  test("the shared room's watching count", () => {
+    expect(watchingBadge(list, "movies")).toBe("5");
+  });
+  test("nobody watching, a tab-only room with no count, or an unknown room: no badge", () => {
+    expect(watchingBadge(list, "empty")).toBe("");
+    expect(watchingBadge(list, "tab")).toBe("");
+    expect(watchingBadge(list, "nope")).toBe("");
+  });
+});
+
+test("withRoomTabs: a listed room open in a tab keeps what GET /rooms said about it (OME-1637)", () => {
+  const movies = { id: "movies", label: "Movie night (7)", title: "Movie night", watching: 5, nowPlaying: { provider: "youtube", id: "dQw4w9WgXcQ" } } as const;
+  expect(withRoomTabs({ rooms: [movies], selected: "movies" }, { rooms: ["movies"], tokens: new Map() }).rooms).toEqual([movies]);
 });
