@@ -16,6 +16,10 @@ import {
   WATCH_STATES,
   watchMotion,
   cheerMotion,
+  reachMotion,
+  REACH_FRAMES,
+  REACH_MS,
+  REACH_SEQUENCE,
   yawnMotion,
   EMOTES,
   EMOTE_CELL,
@@ -903,7 +907,9 @@ function buildMotion(base: Map<string, Uint8Array>): void {
 /** Set (p): cheer and yawn/doze, 2 frames × pose × dir per avatar, in `avatars/expressions.png` + `.json`. motion.png is full, so
  *  this is a second lazy sheet with motion.json's schema: one row per avatar, cheer then yawn, each poses × dirs × frames. */
 function buildExpressions(base: Map<string, Uint8Array>): void {
-  const sheetW = 1024, sheetH = pow2(AVATARS.length * CELL.h);
+  // One more row under the four: reach (OME-1697), standing only, avatar i in columns 8i–8i+7. Not rounded up to 512, because the web
+  // keeps one tinted copy of this sheet per look in use.
+  const sheetW = 1024, sheetH = (AVATARS.length + 1) * CELL.h;
   const sheet = new Uint8Array(sheetW * sheetH);
   const frames: Record<string, Frame> = {};
   const images = new Map<string, { img: Uint8Array; w: number; h: number }>();
@@ -942,6 +948,27 @@ function buildExpressions(base: Map<string, Uint8Array>): void {
         }
       }
     }
+    DIRS.forEach((dir, d) => {
+      const keys: string[] = [];
+      for (let n = 0; n < REACH_FRAMES; n++) {
+        const key = `reach/${a.id}/idle/${dir}/${String(n)}`;
+        const img = render(composeMotion(a, "idle", dir, reachMotion(viewOf(dir), n)), a.roles);
+        assertInside(key, img, CELL.w, CELL.h);
+        const x = (i * DIRS.length * REACH_FRAMES + d * REACH_FRAMES + n) * CELL.w, y = AVATARS.length * CELL.h;
+        blit(sheet, sheetW, img, CELL.w, CELL.h, x, y);
+        frames[key] = {
+          frame: { x, y, w: CELL.w, h: CELL.h },
+          rotated: false,
+          trimmed: false,
+          spriteSourceSize: { x: 0, y: 0, w: CELL.w, h: CELL.h },
+          sourceSize: { w: CELL.w, h: CELL.h },
+          anchor: { x: FLOOR.x / CELL.w, y: FLOOR.y / CELL.h },
+        };
+        images.set(key, { img, w: CELL.w, h: CELL.h });
+        keys.push(key);
+      }
+      anims[`reach/${a.id}/idle/${dir}`] = { frames: REACH_SEQUENCE.map((n) => keys[n] ?? ""), ms: REACH_SEQUENCE.map(() => REACH_MS), loop: false };
+    });
   });
   registerKeys("expressions", Object.keys(frames));
   const dir = join(ROOT, "avatars");
@@ -975,6 +1002,8 @@ function buildExpressions(base: Map<string, Uint8Array>): void {
   const rows = AVATARS.flatMap((a) => (["cheer", "yawn"] as const).map((id) =>
     POSES.flatMap((p) => DIRS.flatMap((d) => [`${a.id}/${p}/${d}/0`, `${id}/${a.id}/${p}/${d}/0`, `${id}/${a.id}/${p}/${d}/1`, ""]))));
   strip("expressions-strip@4x.png", 32, rows, all, CELL.w, CELL.h, true);
+  // Reach: per avatar the base pose then frames 0 and 1, in se sw ne nw.
+  strip("reach-strip@4x.png", 16, AVATARS.map((a) => DIRS.flatMap((d) => [`${a.id}/idle/${d}/0`, `reach/${a.id}/idle/${d}/0`, `reach/${a.id}/idle/${d}/1`, ""])), all, CELL.w, CELL.h, true);
   buildExpressionScene(all);
 }
 

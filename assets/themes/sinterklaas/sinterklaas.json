@@ -432,6 +432,54 @@
     "y": 2.6666666666666665
    }
   },
+  "sinterklaas/hat/reach/juno/idle/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/reach/juno/idle/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5238095238095237
+   }
+  },
   "sinterklaas/hat/juno/idle/sw/0": {
    "frame": {
     "x": 82,
@@ -646,6 +694,54 @@
    "anchor": {
     "x": 0.5263157894736842,
     "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/reach/juno/idle/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/reach/juno/idle/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5238095238095237
    }
   },
   "sinterklaas/hat/juno/idle/ne/0": {
@@ -864,6 +960,54 @@
     "y": 2.6666666666666665
    }
   },
+  "sinterklaas/hat/reach/juno/idle/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/reach/juno/idle/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5238095238095237
+   }
+  },
   "sinterklaas/hat/juno/idle/nw/0": {
    "frame": {
     "x": 20,
@@ -1078,6 +1222,54 @@
    "anchor": {
     "x": 0.5263157894736842,
     "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/reach/juno/idle/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/reach/juno/idle/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5238095238095237
    }
   },
   "sinterklaas/hat/juno/sit/se/0": {
@@ -3168,6 +3360,54 @@
     "y": 2.3636363636363638
    }
   },
+  "sinterklaas/hat/reach/pip/idle/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.227272727272727
+   }
+  },
+  "sinterklaas/hat/reach/pip/idle/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.227272727272727
+   }
+  },
   "sinterklaas/hat/pip/idle/sw/0": {
    "frame": {
     "x": 108,
@@ -3382,6 +3622,54 @@
    "anchor": {
     "x": 0.5217391304347826,
     "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/reach/pip/idle/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.227272727272727
+   }
+  },
+  "sinterklaas/hat/reach/pip/idle/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.227272727272727
    }
   },
   "sinterklaas/hat/pip/idle/ne/0": {
@@ -3600,6 +3888,54 @@
     "y": 2.3636363636363638
    }
   },
+  "sinterklaas/hat/reach/pip/idle/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.227272727272727
+   }
+  },
+  "sinterklaas/hat/reach/pip/idle/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.227272727272727
+   }
+  },
   "sinterklaas/hat/pip/idle/nw/0": {
    "frame": {
     "x": 204,
@@ -3814,6 +4150,54 @@
    "anchor": {
     "x": 0.5217391304347826,
     "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/reach/pip/idle/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.227272727272727
+   }
+  },
+  "sinterklaas/hat/reach/pip/idle/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.227272727272727
    }
   },
   "sinterklaas/hat/pip/sit/se/0": {
@@ -5904,6 +6288,54 @@
     "y": 2.380952380952381
    }
   },
+  "sinterklaas/hat/reach/mo/idle/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.238095238095238
+   }
+  },
+  "sinterklaas/hat/reach/mo/idle/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.238095238095238
+   }
+  },
   "sinterklaas/hat/mo/idle/sw/0": {
    "frame": {
     "x": 68,
@@ -6118,6 +6550,54 @@
    "anchor": {
     "x": 0.52,
     "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/reach/mo/idle/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.238095238095238
+   }
+  },
+  "sinterklaas/hat/reach/mo/idle/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.238095238095238
    }
   },
   "sinterklaas/hat/mo/idle/ne/0": {
@@ -6336,6 +6816,54 @@
     "y": 2.380952380952381
    }
   },
+  "sinterklaas/hat/reach/mo/idle/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.238095238095238
+   }
+  },
+  "sinterklaas/hat/reach/mo/idle/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.238095238095238
+   }
+  },
   "sinterklaas/hat/mo/idle/nw/0": {
    "frame": {
     "x": 146,
@@ -6550,6 +7078,54 @@
    "anchor": {
     "x": 0.52,
     "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/reach/mo/idle/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.238095238095238
+   }
+  },
+  "sinterklaas/hat/reach/mo/idle/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.238095238095238
    }
   },
   "sinterklaas/hat/mo/sit/se/0": {
@@ -8640,6 +9216,54 @@
     "y": 2.65
    }
   },
+  "sinterklaas/hat/reach/kiki/idle/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/reach/kiki/idle/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.5
+   }
+  },
   "sinterklaas/hat/kiki/idle/sw/0": {
    "frame": {
     "x": 198,
@@ -8854,6 +9478,54 @@
    "anchor": {
     "x": 0.5294117647058824,
     "y": 2.65
+   }
+  },
+  "sinterklaas/hat/reach/kiki/idle/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/reach/kiki/idle/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.5
    }
   },
   "sinterklaas/hat/kiki/idle/ne/0": {
@@ -9072,6 +9744,54 @@
     "y": 2.65
    }
   },
+  "sinterklaas/hat/reach/kiki/idle/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/reach/kiki/idle/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.5
+   }
+  },
   "sinterklaas/hat/kiki/idle/nw/0": {
    "frame": {
     "x": 58,
@@ -9286,6 +10006,54 @@
    "anchor": {
     "x": 0.5294117647058824,
     "y": 2.65
+   }
+  },
+  "sinterklaas/hat/reach/kiki/idle/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/reach/kiki/idle/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.5
    }
   },
   "sinterklaas/hat/kiki/sit/se/0": {
@@ -11226,7 +11994,7 @@
    },
    "hat": {
     "prefix": "sinterklaas/hat/",
-    "count": 456,
+    "count": 488,
     "rects": 40,
     "replaces": true
    }

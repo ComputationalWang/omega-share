@@ -898,19 +898,22 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 Two reactions for every avatar, pose and facing, built like the wave (`src/motion.ts`, the set (a) templates through `composeMotion`):
 same 32×64 cells, anchor = floor point `(16, 61)` (`0.5, 61/64`), shading, plum outline and mirroring. `motion.png` is full (1024×512),
 so this is a **second lazy sheet with `motion.json`'s schema**: `frames`, Pixi `animations`, `meta.omega.{tile, cell, floorPoint, gestures, anims}`.
-Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames.
+Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames; a 5th row holds reach (1024×320, not rounded up to 512: the web keeps one tinted copy per look).
 
 | Key | Frames | Notes |
 |---|---|---|
 | `cheer/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | Fists up in a V. `0` elbows bent, fists by the ears, eyes closed in a smile, a small grin; `1` arms high and a wide-open grin, and standing avatars hop onto tiptoe (body up 1 px, heels up, toes on y 60). Kiki keeps her popcorn and pumps her free arm. |
 | `yawn/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | `0` the yawn: a big stretch, elbows out and hands behind the head, eyes shut, mouth a tall O. `1` the doze: arms down, head nods 2 px onto the collar, eyes shut, and a small cream "z z" floats up beside the head (never mirrored, so it never reads backwards). |
+| `reach/<id>/idle/<dir>/<0-1>` | 2 per dir, standing only (OME-1697) | Petting something small on the floor beside the feet (the room cat). Squat: knees forward, body down 4 px, head 1 px more. The template-left arm (never Kiki's popcorn hand) goes down and out; `0` hand on the floor out beside the shoes, `1` stroked 4 px back in. In the 5th sheet row, avatar i in columns 8i–8i+7. |
 
 - **Faces only show facing the camera (se/sw).** From behind (ne/nw) the arms and the head carry the reaction: the V, the elbows-out stretch,
   the nod and the "z". The far arm passes behind the head and hair, so a raised arm never covers a bun or a hat.
 - **`meta.omega.anims`**: `cheer/<id>/<pose>/<dir>` is one-shot, `6 × 180 ms` (three pumps); `yawn/<id>/<pose>/<dir>` is one-shot, `[900, 1800]` ms
-  (yawn, then doze). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
+  (yawn, then doze); `reach/<id>/idle/<dir>` is one-shot, `5 × 160 ms` = 800 ms (stroke, back, stroke, back, stroke). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
 - `meta.omega.gestures = [{id: "cheer", label: "Cheer"}, {id: "yawn", label: "Yawn"}]`, alongside motion.json's `wave`.
-- Keys start with `cheer` or `yawn`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
+- Reach isn't in `gestures` (it's not a picker emote); the web wires it as a `GestureKind` with idle cycles only.
+- Previews: `preview/reach-strip@4x.png` (per avatar: base pose, frame 0, frame 1, in se sw ne nw).
+- Keys start with `cheer`, `yawn` or `reach`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
 - Previews: `preview/expressions-strip@4x.png` (per avatar a cheer row and a yawn row: base pose, frame 0, frame 1, for idle and sit in se sw ne nw, on floor marks)
   and `preview/expressions-scene@1x.png` / `@2x` (the room floor at 1×: every avatar standing and seated in an armchair, each facing a different way;
   frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
@@ -957,7 +960,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 | `halloween/web/corner-l`, `/corner-r` | | `(0,0)`, where `wall/corner` goes | Cobweb in the back top corner, one half per wall; a spider hangs off the right half. |
 | `halloween/web/l-end`, `/r-end` | | `(0,9)`, `(9,0)`, where `wall/l/end` / `wall/r/end` go | Small webs in the open wall ends' top corners. |
 | `halloween/bat/<0-3>` | 16×16 | anywhere on the back walls | Flap cycle: wings up, mid, down, mid. Facing right; mirror (`scale.x = -1`) to fly left. Anchor = centre `(8, 8)`. |
-| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (416 keys, 32 shared rects). |
+| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (448 keys). |
 
 - **`meta.omega.decor`** lists the decor in draw order, each `{ key, on }`, where `on` is the wall frame key it belongs to. For every wall cell
   drawn with that frame, place the decal at that cell's `cellCenter(col, row)`. If the room has no such wall (an owner removed the window), skip it.
@@ -975,7 +978,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 ## Holiday themes B: Sinterklaas, Christmas, Valentine's, Easter (OME-1187, lazy)
 
 Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per theme under `themes/<id>/`, keys prefixed `<id>/`, decor in
-`meta.omega.decor`, a hat for every avatar frame key (416 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
+`meta.omega.decor`, a hat for every avatar frame key (448 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
 
 - **`meta.omega.period`** is either `{ from: "MM-DD", to: "MM-DD" }` (local date, both ends inclusive) or, for Easter, `{ easter: { from: -7, to: 1 } }`:
   days relative to Easter Sunday (Gregorian computus), so Easter runs from the Sunday before Easter Sunday through Easter Monday.
@@ -1000,7 +1003,7 @@ Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per th
 ## Head accessories (`accessories/accessories.json`, OME-1388, lazy)
 
 Eight cosmetics (OME-1388's four, OME-1530's four) in one lazy 256×256 indexed PNG-8, fetched only when someone in the room wears one. Each is a hat in exactly the holiday
-theme format above: one overlay for **every** avatar frame key (416 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`,
+theme format above: one overlay for **every** avatar frame key (448 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `reach`,
 `yawn`, all four dirs; dance reuses the walk frames, so it is covered), anchored at the avatar's floor point, drawn as the avatar's next sibling.
 
 `meta.omega.accessories` = `{ <id>: { prefix, count, rects, replaces } }`. Each value has the theme manifest's `meta.omega.hat` shape, so
@@ -1033,7 +1036,7 @@ Pip and Mo take their headwear off: Pip shows a messy ginger mop with two cowlic
 Their overlays in `accessories.json` are drawn for those bare heads.
 
 `meta.omega.bare` = `{ prefix: "bare/", avatars: ["pip", "mo"], accessories: ["partyhat", "crown", "headphones", "cap", "bow"] }`. Frame `bare/K` exists
-for every avatar frame key `K` of Pip and Mo (104 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, all four
+for every avatar frame key `K` of Pip and Mo (112 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, `reach`, all four
 dirs; dance reuses walk). Each frame is a full 32×64 cell with the avatar sheets' anchor (`16/32`, `61/64`), so it swaps in for the texture
 directly. Keys carry only `frame` + `anchor`. Identical cells share a rect (200 rects for 208 keys).
 
