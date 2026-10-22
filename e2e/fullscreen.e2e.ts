@@ -315,7 +315,8 @@ async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>)
   const tv = await box(page.locator(site.tv));
   const r = await box(root);
   expect(Math.abs(tv.x - r.x - (r.x + r.width - tv.x - tv.width))).toBeLessThanOrEqual(1);
-  expect(Math.abs(tv.y - r.y - (r.y + r.height - tv.y - tv.height))).toBeLessThanOrEqual(1);
+  // Held sideways the picture keeps the bottom 8 px free for the peek (OME-1668), so it may sit that much high.
+  expect(Math.abs(tv.y - r.y - (r.y + r.height - tv.y - tv.height))).toBeLessThanOrEqual(9);
   expect(Math.max(tv.width / r.width, tv.height / r.height)).toBeGreaterThan(0.9);
   expect(disjoint(await box(toggle), tv)).toBe(true);
   const bubbles = page.locator(site.fsBubbles);

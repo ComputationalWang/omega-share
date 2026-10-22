@@ -152,10 +152,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     })(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => { clearTimeout(h); },
-    onChange: (hidden) => {
+    onChange: (hidden, peek) => {
       // Hiding takes the strip and the shelf away: focus in them goes to the toggle, now in the pill.
       const focused = document.activeElement;
       wrap.classList.toggle("fs-chat-hidden", hidden);
+      wrap.classList.toggle("fs-peek", peek);
       if (hidden && focused instanceof HTMLElement && (strip.contains(focused) || controls.contains(focused))) fsChat.toggle.focus({ preventScroll: true });
       renderStrip();
       fit();

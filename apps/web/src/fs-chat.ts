@@ -19,7 +19,8 @@ export interface FsChatOptions<H> {
   readonly setTimer: (fn: () => void, ms: number) => H;
   readonly clearTimer: (h: H) => void;
   /** The effective hidden state changed (full screen and the choice): the layout follows. */
-  readonly onChange: (hidden: boolean) => void;
+  /** `peek`: shown by a peek (OME-1668), which slides in; entering or pinning it doesn't. */
+  readonly onChange: (hidden: boolean, peek: boolean) => void;
 }
 
 export interface FsChat {
@@ -102,7 +103,7 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
     shown = next;
     if (!next) clearBubbles();
     wake();
-    o.onChange(next);
+    o.onChange(next, peeking);
   };
   const setHidden = (on: boolean): void => {
     chosen = on;
