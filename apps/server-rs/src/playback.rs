@@ -2,7 +2,7 @@
 //! the wall clock (`Date.now()`) as `now_wall` Unix ms; the server stamps `at` with it, not the monotonic clock.
 
 use crate::contract::capabilities::playback_caps;
-use crate::contract::constants::MAX_POSITION_S;
+use crate::contract::constants::{COUNTDOWN_MS, MAX_POSITION_S};
 use crate::contract::embed::Embed;
 use crate::contract::ids::MemberId;
 use crate::contract::state::{PlaybackAction, PlaybackState, Position, Rate, Rev, ServerTime};
@@ -72,9 +72,14 @@ pub fn restored_playback(now_wall: i64) -> PlaybackState {
 }
 
 /// Where the video should be at server time `now_wall`. The expression order is the TS one (f64 rounding).
+/// A countdown play holds at `position` until `start_at`, then runs from there (ADR 0056).
 pub fn expected_position(state: &PlaybackState, now_wall: i64) -> f64 {
     if state.playing {
-        clamp(state.position.get() + ((now_wall as f64 - state.at.0 as f64) / 1000.0) * state.rate.get())
+        let (from, now) = match state.start_at {
+            Some(start) => (start.0 as f64, (now_wall as f64).max(start.0 as f64)),
+            None => (state.at.0 as f64, now_wall as f64),
+        };
+        clamp(state.position.get() + ((now - from) / 1000.0) * state.rate.get())
     } else {
         state.position.get()
     }
@@ -102,16 +107,19 @@ pub fn apply_control(
     } else {
         PlaybackAction::Pause
     };
+    let at = server_time(now_wall);
+    // Only a play: a seek or a pause (also one during a countdown) starts at once (ADR 0056).
+    let start_at = (control.countdown && !live && action == PlaybackAction::Play).then(|| ServerTime(at.0.saturating_add(COUNTDOWN_MS)));
     Some(PlaybackState {
         playing: control.playing,
         // `None` only for a NaN position, which the wire schema never lets through.
         position: Position::new(position)?,
         rate: state.rate,
-        at: server_time(now_wall),
+        at,
         rev: Rev(state.rev.0.saturating_add(1)),
         action,
         by: Some(by.clone()),
-        start_at: None,
+        start_at,
     })
 }
 

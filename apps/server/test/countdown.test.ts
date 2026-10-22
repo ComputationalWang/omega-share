@@ -61,7 +61,7 @@ describe("shared countdown (OME-1634)", () => {
     expect((await b.client.next("playback")).playback).toEqual(heard);
     // A late joiner sees the same countdown in its snapshot.
     const late = await joined("carol");
-    expect(late.snapshot.playback).toEqual(heard);
+    expect(late.snapshot.room.playback).toEqual(heard);
   });
 
   binaryOnly("a pause during the countdown cancels it for everyone", async () => {
