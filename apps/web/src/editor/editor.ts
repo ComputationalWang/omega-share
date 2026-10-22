@@ -101,6 +101,12 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   bigscreen: "Big screen",
   aislelight: "Aisle light",
   carpet: "Theatre carpet",
+  bed: "Twin bed",
+  whirlpool: "Whirlpool",
+  mirror: "Wall mirror",
+  minibar: "Minibar",
+  desk: "Writing desk",
+  washbasin: "Washbasin",
 };
 
 const DELETED = "Room deleted.";

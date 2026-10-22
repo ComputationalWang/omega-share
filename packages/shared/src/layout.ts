@@ -97,6 +97,13 @@ export const FURNITURE = {
   bigscreen: piece("object", FIXED, ONE),
   aislelight: piece("floor", ["ne", "nw"], ONE),
   carpet: piece("floor", FIXED, { cols: 2, rows: 2 }),
+  // Dank Dungeon (OME-1670 / OME-1672, `assets/furniture/furniture-v6.json`, lazy).
+  bed: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
+  whirlpool: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
+  mirror: piece("wall", CAMERA, { cols: 0, rows: 0 }),
+  minibar: piece("object", CAMERA, ONE),
+  desk: piece("object", CAMERA, ONE),
+  washbasin: piece("object", CAMERA, ONE, { wallBacked: true }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;

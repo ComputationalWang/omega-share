@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV6, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { cellOf } from "../src/walk/path";
 
@@ -573,5 +573,20 @@ describe("batch 6: hammock, stool, bar counter, piano, fireplace", () => {
   test("the fireplace burns while a video plays, and only then", () => {
     expect(piecesInUse(l, cells([7, 1]), false)).toEqual(new Set());
     expect(piecesInUse(l, cells(), true)).toEqual(new Set([3]));
+  });
+});
+
+// OME-1672: the Dank Dungeon's six pieces are their own lazy sheet (furniture-v6), loaded only by a layout that has one.
+describe("furniture v6 (Dank Dungeon)", () => {
+  const dungeon: RoomLayout = { furniture: [{ kind: "tv", col: 0, row: 0, facing: "se" }, { kind: "bed", col: 4, row: 0, facing: "nw" }, { kind: "mirror", col: 0, row: 7, facing: "se" }] };
+
+  test("only these pieces load the v6 sheet, and they load no other", () => {
+    expect(usesV6(dungeon)).toBe(true);
+    expect(usesV6(DEFAULT_LAYOUT)).toBe(false);
+    expect(usesV6({ furniture: [{ kind: "hammock", col: 4, row: 7, facing: "ne" }] })).toBe(false);
+    const only: RoomLayout = { furniture: dungeon.furniture.filter((f) => f.kind !== "tv") };
+    expect(usesSetG(only)).toBe(false);
+    expect(usesV2(only)).toBe(false);
+    expect(usesV4(only)).toBe(false);
   });
 });

@@ -13,15 +13,15 @@ const Manifest = v.strictObject({
   license: v.literal("CC-BY-SA-4.0"),
   default: v.string(),
   thumb: v.strictObject({ w: v.number(), h: v.number(), scale: v.number() }),
-  presets: v.array(v.strictObject({ id: v.pipe(v.string(), v.regex(/^[a-z]{1,12}$/)), name: v.string(), blurb: v.pipe(v.string(), v.maxLength(60)), layout: v.string(), thumb: v.string() })),
+  presets: v.array(v.strictObject({ id: v.pipe(v.string(), v.regex(/^[a-z-]{1,12}$/)), name: v.string(), blurb: v.pipe(v.string(), v.maxLength(60)), layout: v.string(), thumb: v.string() })),
 });
 const manifest = v.parse(Manifest, JSON.parse(readFileSync(join(DIR, "presets.json"), "utf8")));
 const pngSize = (buf: Buffer): { w: number; h: number } => ({ w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) });
 
 describe("room presets", () => {
-  test("five to seven, unique ids, the default among them", () => {
+  test("five to eight, unique ids, the default among them", () => {
     expect(manifest.presets.length).toBeGreaterThanOrEqual(5);
-    expect(manifest.presets.length).toBeLessThanOrEqual(7);
+    expect(manifest.presets.length).toBeLessThanOrEqual(8);
     const ids = manifest.presets.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain(manifest.default);
@@ -51,6 +51,15 @@ describe("room presets", () => {
     const bar = PRESETS.find((p) => p.id === "bar");
     expect(bar?.name).toBe("Bar");
     expect(new Set(bar?.layout.furniture.map((f) => f.kind).filter((k) => batch6.includes(k))).size).toBeGreaterThanOrEqual(4);
+  });
+
+  test("Dank Dungeon (OME-1672): night mood, pair emote on, the README's blurb; no other preset has pairs", () => {
+    const dd = PRESETS.find((p) => p.id === "dank-dungeon");
+    expect(dd?.name).toBe("Dank Dungeon");
+    expect(dd?.blurb).toBe("Twin beds, a whirlpool for two and the lights way down.");
+    expect(dd?.layout.mood).toBe("night");
+    expect(dd?.layout.pairs).toBe(true);
+    expect(PRESETS.filter((p) => p.layout.pairs === true).map((p) => p.id)).toEqual(["dank-dungeon"]);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 40 KB together, no strays", () => {
