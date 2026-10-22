@@ -326,7 +326,7 @@ describe("frame size", () => {
     accepts(QueueItemSchema, queue[0]);
   });
 
-  // 61,557 B of 65,536 at REACTIONS_MAX = 200 (OME-1701; 256 reactions made it 67,957 B, and the client dropped it).
+  // 61,573 B of 65,536 at REACTIONS_MAX = 200 (OME-1701; 256 reactions made it 67,957 B, and the client dropped it).
   test("a worst-case snapshot (CJK title, full queue with start times, full layout, REACTIONS_MAX reactions, a CJK poll, a 12-long conga) fits the client frame cap", () => {
     expect(v.safeParse(MemberSchema, members[0]).success).toBe(true);
     const state = {
