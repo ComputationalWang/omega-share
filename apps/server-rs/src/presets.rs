@@ -93,6 +93,17 @@ mod tests {
         }
     }
 
+    // assets/src/presets.test.ts (OME-1672): only the dank-dungeon preset turns the pair emote on, under the night mood
+    #[test]
+    fn only_dank_dungeon_has_pairs() {
+        let presets = Presets::load().unwrap();
+        for id in ROOM_PRESET_IDS {
+            assert_eq!(presets.preset_layout(id).pairs(), id.as_str() == "dank-dungeon", "{}", id.as_str());
+        }
+        let l = presets.preset_layout(ROOM_PRESET_IDS[7]);
+        assert!(l.to_json().contains(r#""mood":"night""#));
+    }
+
     #[test]
     fn a_bad_asset_fails_the_load_naming_the_file() {
         let err = Presets::from_assets(|id| {

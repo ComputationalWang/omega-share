@@ -1080,6 +1080,20 @@ mod tests {
         }
     }
 
+    // packages/shared/test/dank-dungeon-contract.test.ts
+    #[test]
+    fn the_six_dank_dungeon_kinds_follow_the_readme_table() {
+        for (kind, facing) in [("bed", "nw"), ("whirlpool", "ne"), ("bed", "se"), ("whirlpool", "sw"), ("mirror", "se"), ("minibar", "sw"), ("desk", "se")] {
+            let (col, row) = if kind == "mirror" { (0, 2) } else { (3, 3) };
+            assert!(piece_accepts(&p(kind, col, row, facing)), "{kind} {facing}");
+        }
+        for (kind, facing) in [("mirror", "ne"), ("minibar", "nw"), ("desk", "ne"), ("washbasin", "nw")] {
+            assert!(!piece_accepts(&p(kind, 0, 2, facing)), "{kind} {facing}");
+        }
+        assert!(piece_accepts(&p("washbasin", 0, 7, "se")));
+        assert!(!piece_accepts(&pv("bed", 3, 3, "nw", 1)));
+    }
+
     #[test]
     fn every_kind_has_a_spec_and_a_distinct_serialised_name() {
         let names: HashSet<String> = KINDS.iter().map(|k| serde_json::to_string(k).unwrap()).collect();
@@ -1181,7 +1195,7 @@ mod tests {
     #[test]
     fn preset_ids() {
         let ids: Vec<&str> = ROOM_PRESET_IDS.iter().map(|i| i.as_str()).collect();
-        assert_eq!(ids, ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty"]);
+        assert_eq!(ids, ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"]);
         assert_eq!(DEFAULT_ROOM_PRESET.as_str(), "classic");
         for id in ROOM_PRESET_IDS {
             assert_eq!(serde_json::to_string(&id).unwrap(), format!("\"{}\"", id.as_str()));

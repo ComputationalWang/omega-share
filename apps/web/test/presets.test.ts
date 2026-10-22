@@ -6,13 +6,14 @@ import bar from "../../../assets/presets/bar.json";
 import cafe from "../../../assets/presets/cafe.json";
 import cinema from "../../../assets/presets/cinema.json";
 import classic from "../../../assets/presets/classic.json";
+import dankDungeon from "../../../assets/presets/dank-dungeon.json";
 import empty from "../../../assets/presets/empty.json";
 import living from "../../../assets/presets/living.json";
 import lounge from "../../../assets/presets/lounge.json";
 import manifest from "../../../assets/presets/presets.json";
 import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "../src/presets";
 
-const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty };
+const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon };
 
 describe("room presets (assets/presets/presets.json)", () => {
   test("the picker offers exactly the contract's preset ids, in the manifest's order", () => {
