@@ -27,6 +27,8 @@ export const SPEC_ROOMS = {
   wide: ["w1280", "w1920", "phone", "keys", "fs", "scroll"],
   "provider-shelf": ["vimeo", "live"],
   "phone-perf": ["frames"],
+  "theatre-perf": ["frames"],
+  "heap-movie": ["main"],
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
