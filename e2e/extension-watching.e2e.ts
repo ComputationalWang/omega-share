@@ -19,17 +19,17 @@ declare const chrome: { action: { getBadgeText(d: { tabId: number }): Promise<st
 const VIDEO = "aqz-KE-bpKQ"; // youtube-embed.html
 
 /** 20 public rooms; `match` plays the fixture's video with 4 of its 6 members watching. */
-function stubRooms(context: BrowserContext, match: { id: string; title: string }): Promise<void> {
-  const rooms = Array.from({ length: 19 }, (_, i) => ({ id: `room${String(i)}`.padEnd(26, "a"), memberCount: i, seatedCount: 0, nowPlaying: { provider: "youtube", id: "bbbbbbbbbbb" } }));
-  rooms.splice(12, 0, { id: match.id, title: match.title, memberCount: 6, seatedCount: 0, watchingCount: 4, nowPlaying: { provider: "youtube", id: VIDEO } } as (typeof rooms)[number]);
-  return context.route(`${URLS.server}/rooms`, (route) =>
+async function stubRooms(context: BrowserContext, match: { id: string; title: string }): Promise<void> {
+  const rooms: object[] = Array.from({ length: 19 }, (_, i) => ({ id: `room${String(i)}`.padEnd(26, "a"), memberCount: i, seatedCount: 0, nowPlaying: { provider: "youtube", id: "bbbbbbbbbbb" } }));
+  rooms.splice(12, 0, { id: match.id, title: match.title, memberCount: 6, seatedCount: 0, watchingCount: 4, nowPlaying: { provider: "youtube", id: VIDEO } });
+  await context.route(`${URLS.server}/rooms`, (route) =>
     route.request().method() === "GET" ? route.fulfill({ json: { rooms } }) : route.fallback(),
   );
 }
 
 const attempt = (info: TestInfo) => (info.retry === 0 ? "extwatcha" : "extwatchb");
 
-async function tabIdOf(p: Page): Promise<number> {
+function tabIdOf(p: Page): number {
   return Number(new URL(p.url()).searchParams.get("tabId"));
 }
 
@@ -55,7 +55,7 @@ test("the room playing the page's video lists first as \"N watching · Join\"; a
   await p.locator(popup.roomSelect).selectOption(room.id);
   await p.locator(popup.shareButton).click();
   await expect(p.locator(popup.shareStatus)).toHaveAttribute("data-state", "ok");
-  const tabId = await tabIdOf(p);
+  const tabId = tabIdOf(p);
   await expect.poll(() => p.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), tabId)).toBe("4");
 
   // Tab-scoped: another page in that tab drops it, with no worker involved.

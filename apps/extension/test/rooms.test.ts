@@ -58,7 +58,7 @@ describe("loadRooms", () => {
       list: {
         rooms: [
           { id: "lobby", label: "lobby (3)", watching: 3 },
-          { id: "abcdefghijklmnopqrstuvwxyz", label: "Movie night (7)", watching: 7 },
+          { id: "abcdefghijklmnopqrstuvwxyz", label: "Movie night (7)", title: "Movie night", watching: 7 },
         ],
         selected: "lobby",
       },

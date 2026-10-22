@@ -45,6 +45,7 @@ test.describe("extension perf", () => {
       await p.close();
     }
     // The ext.popupToList budget (docs/perf-budgets.md) holds with the room list sorted, too.
+    test.info().annotations.push({ type: "popup → sorted rooms (ms)", description: `p95 ${String(Math.round(p95(runs)))} of ${runs.map((r) => String(Math.round(r))).join(", ")}` });
     expect(p95(runs)).toBeLessThanOrEqual(300);
   });
 
