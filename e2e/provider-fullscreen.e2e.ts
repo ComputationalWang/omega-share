@@ -4,6 +4,7 @@
 // after a pause / play / seek, as provider-sync.e2e.ts; Twitch live: arrival of the pause and the play-from-live).
 // Runs in the `e2e-sync` project; each case has a seeded room of its own.
 import type { Page } from "@playwright/test";
+import { COUNTDOWN_MS } from "@omega/shared";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
@@ -104,7 +105,11 @@ test.describe("full screen on our wrapper, per provider (M7 W2)", () => {
       // The full-screen viewer drives too: the shelf stays under the picture.
       const steps: [string, () => Promise<void>, boolean][] = [
         ["pause", () => a.page.locator(site.playToggle).click(), false],
-        ["play", () => b.page.locator(site.playToggle).click(), true],
+        // A shared 3-2-1 (OME-1634): the room starts COUNTDOWN_MS after the press.
+        ["play", async () => {
+          await b.page.locator(site.playToggle).click();
+          await b.page.waitForTimeout(COUNTDOWN_MS);
+        }, true],
         ["seek", () => b.page.locator(site.seek).fill("120"), true],
       ];
       for (const [action, act, playing] of steps) {
