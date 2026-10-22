@@ -16,7 +16,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const THUMBS = { classic: "/t/classic.png", cinema: "/t/cinema.png", living: "/t/living.png", lounge: "/t/lounge.png", cafe: "/t/cafe.png", bar: "/t/bar.png", empty: "/t/empty.png" };
+const THUMBS = { classic: "/t/classic.png", cinema: "/t/cinema.png", living: "/t/living.png", lounge: "/t/lounge.png", cafe: "/t/cafe.png", bar: "/t/bar.png", empty: "/t/empty.png", "dank-dungeon": "/t/dank-dungeon.png" };
 const SERVER = "http://api.test";
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 const OWNER = "o".repeat(21) + "A";

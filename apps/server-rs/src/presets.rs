@@ -19,7 +19,7 @@ impl fmt::Display for PresetError {
 
 impl std::error::Error for PresetError {}
 
-/// All seven preset layouts, parsed once at startup: a bad asset fails the boot, not a creation.
+/// All preset layouts, parsed once at startup: a bad asset fails the boot, not a creation.
 #[derive(Debug, Clone)]
 pub struct Presets {
     classic: RoomLayout,
@@ -29,6 +29,7 @@ pub struct Presets {
     cafe: RoomLayout,
     bar: RoomLayout,
     empty: RoomLayout,
+    dank_dungeon: RoomLayout,
 }
 
 impl Presets {
@@ -41,6 +42,7 @@ impl Presets {
             RoomPresetId::Cafe => include_str!("../../../assets/presets/cafe.json"),
             RoomPresetId::Bar => include_str!("../../../assets/presets/bar.json"),
             RoomPresetId::Empty => include_str!("../../../assets/presets/empty.json"),
+            RoomPresetId::DankDungeon => include_str!("../../../assets/presets/dank-dungeon.json"),
         })
     }
 
@@ -55,6 +57,7 @@ impl Presets {
             cafe: parse(RoomPresetId::Cafe)?,
             bar: parse(RoomPresetId::Bar)?,
             empty: parse(RoomPresetId::Empty)?,
+            dank_dungeon: parse(RoomPresetId::DankDungeon)?,
         })
     }
 
@@ -67,6 +70,7 @@ impl Presets {
             RoomPresetId::Cafe => &self.cafe,
             RoomPresetId::Bar => &self.bar,
             RoomPresetId::Empty => &self.empty,
+            RoomPresetId::DankDungeon => &self.dank_dungeon,
         }
     }
 }
@@ -91,6 +95,17 @@ mod tests {
             assert_eq!(l.seats().len(), 8, "{}", id.as_str());
             assert_eq!(RoomLayout::parse_input(l.to_json().as_bytes()).as_ref(), Ok(l), "{}", id.as_str());
         }
+    }
+
+    // assets/src/presets.test.ts (OME-1672): only the dank-dungeon preset turns the pair emote on, under the night mood
+    #[test]
+    fn only_dank_dungeon_has_pairs() {
+        let presets = Presets::load().unwrap();
+        for id in ROOM_PRESET_IDS {
+            assert_eq!(presets.preset_layout(id).pairs(), id.as_str() == "dank-dungeon", "{}", id.as_str());
+        }
+        let l = presets.preset_layout(ROOM_PRESET_IDS[7]);
+        assert!(l.to_json().contains(r#""mood":"night""#));
     }
 
     #[test]

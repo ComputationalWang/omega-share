@@ -82,6 +82,13 @@ describe("reaction bar", () => {
     expect(sent).toEqual([]);
   });
 
+  test("hidden (nothing playing): Shift+1–4 are still ours and send nothing, so they never fall through to the emote keys (QA OME-1714)", async () => {
+    const { bar, press, sent } = await setup();
+    bar.root.hidden = true;
+    expect(press("Digit1", { key: "1" })).toBe(true);
+    expect(sent).toEqual([]);
+  });
+
   test("a held key repeats nothing", async () => {
     const { press, sent } = await setup();
     press("Digit1");

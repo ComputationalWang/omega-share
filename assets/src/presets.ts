@@ -146,6 +146,26 @@ export const PRESETS: readonly Preset[] = [
       ],
     },
   },
+  {
+    id: "dank-dungeon",
+    name: "Dank Dungeon",
+    blurb: "Twin beds, a whirlpool for two and the lights way down.",
+    // A hotel suite after dark (OME-1670, assets/README.md § "Dank Dungeon"); `pairs` turns on /thrust and /bendover (OME-1671).
+    layout: {
+      mood: "night",
+      pairs: true,
+      furniture: [
+        TV,
+        p("bed", 4, 0, "nw"), p("bed", 0, 3, "ne"),
+        p("wingback", 7, 2, "nw"), p("wingback", 7, 4, "nw"), p("coffeetable", 7, 3, "sw"),
+        p("whirlpool", 2, 7, "ne"),
+        p("desk", 7, 0, "sw"), p("minibar", 9, 0, "sw"),
+        p("washbasin", 0, 7, "se"), p("mirror", 0, 7, "se"),
+        p("neonsign", 0, 2, "se"), p("arclamp", 1, 5, "se"),
+        p("runner", 4, 4, "nw", 1), p("monstera", 9, 9, "sw", 1),
+      ],
+    },
+  },
 ];
 
 // ------------------------------------------------------------------ thumbnails

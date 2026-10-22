@@ -9,6 +9,7 @@ import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
 import { oneShotFrame, type AvatarEmote } from "./walk/motion";
+import { isPairFrame } from "./walk/pair";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
 import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
@@ -98,6 +99,10 @@ export interface RoomView {
   readonly paused: () => boolean;
   /** How many times the room has been drawn, for e2e "a bubble costs no render" checks. */
   renders(): number;
+  /** The Dank Dungeon's pose sheet (OME-1672): fetched once, only for a layout with `pairs`. */
+  loadPairPoses(): void;
+  /** Two members paired: the thruster and the bender play their poses, once the sheet is in (OME-1672). */
+  pair(thruster: MemberId, bender: MemberId): void;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: AvatarEmote): void;
   /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint and hair drawn, for e2e checks. */
@@ -408,8 +413,12 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         console.warn("bare heads sheet failed to load", e);
       });
   };
+  // The Dank Dungeon's poses (OME-1672, walk/pair-atlas.ts): their own lazy chunk, fetched once a room with `pairs` is drawn.
+  let pairSheet: TintableSheets | null = null;
+  let pairLoad = false;
   /** The member's body frame: the bare head under an accessory that takes their headwear off, once that sheet is in. */
   const body = (entry: Entry, frame: string, avatar: number): Texture | undefined =>
+    (pairSheet !== null && isPairFrame(frame) ? pairSheet.texture(frame, avatar, entry.tint, entry.hair) : undefined) ??
     (bare !== null && wearsBare(avatar, entry.accessory) ? bare.texture(frame, avatar, entry.tint, entry.hair) : undefined) ?? motion?.texture(frame, avatar, entry.tint, entry.hair);
   /** Their accessory changed, or the bare sheet came in: the body frame and the hat again, their look's sheets too. */
   const reframe = (id: MemberId, entry: Entry): void => {
@@ -541,13 +550,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       // fresh transform string, so a Smooth frame that stays on the same pixel writes nothing (R-M8a §2).
       const x = Math.round(pose.x);
       const y = Math.round(pose.y);
-      const moved = entry.x !== x || entry.y !== y;
+      // A thruster is drawn at their partner's spot (OME-1672); their tag and bubble stay where they stand.
+      const thrust = frame?.startsWith("thrust/") === true;
+      const moved = !thrust && (entry.x !== x || entry.y !== y);
       if (moved) {
         entry.x = x;
         entry.y = y;
         opts.onMove?.(id, x, y);
       }
-      if (!pose.walking && (entry.walking || moved)) opts.onStop?.(id, x, y);
+      if (!pose.walking && !thrust && (entry.walking || moved)) opts.onStop?.(id, x, y);
       entry.walking = pose.walking;
       opts.sound?.pose(id, pose);
     },
@@ -1179,6 +1190,33 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     paused: () => paused,
     renders: () => renders,
+    loadPairPoses() {
+      if (pairLoad) return;
+      pairLoad = true;
+      void import("./walk/pair-atlas")
+        .then((m) => m.loadPairAtlas())
+        .then((p) => {
+          if (!destroyed) pairSheet = p;
+        })
+        // Without it a pair just doesn't draw; the next pairs room retries.
+        .catch((e: unknown) => {
+          pairLoad = false;
+          console.warn("pair poses failed to load", e);
+        });
+    },
+    pair(thruster, bender) {
+      const sheet = pairSheet;
+      if (sheet === null) return;
+      const looks = [thruster, bender].flatMap((id) => pool.get(id) ?? []);
+      Promise.all(looks.map((e) => sheet.loadTint(e.avatar, e.tint, e.hair))).then(
+        () => {
+          if (!destroyed) animator.pair(thruster, bender);
+        },
+        (err: unknown) => {
+          console.warn("pair look sheets failed to load", err);
+        },
+      );
+    },
     emote(id, kind) {
       opts.sound?.play("pop");
       animator.emote(id, kind);

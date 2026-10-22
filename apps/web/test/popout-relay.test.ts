@@ -324,6 +324,7 @@ describe("room relay (OME-600)", () => {
     relay.view({ ...VIEW, bubbles: [{ id: 1, memberId: "m1", text: "hi", expiresAt: 1 }] });
     relay.tv({ ...TV, position: 62 });
     relay.emote("m1", "wave");
+    relay.react("m1", "heart");
     expect(take()).toEqual([]);
   });
 
@@ -375,9 +376,11 @@ describe("room relay (OME-600)", () => {
     expect(take()).toEqual([]);
     relay.tv({ ...TV, position: 62 });
     relay.emote("m1", "heart");
+    relay.react("m1", "wow");
     expect(take()).toEqual([
       { t: "room-tv", ...TV, position: 62 },
       { t: "room-emote", member: "m1", kind: "heart" },
+      { t: "room-react", member: "m1", kind: "wow" },
     ]);
   });
 

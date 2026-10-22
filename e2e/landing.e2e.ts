@@ -6,7 +6,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
-import { DEFAULT_ROOM_ID, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { DEFAULT_ROOM_ID, ROOM_PRESET_IDS, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
 
@@ -170,7 +170,7 @@ test.describe("reduced motion", () => {
 // directory opens every thumbnail has its pixels (no pop-in). Dev serves `src/home.ts`, preview `home-<hash>.js`.
 const PICKER_URL = /\/(home|presets|preset-thumbs)(-[\w-]+)?\.(js|ts)(\?|$)|\/(classic|cinema|living|lounge|cafe|bar|empty)(-[\w-]+)?\.png(\?|$)/;
 
-test("a first visit to / fetches no preset thumbnails or picker code; intent warms them and the directory shows all seven", async ({ page }) => {
+test("a first visit to / fetches no preset thumbnails or picker code; intent warms them and the directory shows every preset", async ({ page }) => {
   const fetched: string[] = [];
   page.on("request", (r) => {
     if (PICKER_URL.test(new URL(r.url()).pathname)) fetched.push(r.url());
@@ -185,7 +185,7 @@ test("a first visit to / fetches no preset thumbnails or picker code; intent war
   await expect.poll(() => fetched.length).toBeGreaterThan(0);
   await page.locator(site.findRoom).click();
   const thumbs = page.locator(".preset-picker img");
-  await expect(thumbs).toHaveCount(7);
+  await expect(thumbs).toHaveCount(ROOM_PRESET_IDS.length);
   await expect.poll(() => thumbs.evaluateAll((imgs) => imgs.every((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0))).toBe(true);
 });
 

@@ -91,7 +91,8 @@ export function createReactionBar(o: ReactionBarOptions): ReactionBar {
     key(ev) {
       const kind = CODES[ev.code];
       if (kind === undefined || !ev.shiftKey || ev.ctrlKey || ev.altKey || ev.metaKey || ev.isComposing || typing(ev.target)) return false;
-      if (!ev.repeat) react(kind);
+      // Hidden (nothing playing), the chord is still ours and does nothing: on some layouts it types a digit, an emote key (QA OME-1714).
+      if (!ev.repeat && !root.hidden) react(kind);
       return true;
     },
   };
