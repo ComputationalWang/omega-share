@@ -497,6 +497,18 @@
     },
     {
       "paths": [
+        "apps/web/src/moments/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts"
+      ]
+    },
+    {
+      "paths": [
         "apps/web/src/emote/**"
       ],
       "except": [
