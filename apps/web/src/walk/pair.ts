@@ -1,6 +1,6 @@
 // The Dank Dungeon pair's frame keys (OME-1672, assets/avatars/dungeon.json): `bendover/<avatar>/<se|sw>/0` and
 // `thrust/<avatar>/<se|sw>/<0-2>`, built once so a frame draw allocates nothing.
-import { AVATAR_IDS } from "./tint";
+import { AVATAR_IDS } from "./avatar-ids";
 
 /** How long the pair plays before both go back to idle. */
 export const PAIR_MS = 4000;
