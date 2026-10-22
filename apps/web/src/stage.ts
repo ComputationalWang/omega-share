@@ -14,7 +14,7 @@ import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
-import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
+import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
@@ -55,6 +55,8 @@ export interface StageOptions {
   /** The room and server time (OME-1520): every client's cats wander alike from them (room-view.ts). */
   readonly roomId?: string;
   readonly serverNow?: () => number;
+  /** The room's sounds (OME-1638), passed to the room view. */
+  readonly sound?: RoomSound;
 }
 
 export interface Stage {
@@ -164,6 +166,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const view = await createRoomView({
     ...(o.roomId === undefined ? {} : { roomId: o.roomId }),
     ...(o.serverNow === undefined ? {} : { serverNow: o.serverNow }),
+    ...(o.sound === undefined ? {} : { sound: o.sound }),
     onMove: (id, x, y) => {
       const head = y - liftOf(id);
       badges.move(id, x, head);

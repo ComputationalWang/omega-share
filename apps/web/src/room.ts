@@ -61,6 +61,8 @@ import { NO_CONGA, congaAhead, congaJoin, congaStep, congaText } from "./chat/co
 import { createPads } from "./walk/pad";
 import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
+import type { FloorKind, Sound } from "./audio";
+import { cellAt } from "./walk/path";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -174,8 +176,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     hug = null;
     if (kind !== undefined) picker.emote(kind);
   }
+  // Room sounds (OME-1638): the engine is its own lazy chunk, loaded once the room is up; until then nothing sounds.
+  let sound: Sound | null = null;
   const roomStage: Stage = await createStage({
     reducedMotion,
+    sound: {
+      pose: (id, p) => {
+        sound?.pose(id, p);
+      },
+      play: (name) => {
+        sound?.play(name);
+      },
+    },
     roomId: opts.roomId,
     serverNow: () => clock.serverNow(),
     dim: cinema.el,
@@ -475,6 +487,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const help = createHelp({
     owner: () => state.owner && opts.secret?.ownerToken !== undefined,
     cinema,
+    sound: () =>
+      sound === null
+        ? null
+        : {
+            volume: () => sound?.volume() ?? 0,
+            setVolume: (v) => {
+              sound?.setVolume(v);
+              sound?.play("ui.tick");
+            },
+            muted: () => sound?.muted() ?? false,
+            setMuted: (m) => {
+              sound?.setMuted(m);
+              sound?.play("ui.toggle");
+            },
+          },
     tips: () => {
       firstHint.restart();
     },
@@ -723,9 +750,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }
 
   /** The room dims while the video plays, lifted while the editor is open (OME-1406); the mood shown is the drawn layout's (OME-1502). */
+  let lightsDown = false;
   const dim = (): void => {
-    cinema.update(pbView?.hasVideo === true && pbView.playing, owner.editing());
-    cinema.mood((owner.preview() ?? layoutOf(state.room)).mood ?? "none");
+    const playing = pbView?.hasVideo === true && pbView.playing;
+    cinema.update(playing, owner.editing());
+    const mood = (owner.preview() ?? layoutOf(state.room)).mood ?? "none";
+    cinema.mood(mood);
+    sound?.tone(mood);
+    // The lights-down swell (OME-1638) as the dim comes on.
+    const down = cinema.on() && playing && !owner.editing();
+    if (down && !lightsDown) sound?.play("swell");
+    lightsDown = down;
   };
 
   const requestRender = (): void => {
@@ -864,6 +899,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (s.lastError !== null && !queueClaimed) {
         notice.textContent = ERROR_TEXT[s.lastError.code];
         notice.hidden = false;
+        sound?.play("ui.error");
         if (noticeTimer !== null) clearTimeout(noticeTimer);
         noticeTimer = setTimeout(() => {
           notice.hidden = true;
@@ -1275,5 +1311,31 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
+  // Sound (OME-1638): unlocked by the Enter gesture that got us here (its activation still holds), and by the next
+  // pointer or key press if the browser kept it suspended (a resumed session had no gesture).
+  void import("./audio")
+    .then(({ loadSound, floorKinds }) => {
+      let floors: { layout: RoomLayout; at: (cell: number) => FloorKind } | null = null;
+      sound = loadSound({
+        store: {
+          getItem: (k) => localStorage.getItem(k),
+          setItem: (k, v) => {
+            localStorage.setItem(k, v);
+          },
+        },
+        listener: () => (state.self === null ? null : (view.position(state.self) ?? null)),
+        floorAt: (p) => {
+          const l = layoutOf(state.room);
+          if (floors?.layout !== l) floors = { layout: l, at: floorKinds(l.furniture) };
+          return floors.at(cellAt(p));
+        },
+      });
+      sound.unlock();
+      for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => sound?.unlock(), { capture: true, passive: true });
+      dim();
+    })
+    .catch((e: unknown) => {
+      console.warn("sound: not loaded", e);
+    });
   return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }
