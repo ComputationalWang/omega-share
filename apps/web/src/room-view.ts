@@ -2,7 +2,7 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type EmoteKind, type FloorCell, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type FloorCell, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";

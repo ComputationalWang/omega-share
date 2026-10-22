@@ -2,7 +2,7 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
