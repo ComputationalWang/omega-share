@@ -1233,13 +1233,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Crowd applause (OME-1389): from the relayed emotes only (a chat sticker isn't one), so every client agrees.
   const applause = createApplause();
   const relayedEmote = (id: MemberId, kind: EmoteKind): void => {
-    // A heart from beside a cat is a pet (OME-1669): the avatar reaches out (a wave for now), the cat gets the heart. Reduced motion: the plain badge.
+    // A heart from beside a cat is a pet (OME-1669): the avatar reaches out (OME-1697), the cat gets the heart. Reduced motion: the plain badge.
     const at = kind === "heart" && !reducedMotion.matches ? roomStage.cellOf(id) : null;
     const cats = at === null ? [] : roomStage.catCells();
     const cat = at === null ? undefined : cats.find((c) => isPetting(cellIndex(at.x, at.y), [c]));
     if (cat === undefined) emoted(id, kind);
     else {
-      emoted(id, "wave");
+      // shortcut: the pop-out channel carries EmoteKind only, so a popped-out room still sees a wave; widen the channel if that matters.
+      relay?.emote(id, "wave");
+      if (!roomOut()) roomStage.emote(id, "reach", state);
       roomStage.petCat(cat);
     }
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();

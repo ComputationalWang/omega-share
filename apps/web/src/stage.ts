@@ -2,7 +2,7 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
@@ -19,6 +19,7 @@ import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } f
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
+import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
 import { awayChanges } from "./session-lifecycle";
 import tintsJson from "../../../assets/avatars/tints.json";
@@ -73,7 +74,7 @@ export interface Stage {
   render(s: StageState, layout: RoomLayout, selfCatching: boolean, editing: boolean): void;
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
-  emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  emote(id: MemberId, kind: AvatarEmote, s: StageState): void;
   /** A received reaction (OME-1631): a glyph burst over their head, if the view allows it now. Returns the glyphs shown. */
   react(id: MemberId, kind: ReactionKind): number;
   /** Their next move is a teleport (OME-1548, `walked.teleport`): marked before the state change that draws it. */
@@ -564,7 +565,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return;
       }
       const p = view.position(id) ?? placedAt.get(id);
-      if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+      // The reach has no badge; room.ts never sends it under reduced motion.
+      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
     },
     react(id, kind) {
       const p = view.position(id) ?? placedAt.get(id);

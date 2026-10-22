@@ -111,6 +111,22 @@ describe("parseMotion", () => {
         }
   });
 
+  // OME-1734: reach (the pet, OME-1697) is standing only: 5 × 160 ms, frames 0 1 0 1 0; no sit cycles.
+  test("reach is a standing one-shot per avatar and direction: 5 × 160 ms, and has no sit cycle", () => {
+    for (const [a, id] of ["juno", "pip", "mo", "kiki"].entries())
+      for (const [d, dir] of DIRS.entries()) {
+        const f = (n: number): string => `reach/${id}/idle/${dir}/${String(n)}`;
+        expect(m.reach[a]?.idle[d]).toEqual({ frames: [f(0), f(1), f(0), f(1), f(0)], ms: [160, 160, 160, 160, 160] });
+        expect(m.reach[a]?.sit).toEqual([]);
+      }
+  });
+
+  test("refuses an expressions sheet without a reach for some avatar and direction", () => {
+    const bad = clone(expressions);
+    delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["reach/pip/idle/sw"];
+    expect(() => parseMotion(motion, avatars, bad)).toThrow();
+  });
+
   test("refuses an expressions sheet without a cheer for some avatar, pose and direction", () => {
     const bad = clone(expressions);
     delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["cheer/mo/sit/se"];

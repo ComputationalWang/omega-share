@@ -2,13 +2,13 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type EmoteKind, type FloorCell, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type FloorCell, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
-import { oneShotFrame } from "./walk/motion";
+import { oneShotFrame, type AvatarEmote } from "./walk/motion";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
 import { createTier, createTierProbe, readTierHints, weakDevice } from "./walk/tier";
@@ -99,7 +99,7 @@ export interface RoomView {
   /** How many times the room has been drawn, for e2e "a bubble costs no render" checks. */
   renders(): number;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
-  emote(id: MemberId, kind: EmoteKind): void;
+  emote(id: MemberId, kind: AvatarEmote): void;
   /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint and hair drawn, for e2e checks. */
   frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; hair: number; accessory: number; bare: boolean; hatAnchored: boolean } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
