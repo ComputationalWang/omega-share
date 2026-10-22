@@ -32,6 +32,7 @@ export function petSpot(grid: Uint8Array, cats: readonly number[], mine: number,
 export const PET_RETRIES = 2;
 
 /** On arriving from a /pet walk at `mine` (`tries`: re-targets so far): pet, chase the cat again, or give up. */
-export function petArrival(_mine: number, _cats: readonly number[], _tries: number): "pet" | "retarget" | "lost" {
-  return "pet";
+export function petArrival(mine: number, cats: readonly number[], tries: number): "pet" | "retarget" | "lost" {
+  if (isPetting(mine, cats)) return "pet";
+  return cats.length > 0 && tries < PET_RETRIES ? "retarget" : "lost";
 }
