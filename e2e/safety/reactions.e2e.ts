@@ -172,7 +172,7 @@ test.describe("share startSeconds", () => {
     }
     await new Promise((r) => setTimeout(r, RELAY_WINDOW_MS));
     expect(member.frames.filter((f) => f.type === "embed-changed")).toEqual([]);
-    expect((await join(room.id, "unchanged")).snapshot.room.embed).toBeNull();
+    expect((await join(room.id, "unchanged")).snapshot.room.embed).toEqual(member.snapshot.room.embed);
 
     const from = member.frames.length;
     expect((await postShare(request, room.id, token, EMBED_URL, { startSeconds: 90 })).status()).toBe(200);

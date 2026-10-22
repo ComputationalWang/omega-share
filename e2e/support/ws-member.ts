@@ -40,7 +40,9 @@ export class WsMember {
         reject(new Error(`${nickname}: no snapshot within 10 s`));
       }, 10_000);
       ws.addEventListener("open", () => {
-        ws.send(JSON.stringify({ type: "join", nickname, avatar: 0, ...fields }));
+        // A suffix per join: a retry or a reused local server finds the last attempt's member still held (nickname_taken).
+        const unique = `${nickname.slice(0, 14)}-${Math.random().toString(36).slice(2, 7)}`;
+        ws.send(JSON.stringify({ type: "join", nickname: unique, avatar: 0, ...fields }));
       });
       ws.addEventListener("message", (ev: MessageEvent<unknown>) => {
         const msg = typeof ev.data === "string" ? parseServerMessage(ev.data) : null;

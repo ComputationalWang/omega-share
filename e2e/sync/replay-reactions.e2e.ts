@@ -155,7 +155,7 @@ test.describe("replay on a late joiner's page", () => {
     const { relay } = await react(reactor, "heart");
     const back = await seek(reactor, relay.mediaMs / 1000 - 20);
 
-    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "late" });
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `late${Math.random().toString(36).slice(2, 7)}` });
     const [late] = clients;
     if (late === undefined) throw new Error("no late joiner");
     await waitPlaying(clients);
