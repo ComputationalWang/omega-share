@@ -30,7 +30,7 @@ const SAMPLE_MS = 250;
 const PROBE_TIMEOUT_MS = 5000;
 
 export type Args =
-  | { mode: "run"; server: string; label: string; rooms: number; members: number; duration: number; probes: number; noise: number }
+  | { mode: "run"; server: string; label: string; rooms: number; members: number; duration: number; probes: number; noise: number; batch: boolean }
   | { mode: "compare"; a: string; b: string; noise: number };
 
 function intIn(name: string, raw: string | undefined, def: number, min: number, max: number): number {
@@ -67,6 +67,7 @@ export function parseArgs(argv: string[]): Args {
     duration: intIn("--duration", flags.get("duration"), 60, 1, 3600),
     probes: intIn("--probes", flags.get("probes"), 60, 1, 100_000),
     noise,
+    batch: false,
   };
 }
 

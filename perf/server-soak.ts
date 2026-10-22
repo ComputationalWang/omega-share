@@ -879,6 +879,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     integrity,
     consistency,
     abuse: [...abuse].map(([kind, a]) => ({ kind, ...a })),
+    batch: { relayBatchMs: args.relayBatchMs, frames: 0, msgs: 0, unopted: 0 },
   };
   const checks = evaluate(result);
   const pass = checks.every((c) => !c.enforced || c.ok);
