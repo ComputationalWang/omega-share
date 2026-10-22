@@ -27,3 +27,11 @@ export function petSpot(grid: Uint8Array, cats: readonly number[], mine: number,
   }
   return best;
 }
+
+/** How often a /pet walk chases a cat that moved on before it gives up. */
+export const PET_RETRIES = 2;
+
+/** On arriving from a /pet walk at `mine` (`tries`: re-targets so far): pet, chase the cat again, or give up. */
+export function petArrival(_mine: number, _cats: readonly number[], _tries: number): "pet" | "retarget" | "lost" {
+  return "pet";
+}

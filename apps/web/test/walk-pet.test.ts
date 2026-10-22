@@ -3,7 +3,7 @@ import { FLOOR_CELLS, type Member, type RoomState } from "@omega/shared";
 import { hugStep } from "../src/chat/hug";
 import { slashCommand } from "../src/chat/effects";
 import { initialState, reduce, type ViewState } from "../src/state";
-import { isPetting, petCell } from "../src/walk/pet";
+import { isPetting, PET_RETRIES, petArrival, petCell } from "../src/walk/pet";
 import { cellOf } from "../src/walk/path";
 
 // OME-1669: /pet walks me beside the cat and sends the existing heart; a heart from beside a cat is a pet.
@@ -60,5 +60,15 @@ describe("hugStep for the cat (no target member)", () => {
     expect(hugStep(start, walked(start, 7, 9), pet)).toBe("arrived");
     expect(hugStep(start, walked(start, 3, 3), pet)).toBe("cancel");
     expect(hugStep(start, start, pet)).toBeNull();
+  });
+});
+
+describe("petArrival (QA OME-1704: the cat wandered while I walked)", () => {
+  test("still beside a cat pets; moved away re-targets; after the last try it gives up, no stray heart", () => {
+    expect(petArrival(cellOf(5, 4), [cellOf(5, 5)], 0)).toBe("pet");
+    expect(petArrival(cellOf(5, 4), [cellOf(3, 4)], 0)).toBe("retarget");
+    expect(petArrival(cellOf(5, 4), [cellOf(3, 4)], PET_RETRIES - 1)).toBe("retarget");
+    expect(petArrival(cellOf(5, 4), [cellOf(3, 4)], PET_RETRIES)).toBe("lost");
+    expect(petArrival(cellOf(5, 4), [], 0)).toBe("lost");
   });
 });
