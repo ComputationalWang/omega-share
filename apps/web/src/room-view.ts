@@ -2,12 +2,13 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type EmoteKind, type FloorCell, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type FloorCell, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
-import { createAnimator, type FurnitureLoop } from "./walk/animator";
+import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
+import { oneShotFrame, type AvatarEmote } from "./walk/motion";
 import { isPairFrame } from "./walk/pair";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
@@ -77,6 +78,10 @@ export interface RoomView {
   loops(): { key: string; frame: number }[];
   /** The wandering cats (OME-1520), for e2e: each one's floor cell ("col,row"), whether it walks, and the 20 s slot it is in. */
   cats(): { cell: string; walking: boolean; slot: number }[];
+  /** The cats' cells now (walk cells; a walking cat: the one it crosses), for /pet and a pet's heart (OME-1669). */
+  catCells(): number[];
+  /** The cat on `cell` shows a heart for one play (OME-1669); nothing under reduced motion. */
+  petCat(cell: number): void;
   /** Where members stand (walk cells: a cat waits rather than walk into one), and the owner editor's freeze (cats home). Per change. */
   setCatRules(taken: ReadonlySet<number>, frozen: boolean): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
@@ -99,7 +104,7 @@ export interface RoomView {
   /** Two members paired: the thruster and the bender play their poses, once the sheet is in (OME-1672). */
   pair(thruster: MemberId, bender: MemberId): void;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
-  emote(id: MemberId, kind: EmoteKind): void;
+  emote(id: MemberId, kind: AvatarEmote): void;
   /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint and hair drawn, for e2e checks. */
   frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; hair: number; accessory: number; bare: boolean; hatAnchored: boolean } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
@@ -600,6 +605,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     readonly sprite: Sprite;
     /** Where this slot's walk ends (or ended). */
     cell: number;
+    /** Petted (OME-1669): when the heart sticker over the cat started (-1: none), and its sprite, made on the first pet. */
+    petAt: number;
+    heart: Sprite | null;
   }
   const catWalks = createWalks({ reducedMotion: () => reduced.matches, smooth: tier.smooth });
   const catPose = emptyPose();
@@ -637,7 +645,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   };
   /** The scene's cats, put on this slot's resting cell like on every other client. */
   const setCats = (found: readonly { readonly w: CatWalker; readonly bedSprite: Sprite; readonly asleep: Texture }[], sheets: readonly (Sheet | null)[], grid: Uint8Array): void => {
-    for (const c of cats) c.sprite.destroy();
+    for (const c of cats) {
+      c.sprite.destroy();
+      c.heart?.destroy();
+    }
     const tex = (k: string): Texture | undefined => sheets.map((sh) => sh?.texture(k)).find((t) => t !== undefined);
     const was = new Map(cats.map((c) => [c.id, c.cell]));
     const key = `${found.map((f) => String(f.w.home)).join(",")}|${grid.join("")}`;
@@ -654,7 +665,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const id = `cat:${String(f.w.piece)}`;
       const sprite = new Sprite({ texture: se, label: id, visible: false });
       objectLayer.addChild(sprite);
-      return [{ id, w: f.w, bedSprite: f.bedSprite, asleep: f.asleep, bed, walk, sit: { se, sw }, sprite, cell: keep ? (was.get(id) ?? f.w.home) : f.w.home }];
+      return [{ id, w: f.w, bedSprite: f.bedSprite, asleep: f.asleep, bed, walk, sit: { se, sw }, sprite, cell: keep ? (was.get(id) ?? f.w.home) : f.w.home, petAt: -1, heart: null }];
     });
     catWalks.setGrid(grid);
     if (keep) catWalks.place(cats.map(catTarget), performance.now());
@@ -666,6 +677,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     let walking = false;
     for (const c of cats) {
       if (!catWalks.sample(c.id, now, catPose)) continue;
+      // Drawn first and unconditionally: `walking ||= drawHeart()` would skip it once another cat walks.
+      if (drawHeart(c, now)) walking = true;
       const home = !catPose.walking && c.cell === c.w.home;
       const bedTexture = home ? c.asleep : c.bed;
       if (c.bedSprite.texture !== bedTexture) c.bedSprite.texture = bedTexture;
@@ -685,6 +698,26 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       walking ||= catPose.walking;
     }
     return walking;
+  }
+  /** The petted cat's heart (OME-1669: `emote/heart`, one play over `catPose`; allocates only its sprite, once); true while it plays so frames keep coming. */
+  function drawHeart(c: Cat, now: number): boolean {
+    if (c.petAt < 0) return false;
+    const cycle = motion?.frames.emote.heart;
+    const f = cycle === undefined ? null : oneShotFrame(cycle.ms, now - c.petAt);
+    const key = f === null || f.index < 0 ? undefined : cycle?.frames[f.index];
+    const t = key === undefined ? undefined : motion?.texture(key);
+    if (t === undefined) {
+      if (c.heart !== null) c.heart.visible = false;
+      if (f === null || f.nextIn === Infinity) c.petAt = -1;
+      return false;
+    }
+    if (c.heart === null) {
+      c.heart = new Sprite({ texture: t, label: `emote:${c.id}` });
+      emoteLayer.addChild(c.heart);
+    } else if (c.heart.texture !== t) c.heart.texture = t;
+    c.heart.position.set(catPose.x, catPose.y - EMOTE_LIFT.idle);
+    c.heart.visible = true;
+    return true;
   }
 
   // The theme's effect (ADR 0052): particles on a small overlay canvas over the effect's band only, at 1 px per stage px
@@ -1055,6 +1088,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         const cell = cellAt(catPose);
         return [{ cell: `${String(colOf(cell))},${String(rowOf(cell))}`, walking: catPose.walking, slot }];
       });
+    },
+    catCells() {
+      const now = performance.now();
+      return cats.flatMap((c) => (catWalks.sample(c.id, now, catPose) ? [cellAt(catPose)] : []));
+    },
+    petCat(cell) {
+      if (reduced.matches) return;
+      const now = performance.now();
+      for (const c of cats) if (catWalks.sample(c.id, now, catPose) && cellAt(catPose) === cell) c.petAt = now;
+      animator.wake();
     },
     setCatRules(taken, frozen) {
       catTaken = taken;

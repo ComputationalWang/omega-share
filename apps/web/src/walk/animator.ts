@@ -5,8 +5,8 @@
 // timers on the one-shot's own frame times: a gesture (wave, cheer, yawn) swaps the avatar's frames, a sticker is drawn
 // above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock.
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
-import type { EmoteKind, MemberId } from "@omega/shared";
-import { DIRS, cycleFrame, oneShotFrame, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
+import type { MemberId } from "@omega/shared";
+import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
 import { PAIR_MS, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
@@ -63,7 +63,7 @@ export interface Animator {
   /** The motion atlas arrived: redraw everyone with it on the next frame. */
   setFrames(frames: MotionFrames): void;
   /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
-  emote(id: MemberId, kind: EmoteKind): void;
+  emote(id: MemberId, kind: AvatarEmote): void;
   /** The dank-dungeon pair (OME-1672): `thruster` and `bender` play their poses for PAIR_MS, then go back to idle. Nothing under reduced motion. */
   pair(thruster: MemberId, bender: MemberId): void;
   /** A prop started walking (OME-1520): draw on the next frame and keep going while it walks. */
@@ -282,7 +282,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       if (kind === "dance") {
         play.danceAt = now;
         play.gesture = null;
-      } else if (kind === "wave" || kind === "cheer" || kind === "yawn") {
+      } else if (kind === "wave" || kind === "cheer" || kind === "yawn" || kind === "reach") {
         play.gesture = kind;
         play.gestureAt = now;
         play.danceAt = null;

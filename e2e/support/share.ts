@@ -71,8 +71,8 @@ function sourceAddress(): string {
 }
 
 /** One POST to `path` on the loopback server, sent from `from`. */
-function postFrom(from: string, path: string, token: string, url: string): Promise<ShareReply> {
-  const data = JSON.stringify({ url });
+function postFrom(from: string, path: string, token: string, body: Record<string, unknown>): Promise<ShareReply> {
+  const data = JSON.stringify(body);
   return new Promise((resolve, reject) => {
     const req = httpRequest(
       {
@@ -104,10 +104,11 @@ function postFrom(from: string, path: string, token: string, url: string): Promi
  * first non-429 response. On a loopback server each attempt comes from a fresh source address (see sourceAddress);
  * anywhere else (e2e:real, a tunnel) it goes through `request` from this machine's one address.
  */
-export async function postShare(request: APIRequestContext, roomId: string, token: string, url: string): Promise<ShareReply> {
+export async function postShare(request: APIRequestContext, roomId: string, token: string, url: string, extra: Record<string, unknown> = {}): Promise<ShareReply> {
   const path = `/rooms/${roomId}/share`;
+  const body = { url, ...extra };
   const post = (): Promise<ShareReply> =>
-    LOOPBACK_SERVER ? postFrom(sourceAddress(), path, token, url) : request.post(`${URLS.server}${path}`, { data: { url }, headers: { authorization: `Bearer ${token}` } });
+    LOOPBACK_SERVER ? postFrom(sourceAddress(), path, token, body) : request.post(`${URLS.server}${path}`, { data: body, headers: { authorization: `Bearer ${token}` } });
   let res = await post();
   await expect
     .poll(async () => {

@@ -51,6 +51,7 @@ export const COMMANDS: readonly Command[] = [
   fun("think", "fill", "/think ", "/think <thought>", "Think", "A thought bubble over your head"),
   fun("hug", "fill", "/hug @", "/hug <name>", "Hug", "Walk over and hug someone"),
   fun("highfive", "fill", "/highfive @", "/highfive <name>", "High five", "Walk over and high-five someone"),
+  fun("pet", "run", "/pet", "/pet", "Pet the cat", "Walk over and pet the room cat"),
   fun("help", "run", "/help", "/help", "Help", "List these commands in the chat"),
   move("Walk", "Click or tap the floor to walk there."),
   move("Jog", "Shift and the arrows, or double-click the floor, to jog."),

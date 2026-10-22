@@ -1348,18 +1348,20 @@ function whirlpool(k: Kit, n = 0): void {
       k.box(x, x1, y, y1, RIM - 3, RIM, "cream", { paint: rim, front: near((x + x1) / 2, (y + y1) / 2) });
     }
   }
-  // Water in 2-unit tiles, so each tile can be in front of or behind a sitter. Bubbles drift a step per frame.
+  // Water in 2-unit tiles, so each tile can be in front of or behind a sitter. Bubbles (2-unit clusters, never touching
+  // the rim, so no lone pixel at the edge) drift a step per frame on the back tiles; the front layer has no use frames.
   for (let x = X0 + T; x < X1 - T - 0.01; x += 2) {
     for (let y = Y0 + T; y < Y1 - T - 0.01; y += 2) {
       const x1 = Math.min(x + 2, X1 - T), y1 = Math.min(y + 2, Y1 - T);
+      const front = near((x + x1) / 2, (y + y1) / 2);
       k.box(x, x1, y, y1, WATER - 1, WATER, "teal", {
-        front: near((x + x1) / 2, (y + y1) / 2),
+        front,
         paint: (p, f) => {
           if (f !== "top") return null;
-          const h = hash(Math.floor(p.x + 20), Math.floor(p.y + 20) + 7 * n);
-          if (n > 0 && h % 6 === 0) return ["cream", 0];
-          if (n > 0 && h % 6 === 1) return ["glow", 1];
-          return h % 13 === 0 ? ["glow", 2] : ["teal", 1];
+          const edge = p.x < X0 + T + 1 || p.x > X1 - T - 1 || p.y < Y0 + T + 1 || p.y > Y1 - T - 1;
+          if (n === 0 || front || edge) return ["teal", 1];
+          const h = hash(Math.floor((p.x + 20) / 2), Math.floor((p.y + 20) / 2) + 7 * n);
+          return h % 5 === 0 ? ["cream", 0] : h % 5 === 1 ? ["glow", 1] : ["teal", 1];
         },
       });
     }
@@ -1371,24 +1373,23 @@ function whirlpool(k: Kit, n = 0): void {
   k.box(-5.8, -5.2, 4.9, 5.5, RIM + 2.8, RIM + 3.3, "ginger", { tones: { top: 0, sw: 0, se: 0 } });
 }
 
-/** Big wall mirror in a thin brass frame. The smoked glass shows the bathroom behind you: a tiled wall, a lit
- *  lamp blur and two sheen streaks. */
+/** Big oval wall mirror (OME-1685: an oval with pale glass, so it never reads as the door or the night window). A bevelled
+ *  brass frame (lit outer edge top-left, lit inner edge bottom-right), pale glass that darkens toward the bottom, two
+ *  diagonal sheen streaks and the reflected lamp glow. */
 function wallMirror(k: Kit): void {
-  const x0 = -6.5, x1 = 6.5, z0 = 60, z1 = 140;
-  k.box(x0, x1, 6.5, 8, z0, z1, "mustard", {
-    paint: (p, f) => {
-      if (f !== "front") return f === "top" ? ["mustard", 0] : ["mustard", 2];
-      const x = p.x, z = p.z;
-      if (x < x0 + 1 || z >= z1 - 1.5) return ["mustard", 0];
-      if (x >= x1 - 1 || z < z0 + 1.5) return ["mustard", 2];
-      const sheen = (x - x0) * 4 - (z - z0) + 24;
-      if (Math.abs(sheen - 18) < 1.2 || Math.abs(sheen - 30) < 0.6) return ["glow", 2];
-      if (Math.hypot(x - 2.5, (z - 116) / 2) < 1.6) return ["mustard", 0];
-      if (Math.hypot(x - 2.5, (z - 116) / 2) < 2.6) return ["navy", 0];
-      if (z < 100) return Math.abs(((x + 40) % 3) - 1.5) > 1.2 || Math.abs(((z + 40) % 6) - 3) > 2.6 ? ["night", 2] : ["night", 1];
-      return ["night", z < 104 ? 2 : 1];
-    },
-  });
+  const CZ = 100, RX = 8, RZ = 30;
+  const face: LPaint = (p, f) => {
+    if (f === "top") return ["mustard", 0];
+    const x = p.x, z = p.z - CZ, r = Math.hypot(x / RX, z / RZ);
+    const litSide = x - z / 3 < 0; // the top-left half of the ring
+    if (r > 0.93) return ["mustard", litSide ? 0 : 2];
+    if (r > 0.85) return ["mustard", litSide ? 2 : 0];
+    const sheen = x * 3 - z;
+    if (Math.abs(sheen - 6) < 2.2 || Math.abs(sheen - 14) < 1) return ["glow", 0];
+    if (Math.hypot(x - 3, (z - 14) / 2) < 1.8) return ["mustard", 0];
+    return ["glow", z < -12 ? 2 : 1];
+  };
+  k.ell({ x: 0, y: 7, z: CZ }, { x: RX, y: Infinity, z: RZ }, [-RX - 1, RX + 1, 6.4, 8, 0, 200], "glow", { paint: face });
 }
 
 /** Minibar: a short wood cabinet with a lit glass door (bottles and cans inside) and an ice bucket with a bottle on top. */
@@ -1800,20 +1801,21 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   const both = new Uint8Array(CANVAS.w * CANVAS.h);
   for (let i = 0; i < both.length; i++) both[i] = (backImg[i] ?? 0) || (frontImg[i] ?? 0);
   const { rect } = crop(`${base}/both`, both);
-  return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect)];
+  // A seat's use loop replaces only its back layer (the front stays put), so its frames are the back parts alone.
+  return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect), ...useFrames(def, colour, dir, rect, true)];
 }
 
-function kitImage(def: PieceDef, colour: string, dir: FurnDir, n: number): Uint8Array {
+function kitImage(def: PieceDef, colour: string, dir: FurnDir, n: number, backOnly = false): Uint8Array {
   const k = new Kit(dir);
   def.build?.(k, colour, n);
-  return renderSolids(k.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+  return renderSolids(k.parts.filter((p) => !(backOnly && p.front)).map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
 }
 
 /** The "in use" loop of a back-only piece, cut to the idle frame's rect (so one anchor), checked to move only inside it. */
-function useFrames(def: PieceDef, colour: string, dir: FurnDir, rect: { x0: number; y0: number; w: number; h: number }): RoomFrame[] {
+function useFrames(def: PieceDef, colour: string, dir: FurnDir, rect: { x0: number; y0: number; w: number; h: number }, backOnly = false): RoomFrame[] {
   const out: RoomFrame[] = [];
   for (let n = 1; n <= (def.use?.frames ?? 0); n++) {
-    const img = def.image ? def.image(dir, colour, 1, CANVAS, n) : kitImage(def, colour, dir, n);
+    const img = def.image ? def.image(dir, colour, 1, CANVAS, n) : kitImage(def, colour, dir, n, backOnly);
     const key = `furniture/${def.id}/${colour}/use/${dir}/${String(n - 1)}`;
     const f = crop(key, img, rect);
     const r = crop(`${key}/all`, img).rect;

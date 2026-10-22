@@ -2,7 +2,7 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
@@ -19,6 +19,7 @@ import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } f
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
+import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
 import { awayChanges } from "./session-lifecycle";
 import tintsJson from "../../../assets/avatars/tints.json";
@@ -73,7 +74,7 @@ export interface Stage {
   render(s: StageState, layout: RoomLayout, selfCatching: boolean, editing: boolean): void;
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
-  emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  emote(id: MemberId, kind: AvatarEmote, s: StageState): void;
   /** Two members paired (OME-1672): the pose animation, unless reduced motion asks for stillness. */
   pair(thruster: MemberId, bender: MemberId): void;
   /** A received reaction (OME-1631): a glyph burst over their head, if the view allows it now. Returns the glyphs shown. */
@@ -92,6 +93,9 @@ export interface Stage {
   anchor(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
   cellOf(id: MemberId): FloorCell | null;
+  /** The cats' cells now and a heart over the cat on one (OME-1669, room-view.ts). */
+  catCells(): number[];
+  petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
@@ -572,7 +576,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return;
       }
       const p = view.position(id) ?? placedAt.get(id);
-      if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+      // The reach has no badge; room.ts never sends it under reduced motion.
+      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
     },
     react(id, kind) {
       const p = view.position(id) ?? placedAt.get(id);
@@ -598,6 +603,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    catCells: () => view.catCells(),
+    petCat: (cell) => {
+      view.petCat(cell);
+    },
     cellOf(id) {
       const p = view.position(id) ?? placedAt.get(id);
       const c = p === undefined ? -1 : cellAt(p);

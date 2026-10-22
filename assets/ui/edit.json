@@ -1659,7 +1659,7 @@
   "thumb/curtain/velvet": {
    "frame": {
     "x": 237,
-    "y": 120,
+    "y": 82,
     "w": 10,
     "h": 37
    },
@@ -1970,26 +1970,26 @@
   },
   "thumb/mirror/brass": {
    "frame": {
-    "x": 237,
-    "y": 82,
-    "w": 13,
-    "h": 37
+    "x": 220,
+    "y": 342,
+    "w": 20,
+    "h": 33
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 13,
-    "h": 37
+    "w": 20,
+    "h": 33
    },
    "sourceSize": {
-    "w": 13,
-    "h": 37
+    "w": 20,
+    "h": 33
    },
    "anchor": {
-    "x": 0.46153846153846156,
-    "y": 0.4864864864864865
+    "x": 0.5,
+    "y": 0.48484848484848486
    }
   },
   "thumb/monstera/rust": {

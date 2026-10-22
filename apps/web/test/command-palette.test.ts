@@ -20,7 +20,7 @@ describe("one command table", () => {
   test("the emotes are the picker's (dance is fun), the fun list is the issue's, the moves each have a hint", () => {
     expect(slashes.filter((c) => c.section === "emotes").map((c) => c.name)).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"]);
     const fun = slashes.filter((c) => c.section === "fun").map((c) => c.name);
-    for (const name of ["dance", "roll", "poll", "conga", "snap", "think", "me", "hug", "highfive", "sit"]) expect(fun).toContain(name);
+    for (const name of ["dance", "roll", "poll", "conga", "snap", "think", "me", "hug", "highfive", "sit", "pet"]) expect(fun).toContain(name);
     const moves = COMMANDS.filter((c) => c.section === "moves");
     expect(moves.map((c) => c.label)).toEqual(["Walk", "Jog", "Follow", "Walk over", "Teleport pads", "Doors"]);
     for (const m of moves) expect(m.hint.length).toBeGreaterThan(10);

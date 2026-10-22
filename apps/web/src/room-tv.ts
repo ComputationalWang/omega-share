@@ -83,6 +83,8 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     if (!quality.isOpen() || quality.menu.parentElement !== wrap) return;
     const m = quality.menu;
     const k = quality.key;
+    // The list zooms with the shelf (OME-1667), so both are in the shelf's px.
+    m.style.zoom = controls.style.zoom;
     const right = controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2;
     const left = Math.max(0, right - m.offsetWidth + 24);
     m.style.left = `${String(left)}px`;
@@ -97,7 +99,10 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
       quality.menu.remove();
       return;
     }
-    if (row) controls.append(quality.menu);
+    if (row) {
+      quality.menu.style.zoom = "";
+      controls.append(quality.menu);
+    }
     else {
       wrap.append(quality.menu);
       placeQuality();
