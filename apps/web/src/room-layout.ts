@@ -119,6 +119,8 @@ export interface RoomLayout {
 }
 
 const HANDLE_ARROWS = { left: "◀", right: "▶", up: "▲", down: "▼" } as const;
+/** How near the screen's bottom edge the pointer peeks the hidden chat (OME-1668). */
+const FS_PEEK_ZONE = 80;
 
 export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   const { root, wrap, clip, stage, tv: tvBox, log: chatLog, queue: queuePanel, notice, roomAway, invite, side, phone, wide } = o;
@@ -166,6 +168,22 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   wrap.addEventListener("pointermove", wakePill, { passive: true });
   wrap.addEventListener("pointerdown", wakePill, { passive: true });
+  // OME-1668: a pointer (or a tap) near the screen's bottom edge or over the chat peeks the hidden chat; anywhere else,
+  // or into the provider's iframe (pointerout: its events are its own), lets it go after FS_PEEK_MS.
+  const peekAt = (ev: PointerEvent): void => {
+    if (fs.mode() === "off") return;
+    const t = ev.target;
+    fsChat.peek(ev.clientY >= wrap.getBoundingClientRect().bottom - FS_PEEK_ZONE || (t instanceof Node && (strip.contains(t) || controls.contains(t))));
+  };
+  wrap.addEventListener("pointermove", peekAt, { passive: true });
+  wrap.addEventListener("pointerdown", peekAt, { passive: true });
+  wrap.addEventListener("pointerout", () => { fsChat.peek(false); }, { passive: true });
+  // Focus in the chat or the shelf, or a draft in the field, holds the peek: never hidden under the caret.
+  const holdAt = (to: EventTarget | null): void => {
+    fsChat.hold((to instanceof Node && (strip.contains(to) || controls.contains(to))) || (chatForm.querySelector("input")?.value ?? "") !== "");
+  };
+  wrap.addEventListener("focusin", (ev) => { holdAt(ev.target); });
+  wrap.addEventListener("focusout", (ev) => { holdAt(ev.relatedTarget); });
   let stripMode: StripMode = storedStrip();
   let unread = 0;
   let displayedStripMode = stripMode;

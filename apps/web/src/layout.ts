@@ -186,6 +186,8 @@ const FS_BAND_SCROLL_MIN = 240;
 const FS_BUBBLES_NARROW_W = 160;
 /** The hide/show-chat handle's touch target (OME-1593). */
 const FS_HANDLE = 44;
+/** With the chat hidden the screen's bottom rows stay ours (OME-1668): a pointer pushed to the edge reaches the page. */
+const FS_PEEK_EDGE = 8;
 
 export type StripMode = "open" | "band";
 
@@ -233,8 +235,8 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     // show-chat handle keeps a 44 px margin on its edge and the opposite one; a phone's letterbox already holds it.
     // The bubbles get what the screen leaves beside (≥ 160 px) or under the picture, clear of the handle.
     if (w > h) {
-      const pic = fitTv(w - 2 * FS_HANDLE, h);
-      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h) / 2)), ...pic };
+      const pic = fitTv(w - 2 * FS_HANDLE, h - FS_PEEK_EDGE);
+      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.min(Math.floor((h - pic.h) / 2), h - FS_PEEK_EDGE - pic.h)), ...pic };
       const sx = tv.x + tv.w;
       const sw = w - FS_HANDLE - sx;
       return { at: "hidden", tv, controls: { x: 0, y: 0, w: 0, h: 0 }, strip: { x: sx, y: 0, w: sw >= FS_BUBBLES_NARROW_W ? sw : 0, h },

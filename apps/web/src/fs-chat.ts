@@ -11,6 +11,8 @@ export const FS_BUBBLE_CAP = 4;
 export const FS_BUBBLE_MS = 6000;
 /** The pill dims after this long without a pointer move. */
 export const FS_PILL_IDLE_MS = 3000;
+/** A peek (OME-1668) ends this long after the pointer leaves, unless held. */
+export const FS_PEEK_MS = 2000;
 
 export interface FsChatOptions<H> {
   readonly store: { getItem(k: string): string | null; setItem(k: string, v: string): void } | null;
@@ -43,11 +45,12 @@ export interface FsChat {
   hold(on: boolean): void;
 }
 
+/** Full screen hides the chat unless the viewer pinned it shown (OME-1668, board OME-1664). */
 function readStored(store: FsChatOptions<unknown>["store"]): boolean {
   try {
-    return store?.getItem(STORAGE_KEY) === "1";
+    return store?.getItem(STORAGE_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -63,6 +66,9 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
   let shown = false;
   const live: { node: HTMLElement; timer: H }[] = [];
   let idle: H | null = null;
+  let peeking = false;
+  let held = false;
+  let peekTimer: H | null = null;
 
   const drop = (i: number): void => {
     const b = live[i];
@@ -85,8 +91,9 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
     }, FS_PILL_IDLE_MS);
   };
   const render = (): void => {
-    const next = active && chosen;
-    toggle.ariaLabel = next ? "Show chat" : "Hide chat";
+    const next = active && chosen && !peeking;
+    // During a peek the handle still pins the chat shown.
+    toggle.ariaLabel = active && chosen ? "Show chat" : "Hide chat";
     toggle.setAttribute("aria-expanded", String(!next));
     // The layout shows and places the handle (room-layout.ts); out of full screen it goes.
     if (!active) pill.hidden = true;
@@ -99,12 +106,33 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
   };
   const setHidden = (on: boolean): void => {
     chosen = on;
+    // A choice ends the peek: hidden now, or pinned shown.
+    if (peekTimer !== null) o.clearTimer(peekTimer);
+    peekTimer = null;
+    peeking = false;
     try {
       o.store?.setItem(STORAGE_KEY, on ? "1" : "0");
     } catch {
       // Storage off (private mode): remembered for this page only.
     }
     render();
+  };
+  const peek = (on: boolean): void => {
+    if (on) {
+      if (peekTimer !== null) o.clearTimer(peekTimer);
+      peekTimer = null;
+      if (!active || !chosen || peeking) return;
+      peeking = true;
+      render();
+      return;
+    }
+    if (!peeking || peekTimer !== null) return;
+    peekTimer = o.setTimer(() => {
+      peekTimer = null;
+      if (held) return;
+      peeking = false;
+      render();
+    }, FS_PEEK_MS);
   };
   toggle.addEventListener("click", () => {
     setHidden(!chosen);
@@ -120,6 +148,9 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
     setHidden,
     setActive(on) {
       active = on;
+      if (peekTimer !== null) o.clearTimer(peekTimer);
+      peekTimer = null;
+      peeking = false;
       render();
     },
     key(key, typing, repeat = false) {
@@ -140,7 +171,10 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
       live.push(entry);
     },
     wake,
-    peek() {},
-    hold() {},
+    peek,
+    hold(on) {
+      held = on;
+      peek(on);
+    },
   };
 }
