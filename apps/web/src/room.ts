@@ -1096,6 +1096,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (line !== conga) {
       conga = line;
       people.conga(line.ids);
+      roomStage.view.conga(line.ids);
     }
     congaFollow();
     if (hug !== null) {
