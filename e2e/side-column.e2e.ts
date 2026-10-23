@@ -21,7 +21,7 @@ test.afterEach(async () => {
   clients = [];
 });
 
-type Box = { x: number; y: number; width: number; height: number };
+interface Box { x: number; y: number; width: number; height: number }
 async function box(l: Locator): Promise<Box> {
   const b = await l.boundingBox();
   if (b === null) throw new Error("not laid out");
