@@ -134,7 +134,7 @@ for (const [width, height] of [[390, 844], [844, 390], [1024, 768]] as const) {
       seats.flatMap((s) => {
         const r = s.getBoundingClientRect();
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-        return r.width > 0 && hit !== null && hit.classList.contains("lie-key") ? [s.getAttribute("data-seat")] : [];
+        return r.width > 0 && hit?.classList.contains("lie-key") === true ? [s.getAttribute("data-seat")] : [];
       }),
     );
     expect(covered).toEqual([]);
