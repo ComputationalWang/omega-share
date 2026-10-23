@@ -145,6 +145,16 @@ describe("budgets", () => {
     }
   });
 
+  test("walk25 has frame, work and missed-vsync rows with the night mood's snow on, Pixel 7 Smooth, at the plain walk25 budgets (OME-1689)", () => {
+    for (const m of ["frameP95", "workP95", "missedVsync"]) {
+      const plain = BUDGETS.find((x) => x.id === `walk25.${m}.phone.smooth`);
+      const b = BUDGETS.find((x) => x.id === `walk25.ambience.${m}.phone`);
+      expect(b, `walk25.ambience.${m}.phone`).toBeDefined();
+      expect([b?.area, b?.unit, b?.limit, b?.comparator]).toEqual([plain?.area, plain?.unit, plain?.limit, "<="]);
+      expect(b?.docMetric).toContain("ambience");
+    }
+  });
+
   test("the movie-night heap row (moments strip + recap card) holds the 10 min heap budget (OME-1643)", () => {
     const plain = BUDGETS.find((x) => x.id === "site.heapAfterSoak");
     const b = BUDGETS.find((x) => x.id === "site.heapMovieNight");

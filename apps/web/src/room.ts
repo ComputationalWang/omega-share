@@ -849,6 +849,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     cinema.update(playing, owner.editing());
     const mood = (owner.preview() ?? layoutOf(state.room)).mood ?? "none";
     cinema.mood(mood);
+    view.ambience(mood);
     sound?.tone(mood);
     // The lights-down swell (OME-1638) as the dim comes on.
     const down = cinema.on() && playing && !owner.editing();

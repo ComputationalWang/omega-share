@@ -20,6 +20,8 @@
 // Then, on the phone only, Smooth again with a reaction burst (OME-1643, Movie night): 7 bots each send EMOTE_BURST
 // `react`s, then one a refill, so the observer gets ~7 `reacted` relays a second on top of the walks; ≤ 1 % of them may go
 // unrelayed. walk25.react.<metric>.phone. PENDING while the server relays no `reacted` (OME-1632).
+// Then, on the phone only, Smooth again with the night mood's snow on (OME-1689): the shown layout with mood night, holiday
+// themes off. walk25.ambience.<metric>.phone.
 // OMEGA_PERF_WALK_RUN=1 (OME-1464): the bots jog (`walk.run`) instead, for the same rows with 25 joggers.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
@@ -46,15 +48,16 @@ const PROFILES = ["desktop", "phone"] as const;
 const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
-interface Pass { readonly tier: Tier; readonly worn: boolean; readonly conga: boolean; readonly react: boolean }
-/** Each tier bare, then Smooth with everyone wearing an accessory, then Smooth with a /conga line, then (phone only) Smooth with a reaction burst. */
+interface Pass { readonly tier: Tier; readonly worn: boolean; readonly conga: boolean; readonly react: boolean; readonly ambience: boolean }
+/** Each tier bare, then Smooth with everyone wearing an accessory, then Smooth with a /conga line, then (phone only) Smooth with a reaction burst, and Smooth with the night mood's snow. */
 const PASSES: readonly Pass[] = [
-  ...TIERS.map((tier) => ({ tier, worn: false, conga: false, react: false })),
-  { tier: "smooth", worn: true, conga: false, react: false },
-  { tier: "smooth", worn: false, conga: true, react: false },
-  { tier: "smooth", worn: false, conga: false, react: true },
+  ...TIERS.map((tier) => ({ tier, worn: false, conga: false, react: false, ambience: false })),
+  { tier: "smooth", worn: true, conga: false, react: false, ambience: false },
+  { tier: "smooth", worn: false, conga: true, react: false, ambience: false },
+  { tier: "smooth", worn: false, conga: false, react: true, ambience: false },
+  { tier: "smooth", worn: false, conga: false, react: false, ambience: true },
 ];
-const passesFor = (p: Profile): readonly Pass[] => PASSES.filter((pass) => !pass.react || p === "phone");
+const passesFor = (p: Profile): readonly Pass[] => PASSES.filter((pass) => !(pass.react || pass.ambience) || p === "phone");
 /** OME-1643: bots reacting in the reaction-burst pass, each at the emote bucket's rate (EMOTE_BURST, then one per EMOTE_REFILL_MS). */
 const REACTERS = 7;
 /** Just over the refill, so timer and socket jitter never land a react on an empty bucket (dropped silently). */
@@ -71,7 +74,7 @@ const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => (
   (c) => isStandable(DEFAULT_LAYOUT, c) && (SHOWN_LAYOUT === null || isStandable(SHOWN_LAYOUT, c)),
 );
 
-const rowId = (m: string, p: Profile, pass: Pass): string => (pass.react ? `walk25.react.${m}.${p}` : pass.worn ? `walk25.accessories.${m}.${p}` : pass.conga ? `walk25.conga.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
+const rowId = (m: string, p: Profile, pass: Pass): string => (pass.ambience ? `walk25.ambience.${m}.${p}` : pass.react ? `walk25.react.${m}.${p}` : pass.worn ? `walk25.accessories.${m}.${p}` : pass.conga ? `walk25.conga.${m}.${p}` : `walk25.${m}.${p}.${pass.tier}`);
 const ids = (p: Profile, pass: Pass): string[] => ["frameP95", "workP95", "missedVsync"].map((m) => rowId(m, p, pass));
 
 interface WalkerStats {
@@ -270,6 +273,16 @@ const botTags = (page: Page): Promise<Record<string, string>> =>
     BOT_PREFIX,
   );
 
+/** The theme effect's running particle count (`__omega.room.theme().effect`): mood ambience shares it (OME-1689). */
+const themeEffect = (page: Page): Promise<number> =>
+  page.evaluate(() => {
+    const room: unknown = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room");
+    const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "theme") : null;
+    const t: unknown = typeof fn === "function" ? Reflect.apply(fn, room, []) : null;
+    const n: unknown = typeof t === "object" && t !== null ? Reflect.get(t, "effect") : 0;
+    return typeof n === "number" ? n : 0;
+  });
+
 for (const profile of PROFILES) {
   test(`walk tiers: 25 members walking, ${profile}, Basic, Smooth, Smooth with accessories, Smooth with a /conga line (video playing)`, async ({ browser, request }) => {
     const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
@@ -297,7 +310,7 @@ for (const profile of PROFILES) {
     const phone: BrowserContextOptions | undefined = profile === "phone" ? { ...devices["Pixel 7"] } : undefined;
     const results: { row: string; p95: number; missedPct: number; workP95: number; walking: number }[] = [];
     for (const pass of passesFor(profile)) {
-      const { tier, worn, conga, react } = pass;
+      const { tier, worn, conga, react, ambience } = pass;
       const clients = await joinRoom(browser, {
         roomUrl: room.url,
         count: 1,
@@ -305,13 +318,16 @@ for (const profile of PROFILES) {
         contextOptions: () => phone,
         setup: async (context) => {
           await context.addInitScript(
-            ({ t, accessory }) => {
+            ({ t, accessory, themeOff }) => {
               localStorage.setItem("omega.motion", t);
               if (accessory > 0) localStorage.setItem("omega.accessory", String(accessory));
+              // A holiday theme's effect owns the pool, so the ambience row turns themes off whatever the date.
+              if (themeOff) localStorage.setItem("omega.theme", "off");
             },
-            { t: tier, accessory: worn ? ACCESSORY_COUNT - 1 : 0 },
+            { t: tier, accessory: worn ? ACCESSORY_COUNT - 1 : 0, themeOff: ambience },
           );
-          if (SHOWN_LAYOUT !== null) await showLayout(context, SHOWN_LAYOUT);
+          if (ambience) await showLayout(context, { ...(SHOWN_LAYOUT ?? DEFAULT_LAYOUT), mood: "night" });
+          else if (SHOWN_LAYOUT !== null) await showLayout(context, SHOWN_LAYOUT);
         },
       });
       const walkers = await startWalkers(browser, room.id, worn, conga ? CONGA_LINE : 0, react ? REACTERS : 0);
@@ -332,6 +348,9 @@ for (const profile of PROFILES) {
         }
         // The walks in from the door are over and the seats are churning.
         await page.waitForTimeout(3000);
+        // The phone's room window crops the effect's band (ADR 0052), so it sleeps until the room is fitted: the ambience row fits it.
+        if (ambience && profile === "phone") await page.getByTestId("room-zoom-fit").tap();
+        const snow = ambience ? (await expect.poll(() => themeEffect(page)).toBeGreaterThan(0), await themeEffect(page)) : 0;
         const start = await botTags(page);
         await walkers.mark();
         const w = await tracedFrames(browser, page, WINDOW_MS);
@@ -353,7 +372,7 @@ for (const profile of PROFILES) {
         const congaLines = await page.locator(site.chatLogLine).filter({ hasText: "/conga" }).count();
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${conga ? `, ${String(congaLines)}-person /conga line` : ""}${react ? `, ${String(REACTERS)} members reacting at the rate limit: ${String(reacted)} of ${String(s.reactsSent)} reactions relayed (${missedReacts.toFixed(1)} % missed)` : ""}${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier${worn ? ", every member wearing an accessory" : ""}, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free ${RUN ? "jogs" : "walks"} so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${conga ? `, ${String(congaLines)}-person /conga line` : ""}${ambience ? `, night mood snow (${String(snow)} particles, no holiday theme, room fitted)` : ""}${react ? `, ${String(REACTERS)} members reacting at the rate limit: ${String(reacted)} of ${String(s.reactsSent)} reactions relayed (${missedReacts.toFixed(1)} % missed)` : ""}${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
         if (react && reacted === 0) {
           // shortcut: until OME-1632 the server takes `react` but relays nothing, so the burst costs the observer nothing; drop this branch once it lands.
           for (const id of ids(profile, pass)) recordMetric({ id, pending: `the server relayed no \`reacted\` (OME-1632 not merged); ${what}` });
@@ -366,7 +385,7 @@ for (const profile of PROFILES) {
         expect(s.members).toBe(MAX_ROOM_MEMBERS);
         expect(congaLines, `the observer saw the whole /conga line: ${what}`).toBe(conga ? CONGA_LINE : 0);
         expect(walking, `the window measures walking: ${what}`).toBeGreaterThanOrEqual(MIN_WALKERS);
-        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}${conga ? " with a /conga line" : ""}${react ? " with a reaction burst" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
+        results.push({ row: `${profile}.${tier}${worn ? " with accessories" : ""}${conga ? " with a /conga line" : ""}${react ? " with a reaction burst" : ""}${ambience ? " with night snow" : ""}`, p95: f.p95, missedPct: f.missedPct, workP95, walking });
       } finally {
         await walkers.stop();
         await leaveAll(clients);
