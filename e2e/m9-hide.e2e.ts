@@ -333,3 +333,52 @@ test("hiding a member who is typing takes their typing dots away at once", async
   // Well inside the server's 5 s typing timeout: only the hide can have taken them.
   await expect(dots).toHaveCount(0, { timeout: 2000 });
 });
+
+// OME-1805 (audit OME-1797): People opened above the TV and pushed it down: at 1280×800 the TV fell from y 83 to 269
+// and the room from 623×345 to 292×162; at 768×1024 touch the TV went below the fold. People is a side-column panel on
+// a wide screen (OME-1799 §2), so the TV and the room stay where they were.
+const boxOf = async (page: Page, sel: string): Promise<{ x: number; y: number; w: number; h: number }> => {
+  const b = await page.locator(sel).boundingBox();
+  return { x: b?.x ?? 0, y: b?.y ?? 0, w: b?.width ?? 0, h: b?.height ?? 0 };
+};
+
+test("1280×800 to 2560×1440, People open: the TV stays put, the room keeps 80 % of its size", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-hide", "desk").url, count: 2, nicknamePrefix: "pd", contextOptions: () => ({ viewport: { width: 1280, height: 800 } }) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  const key = page.locator(site.peopleKey);
+  const panel = page.locator(site.peoplePanel);
+  await expect(panel.locator(site.peopleRow)).toHaveCount(2);
+  for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080], [2560, 1440]] as const) {
+    const at = `${String(w)}×${String(h)}`;
+    await page.setViewportSize({ width: w, height: h });
+    if ((await key.getAttribute("aria-expanded")) === "true") await key.click();
+    await expect(panel).toBeHidden();
+    await expect.poll(async () => (await boxOf(page, site.roomWindow)).w, { message: `${at} room laid out` }).toBeGreaterThan(0);
+    const tv = await boxOf(page, site.tv);
+    const room = await boxOf(page, site.roomWindow);
+    await key.click();
+    await expect(panel).toBeInViewport();
+    await expect.poll(async () => (await boxOf(page, site.roomWindow)).w / room.w, { message: `${at} room width open / closed (${String(room.w)})` }).toBeGreaterThanOrEqual(0.8);
+    expect((await boxOf(page, site.roomWindow)).h / room.h, `${at} room height open / closed`).toBeGreaterThanOrEqual(0.8);
+    const open = await boxOf(page, site.tv);
+    expect(Math.abs(open.y - tv.y), `${at} TV y moved`).toBeLessThanOrEqual(2);
+    expect(Math.abs(open.x - tv.x), `${at} TV x moved`).toBeLessThanOrEqual(2);
+    // Every row's keys are in reach in the panel.
+    await expect(panel.locator(site.peopleRow).last()).toBeInViewport();
+  }
+});
+
+test("768×1024 touch, People open: the TV stays in view and the panel shows", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-hide", "tablet").url, count: 2, nicknamePrefix: "pt",
+    contextOptions: () => ({ viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  const panel = page.locator(site.peoplePanel);
+  await expect(panel.locator(site.peopleRow)).toHaveCount(2);
+  const tv = await boxOf(page, site.tv);
+  await page.locator(site.peopleKey).click();
+  await expect(panel).toBeInViewport();
+  await expect(page.locator(site.tv)).toBeInViewport({ ratio: 0.9 });
+  expect(Math.abs((await boxOf(page, site.tv)).y - tv.y), "TV y moved").toBeLessThanOrEqual(2);
+});

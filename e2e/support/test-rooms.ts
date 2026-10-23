@@ -49,7 +49,7 @@ export const SPEC_ROOMS = {
   "m8-bubbles": ["float", "cap", "reduced", "aria", "abuse", "overlap", "batch"],
   "m8-walk": ["gates", "forced", "latch", "arrival", "abuse"],
   "m9-help": ["hint", "hintesc", "help", "helpkey", "touch", "reduced", "kbkey", "kbq", "tvw", "tvp", "tvl", "tvn"],
-  "m9-hide": ["main", "tag", "popchat", "poproom", "reconn", "typing"],
+  "m9-hide": ["main", "tag", "popchat", "poproom", "reconn", "typing", "desk", "tablet"],
   "m10-portrait": ["360", "390", "people360", "people390"],
   "landscape-phone": ["l932", "l844", "l667", "q932", "q844", "q667", "notch", "twitch", "tvshelf", "tliveshelf", "vshelf", "vhourshelf", "f844", "f740"],
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
