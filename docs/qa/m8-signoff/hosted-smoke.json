@@ -1,0 +1,43 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "at": "2026-10-11T00:01:45.564Z",
+  "roomId": "aaf7ofjbtzdx6miofhmjiu22ui",
+  "rows": [
+    {
+      "check": "1 A creates ONE public room and joins; B and C join /r/<id>",
+      "ok": true,
+      "ms": 1255,
+      "detail": "room aaf7ofjbtzdx6miofhmjiu22ui (url shape https://omega-share.duckdns.org/r/<id>)"
+    },
+    {
+      "check": "2 walk: B walks to a seat; A (forced Smooth) sees many small steps, C (Basic) fewer; same final transform",
+      "ok": true,
+      "ms": 8104,
+      "detail": "A tier smooth saw 252 steps, C tier basic saw 28; arrival delta 80 ms"
+    },
+    {
+      "check": "3 bubbles (OME-809): B sends two lines back to back; A sees both floating",
+      "ok": true,
+      "ms": 6118,
+      "detail": "both bubbles visible"
+    },
+    {
+      "check": "4 bubbles (OME-791): B and C speak together; A's two bubbles don't overlap; both vanish within ~7 s",
+      "ok": true,
+      "ms": 11421,
+      "detail": "no overlap ({\"x\":400.5872802734375,\"y\":556.0606079101562,\"width\":37.003570556640625,\"height\":12.43670654296875} / {\"x\":446.5072937011719,\"y\":604.8505859375,\"width\":36.682159423828125,\"height\":12.43670654296875})"
+    },
+    {
+      "check": "5 emote wheel: T opens role=menu 'Emotes', Clap by keyboard, focus back to where T was pressed, B (reduced motion, where the sticker is a DOM badge) sees one badge; wheel closes",
+      "ok": true,
+      "ms": 2089,
+      "detail": "6 items, B saw 1 badge, focus on <body>"
+    },
+    {
+      "check": "6 no CSP violations or page errors on A, B, C",
+      "ok": true,
+      "ms": 0,
+      "detail": "A:0/0 B:0/0 C:0/0"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+$ bun e2e/support/headed.ts playwright test --project=e2e-real -g "M3-twitch-gate"
+headed: on a virtual display (xvfb-run, 1920x1080x24). To watch on your desktop: E2E_REAL_ON_DESKTOP=1.
+
+Running 1 test using 1 worker
+
+[real] m3-twitch-gate: {"channel":"erobb221","tried":[{"channel":"erobb221","outcome":"gated"}],"hints":[{"visible":true,"text":"If the Twitch player asks, press Start Watching in it."},{"visible":true,"text":"If the Twitch player asks, press Start Watching in it."}],"gatedViews":[{"live":true,"playing":true,"error":null},{"live":true,"playing":true,"error":null}],"halfway":{"bStillGated":true,"views":[{"playing":true,"error":null},{"playing":true,"error":null}]},"adsAfterGate":[0,0],"pause":{"arrivalMs":[168,106],"spreadMs":62},"play":{"arrivalMs":[245,245],"spreadMs":0},"finalPlaying":[true,true],"finalViews":[{"playing":true,"error":null},{"playing":true,"error":null}],"notices":[["You paused","You pressed play","real-sharer shared a video","You paused","You pressed play"],["real-gate-1 paused","real-gate-1 pressed play","real-sharer shared a video","real-gate-1 paused","real-gate-1 pressed play"]]}
+  ✓  1 [e2e-real] › e2e/real/real-providers.real.ts:237:1 › M3-twitch-gate · a mature-gated live channel: both members see the Start Watching hint, press it, and stay in sync (20.2s)
+
+  1 passed (21.1s)

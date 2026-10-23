@@ -1,0 +1,179 @@
+// OME-734 M8 hosted smoke (QA2 scratch, not part of e2e/**): walk (tier + arrival), bubbles (OME-791 stacking, OME-809 two lines),
+// emote wheel. Creates EXACTLY ONE PRIVATE room from the landing page (never retried). A owner (natural tier), B guest, C guest (forced Basic).
+//   (ROOM=<id> reuses the room, e.g. after a failed first step)
+//   SMOKE_ORIGIN=https://omega-share.duckdns.org OUT=out bun m8-smoke.ts
+import { chromium } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+
+const ORIGIN = (process.env["SMOKE_ORIGIN"] ?? "https://omega-share.duckdns.org").replace(/\/$/, "");
+const OUT = process.env["OUT"] ?? "out";
+const STEP_MS = 15_000;
+mkdirSync(OUT, { recursive: true });
+interface Row { check: string; ok: boolean; ms: number; detail: string }
+const rows: Row[] = [];
+let roomId = "";
+let roomUrl = "";
+const save = (): void => writeFileSync(`${OUT}/hosted-smoke.json`, JSON.stringify({ origin: ORIGIN, at: new Date().toISOString(), roomId, rows }, null, 2));
+async function check(name: string, fn: () => Promise<string | undefined>): Promise<boolean> {
+  const t0 = Date.now();
+  try {
+    const detail = (await fn()) ?? "";
+    rows.push({ check: name, ok: true, ms: Date.now() - t0, detail });
+    console.log(`PASS ${name} ${detail}`);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message.split("\n").slice(0, 3).join(" / ") + " @ " + (e.stack?.split("\n").find((l) => l.includes("m8-smoke")) ?? "") : String(e);
+    rows.push({ check: name, ok: false, ms: Date.now() - t0, detail });
+    console.log(`FAIL ${name} ${detail}`);
+  }
+  save();
+  return rows[rows.length - 1]?.ok === true;
+}
+function assert(cond: boolean, msg: string): asserts cond {
+  if (!cond) throw new Error(msg);
+}
+const id = (n: string): string => `[data-testid="${n}"]`;
+const site = { nicknameInput: id("nickname-input"), avatarOption: id("avatar-option"), joinButton: id("join-button"), room: id("room"),
+  createRoomTitle: id("create-room-title"), createRoomPrivate: id("create-room-private"), createRoomSubmit: id("create-room-submit"),
+  chatInput: id("chat-input"), seat: id("seat"), tag: id("nickname-tag") } as const;
+
+interface Client { name: string; nick: string; ctx: BrowserContext; page: Page; csp: string[]; errs: string[] }
+const browser = await chromium.launch({ channel: "chromium" });
+const all: Client[] = [];
+async function newClient(name: string, nick: string, tier?: string): Promise<Client> {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...(name === "B" ? { reducedMotion: "reduce" as const } : {}) });
+  await ctx.addInitScript((t) => {
+    if (t !== null) localStorage.setItem("omega.motion", t);
+    document.addEventListener("securitypolicyviolation", (e) => console.log(`OMEGA-CSP ${e.violatedDirective} ${e.blockedURI}`));
+  }, tier ?? null);
+  const c: Client = { name, nick, ctx, page: await ctx.newPage(), csp: [], errs: [] };
+  c.page.on("console", (m) => { if (m.text().startsWith("OMEGA-CSP") || /Content Security Policy|Trusted Type/i.test(m.text())) c.csp.push(m.text()); });
+  c.page.on("pageerror", (e) => c.errs.push(String(e)));
+  all.push(c);
+  return c;
+}
+async function enter(c: Client, avatar: number): Promise<void> {
+  await c.page.locator(site.nicknameInput).fill(c.nick, { timeout: STEP_MS });
+  await c.page.locator(site.avatarOption).nth(avatar).click({ timeout: STEP_MS });
+  await c.page.locator(site.joinButton).click({ timeout: STEP_MS });
+  await c.page.locator(site.room).waitFor({ timeout: STEP_MS });
+}
+const say = async (p: Page, t: string): Promise<void> => { await p.locator(site.chatInput).fill(t); await p.locator(site.chatInput).press("Enter"); };
+async function atRest(p: Page): Promise<void> {
+  let last = "";
+  for (let i = 0; i < 40; i++) {
+    const now = await p.evaluate(() => [...document.querySelectorAll("[data-testid=room] .tag")].map((t) => { const r = t.getBoundingClientRect(); return `${t.textContent}@${String(Math.round(r.x))},${String(Math.round(r.y))}`; }).join(" "));
+    if (now === last) return;
+    last = now;
+    await p.waitForTimeout(500);
+  }
+  throw new Error("avatars never came to rest");
+}
+
+try {
+  const a = await newClient("A", "m8-a", "smooth");
+  const b = await newClient("B", "m8-b");
+  const c = await newClient("C", "m8-c", "basic");
+  const ok = await check("1 A creates ONE public room and joins; B and C join /r/<id>", async () => {
+    if (process.env["ROOM"] !== undefined) {
+      roomId = process.env["ROOM"];
+      await a.page.goto(`${ORIGIN}/r/${roomId}`, { timeout: STEP_MS });
+    } else {
+    await a.page.goto(`${ORIGIN}/`, { timeout: STEP_MS });
+    await a.page.locator(site.createRoomTitle).fill(`m8 smoke ${new Date().toISOString().slice(11, 19)}`, { timeout: STEP_MS });
+    await a.page.locator(site.createRoomPrivate).uncheck({ timeout: STEP_MS });
+    await a.page.locator(site.createRoomSubmit).click({ timeout: STEP_MS });
+    await a.page.waitForURL(/\/r\/[a-z2-7]{26}/, { timeout: STEP_MS });
+    roomId = new URL(a.page.url()).pathname.split("/")[2] ?? "";
+    }
+    roomUrl = a.page.url();
+    await enter(a, 0);
+    console.log("A in");
+    for (const [x, av] of [[b, 1], [c, 2]] as const) { await x.page.goto(roomUrl, { timeout: STEP_MS }); await enter(x, av); }
+    return `room ${roomId} (url shape ${roomUrl.replace(roomId, "<id>")})`;
+  });
+  assert(ok, "no room: stopping");
+  await atRest(a.page);
+
+  await check("2 walk: B walks to a seat; A (forced Smooth) sees many small steps, C (Basic) fewer; same final transform", async () => {
+    const tierA0 = await a.page.locator("canvas.scene").getAttribute("data-motion");
+    const tierC = await c.page.locator("canvas.scene").getAttribute("data-motion");
+    const watch = (p: Page): Promise<void> => p.locator(site.tag).filter({ hasText: "m8-b" }).evaluate((el) => {
+      const rec = { changes: 0, final: "", last: 0 };
+      Object.assign(window, { __arr: rec });
+      new MutationObserver(() => { rec.changes++; rec.final = (el as HTMLElement).style.transform; rec.last = Date.now(); }).observe(el, { attributes: true, attributeFilter: ["style"] });
+    });
+    await Promise.all([watch(a.page), watch(c.page)]);
+    await b.page.locator(`${site.seat}[data-seat="0"]`).click({ timeout: STEP_MS });
+    await a.page.waitForTimeout(8000);
+    const read = (p: Page): Promise<{ changes: number; final: string; last: number }> => p.evaluate(() => Reflect.get(window, "__arr"));
+    const [ra, rc] = await Promise.all([read(a.page), read(c.page)]);
+    await a.page.screenshot({ path: `${OUT}/a-after-walk.png` });
+    assert(tierA0 === "smooth", `A tier ${String(tierA0)}`);
+    const tierA = tierA0;
+    assert(ra.changes > 3 && rc.changes > 3, `walk not seen: A ${String(ra.changes)} C ${String(rc.changes)}`);
+    assert(ra.final === rc.final && ra.final !== "", `final transforms differ: ${ra.final} vs ${rc.final}`);
+    return `A tier ${String(tierA)} saw ${String(ra.changes)} steps, C tier ${String(tierC)} saw ${String(rc.changes)}; arrival delta ${String(Math.abs(ra.last - rc.last))} ms`;
+  });
+
+  await check("3 bubbles (OME-809): B sends two lines back to back; A sees both floating", async () => {
+    await a.page.waitForTimeout(6000);
+    await b.page.locator(site.chatInput).fill("first line");
+    await b.page.locator(site.chatInput).press("Enter");
+    await b.page.locator(site.chatInput).fill("second line");
+    await b.page.locator(site.chatInput).press("Enter");
+    await a.page.locator(".ui-float").filter({ hasText: "first line" }).waitFor({ state: "visible", timeout: 4000 });
+    await a.page.locator(".ui-float").filter({ hasText: "second line" }).waitFor({ state: "visible", timeout: 4000 });
+    await a.page.screenshot({ path: `${OUT}/a-two-lines.png` });
+    return "both bubbles visible";
+  });
+
+  await check("4 bubbles (OME-791): B and C speak together; A's two bubbles don't overlap; both vanish within ~7 s", async () => {
+    await a.page.waitForTimeout(6000);
+    await Promise.all([say(b.page, "stack from b"), say(c.page, "stack from c")]);
+    const bb = a.page.locator(".ui-float").filter({ hasText: "stack from b" });
+    const bc = a.page.locator(".ui-float").filter({ hasText: "stack from c" });
+    await bb.waitFor({ state: "visible", timeout: 4000 });
+    await bc.waitFor({ state: "visible", timeout: 4000 });
+    await a.page.waitForTimeout(1500);
+    const [rb, rc] = await Promise.all([bb.boundingBox(), bc.boundingBox()]);
+    assert(rb !== null && rc !== null, "no boxes");
+    const ov = rb.x < rc.x + rc.width && rc.x < rb.x + rb.width && rb.y < rc.y + rc.height && rc.y < rb.y + rb.height;
+    await a.page.screenshot({ path: `${OUT}/a-stacked-bubbles.png` });
+    assert(!ov, `overlap ${JSON.stringify(rb)} ${JSON.stringify(rc)}`);
+    await bb.waitFor({ state: "hidden", timeout: 8000 });
+    return `no overlap (${JSON.stringify(rb)} / ${JSON.stringify(rc)})`;
+  });
+
+  await check("5 emote wheel: T opens role=menu 'Emotes', Clap by keyboard, focus back to where T was pressed, B (reduced motion, where the sticker is a DOM badge) sees one badge; wheel closes", async () => {
+    for (const x of [a, b]) await x.page.evaluate(() => { const seen: string[] = []; Object.assign(window, { __b: seen }); new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n instanceof HTMLElement && n.dataset["testid"] === "emote-badge") seen.push(n.className); }).observe(document.body, { childList: true, subtree: true }); });
+    await a.page.locator("body").click({ position: { x: 2, y: 2 } });
+    await a.page.keyboard.press("t");
+    const wheel = a.page.getByRole("menu", { name: "Emotes" });
+    await wheel.waitFor({ state: "visible", timeout: 4000 });
+    const items = await a.page.getByRole("menuitem").count();
+    await a.page.screenshot({ path: `${OUT}/a-wheel.png` });
+    await a.page.keyboard.press("ArrowRight");
+    await a.page.keyboard.press("Enter");
+    await wheel.waitFor({ state: "hidden", timeout: 4000 });
+    await a.page.waitForTimeout(2000);
+    const seen = await b.page.evaluate(() => Reflect.get(window, "__b") as string[]);
+    const seenA = await a.page.evaluate(() => Reflect.get(window, "__b") as string[]);
+    console.log("badges A", JSON.stringify(seenA), "B", JSON.stringify(seen));
+    const focus = await a.page.evaluate(() => document.activeElement === document.body ? "<body>" : document.activeElement?.getAttribute("data-testid") ?? "?");
+    assert(items === 6, `${String(items)} menuitems`);
+    assert(seen.length === 1 && seen[0] !== undefined, `B saw ${JSON.stringify(seen)}`);
+    assert(focus === "<body>", `focus on ${focus} (opened by T from the body, so focus goes back to the body)`);
+    return `6 items, B saw 1 badge, focus on ${focus}`;
+  });
+
+  await check("6 no CSP violations or page errors on A, B, C", async () => {
+    const per = all.map((x) => `${x.name}:${String(x.csp.length)}/${String(x.errs.length)}`);
+    assert(all.every((x) => x.csp.length === 0 && x.errs.length === 0), per.join(" ") + JSON.stringify(all.flatMap((x) => [...x.csp, ...x.errs])));
+    return per.join(" ");
+  });
+} finally {
+  await browser.close();
+  save();
+  process.exit(rows.every((r) => r.ok) ? 0 : 1);
+}

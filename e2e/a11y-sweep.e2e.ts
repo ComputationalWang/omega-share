@@ -1,5 +1,5 @@
 // OME-1326: the a11y and viewport regression gate (docs/qa/a11y-sweep.md), promoted from the OME-1300/OME-1324 sweep.
-// Every surface below, at each of 4 viewports (1280×800, 390×844 touch, 844×390 touch, 320×640), plus the
+// Every surface below, at each of 7 viewports (1280×800, 390×844 touch, 844×390 touch, 320×640, 768×1024 touch, 1024×768 touch, 1920×1080), plus the
 // extension's popup, options and consent pages, must have:
 //  - no serious or critical axe violation (wcag2a/2aa/21a/21aa/22aa, iframes excluded, border-image contrast judged by
 //    `paintedContrast`). axe's `target-size` (WCAG 2.5.8, spacing-aware) is in wcag22aa, so it runs everywhere;
@@ -34,9 +34,12 @@ const VIEWPORTS: VP[] = [
   { name: "390x844-touch", opts: touch(390, 844) },
   { name: "844x390-touch", opts: touch(844, 390) },
   { name: "320x640", opts: { viewport: { width: 320, height: 640 } } },
+  { name: "768x1024-touch", opts: touch(768, 1024) },
+  { name: "1024x768-touch", opts: touch(1024, 768) },
+  { name: "1920x1080", opts: { viewport: { width: 1920, height: 1080 } } },
 ];
-const ROOMS = ["w1280", "p390", "l844", "n320"] as const;
-const OWNED: OwnedRoomName[] = ["sweepa", "sweepb", "sweepc", "sweepd"];
+const ROOMS = ["w1280", "p390", "l844", "n320", "t768", "t1024", "d1920"] as const;
+const OWNED: OwnedRoomName[] = ["sweepa", "sweepb", "sweepc", "sweepd", "sweepe", "sweepf", "sweepg"];
 
 /** Serious/critical axe violations, with border-image contrast re-judged by `paintedContrast`. */
 async function axe(page: Page): Promise<string[]> {
@@ -146,14 +149,17 @@ const measure = (page: Page): Promise<string[]> =>
  * Open findings with a fix issue, reported as annotations instead of failures. The fix removes its entry (its red commit).
  * shortcut: an entry no longer seen doesn't fail; prune it when its issue closes.
  */
-const KNOWN: readonly { issue: string; surface: string; problem: RegExp }[] = [
+const KNOWN: readonly { issue: string; surface: RegExp; problem: RegExp }[] = [
+  { issue: "OME-1800", surface: /./, problem: /^off-screen: div\[data-testid=(walk-floor|editor-hit)\].*\(vw 768\)$/ },
+  { issue: "OME-1800", surface: /./, problem: /^target under 44 px \(touch\): div\[data-testid=chat-log\] "Chat messages" 736x/ },
+  { issue: "OME-1800", surface: /^full screen$/, problem: /^text under 12 px \(touch\): span\.ui-chip\.(shared|self) .* 11 px$/ },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
 async function audit(page: Page, vp: string, surface: string): Promise<void> {
   await page.waitForTimeout(400);
   const problems = [...(await axe(page)), ...(await measure(page))];
-  const known = (p: string) => KNOWN.find((k) => k.surface === surface && k.problem.test(p));
+  const known = (p: string) => KNOWN.find((k) => k.surface.test(surface) && k.problem.test(p));
   for (const p of problems) {
     const k = known(p);
     if (k !== undefined) test.info().annotations.push({ type: `known (${k.issue})`, description: `${vp} ${surface}: ${p}` });
@@ -347,12 +353,17 @@ const GUEST_SKIPS: Record<string, string[]> = {
   "390x844-touch": ["report", "pop-out chat.html", "pop-out room.html"],
   "844x390-touch": ["pop-out chat.html", "pop-out room.html"],
   "320x640": ["report", "pop-out chat.html", "pop-out room.html"],
+  "768x1024-touch": ["pop-out chat.html", "pop-out room.html"],
+  "1024x768-touch": ["pop-out chat.html", "pop-out room.html"],
 };
 const OWNER_SKIPS: Record<string, string[]> = {
   "1280x800": ["owner settings"],
   "390x844-touch": ["editor", "night mood"],
   "844x390-touch": ["owner settings"],
   "320x640": ["editor", "night mood"],
+  "768x1024-touch": ["owner settings"],
+  "1024x768-touch": ["owner settings"],
+  "1920x1080": ["owner settings"],
 };
 
 async function extAudit(page: Page, surface: string, width: number, height: number): Promise<void> {
