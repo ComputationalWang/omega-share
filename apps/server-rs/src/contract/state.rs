@@ -15,7 +15,7 @@ use super::embed::NowPlaying;
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, RoomId};
 use super::layout::RoomLayout;
-use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PollCount, StandingSlot, Tint};
+use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PieceIndex, PollCount, StandingSlot, Tint};
 use super::text::{Nickname, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashSet;
@@ -359,6 +359,9 @@ wire_type!(
         /// Sitting on the floor of `cell` (OME-1499); absent means false.
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         floor_sit: Option<bool>,
+        /// Lying on this layout piece (OME-1773); absent when not lying.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        lying: Option<PieceIndex>,
     }
 );
 

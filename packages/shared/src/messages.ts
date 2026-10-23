@@ -35,7 +35,7 @@ import {
   SeatIndexSchema,
   TintSchema,
 } from "./room";
-import { FloorCellInputSchema, FloorCellSchema, RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
+import { FloorCellInputSchema, FloorCellSchema, PieceIndexSchema, RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
 import { QueueIndexSchema, QueueItemIdSchema, QueueSchema } from "./queue";
 import { InviteKeySchema, OwnerTokenSchema } from "./room-ownership";
 import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
@@ -189,6 +189,14 @@ export const ClientMessageSchema = v.variant("type", [
    */
   v.strictObject({ type: v.literal("floor-sit"), on: v.boolean() }),
   /**
+   * Needs `join`. Lie down on a layout piece whose kind has a `lie` style (OME-1773; the sofa, couch and cat), or get up
+   * with `piece: null` (back to the standing spot, like `sit` null). A piece without one is `error: bad_cell`; one with
+   * a seat held by someone else, or someone else lying on it, is `error: seat_taken`. The lier first leaves their seat,
+   * cell or floor sit (`seat-changed` null / `floor-sat` false), then `lay`; while they lie the piece's seats are taken.
+   * Shares the walk bucket: over it dropped silently.
+   */
+  v.strictObject({ type: v.literal("lie"), piece: v.nullable(PieceIndexSchema) }),
+  /**
    * Needs `join`. The member is (or stopped) typing a chat line; relayed as `typing-changed` on change only. Resend
    * `on: true` within TYPING_TIMEOUT_MS to stay on; the server clears it after that, on a chat line, a mute or a
    * disconnect. Per member TYPING_BURST / TYPING_REFILL_MS, over it dropped silently. Never in a snapshot.
@@ -321,7 +329,7 @@ export const ERROR_CODES = [
   "unsupported_url",
   /** Unknown, expired, revoked or wrong-room resume credential; no fresh join fallback. */
   "resume_expired",
-  /** `walk` to a cell under a solid piece or a seat (ADR 0053); `floor-sit` on while not standing on a cell (OME-1499); `pair` with no free cell beside the partner (OME-1671). */
+  /** `walk` to a cell under a solid piece or a seat (ADR 0053); `floor-sit` on while not standing on a cell (OME-1499); `pair` with no free cell beside the partner (OME-1671); `lie` on a piece with no lie style (OME-1773). */
   "bad_cell",
   /** `pair` in a room whose layout lacks `pairs: true` (OME-1671). */
   "pairs_off",
@@ -379,6 +387,11 @@ const SingleServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("hair-changed"), memberId: MemberIdSchema, hair: HairSchema }),
   /** A member sat down on (or got up from) the floor (OME-1499). */
   v.object({ type: v.literal("floor-sat"), memberId: MemberIdSchema, on: v.boolean() }),
+  /**
+   * A member lay down on a layout piece, or got up (`piece: null`) (OME-1773). On change only; also sent `null` before a
+   * sit, walk, floor sit, leave or a `layout-changed` that drops or moves the piece. The snapshot's `Member.lying`.
+   */
+  v.object({ type: v.literal("lay"), memberId: MemberIdSchema, piece: v.nullable(PieceIndexSchema) }),
   /** A member started or stopped typing (OME-1387). Ephemeral: a member missing from these is not typing. */
   v.object({ type: v.literal("typing-changed"), memberId: MemberIdSchema, on: v.boolean() }),
   v.object({

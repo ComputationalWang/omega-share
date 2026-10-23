@@ -307,6 +307,7 @@ describe("frame size", () => {
     accessory: 3,
     hair: 3,
     floorSit: true,
+    lying: 31,
   }));
   const queue = Array.from({ length: QUEUE_MAX }, (_, i) => item(`q${String(i).padStart(31, "0")}`, longGeneric(), members[i]?.id ?? null));
 

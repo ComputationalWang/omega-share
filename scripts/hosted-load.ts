@@ -348,6 +348,7 @@ class LoadClient {
       case "reacted":
       case "pair-invited":
       case "paired":
+      case "lay":
       case "walked":
       case "tint-changed":
       case "accessory-changed":

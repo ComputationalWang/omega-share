@@ -164,6 +164,14 @@ pub enum Layer {
     Wall,
 }
 
+/// `LIE_STYLES` (OME-1773): how a member lies on a piece.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LieStyle {
+    Lie,
+    Curl,
+}
+
 /// One row of `FURNITURE`.
 #[derive(Debug, Clone, Copy)]
 pub struct Spec {
@@ -178,6 +186,8 @@ pub struct Spec {
     pub variants: u32,
     /// Facing sw it stands on row 0 (right wall), facing se on col 0 (left wall).
     pub wall_backed: bool,
+    /// A member may lie on it (`lie`), blocking its seats (OME-1773).
+    pub lie: Option<LieStyle>,
 }
 
 impl Spec {
@@ -190,7 +200,12 @@ impl Spec {
             seats: false,
             variants: 1,
             wall_backed: false,
+            lie: None,
         }
+    }
+    const fn lie(mut self, style: LieStyle) -> Self {
+        self.lie = Some(style);
+        self
     }
     const fn seated(mut self) -> Self {
         self.seats = true;
@@ -215,8 +230,8 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Tv => Spec::new(Object, FIXED, 1, 1),
         Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1).variants(3),
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7).variants(3),
-        Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4),
-        Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
+        Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4).lie(LieStyle::Lie),
+        Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2).lie(LieStyle::Lie),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
         Kind::Beanbag | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(4),
         Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
@@ -225,7 +240,9 @@ pub const fn spec(kind: Kind) -> Spec {
             Spec::new(Object, CAMERA, 1, 1)
         }
         Kind::Monstera => Spec::new(Object, CAMERA, 1, 1).variants(4),
-        Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        Kind::Speaker => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        // A non-seat, so seat indices don't move (OME-1773).
+        Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2).lie(LieStyle::Curl),
         Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).variants(3).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(4),
         Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(4),

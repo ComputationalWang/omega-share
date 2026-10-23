@@ -12,7 +12,7 @@ import {
 } from "./constants";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { MemberIdSchema, QueueItemIdSchema, RoomIdSchema } from "./ids";
-import { FloorCellSchema, RoomLayoutSchema } from "./layout";
+import { FloorCellSchema, PieceIndexSchema, RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
 import { QueueSchema } from "./queue";
 
@@ -129,6 +129,11 @@ export const MemberSchema = v.object({
   hair: v.optional(HairSchema),
   /** Sitting on the floor of their `cell` (OME-1499). Absent means false; cleared by a walk, a sit or leaving. */
   floorSit: v.optional(v.boolean()),
+  /**
+   * Lying on this layout piece (OME-1773, `lay`). Absent: not lying. Cleared by a sit, a walk, a floor sit, leaving, or a
+   * layout that drops or moves the piece.
+   */
+  lying: v.optional(PieceIndexSchema),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 

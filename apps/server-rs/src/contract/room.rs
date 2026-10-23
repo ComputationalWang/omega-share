@@ -3,8 +3,8 @@
 
 use super::Obj;
 use super::constants::{
-    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, HAIR_COUNT, MAX_ROOM_MEMBERS, POLL_MAX_OPTIONS, QUEUE_MAX,
-    SEAT_COUNT, TINT_COUNT,
+    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, HAIR_COUNT, MAX_FURNITURE, MAX_ROOM_MEMBERS,
+    POLL_MAX_OPTIONS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT,
 };
 use serde::{Deserialize, Serialize};
 
@@ -46,6 +46,11 @@ bounded_index!(
     /// `SeatIndexSchema`: an integer in `0..SEAT_COUNT`.
     SeatIndex,
     SEAT_COUNT
+);
+bounded_index!(
+    /// `PieceIndexSchema` (OME-1773): a piece's place in `layout.furniture`, an integer in `0..MAX_FURNITURE`.
+    PieceIndex,
+    MAX_FURNITURE
 );
 bounded_index!(
     /// `StandingSlotSchema`: an integer in `0..MAX_ROOM_MEMBERS`.
@@ -177,6 +182,7 @@ mod tests {
         assert!(ok::<Avatar>("0") && ok::<Avatar>("3"));
         assert!(!ok::<Avatar>("4") && !ok::<Avatar>("-1") && !ok::<Avatar>("1.5") && !ok::<Avatar>("\"1\"") && !ok::<Avatar>("null"));
         assert!(ok::<SeatIndex>("7") && !ok::<SeatIndex>("8"));
+        assert!(ok::<PieceIndex>("31") && !ok::<PieceIndex>("32") && !ok::<PieceIndex>("-1"));
         assert!(ok::<StandingSlot>("24") && !ok::<StandingSlot>("25") && !ok::<StandingSlot>("256"));
         assert_eq!(serde_json::from_str::<Avatar>("2").map(Avatar::get).ok(), Some(2));
         assert_eq!(serde_json::to_string(&SeatIndex::new(5)).unwrap(), "5");
