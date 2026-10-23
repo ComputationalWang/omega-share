@@ -9,7 +9,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV6 } from "./furniture";
+import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -283,6 +283,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let v2Atlas: FurnitureAtlas | null = null;
   /** Batch 6's atlas once loaded (OME-1439); same shape again. */
   let v4Atlas: FurnitureAtlas | null = null;
+  /** The theatre set's atlas once loaded (OME-1630); same shape again. */
+  let v5Atlas: FurnitureAtlas | null = null;
   /** The Dank Dungeon's atlas once loaded (OME-1672). */
   let v6Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
@@ -306,9 +308,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [atlas, v2Atlas, v4Atlas, v6Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v6Atlas, roomAtlas, recolours], grid);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
   };
 
@@ -364,9 +366,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     grid = walkGrid(next);
     standing = standingPoints(next);
     buildScene(next);
-    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform.
+    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
+    // on the tile, not the lifted sitter: a riser's 44 px phone key would otherwise cover the row in front (QA OME-1743).
+    const tiles = seatTiles(next);
     seatButtons.forEach((b, i) => {
-      const p = seats[i];
+      const p = tiles[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
     loadRecolours(key, next);
@@ -385,6 +389,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     if (next.pairs === true) view.loadPairPoses();
     if (usesV4(next) && v4Atlas === null) {
       lazyAtlas("furniture v4", key, next, () => import("./furniture-v4-atlas").then((m) => m.loadFurnitureV4Atlas()), (a) => (v4Atlas = a));
+    }
+    if (usesV5(next) && v5Atlas === null) {
+      lazyAtlas("furniture v5", key, next, () => import("./furniture-v5-atlas").then((m) => m.loadFurnitureV5Atlas()), (a) => (v5Atlas = a));
     }
   };
 
