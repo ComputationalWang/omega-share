@@ -311,7 +311,10 @@ export const pageVideo = (page: Page): Promise<{ t: number; paused: boolean; ad:
 
 /** Opens the watch page as a logged-out viewer would: past a consent wall, playing content (not an ad), then seeks to `at` s. */
 export async function watchAt(page: Page, url: string, at: number): Promise<number> {
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  // YouTube's watch page answers a scripted mid-stream seek with "Something went wrong" (OME-1789): open it at `at`.
+  const target = new URL(url);
+  if (target.hostname.endsWith("youtube.com")) target.searchParams.set("t", `${String(at)}s`);
+  await page.goto(target.href, { waitUntil: "domcontentloaded" });
   // EU consent walls (YouTube's own page, Vimeo's banner): decline, as a viewer would.
   // Checked on every poll: YouTube's renders late. Vimeo's sits in a closed shadow root that locators can't reach; it
   // doesn't cover the video, so it stays up. `force`: the players' own overlays intercept a plain click on <video>.
