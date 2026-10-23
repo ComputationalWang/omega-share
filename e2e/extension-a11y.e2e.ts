@@ -73,7 +73,7 @@ test("Server settings and the legal links are at least 24 × 24 px with a mouse"
 });
 
 for (const width of [360, 420]) {
-  test(`at ${width} px the share key fits its label and icon with every room choice, and no text is under 12 px (OME-1808)`, async ({ context, openPopup }) => {
+  test(`at ${String(width)} px the share key fits its label and icon with every room choice, and no text is under 12 px (OME-1808)`, async ({ context, openPopup }) => {
     const { p, roomId } = await setup(context, openPopup);
     await p.setViewportSize({ width, height: 700 });
     await expect(p.locator(popup.embedItem)).toHaveCount(1);
@@ -90,7 +90,7 @@ for (const width of [360, 420]) {
         });
         return { inside, overflow: b.scrollWidth > b.clientWidth };
       });
-      expect(fit, `${label} at ${width} px`).toEqual({ inside: true, overflow: false });
+      expect(fit, `${label} at ${String(width)} px`).toEqual({ inside: true, overflow: false });
     }
     const small = await p.evaluate(() => {
       const out: string[] = [];
@@ -99,7 +99,7 @@ for (const width of [360, 420]) {
         const el = n.parentElement;
         if (el === null || n.textContent?.trim() === "" || el.closest("script, [hidden]") !== null) continue;
         const size = Number.parseFloat(getComputedStyle(el).fontSize);
-        if (size < 12) out.push(`${size}px: ${n.textContent?.trim()}`);
+        if (size < 12) out.push(`${String(size)}px: ${n.textContent?.trim() ?? ""}`);
       }
       return out;
     });
