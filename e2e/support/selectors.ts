@@ -26,8 +26,8 @@ export const site = {
   tv: id("tv"),
   roomWindow: id("room-window"),
   // Movie night (OME-1628, OME-1629): QA's heap row (perf/heap-movie.perf.ts) looks for these.
-  momentsStrip: id("moments-strip"),
-  recapCard: id("recap-card"),
+  momentsStrip: id("moments"),
+  recapCard: id("recap"),
   // Full screen (OME-597): our wrapper (the full-screen element), its enter/exit key, the chat strip and its collapse key.
   fsRoot: id("fs-root"),
   fullscreenToggle: id("fullscreen-toggle"),
