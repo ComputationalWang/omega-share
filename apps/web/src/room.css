@@ -445,6 +445,22 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* At least room for the TV at its minimum and a small room (the column scrolls under an open editor instead). */
 .room-wide > .stage-wrap:not(.is-fs) { flex: 1 0 420px; }
 .room-wide > .room-bar:not(:has(> :not([hidden]))) { display: none; }
+/* The open editor on a wide desktop (OME-1801): a column of its own beside the room, so the room keeps its size (under
+ * it the room was 278 px wide at 1280 and 198 at 2560, the Mood and Save rows below the fold). --editor-w is in page
+ * px before the chrome zoom (--editor-col after it); the column is zoomed with the rest, so its offset is divided by it. The tray wraps and
+ * scrolls in what the column leaves; the rest of the editor scrolls under it. Below 1200 px it stays under the room. */
+@media (min-width: 1200px) and (min-height: 501px) {
+  body.room-is-wide.room-editing { --editor-w: 312px; --editor-col: 312px; }
+  body.room-is-wide.room-editing[data-chrome="1.5"] { --editor-col: 468px; }
+  body.room-is-wide.room-editing[data-chrome="2"] { --editor-col: 624px; }
+  body.room-is-wide.room-editing > .site-footer { margin-right: calc(var(--wide-side) + var(--editor-col)); }
+  body.room-editing .room-wide { padding-right: calc(var(--editor-col) + 16px); }
+  body.room-editing .room-wide > .editor-panel { position: fixed; top: 0; bottom: 0; right: calc(var(--wide-side) / var(--chrome, 1)); width: var(--editor-w); box-sizing: border-box; padding: 12px 8px; overflow-y: auto; border-left: 1px solid #3a3452; background: var(--bg); }
+  body.room-editing .room-wide > .editor-panel > .editor { display: flex; flex-direction: column; height: 100%; margin: 0; }
+  body.room-editing .room-wide > .editor-panel > .editor > * { flex: none; }
+  body.room-editing .room-wide > .editor-panel :is(.ui-tabs, .editor-mood-options) { flex-wrap: wrap; }
+  body.room-editing .room-wide > .editor-panel .ui-tray { flex: 0 1 auto; flex-wrap: wrap; min-height: calc(120 * var(--ui-px)); overflow: hidden auto; }
+}
 .room-side { position: fixed; top: 0; right: 0; bottom: 0; width: var(--wide-side); box-sizing: border-box; padding: 12px max(12px, env(safe-area-inset-right)) 12px 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
 .room-side[hidden] { display: none; }
 .room-side > * { flex: none; margin: 0; }
