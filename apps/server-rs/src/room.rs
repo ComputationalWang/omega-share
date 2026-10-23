@@ -16,7 +16,7 @@ use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
-    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
+    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, PieceIndex, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
 use crate::contract::state::{
     Conga, MediaMs, Member, PairPose, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
@@ -84,6 +84,19 @@ pub enum FloorSitResult {
     Unchanged,
     /// `on` without a cell: seated, or on the standing spot.
     NotStanding,
+}
+
+/// What `Room::lie` did (OME-1691).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LieResult {
+    /// Lying now, or got up. `left_seat`: they were seated, and that seat is free now.
+    Changed { left_seat: bool },
+    /// Already so, or not a member.
+    Unchanged,
+    /// No such piece, or it has no lie style.
+    BadCell,
+    /// Someone lies on the piece, or holds one of its seats.
+    SeatTaken,
 }
 
 /// What `Room::pair` did (OME-1672).
@@ -535,6 +548,24 @@ impl Room {
         rec.member.floor_sit = next;
         self.prune_conga();
         FloorSitResult::Changed
+    }
+
+    /// Lies `member` down on layout piece `piece`, or gets them up on `None` (OME-1691).
+    pub fn lie(&mut self, member: &MemberId, piece: Option<PieceIndex>) -> LieResult {
+        let _ = (member, piece);
+        LieResult::Unchanged
+    }
+
+    /// Gets `member` up from a piece; false if they were not lying (OME-1691).
+    pub fn clear_lying(&mut self, member: &MemberId) -> bool {
+        let _ = member;
+        false
+    }
+
+    /// After a layout change from `old`: gets up whoever lies on a piece that is not the same piece any more.
+    pub fn clear_stale_lying(&mut self, old: &RoomLayout) -> Vec<MemberId> {
+        let _ = old;
+        Vec::new()
     }
 
     /// A relayed chat line from `member` at server time `at`: `/conga` joins the line, `/stop` leaves it (OME-1574).
@@ -2547,6 +2578,120 @@ mod tests {
             json(&r.snapshot().members[0]),
             r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"cell":{"x":3,"y":3}}"#
         );
+    }
+
+    /// tv 0, sofas 1 (seats 0, 1) and 2 (seats 2, 3), armchairs 3..=6 (seats 4..=7), cat 7.
+    fn lie_layout() -> RoomLayout {
+        let p = |kind: &str, col: u8, row: u8, facing: &str| serde_json::json!({"kind":kind,"col":col,"row":row,"facing":facing});
+        let furniture = [
+            p("tv", 0, 0, "se"),
+            p("sofa", 1, 5, "ne"),
+            p("sofa", 4, 5, "ne"),
+            p("armchair", 2, 2, "ne"),
+            p("armchair", 4, 2, "ne"),
+            p("armchair", 3, 7, "ne"),
+            p("armchair", 6, 7, "ne"),
+            p("cat", 8, 8, "se"),
+        ];
+        RoomLayout::parse(serde_json::json!({ "furniture": furniture }).to_string().as_bytes()).unwrap()
+    }
+    fn piece(n: u64) -> Option<PieceIndex> {
+        PieceIndex::new(n)
+    }
+    fn lie_room() -> (Room, MemberId, MemberId) {
+        let mut r = room();
+        r.set_layout(lie_layout());
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        (r, a, b)
+    }
+
+    // OME-1691
+    #[test]
+    fn lying_needs_a_piece_with_a_lie_style_and_shows_in_the_snapshot() {
+        let (mut r, a, _) = lie_room();
+        for bad in [0, 3, 8, 31] {
+            assert_eq!(r.lie(&a, piece(bad)), LieResult::BadCell, "piece {bad}");
+        }
+        assert_eq!(r.lie(&mid("ghost"), piece(1)), LieResult::Unchanged);
+        assert_eq!(r.lie(&a, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!(r.lie(&a, piece(1)), LieResult::Unchanged);
+        assert_eq!(r.member(&a).unwrap().cell, None);
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"lying":1}"#
+        );
+        assert_eq!(
+            r.lie(&a, piece(7)),
+            LieResult::Changed { left_seat: false },
+            "a cat can be curled up on"
+        );
+        assert_eq!(r.lie(&a, None), LieResult::Changed { left_seat: false });
+        assert_eq!(r.lie(&a, None), LieResult::Unchanged);
+        assert_eq!(r.member(&a).unwrap().cell, None, "up on the standing spot");
+        assert!(!json(&r.snapshot().members[0]).contains("lying"));
+    }
+
+    #[test]
+    fn a_lying_member_blocks_the_piece_and_its_seats_for_others() {
+        let (mut r, a, b) = lie_room();
+        r.lie(&a, piece(1));
+        assert_eq!(r.lie(&b, piece(1)), LieResult::SeatTaken);
+        assert_eq!(r.sit(&b, Some(seat(0))), SitResult::SeatTaken);
+        assert_eq!(r.sit(&b, Some(seat(1))), SitResult::SeatTaken);
+        assert_eq!(r.sit(&b, Some(seat(2))), SitResult::Ok, "the other sofa is free");
+        assert_eq!(r.lie(&b, piece(2)), LieResult::Changed { left_seat: true });
+        assert_eq!(r.lie(&a, None), LieResult::Changed { left_seat: false });
+        assert_eq!(r.sit(&b, Some(seat(0))), SitResult::Ok, "freed on getting up");
+        assert_eq!(r.sit(&a, Some(seat(1))), SitResult::SeatTaken, "bob is on the same sofa");
+    }
+
+    #[test]
+    fn lying_down_leaves_the_seat_and_the_floor_and_needs_its_seats_free() {
+        let (mut r, a, b) = lie_room();
+        r.sit(&a, Some(seat(4)));
+        assert_eq!(r.lie(&a, piece(1)), LieResult::Changed { left_seat: true });
+        assert_eq!(r.sit(&b, Some(seat(4))), SitResult::Ok, "alice's armchair is free");
+        r.walk(&b, cell(5, 5));
+        r.set_floor_sit(&b, true);
+        r.sit(&a, None);
+        r.sit(&b, Some(seat(0)));
+        assert_eq!(r.lie(&a, piece(1)), LieResult::SeatTaken, "bob sits on the sofa");
+        r.sit(&b, None);
+        r.walk(&b, cell(5, 6));
+        r.set_floor_sit(&b, true);
+        assert_eq!(r.lie(&b, piece(2)), LieResult::Changed { left_seat: false });
+        assert_eq!(r.member(&b).unwrap().floor_sit, None);
+    }
+
+    #[test]
+    fn clear_lying_and_a_layout_change_get_the_lier_up_only_when_the_piece_is_gone() {
+        let (mut r, a, b) = lie_room();
+        r.lie(&a, piece(1));
+        r.lie(&b, piece(2));
+        let old = r.layout().clone();
+        r.set_layout(lie_layout());
+        assert!(r.clear_stale_lying(&old).is_empty(), "the same pieces");
+        r.set_layout(default_layout());
+        assert_eq!(
+            r.clear_stale_lying(&old),
+            [a.clone(), b.clone()],
+            "piece 1 and 2 are other pieces now"
+        );
+        assert_eq!(r.member(&a).unwrap().lying, None);
+        r.set_layout(lie_layout());
+        r.lie(&a, piece(1));
+        assert!(r.clear_lying(&a));
+        assert!(!r.clear_lying(&a));
+        assert!(!r.clear_lying(&mid("ghost")));
+    }
+
+    #[test]
+    fn leaving_frees_the_piece() {
+        let (mut r, a, b) = lie_room();
+        r.lie(&a, piece(1));
+        r.leave(&a, T0);
+        assert_eq!(r.lie(&b, piece(1)), LieResult::Changed { left_seat: false });
     }
 
     #[test]

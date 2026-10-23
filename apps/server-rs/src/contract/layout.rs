@@ -333,6 +333,12 @@ pub fn layout_seats(furniture: &[Furniture]) -> Vec<Seat> {
     seats
 }
 
+/// The seat indices piece `piece` gives (OME-1691): empty for a piece without seats, `None` past the last piece.
+pub fn piece_seats(furniture: &[Furniture], piece: usize) -> Option<std::ops::Range<usize>> {
+    let _ = (furniture, piece);
+    Some(0..0)
+}
+
 /// Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se.
 fn wall_segment(f: &Furniture) -> (bool, u32) {
     if f.facing == Facing::Sw {
@@ -1262,6 +1268,22 @@ mod tests {
     }
 
     // packages/shared/test/preset-contract.test.ts:5
+    #[test]
+    fn piece_seats_are_the_seat_indices_a_piece_gives() {
+        let f = |kind, col, row, facing| Furniture::new(kind, col, row, facing);
+        let furniture = [
+            f(Kind::Tv, 0, 0, Facing::Se),
+            f(Kind::Sofa, 1, 5, Facing::Ne),
+            f(Kind::Armchair, 2, 2, Facing::Ne),
+            f(Kind::Sofa, 4, 5, Facing::Ne),
+        ];
+        assert_eq!(piece_seats(&furniture, 0), Some(0..0));
+        assert_eq!(piece_seats(&furniture, 1), Some(0..2));
+        assert_eq!(piece_seats(&furniture, 2), Some(2..3));
+        assert_eq!(piece_seats(&furniture, 3), Some(3..5));
+        assert_eq!(piece_seats(&furniture, 4), None);
+    }
+
     #[test]
     fn preset_ids() {
         let ids: Vec<&str> = ROOM_PRESET_IDS.iter().map(|i| i.as_str()).collect();
