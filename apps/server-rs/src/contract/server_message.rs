@@ -449,6 +449,9 @@ mod tests {
         same(r#"{"type":"emoted","memberId":"m1","kind":"cheer"}"#);
         same(r#"{"type":"pair-invited","memberId":"m1","pose":"thrust"}"#);
         same(r#"{"type":"paired","thrust":"m1","bendover":"m2"}"#);
+        same(r#"{"type":"lay","memberId":"m1","piece":31}"#);
+        same(r#"{"type":"lay","memberId":"m1","piece":null}"#);
+        same(r#"{"type":"member-joined","member":{"id":"m1","nickname":"alice","avatar":0,"floorSit":true,"lying":5}}"#);
         same(r#"{"type":"error","code":"pairs_off","message":"x"}"#);
         same(r#"{"type":"member-muted","memberId":"m1","muted":true}"#);
         same(r#"{"type":"control-policy-changed","policy":"owner","by":"m1"}"#);

@@ -774,6 +774,8 @@ mod tests {
             json!({"type":"emote","kind":"dance"}),
             json!({"type":"pair","pose":"thrust"}),
             json!({"type":"pair","pose":"bendover"}),
+            json!({"type":"lie","piece":31}),
+            json!({"type":"lie","piece":null}),
             json!({"type":"kick","memberId":"m2"}),
             json!({"type":"mute","memberId":"m2","muted":false}),
             json!({"type":"control-policy","policy":"owner"}),

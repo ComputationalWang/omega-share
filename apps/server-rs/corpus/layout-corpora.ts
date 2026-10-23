@@ -272,5 +272,7 @@ export const layoutCorpora: Corpus[] = [
   { name: "room-layout", cases: () => parsed(RoomLayoutSchema, inputs()) },
   { name: "room-layout-input", cases: () => parsed(RoomLayoutInputSchema, inputs()) },
   { name: "layout-seats", cases: () => seatInputs().map((input) => ({ input, ok: true, output: layoutSeats(input as never) })) },
+  // The catalogue lie style (OME-1773): a kind's `lie`, null when it has none.
+  { name: "furniture-lie", cases: () => FURNITURE_KINDS.map((input) => ({ input, ok: true, output: FURNITURE[input].lie ?? null })) },
   { name: "footprint-cells", cases: () => footprintInputs().map((input) => ({ input, ok: true, output: footprintCells(input as never) })) },
 ];
