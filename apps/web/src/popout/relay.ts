@@ -6,7 +6,7 @@
 // OME-600 (W3b): the whole-room window is the same channel's other kind of window. Still one window per tab, whichever
 // kind; a room window also gets what the stage draws (mirrored as it changes, so the page's renderer can pause), the
 // picture's time for its plate, and each emote, and its seat clicks come back here to be sent.
-import type { ClientMessage, EmoteKind, MemberId } from "@omega/shared";
+import type { ClientMessage, EmoteKind, MemberId, ReactionKind } from "@omega/shared";
 import { CHAT_LOG_CAP, type ChatLogEntry } from "../chat/log";
 import type { PollView } from "../chat/poll";
 import { chatIntent } from "../intents";
@@ -59,6 +59,8 @@ export interface ChatRelay {
   poll(v: PollView | null): void;
   /** Someone emoted: a room window draws it. */
   emote(member: MemberId, kind: EmoteKind): void;
+  /** Someone reacted (OME-1730): a room window bursts the glyphs. */
+  react(member: MemberId, kind: ReactionKind): void;
   /** Someone started or stopped typing: a room window draws the dots. */
   typing(member: MemberId, on: boolean): void;
   /** Everyone's dots go (a rejoin). */
@@ -218,6 +220,7 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
       case "room-view":
       case "room-tv":
       case "room-emote":
+      case "room-react":
       case "room-typing":
       case "room-typing-clear":
       case "room-raise":
@@ -265,6 +268,9 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     },
     emote(member, kind) {
       if (activeKind === "room") o.channel.post({ t: "room-emote", member, kind });
+    },
+    react(member, kind) {
+      if (activeKind === "room") o.channel.post({ t: "room-react", member, kind });
     },
     typing(member, on) {
       if (activeKind === "room") o.channel.post({ t: "room-typing", member, on });

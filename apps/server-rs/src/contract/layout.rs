@@ -88,6 +88,13 @@ pub enum Kind {
     Bigscreen,
     Aislelight,
     Carpet,
+    // Dank Dungeon (OME-1670 / OME-1672).
+    Bed,
+    Whirlpool,
+    Mirror,
+    Minibar,
+    Desk,
+    Washbasin,
 }
 
 impl Kind {
@@ -97,7 +104,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 41] = [
+pub const KINDS: [Kind; 47] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -139,6 +146,12 @@ pub const KINDS: [Kind; 41] = [
     Kind::Bigscreen,
     Kind::Aislelight,
     Kind::Carpet,
+    Kind::Bed,
+    Kind::Whirlpool,
+    Kind::Mirror,
+    Kind::Minibar,
+    Kind::Desk,
+    Kind::Washbasin,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,6 +162,14 @@ pub enum Layer {
     Object,
     /// Hangs on a wall.
     Wall,
+}
+
+/// `LIE_STYLES` (OME-1773): how a member lies on a piece.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LieStyle {
+    Lie,
+    Curl,
 }
 
 /// One row of `FURNITURE`.
@@ -165,6 +186,8 @@ pub struct Spec {
     pub variants: u32,
     /// Facing sw it stands on row 0 (right wall), facing se on col 0 (left wall).
     pub wall_backed: bool,
+    /// A member may lie on it (`lie`), blocking its seats (OME-1773).
+    pub lie: Option<LieStyle>,
 }
 
 impl Spec {
@@ -177,7 +200,12 @@ impl Spec {
             seats: false,
             variants: 1,
             wall_backed: false,
+            lie: None,
         }
+    }
+    const fn lie(mut self, style: LieStyle) -> Self {
+        self.lie = Some(style);
+        self
     }
     const fn seated(mut self) -> Self {
         self.seats = true;
@@ -199,23 +227,29 @@ pub const fn spec(kind: Kind) -> Spec {
     use Layer::{Floor, Object, Wall};
     match kind {
         Kind::Armchair => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Tv | Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1),
+        Kind::Tv => Spec::new(Object, FIXED, 1, 1),
+        Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1).variants(3),
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7).variants(3),
-        Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4),
-        Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
+        Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4).lie(LieStyle::Lie),
+        Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2).lie(LieStyle::Lie),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
         Kind::Beanbag | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(4),
         Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
-        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
+        Kind::Arclamp => Spec::new(Object, CAMERA, 1, 1).variants(3),
+        Kind::Sidetable | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
             Spec::new(Object, CAMERA, 1, 1)
         }
-        Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
-        Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
+        Kind::Monstera => Spec::new(Object, CAMERA, 1, 1).variants(4),
+        Kind::Speaker => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        // A non-seat, so seat indices don't move (OME-1773).
+        Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2).lie(LieStyle::Curl),
+        Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).variants(3).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(4),
         Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(4),
         Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
-        Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Wallshelf => Spec::new(Wall, CAMERA, 0, 0).variants(3),
+        Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
         Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(4),
@@ -229,6 +263,10 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bigscreen => Spec::new(Object, FIXED, 1, 1),
         Kind::Aislelight => Spec::new(Floor, ON_FLOOR, 1, 1),
         Kind::Carpet => Spec::new(Floor, FIXED, 2, 2),
+        Kind::Bed | Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
+        Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Minibar | Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
+        Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
     }
 }
 
@@ -600,9 +638,11 @@ pub enum RoomPresetId {
     Cafe,
     Bar,
     Empty,
+    #[serde(rename = "dank-dungeon")]
+    DankDungeon,
 }
 
-pub const ROOM_PRESET_IDS: [RoomPresetId; 7] = [
+pub const ROOM_PRESET_IDS: [RoomPresetId; 8] = [
     RoomPresetId::Classic,
     RoomPresetId::Cinema,
     RoomPresetId::Living,
@@ -610,6 +650,7 @@ pub const ROOM_PRESET_IDS: [RoomPresetId; 7] = [
     RoomPresetId::Cafe,
     RoomPresetId::Bar,
     RoomPresetId::Empty,
+    RoomPresetId::DankDungeon,
 ];
 
 /// Omitted preset means today's `DEFAULT_LAYOUT` (classic).
@@ -625,6 +666,7 @@ impl RoomPresetId {
             Self::Cafe => "cafe",
             Self::Bar => "bar",
             Self::Empty => "empty",
+            Self::DankDungeon => "dank-dungeon",
         }
     }
 }
@@ -699,6 +741,26 @@ mod tests {
             pv("monstera", 0, 9, "se", 1),
             p("popcorn", 9, 9, "sw"),
         ])
+    }
+
+    // packages/shared/test/layout-contract.test.ts (OME-1688 colourways)
+    #[test]
+    fn lamps_plants_and_shelves_take_their_r2_colourways() {
+        for (kind, at, n) in [
+            ("lamp", p("lamp", 9, 0, "se"), 3),
+            ("plant", p("plant", 0, 9, "se"), 3),
+            ("arclamp", p("arclamp", 9, 0, "sw"), 3),
+            ("monstera", p("monstera", 0, 9, "se"), 4),
+            ("bookshelf", p("bookshelf", 3, 0, "sw"), 3),
+            ("wallshelf", p("wallshelf", 2, 0, "sw"), 3),
+        ] {
+            let mut last = at.clone();
+            last["variant"] = json!(n - 1);
+            let mut over = at;
+            over["variant"] = json!(n);
+            assert!(piece_accepts(&last), "{kind} variant {}", n - 1);
+            assert!(!piece_accepts(&over), "{kind} variant {n}");
+        }
     }
 
     // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
@@ -996,7 +1058,7 @@ mod tests {
             ("a cat facing the TV", p("cat", 0, 0, "ne")),
             ("a wall shelf off the wall", p("wallshelf", 3, 2, "sw")),
             ("a wall shelf on a window segment", p("wallshelf", 0, 6, "se")),
-            ("a second wall shelf colour", pv("wallshelf", 2, 0, "sw", 1)),
+            ("a fourth wall shelf colour", pv("wallshelf", 2, 0, "sw", 3)),
             ("a garland off the wall", p("garland", 1, 3, "se")),
             ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),
@@ -1078,6 +1140,28 @@ mod tests {
             assert!(piece_accepts(&pv(kind, col, row, facing, 3)), "{kind} 3");
             assert!(!piece_accepts(&pv(kind, col, row, facing, 4)), "{kind} 4");
         }
+    }
+
+    // packages/shared/test/dank-dungeon-contract.test.ts
+    #[test]
+    fn the_six_dank_dungeon_kinds_follow_the_readme_table() {
+        for (kind, facing) in [
+            ("bed", "nw"),
+            ("whirlpool", "ne"),
+            ("bed", "se"),
+            ("whirlpool", "sw"),
+            ("mirror", "se"),
+            ("minibar", "sw"),
+            ("desk", "se"),
+        ] {
+            let (col, row) = if kind == "mirror" { (0, 2) } else { (3, 3) };
+            assert!(piece_accepts(&p(kind, col, row, facing)), "{kind} {facing}");
+        }
+        for (kind, facing) in [("mirror", "ne"), ("minibar", "nw"), ("desk", "ne"), ("washbasin", "nw")] {
+            assert!(!piece_accepts(&p(kind, 0, 2, facing)), "{kind} {facing}");
+        }
+        assert!(piece_accepts(&p("washbasin", 0, 7, "se")));
+        assert!(!piece_accepts(&pv("bed", 3, 3, "nw", 1)));
     }
 
     #[test]
@@ -1181,7 +1265,10 @@ mod tests {
     #[test]
     fn preset_ids() {
         let ids: Vec<&str> = ROOM_PRESET_IDS.iter().map(|i| i.as_str()).collect();
-        assert_eq!(ids, ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty"]);
+        assert_eq!(
+            ids,
+            ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"]
+        );
         assert_eq!(DEFAULT_ROOM_PRESET.as_str(), "classic");
         for id in ROOM_PRESET_IDS {
             assert_eq!(serde_json::to_string(&id).unwrap(), format!("\"{}\"", id.as_str()));

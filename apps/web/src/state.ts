@@ -325,6 +325,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // The dank-dungeon pair (OME-1671): drawn by OME-1672, never part of the view state.
     case "pair-invited":
     case "paired":
+    // Lying down (OME-1773): wired into the view by OME-1691.
+    case "lay":
       return state;
     // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
     case "poll": {

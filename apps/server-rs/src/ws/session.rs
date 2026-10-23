@@ -155,6 +155,7 @@ fn hold(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, member: &Me
         };
     }
     clear_typing(inner, member);
+    inner.room.cancel_pair(member);
     inner.room.set_catching(member, false);
     if inner.room.take_catching_change(member).is_some() {
         publish_msg(
@@ -348,9 +349,8 @@ fn resume(app: &App, inner: &mut RoomInner, conn: &mut Conn, token: &ResumeToken
         owner: session.owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
         conga: inner.room.conga(),
-        // The reaction timeline and the item's peak: OME-1632.
-        reactions: None,
-        peak_members: None,
+        reactions: inner.room.reactions(),
+        peak_members: inner.room.peak_members(),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);
@@ -504,9 +504,8 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         owner: owner.then_some(true),
         poll: inner.poll.as_ref().and_then(OpenPoll::view),
         conga: inner.room.conga(),
-        // The reaction timeline and the item's peak: OME-1632.
-        reactions: None,
-        peak_members: None,
+        reactions: inner.room.reactions(),
+        peak_members: inner.room.peak_members(),
     };
     send_msg(inner, conn.id, &snapshot);
     inner.subscribers.subscribe(conn.id);

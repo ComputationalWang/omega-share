@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createClockSync } from "../src/clock";
-import type { ConnectionEvent } from "../src/connection";
+import { createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
 import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
 /** A real clock on fake timers: which timers are still pending after the event. */
-function setup(hidden: readonly string[] = [], typing: (memberId: string, on: boolean) => void = () => undefined): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[] } {
+function setup(hidden: readonly string[] = [], typing: (memberId: string, on: boolean) => void = () => undefined): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[]; pairs: unknown[] } {
   const pending = new Set<number>();
   let next = 0;
   const clock = createClockSync<number>({
@@ -24,8 +24,10 @@ function setup(hidden: readonly string[] = [], typing: (memberId: string, on: bo
   const dispatched: ViewEvent[] = [];
   const emoted: [string, string][] = [];
   const sessions: string[] = [];
+  const pairs: unknown[] = [];
   const sinks = {
     emoted: (memberId: string, kind: string) => emoted.push([memberId, kind]),
+    pair: (msg: unknown) => pairs.push(msg),
     typing,
     clock,
     shareToken: { onEvent: () => undefined },
@@ -35,7 +37,7 @@ function setup(hidden: readonly string[] = [], typing: (memberId: string, on: bo
     hidden: (id: string) => hidden.includes(id),
     session: (token: string) => sessions.push(token),
   };
-  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted, sessions };
+  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted, sessions, pairs };
 }
 
 test("room-closed (4004) stops the clock: no ping timer keeps firing on the terminal screen", () => {
@@ -133,4 +135,49 @@ test("typing-changed goes to the typing sink only; a hidden member's goes nowher
   route({ type: "message", msg: { type: "typing-changed", memberId: "m2", on: true } });
   expect(typed).toEqual([["m1", true]]);
   expect(dispatched).toEqual([]);
+});
+
+test("pair-invited and paired go straight to the pair sink, never through the view state (OME-1672)", () => {
+  const { route, dispatched, pairs } = setup();
+  route({ type: "message", msg: { type: "pair-invited", memberId: "m1", pose: "thrust" } });
+  route({ type: "message", msg: { type: "paired", thrust: "m1", bendover: "m2" } });
+  expect(pairs).toEqual([{ type: "pair-invited", memberId: "m1", pose: "thrust" }, { type: "paired", thrust: "m1", bendover: "m2" }]);
+  expect(dispatched).toEqual([]);
+});
+
+test("a hidden member's invite goes nowhere", () => {
+  const { route, pairs } = setup(["m1"]);
+  route({ type: "message", msg: { type: "pair-invited", memberId: "m1", pose: "bendover" } });
+  expect(pairs).toEqual([]);
+});
+
+// OME-1627: a batch is unwrapped at the connection, so a hidden member's chat inside one still stops at intake.
+test("a hidden member's chat inside a batch frame stays hidden; the rest of the batch goes through in order", () => {
+  const { route, dispatched, emoted } = setup(["m2"]);
+  const sockets: SocketLike[] = [];
+  const conn = createConnection({
+    url: "ws://x",
+    join: { type: "join", nickname: "zoe", avatar: 1 },
+    createSocket: () => {
+      const s: SocketLike = { send: () => undefined, close: () => undefined, onopen: null, onmessage: null, onclose: null, onerror: null };
+      sockets.push(s);
+      return s;
+    },
+    onEvent: route,
+    setTimer: () => 0,
+    clearTimer: () => undefined,
+  });
+  const s = sockets.at(0);
+  if (s === undefined) throw new Error("no socket");
+  const receive = (msg: unknown): void => s.onmessage?.({ data: JSON.stringify(msg) });
+  receive({ type: "batch", msgs: [
+    { type: "chat", memberId: "m2", text: "boo", at: 1 },
+    { type: "emoted", memberId: "m2", kind: "wave" },
+    { type: "chat", memberId: "m1", text: "hi", at: 2 },
+    { type: "member-left", memberId: "m2" },
+  ] });
+  conn.close();
+  expect(dispatched.map((e) => (e.type === "server" ? e.msg.type : e.type))).toEqual(["connecting", "chat", "member-left"]);
+  expect(dispatched.some((e) => e.type === "server" && e.msg.type === "chat" && e.msg.memberId === "m2")).toBe(false);
+  expect(emoted).toEqual([]);
 });

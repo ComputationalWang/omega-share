@@ -85,3 +85,11 @@ describe("the room's chrome loads with the room", () => {
     });
   }
 });
+
+// OME-1755: body:has() / main:has() make the whole page's styles depend on every DOM change under it. Chromium re-styles
+// body and everything its :has() rules reach on each chat line, bubble or hidden toggle (the wide chat burst's tail).
+// The room marks the body with a class instead (room-is-wide, room-is-portrait, room-is-pseudo-fs).
+test("room.css keys no rule on body:has() or main:has()", () => {
+  const src = readFileSync(join(web, "src", "room.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  expect(src.match(/(?<![\w-])(?:body|main)(?:[.#[][^\s,{>+~]*)?:has\(/g) ?? []).toEqual([]);
+});

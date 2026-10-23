@@ -539,10 +539,13 @@ async fn the_list_has_pinned_rooms_first_then_busiest_then_newest_and_hides_priv
     assert_eq!(res.header("content-type"), Some("application/json"));
     assert_eq!(list(res), ["lobby", &a, &c, &b]);
     let body = fx.get("/rooms", &[]).await.json();
-    assert_eq!(body["rooms"][0], serde_json::json!({"id":"lobby","memberCount":0,"seatedCount":0}));
+    assert_eq!(
+        body["rooms"][0],
+        serde_json::json!({"id":"lobby","memberCount":0,"seatedCount":0,"watchingCount":0})
+    );
     assert_eq!(
         body["rooms"][1],
-        serde_json::json!({"id":a,"memberCount":1,"seatedCount":0,"title":"Alpha"})
+        serde_json::json!({"id":a,"memberCount":1,"seatedCount":0,"title":"Alpha","watchingCount":1})
     );
 }
 

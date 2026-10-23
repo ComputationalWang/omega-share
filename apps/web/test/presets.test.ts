@@ -1,18 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import * as v from "valibot";
-import { DEFAULT_ROOM_PRESET, ROOM_PRESET_IDS, RoomLayoutSchema } from "@omega/shared";
+import { DEFAULT_ROOM_PRESET, FURNITURE, ROOM_PRESET_IDS, RoomLayoutSchema, layoutSeats } from "@omega/shared";
 import bar from "../../../assets/presets/bar.json";
 import cafe from "../../../assets/presets/cafe.json";
 import cinema from "../../../assets/presets/cinema.json";
 import classic from "../../../assets/presets/classic.json";
+import dankDungeon from "../../../assets/presets/dank-dungeon.json";
 import empty from "../../../assets/presets/empty.json";
 import living from "../../../assets/presets/living.json";
 import lounge from "../../../assets/presets/lounge.json";
 import manifest from "../../../assets/presets/presets.json";
 import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "../src/presets";
 
-const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty };
+const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon };
 
 describe("room presets (assets/presets/presets.json)", () => {
   test("the picker offers exactly the contract's preset ids, in the manifest's order", () => {
@@ -39,5 +40,27 @@ describe("room presets (assets/presets/presets.json)", () => {
       expect(v.safeParse(RoomLayoutSchema, LAYOUTS[p.id]).success).toBe(true);
       expect(existsSync(new URL(`../../../assets/presets/${p.thumb}`, import.meta.url))).toBe(true);
     }
+  });
+});
+
+// OME-1630 (Movie night): the cinema preset is the Theatre, rows of seats on risers facing the big screen.
+describe("the Theatre preset (id cinema)", () => {
+  const layout = v.parse(RoomLayoutSchema, cinema);
+
+  test("is offered as Theatre", () => {
+    expect(PRESETS.find((p) => p.id === "cinema")?.name).toBe("Theatre");
+  });
+
+  test("seats only in theatre rows, every one facing the screen in the back corner", () => {
+    const seatPieces = layout.furniture.filter((f) => FURNITURE[f.kind].seats);
+    expect(seatPieces.length).toBeGreaterThan(0);
+    expect(seatPieces.every((f) => f.kind === "theatrerow")).toBe(true);
+    expect(layoutSeats(layout).every((s) => s.facing === "ne" || s.facing === "nw")).toBe(true);
+    expect(layout.furniture.filter((f) => f.kind === "bigscreen" || f.kind === "tv")).toEqual([{ kind: "bigscreen", col: 0, row: 0, facing: "se" }]);
+  });
+
+  test("the rows step up toward the back of the room", () => {
+    const risers = new Set(layout.furniture.filter((f) => f.kind === "theatrerow").map((f) => f.variant ?? 0));
+    expect(risers.size).toBeGreaterThanOrEqual(2);
   });
 });

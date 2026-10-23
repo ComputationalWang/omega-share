@@ -7,17 +7,23 @@
 //! (a JS `Map`'s insertion order, which snapshots expose). Seats hold slot indices and the flags live in the
 //! member's record: no per-member sets, no string clones on the relay path.
 
+use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::{CONGA_CAP, CONGA_WINDOW_MS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+use crate::contract::constants::{
+    CONGA_CAP, CONGA_WINDOW_MS, FLOOR_CELLS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT,
+};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
-use crate::contract::state::{Conga, Member, PlaybackState, QueueItem, RoomState, RoomSummary, ServerTime};
+use crate::contract::state::{
+    Conga, MediaMs, Member, PairPose, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
+    StartSeconds,
+};
 use crate::contract::text::{Nickname, RoomTitle};
-use crate::playback::{Control, apply_control, load_playback, restored_playback};
+use crate::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
 use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
 use std::collections::{HashMap, VecDeque};
 
@@ -78,6 +84,27 @@ pub enum FloorSitResult {
     Unchanged,
     /// `on` without a cell: seated, or on the standing spot.
     NotStanding,
+}
+
+/// What `Room::pair` did (OME-1672).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PairResult {
+    NotMember,
+    /// The layout has no `pairs: true`.
+    PairsOff,
+    /// No open invite of the other pose: this is the sender's own now.
+    Invited,
+    /// A match, but no free cell beside the sender (or, for a sender with no cell, anywhere): the invite stays.
+    NoCell,
+    /// A match, its invite consumed. `inviter` is `thrust` or `bendover`, and goes to `cell`. A sender with no cell
+    /// (on their standing spot, or seated) is stood on `stand` first.
+    Paired {
+        thrust: MemberId,
+        bendover: MemberId,
+        inviter: MemberId,
+        cell: FloorCell,
+        stand: Option<FloorCell>,
+    },
 }
 
 /// What `Room::set_embed` changed besides the embed.
@@ -151,6 +178,8 @@ struct Rec {
     announced: Option<u64>,
     /// Typing a chat line (OME-1387). Ephemeral: never in a snapshot.
     typing: bool,
+    /// Unit step of their last walk, for `/thrust`: where they face. West until they take one. Ephemeral.
+    facing: (i8, i8),
 }
 
 type Slot = u8;
@@ -209,6 +238,12 @@ pub struct Room {
     conga: Vec<MemberId>,
     /// Server time of the last join; `None` before the first.
     conga_last: Option<u64>,
+    /// Open `/thrust` and `/bendover` invites, oldest first, at most one per member (OME-1672). Never stored or sent in a snapshot.
+    pair_invites: Vec<(MemberId, PairPose, i64)>,
+    /// The current item's timed reactions, oldest first, at most `REACTIONS_MAX` (ADR 0056): memory only.
+    reactions: VecDeque<Reaction>,
+    /// Most members at once since the current item started (ADR 0056).
+    peak_members: usize,
 }
 
 /// `Map.get(key)` of an expiry map, then the "live" rule: the entry runs while `now < until`; an expired one is dropped.
@@ -276,6 +311,9 @@ impl Room {
             holds_until: 0,
             conga: Vec::new(),
             conga_last: None,
+            pair_invites: Vec::new(),
+            reactions: VecDeque::new(),
+            peak_members: 0,
             layout: init.layout.unwrap_or_else(default_layout),
             title: init.title,
             control_policy: init.control_policy.unwrap_or(DEFAULT_CONTROL_POLICY),
@@ -301,6 +339,9 @@ impl Room {
     /// door too (ADR 0053); returns them, in join order, with where they went.
     pub fn set_layout(&mut self, layout: RoomLayout) -> Vec<(MemberId, Option<FloorCell>)> {
         self.layout = layout;
+        if !self.layout.pairs() {
+            self.pair_invites.clear();
+        }
         let door = door_cell().filter(|&d| self.layout.standable(d));
         let mut moved = Vec::new();
         for &s in &self.order {
@@ -326,9 +367,99 @@ impl Room {
         let stood_up = self.seats.contains(&Some(slot));
         self.free(slot);
         if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
+            if let Some(from) = rec.member.cell {
+                rec.facing = step_facing(from, cell, rec.facing);
+            }
             rec.member.cell = Some(cell);
         }
         WalkResult::Walked { stood_up }
+    }
+
+    /// `/thrust` or `/bendover` from `member` at Unix ms `now` (OME-1672); see `PairResult`. Moves nobody: the caller
+    /// walks the inviter to the returned cell. Invites are checked against `now` here, so they need no timer.
+    pub fn pair(&mut self, member: &MemberId, pose: PairPose, now: i64) -> PairResult {
+        if !self.layout.pairs() {
+            return PairResult::PairsOff;
+        }
+        let Some(&slot) = self.index.get(member) else {
+            return PairResult::NotMember;
+        };
+        self.pair_invites
+            .retain(|&(_, _, at)| now.saturating_sub(at) < PAIR_INVITE_TTL_MS as i64);
+        let Some(inviter) = self
+            .pair_invites
+            .iter()
+            .rev()
+            .find(|(m, p, _)| m != member && *p != pose)
+            .map(|(m, _, _)| m.clone())
+        else {
+            self.cancel_pair(member);
+            self.pair_invites.push((member.clone(), pose, now));
+            return PairResult::Invited;
+        };
+        let facing = |m: &MemberId| {
+            self.index
+                .get(m)
+                .and_then(|&s| self.slots.get(usize::from(s))?.as_ref())
+                .map_or((-1, 0), |r| r.facing)
+        };
+        let own = self
+            .slots
+            .get(usize::from(slot))
+            .and_then(Option::as_ref)
+            .and_then(|r| r.member.cell);
+        // The bender is the sender: the inviter goes behind them. Otherwise the inviter bends, and goes where the
+        // sender is behind them. Either way the cell is beside the sender.
+        let (dx, dy) = facing(if pose == PairPose::Bendover { member } else { &inviter });
+        let sign = if pose == PairPose::Bendover { -1 } else { 1 };
+        let behind = (i16::from(dx) * sign, i16::from(dy) * sign);
+        // shortcut: the fallback order is fixed (east, south, west, north, then the diagonals), not nearest-to-facing; refine if play shows it looks odd.
+        let ring = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)];
+        let free = |c: FloorCell, but: &MemberId| {
+            self.layout.standable(c) && !self.slots.iter().flatten().any(|r| r.member.cell == Some(c) && &r.member.id != but)
+        };
+        let beside = |at: FloorCell| {
+            std::iter::once(behind).chain(ring).find_map(|(ox, oy): (i16, i16)| {
+                let x = u64::try_from(i16::from(at.x.get()) + ox).ok()?;
+                let y = u64::try_from(i16::from(at.y.get()) + oy).ok()?;
+                FloorCell::new(x, y).filter(|&c| free(c, &inviter))
+            })
+        };
+        // A sender with no cell (standing spot, or seated) is stood first: the door cell, else the next free cell
+        // back from it (row-major, the door being the last cell) that has room beside it.
+        let found = match own {
+            Some(at) => beside(at).map(|c| (c, None)),
+            None => {
+                let n = u64::try_from(FLOOR_CELLS).unwrap_or(0);
+                (0..n * n)
+                    .rev()
+                    .filter_map(|i| FloorCell::new(i % n, i / n))
+                    .filter(|&c| free(c, member))
+                    .find_map(|at| beside(at).map(|c| (c, Some(at))))
+            }
+        };
+        let Some((cell, stand)) = found else {
+            return PairResult::NoCell;
+        };
+        self.cancel_pair(&inviter);
+        self.cancel_pair(member);
+        let (thrust, bendover) = if pose == PairPose::Thrust {
+            (member, &inviter)
+        } else {
+            (&inviter, member)
+        };
+        PairResult::Paired {
+            thrust: thrust.clone(),
+            bendover: bendover.clone(),
+            inviter,
+            cell,
+            stand,
+        }
+    }
+
+    /// Drops `member`'s open invite, if any.
+    pub fn cancel_pair(&mut self, member: &MemberId) {
+        self.pair_invites.retain(|(m, _, _)| m != member);
     }
 
     /// `join.via` (OME-1556, ADR 0054): stands a member who just joined in front of the door back to `via`, if that
@@ -608,6 +739,7 @@ impl Room {
             accessory: None,
             hair: None,
             floor_sit: None,
+            lying: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
@@ -625,9 +757,11 @@ impl Room {
                 away: false,
                 announced: None,
                 typing: false,
+                facing: (-1, 0),
             });
         }
         self.order.push(slot);
+        self.peak_members = self.peak_members.max(self.order.len());
         Ok(out)
     }
 
@@ -672,6 +806,7 @@ impl Room {
         self.free(slot);
         self.order.retain(|&s| s != slot);
         self.conga.retain(|m| m != member);
+        self.cancel_pair(member);
         let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::take) else {
             return;
         };
@@ -846,11 +981,18 @@ impl Room {
     /// (nobody for an advance, the adder when an add starts an empty room). `None` with an empty queue.
     pub fn advance(&mut self, since: f64, by: Option<MemberId>, now_wall: i64) -> Option<Advance> {
         let item = self.upcoming.pop_front()?;
-        let embed_switch = self.install(Some(item.embed.clone()), by, Some(item.id.clone()), since, now_wall);
+        let embed_switch = self.install(
+            Some(item.embed.clone()),
+            by,
+            Some(item.id.clone()),
+            item.start_seconds,
+            since,
+            now_wall,
+        );
         Some(Advance { item, embed_switch })
     }
 
-    /// Sets the embed and restarts playback at 0. `by` is the sharer. The embed becomes the current item
+    /// Sets the embed and restarts playback at `start` (0 if `None`; ignored for a live or generic embed). `by` is the sharer. The embed becomes the current item
     /// `item_id` (minted if `None`) at `since`; a `None` embed has no item. A `None` or generic embed clears
     /// playback and every catching flag (ADR 0024 section 7): `uncaught` lists the members to tell.
     pub fn set_embed(
@@ -858,6 +1000,7 @@ impl Room {
         embed: Option<AnyEmbed>,
         by: Option<MemberId>,
         item_id: Option<QueueItemId>,
+        start: Option<StartSeconds>,
         since: f64,
         now_wall: i64,
     ) -> Result<EmbedSwitch, EntropyError> {
@@ -867,7 +1010,7 @@ impl Room {
             (Some(_), Some(item)) => Some(item),
             (Some(_), None) => Some(mint_item_id()?),
         };
-        Ok(self.install(embed, by, item_id, since, now_wall))
+        Ok(self.install(embed, by, item_id, start, since, now_wall))
     }
 
     /// `set_embed` with the item id already settled (`None` iff `embed` is).
@@ -876,14 +1019,21 @@ impl Room {
         embed: Option<AnyEmbed>,
         by: Option<MemberId>,
         item_id: Option<QueueItemId>,
+        start: Option<StartSeconds>,
         since: f64,
         now_wall: i64,
     ) -> EmbedSwitch {
         let synced = embed.as_ref().is_some_and(AnyEmbed::is_synced);
+        let start = embed.as_ref().and_then(|e| start_of(e, start));
         self.embed = embed;
         self.current_item_id = item_id;
         self.current_since = since;
-        self.playback = synced.then(|| load_playback(self.rev, now_wall, by));
+        self.reactions.clear();
+        self.peak_members = self.order.len();
+        self.playback = synced.then(|| PlaybackState {
+            position: start.and_then(|s| Position::new(f64::from(s.get()))).unwrap_or(Position::ZERO),
+            ..load_playback(self.rev, now_wall, by)
+        });
         if let Some(playback) = &self.playback {
             self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
             return EmbedSwitch {
@@ -904,6 +1054,38 @@ impl Room {
             rec.announced = None;
         }
         EmbedSwitch { playback: None, uncaught }
+    }
+
+    /// A member's timed reaction (OME-1632, ADR 0056), stamped with the room clock and kept for the current item.
+    /// `None`, and nothing kept, without a synced current item.
+    pub fn react(&mut self, member: &MemberId, kind: ReactionKind, now_wall: i64) -> Option<Reaction> {
+        let playback = self.playback.as_ref()?;
+        if !self.index.contains_key(member) {
+            return None;
+        }
+        // Whole ms; `expected_position` is clamped to 0..=MAX_POSITION_S, so `MediaMs::new` only fails on a bug.
+        let media_ms = MediaMs::new((expected_position(playback, now_wall) * 1000.0).round() as u64)?;
+        let reaction = Reaction {
+            member_id: member.clone(),
+            kind,
+            media_ms,
+        };
+        if self.reactions.len() >= REACTIONS_MAX {
+            self.reactions.pop_front();
+        }
+        self.reactions.push_back(reaction.clone());
+        Some(reaction)
+    }
+
+    /// The current item's reactions for the snapshot, oldest first; `None` when there are none.
+    pub fn reactions(&self) -> Option<Vec<Reaction>> {
+        (!self.reactions.is_empty()).then(|| self.reactions.iter().cloned().collect())
+    }
+
+    /// Most members at once since the current item started; `None` without an item.
+    pub fn peak_members(&self) -> Option<u8> {
+        self.current_item_id.as_ref()?;
+        u8::try_from(self.peak_members).ok()
     }
 
     /// Applies a member's `control`; the new playback, or `None` if it's for no/another/a generic embed.
@@ -960,10 +1142,31 @@ impl Room {
             member_count: u8::try_from(self.order.len()).unwrap_or(u8::MAX),
             seated_count: u8::try_from(seated).unwrap_or(u8::MAX),
             title: self.title.clone(),
-            // `GET /rooms` watching summary: OME-1633.
-            watching_count: None,
-            now_playing: None,
+            watching_count: Some(u8::try_from(self.order_recs().filter(|r| !r.away).count()).unwrap_or(u8::MAX)),
+            // Only a listed room shows its video (ADR 0056); `list` never asks a private one, and this says no too.
+            now_playing: (self.visibility == RoomVisibility::Public)
+                .then(|| self.embed.as_ref().and_then(AnyEmbed::now_playing))
+                .flatten(),
         }
+    }
+}
+
+/// The step from `from` to `to` as a unit vector along its longer axis (x on a tie); `keep` if they are the same cell.
+fn step_facing(from: FloorCell, to: FloorCell, keep: (i8, i8)) -> (i8, i8) {
+    let dx = i16::from(to.x.get()) - i16::from(from.x.get());
+    let dy = i16::from(to.y.get()) - i16::from(from.y.get());
+    match (dx, dy) {
+        (0, 0) => keep,
+        _ if dx.abs() >= dy.abs() => (dx.signum() as i8, 0),
+        _ => (0, dy.signum() as i8),
+    }
+}
+
+/// Where `embed` starts for a share's or queue item's `start` (ADR 0056): none for a live or generic embed.
+pub fn start_of(embed: &AnyEmbed, start: Option<StartSeconds>) -> Option<StartSeconds> {
+    match embed {
+        AnyEmbed::Synced(e) if !playback_caps(e).live => start,
+        _ => None,
     }
 }
 
@@ -988,7 +1191,7 @@ impl Rec {
 mod tests {
     use super::*;
     use crate::contract::confusables::nickname_key;
-    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
+    use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, REACTIONS_MAX, SEAT_COUNT};
     use crate::contract::embed::canonicalize_embed;
     use crate::contract::generic_embed::canonicalize_generic_embed;
     use crate::contract::state::{PlaybackAction, Rev};
@@ -1065,6 +1268,114 @@ mod tests {
         }
     }
 
+    // ---- timed reactions (OME-1632, ADR 0056)
+
+    fn kinds(r: &Room) -> Vec<(String, ReactionKind, u64)> {
+        r.reactions()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|x| (x.member_id.as_str().to_owned(), x.kind, x.media_ms.get()))
+            .collect()
+    }
+
+    #[test]
+    fn a_reaction_is_stamped_with_the_room_clock_not_the_client() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        let got = r.react(&a, ReactionKind::Heart, T0 + 12_345).unwrap();
+        assert_eq!(json(&got), r#"{"memberId":"m1","kind":"heart","mediaMs":12345}"#);
+        // Paused: the position, whatever the wall clock says.
+        r.control(&a, &ctl(false, 42.5), T0 + 20_000).unwrap();
+        assert_eq!(r.react(&a, ReactionKind::Clap, T0 + 99_000).unwrap().media_ms.get(), 42_500);
+        assert_eq!(
+            kinds(&r),
+            vec![
+                ("m1".into(), ReactionKind::Heart, 12_345),
+                ("m1".into(), ReactionKind::Clap, 42_500)
+            ]
+        );
+    }
+
+    #[test]
+    fn no_reaction_without_a_synced_item_or_from_a_stranger() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        r.set_embed(Some(generic()), None, None, None, 0.0, T0).unwrap();
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        assert!(r.react(&mid("ghost"), ReactionKind::Wow, T0).is_none());
+        assert!(r.reactions().is_none());
+    }
+
+    #[test]
+    fn the_ring_keeps_the_latest_reactions_max_oldest_first() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        for i in 0..=REACTIONS_MAX as i64 {
+            r.react(&a, ReactionKind::Laugh, T0 + i * 1000).unwrap();
+        }
+        let ms: Vec<u64> = kinds(&r).into_iter().map(|(_, _, ms)| ms).collect();
+        assert_eq!(ms.len(), REACTIONS_MAX);
+        assert_eq!((ms.first(), ms.last()), (Some(&1000), Some(&(REACTIONS_MAX as u64 * 1000))));
+    }
+
+    // The server's own frame for packages/shared/test/queue-contract.test.ts:330 (OME-1701): a full room with a full ring.
+    #[test]
+    fn a_full_room_snapshot_with_a_full_ring_fits_the_frame_limit() {
+        use crate::contract::constants::MAX_SERVER_MESSAGE_BYTES;
+        use crate::contract::server_message::ServerMessage;
+        let mut r = room();
+        r.set_title(Some(RoomTitle::parse(&"語".repeat(32)).unwrap()));
+        let members: Vec<MemberId> = (0..MAX_ROOM_MEMBERS)
+            .map(|i| join(&mut r, &format!("m{i:063}"), &format!("{}{i:02}", "語".repeat(18)), None))
+            .collect();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        r.control(&members[0], &ctl(false, 43_199.0), T0).unwrap();
+        for i in 0..REACTIONS_MAX {
+            r.react(&members[i % members.len()], ReactionKind::Laugh, T0).unwrap();
+        }
+        let frame = json(&ServerMessage::Snapshot {
+            self_id: members[0].clone(),
+            room: r.snapshot(),
+            share_token: None,
+            resume_token: None,
+            resumed: Some(true),
+            owner: Some(true),
+            poll: None,
+            conga: r.conga(),
+            reactions: r.reactions(),
+            peak_members: r.peak_members(),
+        });
+        assert!(
+            frame.contains(r#""peakMembers":25"#) && frame.contains(r#""mediaMs":43199000"#),
+            "{frame}"
+        );
+        assert!(frame.len() <= MAX_SERVER_MESSAGE_BYTES, "{} bytes", frame.len());
+    }
+
+    #[test]
+    fn a_new_item_clears_the_timeline_and_restarts_the_peak_from_who_is_there() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(r.peak_members().is_none());
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
+        let b = join(&mut r, "m2", "bob", None);
+        join(&mut r, "m3", "carol", None);
+        r.react(&b, ReactionKind::Heart, T0).unwrap();
+        r.leave(&b, T0);
+        assert_eq!(r.peak_members(), Some(3));
+        r.enqueue(queued("q1", vimeo(), None));
+        r.advance(1.0, None, T0).unwrap();
+        assert!(r.reactions().is_none());
+        assert_eq!(r.peak_members(), Some(2));
+        r.set_embed(None, None, None, None, 2.0, T0).unwrap();
+        assert!(r.peak_members().is_none());
+        assert!(r.react(&a, ReactionKind::Heart, T0).is_none());
+    }
+
     // ---- construction
 
     #[test]
@@ -1126,7 +1437,7 @@ mod tests {
         );
         assert_eq!((r.item_id(), r.item_since()), (Some(&iid("cur1")), 7.5));
         let next = r
-            .set_embed(Some(vimeo()), None, Some(iid("n1")), 1.0, T0 + 1)
+            .set_embed(Some(vimeo()), None, Some(iid("n1")), None, 1.0, T0 + 1)
             .unwrap()
             .playback
             .unwrap();
@@ -1141,7 +1452,11 @@ mod tests {
             ..RoomInit::default()
         });
         assert!(r.current_playback().is_none() && r.has_generic_embed());
-        let next = r.set_embed(Some(yt()), None, Some(iid("n1")), 0.0, T0).unwrap().playback.unwrap();
+        let next = r
+            .set_embed(Some(yt()), None, Some(iid("n1")), None, 0.0, T0)
+            .unwrap()
+            .playback
+            .unwrap();
         assert_eq!(next.rev, Rev(0));
     }
 
@@ -1618,7 +1933,9 @@ mod tests {
     fn sharing_a_synced_embed_loads_it_at_0_by_the_sharer_and_makes_it_the_current_item() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        let sw = r.set_embed(Some(yt()), Some(a.clone()), Some(iid("item1")), 12.5, T0 + 5).unwrap();
+        let sw = r
+            .set_embed(Some(yt()), Some(a.clone()), Some(iid("item1")), None, 12.5, T0 + 5)
+            .unwrap();
         assert!(sw.uncaught.is_empty());
         assert_eq!(
             json(&sw.playback),
@@ -1635,12 +1952,12 @@ mod tests {
     #[test]
     fn set_embed_mints_an_item_id_unless_given_or_unset() {
         let mut r = room();
-        r.set_embed(Some(yt()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         let first = r.item_id().cloned().unwrap();
         assert_eq!(first.as_str().len(), 16);
-        r.set_embed(Some(vimeo()), None, None, 0.0, T0).unwrap();
+        r.set_embed(Some(vimeo()), None, None, None, 0.0, T0).unwrap();
         assert_ne!(r.item_id(), Some(&first));
-        r.set_embed(None, None, Some(iid("ignored")), 3.0, T0).unwrap();
+        r.set_embed(None, None, Some(iid("ignored")), None, 3.0, T0).unwrap();
         assert!(r.item_id().is_none() && r.current_embed().is_none());
         assert_eq!(r.item_since(), 3.0);
     }
@@ -1649,7 +1966,12 @@ mod tests {
     fn rev_never_goes_back_across_embed_changes() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        let rev = |r: &mut Room, e: Option<AnyEmbed>| r.set_embed(e, None, Some(iid("i")), 0.0, T0).unwrap().playback.map(|p| p.rev.0);
+        let rev = |r: &mut Room, e: Option<AnyEmbed>| {
+            r.set_embed(e, None, Some(iid("i")), None, 0.0, T0)
+                .unwrap()
+                .playback
+                .map(|p| p.rev.0)
+        };
         assert_eq!(rev(&mut r, Some(yt())), Some(0));
         assert_eq!(r.control(&a, &ctl(false, 0.0), T0 + 1).unwrap().rev, Rev(1));
         assert_eq!(rev(&mut r, Some(vimeo())), Some(2));
@@ -1665,31 +1987,31 @@ mod tests {
         let a = join(&mut r, "m1", "alice", None);
         let b = join(&mut r, "m2", "bob", None);
         let c = join(&mut r, "m3", "carol", None);
-        r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         for m in [&a, &b, &c] {
             r.set_catching(m, true);
         }
         // Announced b, then a: the room was told in that order; c was never told.
         r.take_catching_change(&b);
         r.take_catching_change(&a);
-        let sw = r.set_embed(Some(generic()), None, Some(iid("g")), 0.0, T0).unwrap();
+        let sw = r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
         assert_eq!(sw.playback, None);
         assert_eq!(sw.uncaught, [b.clone(), a.clone()]);
         assert!(r.current_playback().is_none() && r.has_generic_embed());
         assert!([&a, &b, &c].iter().all(|m| !r.is_catching(m)));
         assert!(json(&r.snapshot().members).find("catching").is_none());
         // Nothing left to announce.
-        assert_eq!(r.set_embed(None, None, None, 0.0, T0).unwrap().uncaught, []);
+        assert_eq!(r.set_embed(None, None, None, None, 0.0, T0).unwrap().uncaught, []);
     }
 
     #[test]
     fn a_synced_embed_keeps_catching_flags() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         r.set_catching(&a, true);
         r.take_catching_change(&a);
-        let sw = r.set_embed(Some(vimeo()), None, Some(iid("j")), 0.0, T0).unwrap();
+        let sw = r.set_embed(Some(vimeo()), None, Some(iid("j")), None, 0.0, T0).unwrap();
         assert!(sw.uncaught.is_empty() && r.is_catching(&a));
     }
 
@@ -1706,7 +2028,7 @@ mod tests {
         r.take_catching_change(&a);
         r.set_catching(&a, true);
         r.take_catching_change(&a);
-        let sw = r.set_embed(None, None, None, 0.0, T0).unwrap();
+        let sw = r.set_embed(None, None, None, None, 0.0, T0).unwrap();
         assert_eq!(sw.uncaught, [b, a]);
     }
 
@@ -1715,7 +2037,7 @@ mod tests {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert_eq!(r.control(&a, &ctl(true, 0.0), T0), None);
-        r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         let other = Control {
             url: "https://www.youtube.com/embed/aaaaaaaaaaa",
             playing: true,
@@ -1726,7 +2048,7 @@ mod tests {
         let next = r.control(&a, &ctl(false, 40.0), T0 + 10_000).unwrap();
         assert_eq!((next.action, next.by.as_ref(), next.rev), (PlaybackAction::Seek, Some(&a), Rev(1)));
         assert_eq!(r.current_playback(), Some(&next));
-        r.set_embed(Some(generic()), None, Some(iid("g")), 0.0, T0).unwrap();
+        r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
         let url = r.current_embed().unwrap().url().to_owned();
         assert_eq!(
             r.control(
@@ -1748,7 +2070,7 @@ mod tests {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         let e = live();
-        r.set_embed(Some(e.clone()), None, Some(iid("i")), 0.0, T0).unwrap();
+        r.set_embed(Some(e.clone()), None, Some(iid("i")), None, 0.0, T0).unwrap();
         let c = Control {
             url: e.url(),
             playing: false,
@@ -1785,7 +2107,7 @@ mod tests {
         assert_eq!(r.advance(1.0, None, T0), None);
         r.enqueue(queued("q1", vimeo(), Some("m1")));
         r.enqueue(queued("q2", live(), None));
-        r.set_embed(Some(yt()), None, Some(iid("cur")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("cur")), None, 0.0, T0).unwrap();
         let adv = r.advance(500.0, Some(a.clone()), T0 + 9).unwrap();
         assert_eq!(adv.item, queued("q1", vimeo(), Some("m1")));
         let p = adv.embed_switch.playback.unwrap();
@@ -1809,7 +2131,7 @@ mod tests {
     fn advancing_into_a_generic_embed_clears_playback_and_catching() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        r.set_embed(Some(yt()), None, Some(iid("cur")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), None, Some(iid("cur")), None, 0.0, T0).unwrap();
         r.set_catching(&a, true);
         r.take_catching_change(&a);
         r.enqueue(queued("g1", generic(), None));
@@ -1844,7 +2166,7 @@ mod tests {
         r.set_muted(&a, true);
         r.set_away(&c, true);
         r.set_catching(&b2, true);
-        r.set_embed(Some(yt()), Some(a.clone()), Some(iid("cur1")), 0.0, T0).unwrap();
+        r.set_embed(Some(yt()), Some(a.clone()), Some(iid("cur1")), None, 0.0, T0).unwrap();
         r.enqueue(queued("q1", vimeo(), Some("m3")));
         let snap = r.snapshot();
         assert_eq!(ids(&snap.members), ["m1", "m3", "m4"]);
@@ -1888,17 +2210,75 @@ mod tests {
     #[test]
     fn summary_counts_members_and_seated_and_omits_an_empty_title() {
         let mut r = room();
-        assert_eq!(json(&r.summary()), r#"{"id":"film-club","memberCount":0,"seatedCount":0}"#);
+        assert_eq!(
+            json(&r.summary()),
+            r#"{"id":"film-club","memberCount":0,"seatedCount":0,"watchingCount":0}"#
+        );
         let a = join(&mut r, "m1", "alice", None);
         join(&mut r, "m2", "bob", None);
         r.sit(&a, Some(seat(1)));
         r.set_title(RoomTitle::parse("Friday films"));
         assert_eq!(
             json(&r.summary()),
-            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films"}"#
+            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films","watchingCount":2}"#
         );
         r.set_title(None);
         assert!(r.title().is_none());
+    }
+
+    // apps/server/test/movie-night.test.ts (OME-1633, ADR 0056)
+    #[test]
+    fn summary_counts_the_watching_and_names_a_public_video() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        join(&mut r, "m2", "bob", None);
+        r.set_away(&a, true);
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
+        assert_eq!(
+            json(&r.summary()),
+            r#"{"id":"film-club","memberCount":2,"seatedCount":0,"watchingCount":1,"nowPlaying":{"provider":"youtube","id":"dQw4w9WgXcQ"}}"#
+        );
+        r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
+        assert!(!json(&r.summary()).contains("nowPlaying"));
+    }
+
+    #[test]
+    fn a_private_rooms_summary_never_names_its_video() {
+        let mut r = room_with(RoomInit {
+            visibility: Some(RoomVisibility::Private),
+            ..RoomInit::default()
+        });
+        r.set_embed(Some(yt()), None, Some(iid("i")), None, 0.0, T0).unwrap();
+        assert!(r.summary().now_playing.is_none());
+    }
+
+    #[test]
+    fn a_share_starts_at_its_start_seconds_but_a_live_one_at_0() {
+        let mut r = room();
+        let start = StartSeconds::new(90);
+        let p = r
+            .set_embed(Some(yt()), None, Some(iid("i")), start, 0.0, T0)
+            .unwrap()
+            .playback
+            .unwrap();
+        assert_eq!((p.position.get(), p.action), (90.0, PlaybackAction::Load));
+        let p = r
+            .set_embed(Some(live()), None, Some(iid("j")), start, 0.0, T0)
+            .unwrap()
+            .playback
+            .unwrap();
+        assert_eq!(p.position.get(), 0.0);
+    }
+
+    #[test]
+    fn an_advanced_item_starts_at_its_start_seconds() {
+        let mut r = room();
+        r.enqueue(QueueItem {
+            start_seconds: StartSeconds::new(42),
+            ..queued("q1", vimeo(), None)
+        });
+        let p = r.advance(1.0, None, T0).unwrap().embed_switch.playback.unwrap();
+        assert_eq!(p.position.get(), 42.0);
     }
 
     #[test]
@@ -2225,6 +2605,204 @@ mod tests {
         );
         assert!(r.set_typing(&a, false));
         assert!(!r.set_typing(&a, false));
+    }
+    // ---- /thrust and /bendover (OME-1672)
+
+    const TTL: i64 = crate::contract::constants::PAIR_INVITE_TTL_MS as i64;
+
+    /// The default layout with `pairs: true`, plus `extra` pieces.
+    fn pairs_layout(extra: &[serde_json::Value]) -> RoomLayout {
+        let mut v: serde_json::Value = serde_json::from_str(&layout_plus(extra).to_json()).unwrap();
+        v["pairs"] = serde_json::json!(true);
+        RoomLayout::parse(v.to_string().as_bytes()).unwrap()
+    }
+    /// A pairs room with alice (m1) and bob (m2); bob stands at (4,5) facing west, so behind him is (5,5).
+    fn pair_room(extra: &[serde_json::Value]) -> (Room, MemberId, MemberId) {
+        let mut r = room();
+        r.set_layout(pairs_layout(extra));
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        r.walk(&b, cell(5, 5));
+        r.walk(&b, cell(4, 5));
+        (r, a, b)
+    }
+    fn paired(thrust: &MemberId, bendover: &MemberId, inviter: &MemberId, c: FloorCell) -> PairResult {
+        stood(thrust, bendover, inviter, c, None)
+    }
+    fn stood(thrust: &MemberId, bendover: &MemberId, inviter: &MemberId, c: FloorCell, stand: Option<FloorCell>) -> PairResult {
+        PairResult::Paired {
+            thrust: thrust.clone(),
+            bendover: bendover.clone(),
+            inviter: inviter.clone(),
+            cell: c,
+            stand,
+        }
+    }
+
+    #[test]
+    fn pair_is_off_unless_the_layout_says_so() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert_eq!(r.pair(&a, PairPose::Thrust, T0), PairResult::PairsOff);
+        r.set_layout(pairs_layout(&[]));
+        assert_eq!(r.pair(&mid("ghost"), PairPose::Thrust, T0), PairResult::NotMember);
+        assert_eq!(r.pair(&a, PairPose::Thrust, T0), PairResult::Invited);
+    }
+
+    #[test]
+    fn a_match_returns_the_cell_behind_the_bender_and_consumes_the_invite() {
+        let (mut r, a, b) = pair_room(&[]);
+        assert_eq!(r.pair(&a, PairPose::Thrust, T0), PairResult::Invited);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0 + 1), paired(&a, &b, &a, cell(5, 5)));
+        // consumed: a third member's bendover finds nothing
+        let c = join(&mut r, "m3", "carol", None);
+        assert_eq!(r.pair(&c, PairPose::Bendover, T0 + 2), PairResult::Invited);
+    }
+
+    #[test]
+    fn a_thrusting_sender_gets_the_bender_placed_so_that_the_sender_stands_behind() {
+        // alice (bender) faces west after her last step, so bob (thruster) is east of her: she goes to bob's west
+        let (mut r, a, b) = pair_room(&[]);
+        r.walk(&a, cell(8, 8));
+        r.walk(&a, cell(7, 8));
+        assert_eq!(r.pair(&a, PairPose::Bendover, T0), PairResult::Invited);
+        assert_eq!(r.pair(&b, PairPose::Thrust, T0), paired(&b, &a, &a, cell(3, 5)));
+    }
+
+    #[test]
+    fn a_blocked_behind_cell_falls_back_to_east_south_west_north_then_the_diagonals() {
+        // behind (5,5) blocked, south (4,6) is an armchair: west (3,5)
+        let (mut r, a, b) = pair_room(&[table(5, 5)]);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), paired(&a, &b, &a, cell(3, 5)));
+        // west blocked too: north (4,4)
+        let (mut r, a, b) = pair_room(&[table(5, 5), table(3, 5)]);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), paired(&a, &b, &a, cell(4, 4)));
+        // an occupied cell is as blocked as a solid one
+        let (mut r, a, b) = pair_room(&[]);
+        let c = join(&mut r, "m3", "carol", None);
+        r.walk(&c, cell(5, 5));
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), paired(&a, &b, &a, cell(3, 5)));
+    }
+
+    #[test]
+    fn a_sender_on_their_standing_spot_is_stood_on_the_door_cell_first() {
+        // bob never walked: he goes to the door (9,9), still facing west; behind him (10,9) is off the floor, so
+        // alice takes the first free neighbour, west (8,9)
+        let mut r = room();
+        r.set_layout(pairs_layout(&[]));
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), stood(&a, &b, &a, cell(8, 9), Some(cell(9, 9))));
+    }
+
+    #[test]
+    fn a_seated_sender_is_stood_on_the_door_cell_first() {
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.sit(&b, Some(seat(2)));
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), stood(&a, &b, &a, cell(8, 9), Some(cell(9, 9))));
+    }
+
+    #[test]
+    fn with_the_door_cell_taken_a_sender_with_no_cell_goes_to_the_next_free_cell_back_from_it() {
+        // carol on the door: bob goes to (8,9); behind him (9,9) is carol's, so alice goes west, (7,9)
+        let mut r = room();
+        r.set_layout(pairs_layout(&[]));
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        let c = join(&mut r, "m3", "carol", None);
+        r.walk(&c, cell(9, 9));
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), stood(&a, &b, &a, cell(7, 9), Some(cell(8, 9))));
+    }
+
+    #[test]
+    fn a_sender_hemmed_in_has_nowhere_to_pair_and_the_invite_stays() {
+        let (mut r, a, b) = pair_room(&[table(8, 9), table(9, 8), table(8, 8)]);
+        r.walk(&b, cell(9, 9));
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), PairResult::NoCell);
+        r.walk(&b, cell(4, 5));
+        assert!(matches!(r.pair(&b, PairPose::Bendover, T0), PairResult::Paired { stand: None, .. }));
+    }
+
+    #[test]
+    fn an_invite_is_open_for_the_ttl_and_lapses_silently() {
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert!(matches!(r.pair(&b, PairPose::Bendover, T0 + TTL - 1), PairResult::Paired { .. }));
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(
+            r.pair(&b, PairPose::Bendover, T0 + TTL),
+            PairResult::Invited,
+            "expired: bob's own invite now"
+        );
+        // and alice's lapsed invite is not what her own next pair matches against
+        r.walk(&a, cell(7, 7));
+        assert!(matches!(r.pair(&a, PairPose::Thrust, T0 + TTL + 1), PairResult::Paired { inviter, .. } if inviter == b));
+    }
+
+    #[test]
+    fn leaving_or_a_layout_without_pairs_cancels_the_invite() {
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.cancel_pair(&a);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), PairResult::Invited);
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.leave(&a, T0);
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), PairResult::Invited);
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.set_layout(layout_plus(&[]));
+        assert_eq!(r.pair(&b, PairPose::Bendover, T0), PairResult::PairsOff);
+        r.set_layout(pairs_layout(&[]));
+        assert_eq!(
+            r.pair(&b, PairPose::Bendover, T0),
+            PairResult::Invited,
+            "the invite did not survive"
+        );
+    }
+
+    #[test]
+    fn a_new_invite_replaces_the_owners_earlier_one() {
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.pair(&a, PairPose::Bendover, T0 + 1);
+        assert_eq!(
+            r.pair(&b, PairPose::Bendover, T0 + 2),
+            PairResult::Invited,
+            "the thrust invite is gone"
+        );
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.pair(&a, PairPose::Bendover, T0 + 1);
+        assert!(matches!(r.pair(&b, PairPose::Thrust, T0 + 2), PairResult::Paired { bendover, .. } if bendover == a));
+    }
+
+    #[test]
+    fn the_most_recent_matching_invite_wins() {
+        let (mut r, a, b) = pair_room(&[]);
+        let c = join(&mut r, "m3", "carol", None);
+        r.pair(&a, PairPose::Thrust, T0);
+        r.pair(&c, PairPose::Thrust, T0 + 1000);
+        assert!(matches!(r.pair(&b, PairPose::Bendover, T0 + 2000), PairResult::Paired { inviter, .. } if inviter == c));
+    }
+
+    #[test]
+    fn the_same_pose_never_matches_and_nobody_pairs_with_themselves() {
+        let (mut r, a, b) = pair_room(&[]);
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&b, PairPose::Thrust, T0), PairResult::Invited);
+        let (mut r, a, _) = pair_room(&[]);
+        r.walk(&a, cell(7, 7));
+        r.pair(&a, PairPose::Thrust, T0);
+        assert_eq!(r.pair(&a, PairPose::Bendover, T0), PairResult::Invited);
     }
 }
 

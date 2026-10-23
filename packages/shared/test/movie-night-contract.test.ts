@@ -33,7 +33,7 @@ const reaction = (i: number): unknown => ({ memberId: "m1", kind: "heart", media
 describe("reactions", () => {
   test("the glyph set is heart, laugh, wow and clap", () => {
     expect(REACTION_KINDS).toEqual(["heart", "laugh", "wow", "clap"]);
-    expect(REACTIONS_MAX).toBe(256);
+    expect(REACTIONS_MAX).toBe(200);
   });
 
   test.each(REACTION_KINDS.map((k) => [k]))("react %p is a client message", (kind) => {

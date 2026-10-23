@@ -17,8 +17,8 @@
   },
   {
    "id": "cinema",
-   "name": "Cinema",
-   "blurb": "Red velvet sofas in rows, posters and a popcorn cart.",
+   "name": "Theatre",
+   "blurb": "Rows on risers facing the big screen, curtains drawn back.",
    "layout": "cinema.json",
    "thumb": "thumbs/cinema.png"
   },
@@ -56,6 +56,13 @@
    "blurb": "Just beanbags and bare boards. Furnish it your way.",
    "layout": "empty.json",
    "thumb": "thumbs/empty.png"
+  },
+  {
+   "id": "dank-dungeon",
+   "name": "Dank Dungeon",
+   "blurb": "Twin beds, a whirlpool for two and the lights way down.",
+   "layout": "dank-dungeon.json",
+   "thumb": "thumbs/dank-dungeon.png"
   }
  ]
 }

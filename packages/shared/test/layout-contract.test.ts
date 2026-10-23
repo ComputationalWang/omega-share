@@ -249,7 +249,7 @@ describe("FurnitureSchema", () => {
     ["a cat facing the TV", { kind: "cat", col: 0, row: 0, facing: "ne" }],
     ["a wall shelf off the wall", { kind: "wallshelf", col: 3, row: 2, facing: "sw" }],
     ["a wall shelf on a window segment", { kind: "wallshelf", col: 0, row: 6, facing: "se" }],
-    ["a second wall shelf colour", { kind: "wallshelf", col: 2, row: 0, facing: "sw", variant: 1 }],
+    ["a fourth wall shelf colour", { kind: "wallshelf", col: 2, row: 0, facing: "sw", variant: 3 }],
     ["a garland off the wall", { kind: "garland", col: 1, row: 3, facing: "se" }],
     ["a garland on a sconce segment", { kind: "garland", col: 8, row: 0, facing: "sw" }],
     ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],
@@ -293,14 +293,17 @@ describe("the catalogue matches the art", () => {
   const recolours = v.parse(v.object({ kinds: v.record(v.string(), v.object({ variants: v.array(v.object({ variant: v.number() })) })) }), readJson("furniture/recolours.json")).kinds;
   const extra = (kind: string): number => recolours[kind]?.variants.length ?? 0;
 
-  test("the recolours extend the shipped colours: variant numbers follow on, and the room's rug (one shipped look) takes its own (OME-1463)", () => {
+  test("the recolours extend the shipped colours: variant numbers follow on, and the room's rug, lamp and plant (one shipped look) take their own (OME-1463, OME-1688)", () => {
     for (const [kind, r] of Object.entries(recolours)) {
-      const shipped = kind === "rug" ? 1 : (pieces.find((p) => p.id === atlasId(kind))?.colours.length ?? NaN);
+      const shipped = kind === "rug" || kind === "lamp" || kind === "plant" ? 1 : (pieces.find((p) => p.id === atlasId(kind))?.colours.length ?? NaN);
       expect(r.variants.map((x) => x.variant)).toEqual(r.variants.map((_, i) => shipped + i));
     }
     expect(FURNITURE.rug.variants).toBe(1 + extra("rug"));
     expect(FURNITURE.rug.variants).toBe(3);
     expect(FURNITURE.sofa.variants).toBe(4);
+    expect(FURNITURE.lamp.variants).toBe(1 + extra("lamp"));
+    expect(FURNITURE.plant.variants).toBe(1 + extra("plant"));
+    expect([FURNITURE.lamp, FURNITURE.plant, FURNITURE.arclamp, FURNITURE.monstera, FURNITURE.bookshelf, FURNITURE.wallshelf].map((s) => s.variants)).toEqual([3, 3, 3, 4, 3, 3]);
   });
 
   test("every set (g) piece is a kind", () => {

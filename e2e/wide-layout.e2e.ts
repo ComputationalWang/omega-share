@@ -5,6 +5,8 @@
 // back. The pure geometry is apps/web/test/wide-layout.test.ts; the key decision is apps/web/test/chat-enter.test.ts.
 import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
+import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
+import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
@@ -58,7 +60,7 @@ async function volumeUnderPicture(page: Page): Promise<void> {
   expect(Math.abs(play.y + play.height / 2 - (pod.y + pod.height / 2))).toBeLessThanOrEqual(8);
 }
 
-for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080]] as const) {
+for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560", 2560, 1440]] as const) {
   test(`${String(w)}×${String(h)}: the chat is a full-height column beside the room; everything you need is in view, unscrolled`, async ({ browser }) => {
     const page = await one(browser, name, DESKTOP(w, h));
     await page.locator(site.chatInput).fill("hello from the side");
@@ -88,6 +90,103 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080]] as cons
     await expect(page.locator(site.chatInput)).toHaveAttribute("placeholder", "Press Enter to chat");
   });
 }
+
+/** Every visible key in the room's chrome (not the stage's seats and tags, not the site footer), with its size. */
+const keys = (page: Page): Promise<{ name: string; w: number; h: number }[]> =>
+  page.evaluate(() => [...document.querySelectorAll<HTMLElement>("main button, main summary, main [role=button]")]
+    .filter((e) => e.closest(".stage-clip") === null && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
+    .map((e) => ({ e, r: e.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 1 && r.height > 1)
+    .map(({ e, r }) => ({ name: e.getAttribute("data-testid") ?? e.getAttribute("aria-label") ?? e.textContent.trim(), w: r.width, h: r.height })));
+
+// OME-1667 (board): "Scalings on 2k and buttons need to be bigger." From 1920 px wide every key is at least 40×40, and
+// at 2560×1440 the chrome is twice 1280's: the chat column, the shelf and the room fill the screen.
+for (const [name, w, h] of [["w1920", 1920, 1080], ["w2560", 2560, 1440]] as const) {
+  test(`${String(w)}×${String(h)}: every key in the room's chrome is at least 40×40`, async ({ browser }) => {
+    const page = await one(browser, name, DESKTOP(w, h));
+    const found = await keys(page);
+    expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["play-toggle", "mute-toggle", "fullscreen-toggle", "chat-send", "chat-popout", "emote-key", "room-popout", "help-key"]));
+    expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// OME-1748: the moments strip's markers (OME-1628) are keys too: 16×14 zoomed, they were 24×21 at 1920 and 32×28 at
+// 2560. At least 40×40 from 1920, 44×44 to the finger, and clear of the shelf above them.
+for (const [name, opts, min] of [["mo1920", DESKTOP(1920, 1080), 40], ["mo2560", DESKTOP(2560, 1440), 40], ["mophone", PHONE, 44]] as const) {
+  test(`${name}: a moments marker is at least ${String(min)}×${String(min)} and below the shelf`, async ({ browser, request }) => {
+    const room = testRoom("wide", name);
+    await shareVideo(request, room.id);
+    const page = await one(browser, name, opts);
+    await waitPlaying(clients);
+    await page.getByTestId("reaction-bar").getByRole("button", { name: "Heart" }).click();
+    const pip = page.getByTestId("moments-pip").first();
+    await expect(pip).toBeVisible();
+    const p = await box(pip);
+    expect(p.width).toBeGreaterThanOrEqual(min - 0.5);
+    expect(p.height).toBeGreaterThanOrEqual(min - 0.5);
+    const play = await box(page.locator(site.playToggle));
+    expect(p.y).toBeGreaterThanOrEqual(play.y + play.height);
+    // OME-1756: a reaction in the first second sits at the strip's left end; the whole key stays on screen.
+    expect(p.x).toBeGreaterThanOrEqual(-0.5);
+    expect(p.x + p.width).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+    if (min === 40) expect((await keys(page)).filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// QA OME-1696: People open narrowed the TV and the shelf stepped down to 27 px keys at 1920×1080; the People panel's
+// own keys were 25 px tall.
+for (const [name, w, h] of [["people1920", 1920, 1080], ["people2560", 2560, 1440]] as const) {
+  test(`${String(w)}×${String(h)} with People open: every key in the room's chrome is still at least 40×40`, async ({ browser }) => {
+    const page = await one(browser, name, DESKTOP(w, h));
+    await page.locator(site.peopleKey).click();
+    await expect(page.locator(site.peoplePanel)).toBeVisible();
+    const found = await keys(page);
+    expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["play-toggle", "mute-toggle", "fullscreen-toggle", "people-key"]));
+    expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// QA OME-1696: a Twitch VOD's shelf (the quality key, a 1:00:00 time) left its seek bar 12–16 px wide at 1920 and 2560;
+// it was 177 px at 1280×720. Its quality list's options stayed 25 px tall.
+for (const [name, w, h, z] of [["tw1920", 1920, 1080, 1.5], ["tw2560", 2560, 1440, 2]] as const) {
+  test(`${String(w)}×${String(h)} Twitch VOD: the seek bar keeps its 1280 width, zoomed; the quality list's keys are at least 40 px`, async ({ browser, request }) => {
+    const room = testRoom("wide", name);
+    await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
+    const page = await one(browser, name, DESKTOP(w, h));
+    await waitProviderPlaying(clients, "twitch");
+    expect((await box(page.getByTestId("seek"))).width).toBeGreaterThanOrEqual(160 * z);
+    await page.locator('[data-testid="quality-key"]').click();
+    await expect(page.locator('[data-testid="quality-menu"]')).toBeVisible();
+    const found = await keys(page);
+    expect(found.map((k) => k.name)).toEqual(expect.arrayContaining(["quality-option"]));
+    expect(found.filter((k) => k.w < 39.5 || k.h < 39.5)).toEqual([]);
+  });
+}
+
+// QA OME-1696: the help dialog stayed 1×, a 520 px box of 12 px text in the middle of a 2560 screen.
+test("2560×1440: the help dialog scales with the chrome and still fits the screen", async ({ browser }) => {
+  const page = await one(browser, "help2560", DESKTOP(2560, 1440));
+  await page.locator(site.helpKey).click();
+  const dialog = page.locator(site.helpDialog);
+  await expect(dialog).toBeVisible();
+  expect((await box(dialog)).width).toBeGreaterThanOrEqual(1000);
+  await inView(page, dialog);
+});
+
+test("2560×1440: the chrome scales up with the screen, no 1280 page floating in it", async ({ browser }) => {
+  const page = await one(browser, "w2560", DESKTOP(2560, 1440));
+  const side = await box(page.locator(site.chatLog));
+  const shelf = await box(page.locator(".controls"));
+  const room = await box(page.locator(site.roomWindow));
+  const say = await box(page.locator(site.chatSend));
+  expect(side.width).toBeGreaterThanOrEqual(560);
+  expect(shelf.height).toBeGreaterThanOrEqual(80);
+  expect(say.height).toBeGreaterThanOrEqual(70);
+  // The room is height-bound at 16:9: the taller shelf and top row cost it a little width (1389 → 1225 px), not its fill.
+  expect(room.width).toBeGreaterThanOrEqual(1200);
+  // The field grows with its keys.
+  expect((await box(page.locator(site.chatInput))).height).toBeGreaterThanOrEqual(70);
+});
 
 test("390×844 phone: the stacked layout stays, with the volume in the shelf under the picture", async ({ browser }) => {
   const page = await one(browser, "phone", PHONE);

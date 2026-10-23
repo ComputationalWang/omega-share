@@ -139,6 +139,11 @@ describe("remove, place, problems", () => {
     expect(problems(l ?? L)).toEqual([{ code: "tv", have: 2 }]);
     expect(problemText({ code: "tv", have: 2 })).toBe("The room needs exactly one TV");
   });
+  test("a big screen is the room's screen too (ADR 0056): beside the tv it makes two", () => {
+    const l = place(L, { kind: "bigscreen", col: 9, row: 9, facing: "se" });
+    expect(l).not.toBeNull();
+    expect(problems(l ?? L)).toEqual([{ code: "tv", have: 2 }]);
+  });
   test("no tv is reported", () => {
     expect(problems(remove(L, 0))).toEqual([{ code: "tv", have: 0 }]);
   });
@@ -184,7 +189,7 @@ describe("fits", () => {
   });
   test("a disallowed facing or variant does not fit", () => {
     expect(fits(L, { kind: "lamp", col: 8, row: 8, facing: "ne" })).toBe(false);
-    expect(fits(L, { kind: "lamp", col: 8, row: 8, facing: "se", variant: 1 })).toBe(false);
+    expect(fits(L, { kind: "lamp", col: 8, row: 8, facing: "se", variant: 3 })).toBe(false);
     expect(fits(L, { kind: "beanbag", col: 8, row: 8, facing: "se", variant: 1 })).toBe(true);
   });
   test("a piece whose footprint leaves the floor does not fit", () => {
@@ -207,9 +212,10 @@ describe("defaultFacing", () => {
 });
 
 describe("TRAY_TABS", () => {
-  test("every kind, catalogue v2 and the door (OME-1425) too, is in exactly one tab, except those still awaiting art", () => {
+  test("every kind, catalogue v2, the door (OME-1425) and the theatre set (OME-1630) too, is in exactly one tab, except those still awaiting art", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
     expect([...all, ...AWAITING_ART].sort()).toEqual([...FURNITURE_KINDS].sort());
+    expect(TRAY_TABS.find((t) => t.id === "seats")?.kinds).toContain("theatrerow");
     expect(TRAY_TABS.find((t) => t.id === "floor")?.kinds).toContain("pad");
     expect(TRAY_TABS.find((t) => t.id === "decor")?.kinds).toContain("door");
   });

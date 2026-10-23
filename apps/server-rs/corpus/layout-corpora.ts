@@ -24,7 +24,7 @@ const parsed = (schema: v.GenericSchema, inputs: readonly unknown[]): Case[] =>
   });
 
 const preset = (id: string): unknown => JSON.parse(readFileSync(new URL(`../../../assets/presets/${id}.json`, import.meta.url), "utf8"));
-const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty"].map(preset);
+const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"].map(preset);
 
 const POSITIONS = [[0, 0], [0, 9], [9, 0], [9, 9], [4, 4], [5, 0], [0, 5], [8, 0], [0, 8], [2, 0], [0, 2], [9, 5], [3, 9]] as const;
 const everyKindEveryFacing = (): unknown[] =>
@@ -89,7 +89,7 @@ const overlaps = (): unknown[] => [
 
 const wallPieces = (): unknown[] => {
   const out: unknown[] = [];
-  for (const kind of ["frame", "wallshelf", "garland", "neonsign", "wallclock", "bookshelf", "fireplace"] as const)
+  for (const kind of ["frame", "wallshelf", "garland", "neonsign", "wallclock", "bookshelf", "fireplace", "mirror", "washbasin", "desk"] as const)
     for (let i = 0; i < 10; i++) {
       out.push(around({ kind, col: i, row: 0, facing: "sw" }), around({ kind, col: 0, row: i, facing: "se" }));
       out.push(around({ kind, col: i, row: 1, facing: "sw" }), around({ kind, col: 1, row: i, facing: "se" }));
@@ -249,7 +249,7 @@ const rawInputs = (): RawInput[] => {
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":-0}'), rustRefuses: true },
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":0.0}'), rustRefuses: true },
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":0e5}'), rustRefuses: true },
-    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":1e0}') },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":1e0}'), rustRefuses: true },
     // Duplicate keys: TS keeps the last, Rust refuses.
     { text: `{"furniture":[],"furniture":[${tvText},${chairText.join(",")}]}`, rustRefuses: true },
     { text: `{"furniture":[${tvText},${chairText.join(",")}],"furniture":[]}`, rustRefuses: true },
@@ -272,5 +272,7 @@ export const layoutCorpora: Corpus[] = [
   { name: "room-layout", cases: () => parsed(RoomLayoutSchema, inputs()) },
   { name: "room-layout-input", cases: () => parsed(RoomLayoutInputSchema, inputs()) },
   { name: "layout-seats", cases: () => seatInputs().map((input) => ({ input, ok: true, output: layoutSeats(input as never) })) },
+  // The catalogue lie style (OME-1773): a kind's `lie`, null when it has none (wrapped: a bare null output reads as absent).
+  { name: "furniture-lie", cases: () => FURNITURE_KINDS.map((input) => ({ input, ok: true, output: { lie: FURNITURE[input].lie ?? null } })) },
   { name: "footprint-cells", cases: () => footprintInputs().map((input) => ({ input, ok: true, output: footprintCells(input as never) })) },
 ];

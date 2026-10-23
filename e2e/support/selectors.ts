@@ -25,6 +25,9 @@ export const site = {
   // The phone watch layout (OME-596): the TV box, and the cropped window the 1× room is dragged around in.
   tv: id("tv"),
   roomWindow: id("room-window"),
+  // Movie night (OME-1628, OME-1629): QA's heap row (perf/heap-movie.perf.ts) looks for these.
+  momentsStrip: id("moments"),
+  recapCard: id("recap"),
   // Full screen (OME-597): our wrapper (the full-screen element), its enter/exit key, the chat strip and its collapse key.
   fsRoot: id("fs-root"),
   fullscreenToggle: id("fullscreen-toggle"),

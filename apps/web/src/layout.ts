@@ -57,6 +57,9 @@ const TV_BEZEL = 6;
 /** The media shelf's speakers, painted outside the control bar each side (`.ui-tv-shelf`). */
 const SHELF_SPEAKER = 38;
 const GAP = 8;
+/** The shelf's width at 1× for its keys and a usable seek bar; Twitch's also holds the quality key and a 1:00:00 time. */
+const SHELF_MIN_W = 420;
+const TWITCH_SHELF_MIN_W = 560;
 /** Set (e) chrome at 1×: 8 px panel border + 4 px padding around a 20 px key, top and bottom. */
 export const CONTROL_BAR_H = 44;
 
@@ -131,17 +134,32 @@ export const WIDE_CHAT_W = 320;
 const WIDE_TV_SHARE = 0.37;
 
 /**
+ * The wide room page's chrome zoom (OME-1667, board: "scalings on 2k"): 1× below 1920×900, 1.5× from there, 2× from
+ * 2560×1200, so the chrome is 1280×600's or larger, only zoomed, and every key is at least 40 px. room.css zooms all of
+ * it but the stage, which scales itself, and the shelf, which room-layout.ts zooms.
+ */
+export function chromeZoom(width: number, height: number): number {
+  if (width >= 2560 && height >= 1200) return 2;
+  return width >= 1920 && height >= 900 ? 1.5 : 1;
+}
+
+/**
  * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
  * larger), the shelf right under it, and the stage below, scaled to fill what's left (up past 1× too, OME-1050) and centred.
+ * `chrome` is the page's zoom (chromeZoom): the shelf's height and minimum width grow with it.
  */
-export function wideLayout(width: number, height: number, provider: Provider | null): RoomLayout {
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
-  const rest = Math.max(0, h - (TV_BEZEL + GAP + CONTROL_BAR_H + GAP));
+  const barH = CONTROL_BAR_H * chrome;
+  const rest = Math.max(0, h - (TV_BEZEL + GAP + barH + GAP));
   const tvW = Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((rest * WIDE_TV_SHARE * 16) / 9)));
   const tv = { x: Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
-  const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
+  // A TV narrower than the zoomed shelf's keys (People open, QA OME-1696) gets a wider shelf, centred under it. 1× as before.
+  const keysW = chrome > 1 ? (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome : 0;
+  const cw = Math.max(tv.w, Math.min(w, keysW));
+  const controls = { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
   const sy = controls.y + controls.h + GAP;
   const scale = Math.max(0.05, Math.min(w / ROOM_VIEW.w, (h - sy) / ROOM_VIEW.h));
   const stage = { x: (w - ROOM_VIEW.w * scale) / 2, y: sy, w: ROOM_VIEW.w * scale, h: ROOM_VIEW.h * scale };
@@ -168,6 +186,8 @@ const FS_BAND_SCROLL_MIN = 240;
 const FS_BUBBLES_NARROW_W = 160;
 /** The hide/show-chat handle's touch target (OME-1593). */
 const FS_HANDLE = 44;
+/** With the chat hidden the screen's bottom rows stay ours (OME-1668): a pointer pushed to the edge reaches the page. */
+const FS_PEEK_EDGE = 8;
 
 export type StripMode = "open" | "band";
 
@@ -215,8 +235,8 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     // show-chat handle keeps a 44 px margin on its edge and the opposite one; a phone's letterbox already holds it.
     // The bubbles get what the screen leaves beside (≥ 160 px) or under the picture, clear of the handle.
     if (w > h) {
-      const pic = fitTv(w - 2 * FS_HANDLE, h);
-      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h) / 2)), ...pic };
+      const pic = fitTv(w - 2 * FS_HANDLE, h - FS_PEEK_EDGE);
+      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.min(Math.floor((h - pic.h) / 2), h - FS_PEEK_EDGE - pic.h)), ...pic };
       const sx = tv.x + tv.w;
       const sw = w - FS_HANDLE - sx;
       return { at: "hidden", tv, controls: { x: 0, y: 0, w: 0, h: 0 }, strip: { x: sx, y: 0, w: sw >= FS_BUBBLES_NARROW_W ? sw : 0, h },
@@ -443,3 +463,17 @@ export const SYSLINE_RAIL: Rect = { x: 12, y: 510, w: 288, h: 78 };
 
 /** Placeholder avatar colours: drawn until the motion atlas loads, or for good if it fails to load. */
 export const AVATAR_COLORS: readonly number[] = [0xe4572e, 0x29335c, 0xf3a712, 0x669bbc];
+
+/** The moments strip's height (OME-1628): its 14 px pips over a 3 px bar. */
+export const MOMENTS_H = 18;
+
+/**
+ * The moments strip's box (OME-1628): right under the shelf, as wide as the picture, so a pip's `left: %` is the
+ * player's. In the page it hangs over the stage's top (ROOM_VIEW's wall headroom). `null` where there is no room for it:
+ * no shelf (full screen with the chat hidden), the chat under the shelf (full screen "below" and "band"), or off the wrap.
+ */
+export function momentsBox(l: { readonly tv: Rect; readonly controls: Rect }, height: number, fsAt?: FullscreenLayout["at"]): Rect | null {
+  if (l.controls.w === 0 || fsAt === "below" || fsAt === "band" || fsAt === "hidden") return null;
+  const y = l.controls.y + l.controls.h + 2;
+  return y + MOMENTS_H > height ? null : { x: l.tv.x, y, w: l.tv.w, h: MOMENTS_H };
+}

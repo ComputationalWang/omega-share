@@ -4,8 +4,9 @@ import bar from "../../../assets/presets/thumbs/bar.png?url";
 import cafe from "../../../assets/presets/thumbs/cafe.png?url";
 import cinema from "../../../assets/presets/thumbs/cinema.png?url";
 import classic from "../../../assets/presets/thumbs/classic.png?url";
+import dankDungeon from "../../../assets/presets/thumbs/dank-dungeon.png?url";
 import empty from "../../../assets/presets/thumbs/empty.png?url";
 import living from "../../../assets/presets/thumbs/living.png?url";
 import lounge from "../../../assets/presets/thumbs/lounge.png?url";
 
-export const PRESET_THUMBS: Readonly<Record<RoomPresetId, string>> = { classic, cinema, living, lounge, cafe, bar, empty };
+export const PRESET_THUMBS: Readonly<Record<RoomPresetId, string>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon };

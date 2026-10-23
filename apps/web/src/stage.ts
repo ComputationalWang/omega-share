@@ -2,13 +2,14 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
+import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
+import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -18,6 +19,7 @@ import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } f
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
+import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
 import { awayChanges } from "./session-lifecycle";
 import tintsJson from "../../../assets/avatars/tints.json";
@@ -72,7 +74,11 @@ export interface Stage {
   render(s: StageState, layout: RoomLayout, selfCatching: boolean, editing: boolean): void;
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
-  emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  emote(id: MemberId, kind: AvatarEmote, s: StageState): void;
+  /** Two members paired (OME-1672): the pose animation, unless reduced motion asks for stillness. */
+  pair(thruster: MemberId, bender: MemberId): void;
+  /** A received reaction (OME-1631): a glyph burst over their head, if the view allows it now. Returns the glyphs shown. */
+  react(id: MemberId, kind: ReactionKind): number;
   /** Their next move is a teleport (OME-1548, `walked.teleport`): marked before the state change that draws it. */
   teleported(id: MemberId): void;
   /** The member started or stopped typing (OME-1390): the "…" over their head. */
@@ -87,6 +93,9 @@ export interface Stage {
   anchor(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
   cellOf(id: MemberId): FloorCell | null;
+  /** The cats' cells now and a heart over the cat on one (OME-1669, room-view.ts). */
+  catCells(): number[];
+  petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
@@ -155,6 +164,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     else typers.delete(id);
   };
   const badges = createEmoteBadges(bubbles, timers);
+  const reactionLayer = el("div", { className: "reactions" });
+  const glyphs = createReactionGlyphs(reactionLayer, { allowed: () => view.reactionsAllowed(), now: () => performance.now(), ...timers });
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
@@ -185,7 +196,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
+  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
@@ -272,6 +283,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let v2Atlas: FurnitureAtlas | null = null;
   /** Batch 6's atlas once loaded (OME-1439); same shape again. */
   let v4Atlas: FurnitureAtlas | null = null;
+  /** The theatre set's atlas once loaded (OME-1630); same shape again. */
+  let v5Atlas: FurnitureAtlas | null = null;
+  /** The Dank Dungeon's atlas once loaded (OME-1672). */
+  let v6Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
   /** The new colours' sheet copies (OME-1463), once a layout used one; `recolouring` names the copies asked for. */
@@ -293,9 +308,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [atlas, v2Atlas, v4Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, roomAtlas, recolours], grid);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
   };
 
@@ -351,9 +366,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     grid = walkGrid(next);
     standing = standingPoints(next);
     buildScene(next);
-    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform.
+    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
+    // on the tile, not the lifted sitter: a riser's 44 px phone key would otherwise cover the row in front (QA OME-1743).
+    const tiles = seatTiles(next);
     seatButtons.forEach((b, i) => {
-      const p = seats[i];
+      const p = tiles[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
     loadRecolours(key, next);
@@ -366,8 +383,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     if (usesV2(next) && v2Atlas === null) {
       lazyAtlas("furniture v2", key, next, () => import("./furniture-v2-atlas").then((m) => m.loadFurnitureV2Atlas()), (a) => (v2Atlas = a));
     }
+    if (usesV6(next) && v6Atlas === null) {
+      lazyAtlas("furniture v6", key, next, () => import("./furniture-v6-atlas").then((m) => m.loadFurnitureV6Atlas()), (a) => (v6Atlas = a));
+    }
+    if (next.pairs === true) view.loadPairPoses();
     if (usesV4(next) && v4Atlas === null) {
       lazyAtlas("furniture v4", key, next, () => import("./furniture-v4-atlas").then((m) => m.loadFurnitureV4Atlas()), (a) => (v4Atlas = a));
+    }
+    if (usesV5(next) && v5Atlas === null) {
+      lazyAtlas("furniture v5", key, next, () => import("./furniture-v5-atlas").then((m) => m.loadFurnitureV5Atlas()), (a) => (v5Atlas = a));
     }
   };
 
@@ -549,6 +573,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     view,
     render,
     applyCatching,
+    pair(thruster, bender) {
+      if (!o.reducedMotion.matches) view.pair(thruster, bender);
+    },
     emote(id, kind, s) {
       seated = s.room?.seats ?? seated;
       if (!o.reducedMotion.matches) {
@@ -556,7 +583,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return;
       }
       const p = view.position(id) ?? placedAt.get(id);
-      if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+      // The reach has no badge; room.ts never sends it under reduced motion.
+      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+    },
+    react(id, kind) {
+      const p = view.position(id) ?? placedAt.get(id);
+      return p === undefined ? 0 : glyphs.burst({ x: p.x, y: p.y - liftOf(id) }, kind);
     },
     teleported(id) {
       teleporting.add(id);
@@ -578,6 +610,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    catCells: () => view.catCells(),
+    petCat: (cell) => {
+      view.petCat(cell);
+    },
     cellOf(id) {
       const p = view.position(id) ?? placedAt.get(id);
       const c = p === undefined ? -1 : cellAt(p);

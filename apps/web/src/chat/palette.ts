@@ -5,7 +5,7 @@
 // leaks to the page (the room's 1–9 and T wait).
 import { el, sprite } from "../controls/dom";
 import { emoteIcon } from "../emote/emotes";
-import { COMMANDS, type Command } from "./commands";
+import { commandsFor, type Command } from "./commands";
 
 export interface CommandPalette {
   /** The key and its dialog; `field` holds them over the start of the message field, beside the emote key. */
@@ -24,7 +24,7 @@ const SECTIONS: readonly (readonly [Command["section"], string])[] = [
 
 let instances = 0;
 
-export function createCommandPalette(o: { readonly input: HTMLInputElement; readonly form: HTMLFormElement }): CommandPalette {
+export function createCommandPalette(o: { readonly input: HTMLInputElement; readonly form: HTMLFormElement; /** Whether the room's layout has the pair commands (OME-1672); read on each open. */ readonly pairs?: () => boolean }): CommandPalette {
   const n = String(++instances);
   const key = el("button", { type: "button", className: "palette-key", title: "More commands", textContent: "✦" }, "palette-key");
   key.setAttribute("aria-label", "More commands");
@@ -60,14 +60,18 @@ export function createCommandPalette(o: { readonly input: HTMLInputElement; read
     o.input.dispatchEvent(new Event("input"));
   };
 
-  const build = (): void => {
+  let builtPairs = false;
+  const build = (pairs: boolean): void => {
+    builtPairs = pairs;
+    dialog.replaceChildren();
+    items.length = 0;
     const title = el("h2", { id: `palette-title-${n}`, textContent: "Commands" });
     dialog.setAttribute("aria-labelledby", title.id);
     dialog.append(title);
     for (const [section, heading] of SECTIONS) {
       const part = el("section", { className: "help-part" });
       const list = el("ul", { className: "palette-list" });
-      for (const c of COMMANDS) {
+      for (const c of commandsFor(pairs)) {
         if (c.section !== section) continue;
         const hint = el("span", { className: "palette-hint", textContent: c.hint });
         if (c.section === "moves") {
@@ -102,7 +106,8 @@ export function createCommandPalette(o: { readonly input: HTMLInputElement; read
   };
 
   key.addEventListener("click", () => {
-    if (items.length === 0) build();
+    const pairs = o.pairs?.() === true;
+    if (items.length === 0 || pairs !== builtPairs) build(pairs);
     dialog.showModal();
     items[0]?.focus();
   });

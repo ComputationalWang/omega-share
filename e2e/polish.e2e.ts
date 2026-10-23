@@ -200,7 +200,8 @@ test("over-limit emotes are dropped by the server: only the burst reaches the ro
         page.on("websocket", (ws) => {
           ws.on("framereceived", ({ payload }) => {
             const msg = typeof payload === "string" ? parseServerMessage(payload) : null;
-            if (msg?.type === "emoted") seen.push(msg.memberId);
+            // The web client opts into relay `batch` frames (OME-1627): read them one by one.
+            for (const m of msg?.type === "batch" ? msg.msgs : msg ? [msg] : []) if (m.type === "emoted") seen.push(m.memberId);
           });
         });
       });

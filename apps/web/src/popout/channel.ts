@@ -3,7 +3,7 @@
 // here and not in packages/shared. It is still a boundary (any same-origin page can post to the channel), so every
 // message is parsed on receipt and anything else is dropped. Room tab → window: `room-*`; window → room tab: `pop-*`.
 import * as v from "valibot";
-import { ChatTextSchema, EmoteKindSchema, MAX_ROOM_MEMBERS, MemberIdSchema, POLL_MAX_OPTIONS, PollIdSchema, PollOptionIndexSchema, PollOptionSchema, PollQuestionSchema, RoomIdSchema, RoomStateSchema, SEAT_COUNT, type RoomId } from "@omega/shared";
+import { ChatTextSchema, EmoteKindSchema, MAX_ROOM_MEMBERS, MemberIdSchema, POLL_MAX_OPTIONS, PollIdSchema, PollOptionIndexSchema, PollOptionSchema, PollQuestionSchema, ReactionKindSchema, RoomIdSchema, RoomStateSchema, SEAT_COUNT, type RoomId } from "@omega/shared";
 import { FLOAT_PER_SPEAKER } from "../bubbles/floats";
 import type { ChatLogEntry } from "../chat/log";
 import type { PollView } from "../chat/poll";
@@ -104,6 +104,8 @@ const PopMessageSchema = v.variant("t", [
   v.strictObject({ t: v.literal("room-view"), ...StageFields, room: v.exactOptional(StageFields.room) }),
   v.strictObject({ t: v.literal("room-tv"), ...TvFields }),
   v.strictObject({ t: v.literal("room-emote"), member: MemberIdSchema, kind: EmoteKindSchema }),
+  /** Someone reacted (OME-1730): a glyph burst over them. */
+  v.strictObject({ t: v.literal("room-react"), member: MemberIdSchema, kind: ReactionKindSchema }),
   /** Someone started or stopped typing (OME-1404); a clear takes everyone's dots (a rejoin). */
   v.strictObject({ t: v.literal("room-typing"), member: MemberIdSchema, on: v.boolean() }),
   v.strictObject({ t: v.literal("room-typing-clear") }),
@@ -130,7 +132,7 @@ export type PopMessage = v.InferOutput<typeof PopMessageSchema>;
 export type PopState = Omit<Extract<PopMessage, { t: "room-state" }>, "t">;
 export type PopTv = Omit<Extract<PopMessage, { t: "room-tv" }>, "t">;
 /** What the room window's side takes from the channel (popout/room-pop.ts). */
-export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" | "room-emote" | "room-typing" | "room-typing-clear" | "room-raise" }>;
+export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" | "room-emote" | "room-react" | "room-typing" | "room-typing-clear" | "room-raise" }>;
 
 /**
  * The stage's state from a room-view message; a message without the room (it didn't change) keeps `room`, the same

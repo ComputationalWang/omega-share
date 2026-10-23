@@ -119,6 +119,9 @@ const FRAMES: unknown[] = [
   ...[0, 3, 5].map((hair) => ({ type: "hair-changed", memberId: "m1", hair })),
   ...[true, false].map((on) => ({ type: "floor-sat", memberId: "m1", on })),
   { type: "member-joined", member: { id: "m2", nickname: "Bob 2", avatar: 3, standingSlot: 1, cell: { x: 3, y: 3 }, floorSit: true } },
+  // lie (OME-1773)
+  ...[0, 31, null].map((piece) => ({ type: "lay", memberId: "m1", piece })),
+  { type: "member-joined", member: { id: "m2", nickname: "Bob 2", avatar: 3, standingSlot: 1, lying: 5 } },
   ...[true, false].map((on) => ({ type: "typing-changed", memberId: "m1", on })),
   // relay batches (OME-1624): 1..BATCH_MAX_MESSAGES, ±1 of the cap
   ...[1, 63, 64].map((n) => ({ type: "batch", msgs: Array.from({ length: n }, (_, i) => ({ type: "walked", memberId: "m1", cell: { x: i % 10, y: 2 } })) })),
@@ -373,7 +376,7 @@ const EDGE_TEXTS: string[] = [
   ...[true, false, 1, "true", null, undefined].map((on) => JSON.stringify({ type: "typing-changed", memberId: "m1", on })),
   ...[[6, 0], [6, 7], [6, 6], [1, 1], [101, 1], [6.5, 1], [6, 2.5], [6, -1], ["6", 1], [6, null], [6, undefined]].map(([sides, value]) => JSON.stringify({ type: "rolled", memberId: "m1", sides, value })),
   // timed reactions and the item's peak (OME-1625)
-  ...[0, 1, 256, 257].map((n) => snap(ROOM(), { reactions: Array.from({ length: n }, (_, i) => ({ memberId: "m1", kind: "heart", mediaMs: i })) })),
+  ...[0, 1, 200, 201].map((n) => snap(ROOM(), { reactions: Array.from({ length: n }, (_, i) => ({ memberId: "m1", kind: "heart", mediaMs: i })) })),
   ...[{ memberId: "m1", kind: "wave", mediaMs: 0 }, { memberId: "m1", kind: "heart", mediaMs: -1 }, { memberId: "m1", kind: "heart", mediaMs: 43_200_001 }, { memberId: "m1", kind: "heart", mediaMs: 1.5 },
     { memberId: "a b", kind: "heart", mediaMs: 0 }, { kind: "heart", mediaMs: 0 }, { memberId: "m1", kind: "heart" }, { memberId: "m1", kind: "heart", mediaMs: 0, at: 1 }, null].map((r) => snap(ROOM(), { reactions: [r] })),
   snap(ROOM(), { reactions: null }), snap(ROOM(), { reactions: {} }),
@@ -403,6 +406,8 @@ const EDGE_TEXTS: string[] = [
   ...[0, 5, 6, null].map((hair) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, hair } })),
   ...[true, false, 1, "true", null].map((on) => JSON.stringify({ type: "floor-sat", memberId: "m1", on })), JSON.stringify({ type: "floor-sat", memberId: "m1" }),
   ...[true, false, 1, null].map((floorSit) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, floorSit } })),
+  ...[0, 31, 32, -1, 0.5, "1", null, true].map((piece) => JSON.stringify({ type: "lay", memberId: "m1", piece })), JSON.stringify({ type: "lay", memberId: "m1" }), JSON.stringify({ type: "lay", piece: 1 }),
+  ...[0, 31, 32, -1, 0.5, "1", null].map((lying) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, lying } })),
   ...[{ x: 1, y: 2 }, { x: 10, y: 0 }, null, { x: 1, y: 2, z: 3 }].map((cell) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, cell } })),
   ...[0, 5, 6, null].map((tint) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, tint } })),
   ...["clap", "wave", "cheer", "yawn", "dance", "jump", "Clap", 0, null].map((kind) => JSON.stringify({ type: "emoted", memberId: "m1", kind })),

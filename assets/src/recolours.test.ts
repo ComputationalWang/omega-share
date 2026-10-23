@@ -60,6 +60,13 @@ test("the room rug's swapped ramps never touch the floor planks", () => {
   for (const f of roomFrames.filter((g) => g.key.startsWith("floor/"))) expect([...f.img].some((v) => swapped.has(v))).toBe(false);
 });
 
+/** One body colour named by its ramp (fabric seats, shades, pots, cases): compare that ramp. Else (prints, bulbs, brass) compare pixels. */
+const oneColour = (kind: string): boolean => !WALL_KINDS.has(kind) && allCells.filter((c) => c.kind === kind).every((c) => c.variant in RAMPS);
+
+test("OME-1688: every lamp, plant and shelf has 2 new colourways", () => {
+  for (const kind of ["lamp", "plant", "arclamp", "monstera", "bookshelf", "wallshelf"]) expect(RECOLOURS[kind]?.variants.length).toBe(2);
+});
+
 describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
   const cells = allCells.filter((c) => c.kind === kind);
   test("2 new colours after the shipped ones, all ids distinct", () => {
@@ -67,7 +74,7 @@ describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
     expect(cells.length).toBe(r.existing + 2);
     expect(new Set(cells.map((c) => c.variant)).size).toBe(cells.length);
   });
-  test.skipIf(WALL_KINDS.has(kind))("new colours: ΔE ≥ 20 from every sibling (also deutan/protan), ΔE ≥ 25 from the floor, ≥ 3:1 on the dark site bg", () => {
+  test.skipIf(!oneColour(kind))("new colours: ΔE ≥ 20 from every sibling (also deutan/protan), ΔE ≥ 25 from the floor, ≥ 3:1 on the dark site bg", () => {
     const base = (id: string): string => RAMPS[id as RampName][1];
     for (const v of r.variants) {
       for (const s of cells.map((c) => c.variant).filter((id) => id !== v.id)) expect(cvdDeltaE(base(v.id), base(s))).toBeGreaterThanOrEqual(20);
@@ -82,7 +89,7 @@ describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
     expect(row?.variants.map((v) => v.variant)).toEqual([r.existing, r.existing + 1]);
   });
   test("the source frames, thumb and swatch chips exist", () => {
-    const keys = kind === "rug" ? roomFrames.map((f) => f.key) : frames.map((f) => f.key);
+    const keys = r.sheet === "room/room.png" ? roomFrames.map((f) => f.key) : frames.map((f) => f.key);
     expect(keys.some((k) => k.startsWith(r.frames))).toBe(true);
     const edit = Object.keys((JSON.parse(readFileSync(join(ROOT, "ui", "edit.json"), "utf8")) as { frames: object }).frames);
     if (r.thumb) expect(edit).toContain(r.thumb);
@@ -90,14 +97,14 @@ describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
   });
 });
 
-// Wall decor (OME-1500): a print or a string of bulbs has no one colour, so compare variants where they differ.
+// Wall decor (OME-1500) and the arc lamp (OME-1688): a print, a string of bulbs or a brass lamp has no one colour, so compare variants where they differ.
 const hex = (rgb: readonly number[]): string => "#" + rgb.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
 const mix = (h: string, mood: (typeof MOODS)[number]): string => {
   const n = Number.parseInt(h.slice(1), 16);
   return hex([(n >> 16) & 255, (n >> 8) & 255, n & 255].map((x, k) => x * (1 - mood.a) + (mood.rgb[k] ?? 0) * mood.a));
 };
 
-describe.each([...WALL_KINDS])("%s (wall)", (kind) => {
+describe.each(Object.keys(RECOLOURS).filter((k) => !oneColour(k)))("%s (by pixel)", (kind) => {
   const cells = allCells.filter((c) => c.kind === kind);
   const r = RECOLOURS[kind];
   test("each new variant vs every sibling: where they differ, the pixels are ΔE ≥ 20 apart on average (also deutan/protan)", () => {
@@ -128,4 +135,12 @@ describe.each([...WALL_KINDS])("%s (wall)", (kind) => {
     }
     for (const v of r?.variants ?? []) for (const b of v.to) expect(contrast(RAMPS[b][1], SITE_BG)).toBeGreaterThanOrEqual(3);
   });
+});
+
+// OME-1707 judge polish: a new arc lamp holds 3:1 on the dark site bg; a new case (its shade tone) or plank holds 1.5:1 on its backdrop in every mood.
+test("OME-1707: new arc lamps, cases and planks don't vanish on the site bg or the lightest mood", () => {
+  const moodMin = (h: string, bg: string): number => Math.min(...MOODS.map((m) => contrast(mix(h, m), mix(bg, m))));
+  for (const v of RECOLOURS["arclamp"]?.variants ?? []) expect(contrast(RAMPS[v.to[0] ?? "outline"][1], SITE_BG)).toBeGreaterThanOrEqual(3);
+  for (const v of RECOLOURS["bookshelf"]?.variants ?? []) expect(moodMin(RAMPS[v.shade ?? v.to[0] ?? "floor"][2], RAMPS.floor[1])).toBeGreaterThanOrEqual(1.5);
+  for (const v of RECOLOURS["wallshelf"]?.variants ?? []) expect(moodMin(RAMPS[v.to[0] ?? "wall"][1], RAMPS.wall[1])).toBeGreaterThanOrEqual(1.5);
 });

@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
@@ -53,6 +53,8 @@ export interface RoomLayoutOptions {
     setFullscreen(on: boolean): void;
     place(): void;
   };
+  /** The moments strip (OME-1628): boxed under the shelf, or set aside where it has no room. */
+  readonly moments?: HTMLElement;
   readonly log: ChatLog;
   /** The poll card (OME-1454): always right above the log. */
   readonly poll: HTMLElement;
@@ -117,6 +119,8 @@ export interface RoomLayout {
 }
 
 const HANDLE_ARROWS = { left: "◀", right: "▶", up: "▲", down: "▼" } as const;
+/** How near the screen's bottom edge the pointer peeks the hidden chat (OME-1668). */
+const FS_PEEK_ZONE = 80;
 
 export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   const { root, wrap, clip, stage, tv: tvBox, log: chatLog, queue: queuePanel, notice, roomAway, invite, side, phone, wide } = o;
@@ -148,10 +152,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     })(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => { clearTimeout(h); },
-    onChange: (hidden) => {
+    onChange: (hidden, peek) => {
       // Hiding takes the strip and the shelf away: focus in them goes to the toggle, now in the pill.
       const focused = document.activeElement;
       wrap.classList.toggle("fs-chat-hidden", hidden);
+      wrap.classList.toggle("fs-peek", peek);
       if (hidden && focused instanceof HTMLElement && (strip.contains(focused) || controls.contains(focused))) fsChat.toggle.focus({ preventScroll: true });
       renderStrip();
       fit();
@@ -164,6 +169,22 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   wrap.addEventListener("pointermove", wakePill, { passive: true });
   wrap.addEventListener("pointerdown", wakePill, { passive: true });
+  // OME-1668: a pointer (or a tap) near the screen's bottom edge or over the chat peeks the hidden chat, which goes
+  // FS_PEEK_MS after the last such event. No leave event is needed: a real provider's iframe swallows those (QA OME-1754).
+  const peekAt = (ev: PointerEvent): void => {
+    if (fs.mode() === "off") return;
+    const t = ev.target;
+    if (ev.clientY >= wrap.getBoundingClientRect().bottom - FS_PEEK_ZONE || (t instanceof Node && (strip.contains(t) || controls.contains(t)))) fsChat.peek(true);
+    fsChat.peek(false);
+  };
+  wrap.addEventListener("pointermove", peekAt, { passive: true });
+  wrap.addEventListener("pointerdown", peekAt, { passive: true });
+  // Focus in the chat or the shelf, or a draft in the field, holds the peek: never hidden under the caret.
+  const holdAt = (to: EventTarget | null): void => {
+    fsChat.hold((to instanceof Node && (strip.contains(to) || controls.contains(to))) || (chatForm.querySelector("input")?.value ?? "") !== "");
+  };
+  wrap.addEventListener("focusin", (ev) => { holdAt(ev.target); });
+  wrap.addEventListener("focusout", (ev) => { holdAt(ev.relatedTarget); });
   let stripMode: StripMode = storedStrip();
   let unread = 0;
   let displayedStripMode = stripMode;
@@ -257,6 +278,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const restoreScroll = holdScroll();
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
+    document.body.classList.toggle("room-is-pseudo-fs", mode === "pseudo");
     tvBox.setFullscreen(on);
     o.placeRoom();
     unread = 0;
@@ -308,6 +330,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     syncPortrait();
     const two = wide.matches;
     root.classList.toggle("room-wide", two);
+    // room.css's page rules key on this, not body:has(): that re-styled the page on every chat line (OME-1755).
+    document.body.classList.toggle("room-is-wide", two);
     side.hidden = !two;
     // Wide: the room's placeholder, the invite and Up next head the chat column; otherwise they're back in the page's flow.
     // Short (a phone held sideways, OME-1595): the head row and the invite's Copy key share the column's first row, so
@@ -343,9 +367,19 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
   /** The TV and its shelf take their boxes, compact where they're small. */
-  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }): void => {
+  /** `zoom`: the wide page's chrome zoom (OME-1667); the shelf's and the moments strip's boxes are in their own, zoomed, px. */
+  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }, height: number, fsAt?: FullscreenLayout["at"], zoom = 1): void => {
+    const z = (r: Rect): Rect => (zoom === 1 ? r : { x: r.x / zoom, y: r.y / zoom, w: r.w / zoom, h: r.h / zoom });
+    const zoomed = zoom === 1 ? "" : String(zoom);
     box(tv, l.tv);
-    box(controls, l.controls);
+    box(controls, z(l.controls));
+    controls.style.zoom = zoomed;
+    if (o.moments !== undefined) {
+      const m = momentsBox({ tv: z(l.tv), controls: z(l.controls) }, height / zoom, fsAt);
+      o.moments.classList.toggle("no-room", m === null);
+      o.moments.style.zoom = zoomed;
+      if (m !== null) box(o.moments, m);
+    }
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
   };
@@ -353,10 +387,17 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap.
     wrap.style.minHeight = "";
+    // Set before the wrap is measured: room.css widens the chat column with it.
+    const zoom = wide.matches && fs.mode() === "off" ? chromeZoom(window.innerWidth, window.innerHeight) : 1;
+    // The body too: room.css sizes the page's chat column from it (a body class, never body:has(), OME-1755).
+    for (const e of [root, document.body]) {
+      if (zoom === 1) delete e.dataset["chrome"];
+      else e.dataset["chrome"] = String(zoom);
+    }
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
-      boxTv(l);
+      boxTv(l, wrap.clientHeight, l.at);
       box(fsChat.bubbles, l.strip);
       // The hide/show-chat handle (OME-1593): on the strip's edge, or the screen's while hidden; none on the band.
       fsChat.pill.hidden = l.handle === undefined;
@@ -403,8 +444,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
-      boxTv(l);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom);
+      boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
         // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
@@ -430,7 +471,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))
       : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
-    boxTv(l);
+    boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
       root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);

@@ -11,7 +11,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOM_PRESET_IDS, RoomLayoutSchema, type RoomLayout, type RoomPresetId } from "@omega/shared";
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { devices, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from "@playwright/test";
 import * as v from "valibot";
 import { cellCenter } from "../apps/web/src/layout";
 import { PORTS, ROOT } from "./support/apps";
@@ -105,8 +105,8 @@ test.describe("room presets and saved layouts (own server and site)", () => {
   });
 
   /** A fresh context whose room creations each come from an address of their own (the server trusts a loopback X-Forwarded-For). */
-  async function newPage(browser: Browser): Promise<{ page: Page; errors: string[] }> {
-    const context = await watchCsp(await browser.newContext());
+  async function newPage(browser: Browser, options: BrowserContextOptions = {}): Promise<{ page: Page; errors: string[] }> {
+    const context = await watchCsp(await browser.newContext(options));
     contexts.push(context);
     await stubExternalNetwork(context);
     await context.route(`${SERVER_URL}/rooms`, async (route) => {
@@ -121,8 +121,8 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     return { page, errors };
   }
 
-  async function enter(page: Page): Promise<void> {
-    await page.locator(site.nicknameInput).fill("owner");
+  async function enter(page: Page, nickname = "owner"): Promise<void> {
+    await page.locator(site.nicknameInput).fill(nickname);
     await page.locator(site.joinButton).click();
     await expect(page.locator(site.room)).toBeVisible();
   }
@@ -164,13 +164,30 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     const values = await radios.evaluateAll((rs) => rs.map((r) => (r instanceof HTMLInputElement ? r.value : "")));
     expect([...values].sort()).toEqual([...ROOM_PRESET_IDS].sort());
     await expect(page.locator(radio("classic"))).toBeChecked();
-    // The untouched default (classic) is created by the #share= test below: this file's creates fill the global bucket
-    // (ROOM_CREATE_GLOBAL_BURST, 10), so classic isn't created here as well.
-    for (const preset of ROOM_PRESET_IDS.filter((p) => p !== "classic")) {
+    // The untouched default (classic) is created by the #share= test below and empty by the garbage test: this file's
+    // creates fill the global bucket (ROOM_CREATE_GLOBAL_BURST, 10), so neither is created here as well.
+    let theatreUrl = "";
+    for (const preset of ROOM_PRESET_IDS.filter((p) => p !== "classic" && p !== "empty")) {
       await createRoom(page, `Room ${preset}`, radio(preset));
       expect(await layoutOf(page), preset).toEqual(presetLayout(preset));
+      if (preset === "cinema") theatreUrl = page.url();
     }
     expect(errors).toEqual([]);
+
+    // On a phone every Theatre seat is tappable: the riser row's 52×44 keys must not cover the row in front (QA OME-1743).
+    const phone = await newPage(browser, devices["Pixel 7"]);
+    await phone.page.goto(theatreUrl);
+    await enter(phone.page, "phone");
+    const seats = phone.page.locator(site.seat);
+    await expect(seats).toHaveCount(8);
+    const hits = await seats.evaluateAll((keys) =>
+      keys.map((k) => {
+        const r = k.getBoundingClientRect();
+        return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? null;
+      }),
+    );
+    expect(hits).toEqual(["0", "1", "2", "3", "4", "5", "6", "7"]);
+    expect(phone.errors).toEqual([]);
   });
 
   test("a link the extension hands over (/#share=) shows in the create form and plays in the new, default (classic) room", async ({ browser }) => {
@@ -242,8 +259,8 @@ test.describe("room presets and saved layouts (own server and site)", () => {
       await expect(page.locator(radio("classic"))).toBeChecked();
       await expect(page.locator(id("saved-layouts"))).toHaveCount(0);
     }
-    await createRoom(page, "Still works", null);
-    expect(await layoutOf(page)).toEqual(presetLayout("classic"));
+    await createRoom(page, "Still works", radio("empty"));
+    expect(await layoutOf(page)).toEqual(presetLayout("empty"));
     expect(errors).toEqual([]);
   });
 });

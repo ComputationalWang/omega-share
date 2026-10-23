@@ -1,8 +1,8 @@
 // The room's furniture as a scene: seats, standing spots and set (g) sprites with their depth, from snapshot.room.layout
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
-// catalogue v2 (OME-1113) and furniture-v4-atlas.ts batch 6 (OME-1439), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
+// catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { cellOf } from "./walk/path";
@@ -21,6 +21,12 @@ const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp"
 const V2_KINDS: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
 /** Batch 6's pieces (assets/furniture/furniture-v4.json, its own lazy sheet). */
 const V4_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace"]);
+/** The theatre set's pieces (assets/furniture/furniture-v5.json, its own lazy sheet). */
+const V5_KINDS: ReadonlySet<FurnitureKind> = new Set(["theatrerow", "curtain", "bigscreen", "aislelight", "carpet"]);
+/** A theatre row's riser by variant, px a sitter is drawn higher (furniture-v5.json `seatLiftByColour`, pinned by a test). */
+const RISER_LIFT: readonly number[] = [0, 10, 20];
+/** The Dank Dungeon's pieces (assets/furniture/furniture-v6.json, its own lazy sheet, OME-1672). */
+const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin"]);
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
 const atlasId = (kind: FurnitureKind): string => (kind === "runner" ? "rug" : kind);
 
@@ -85,7 +91,7 @@ export function layoutOf(room: RoomState | null): RoomLayout {
 
 /** True if the layout holds a set (g) piece, i.e. the furniture atlas must load. */
 export function usesSetG(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind));
+  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind) && !V5_KINDS.has(f.kind) && !V6_KINDS.has(f.kind));
 }
 
 /** True if the layout holds a catalogue v2 piece, i.e. the v2 sheet must load. */
@@ -98,9 +104,31 @@ export function usesV4(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V4_KINDS.has(f.kind));
 }
 
+/** True if the layout holds a Dank Dungeon piece, i.e. the v6 sheet must load. */
+export function usesV6(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => V6_KINDS.has(f.kind));
+}
+
+/** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
+export function usesV5(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => V5_KINDS.has(f.kind));
+}
+
+/** Where a sitter on `f`'s seat cell (col, row) is drawn: the cell centre, raised by a theatre row's riser. */
+function seatAt(f: Furniture, col: number, row: number): Point {
+  const p = cellCenter(col, row);
+  const lift = f.kind === "theatrerow" ? (RISER_LIFT[f.variant ?? 0] ?? 0) : 0;
+  return lift === 0 ? p : { x: p.x, y: p.y - lift };
+}
+
 /** Seat i's floor point (ADR 0021: the i-th seat cell across seat pieces, in furniture order). */
 export function seatPoints(layout: RoomLayout): Point[] {
-  return layoutSeats(layout).map((s) => cellCenter(s.col, s.row));
+  return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => seatAt(f, c, r)) : []));
+}
+
+/** Seat i's floor tile, without the riser lift: where its key sits, so a riser's key doesn't cover the row in front. */
+export function seatTiles(layout: RoomLayout): Point[] {
+  return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => cellCenter(c, r)) : []));
 }
 
 /** Rows (col + row) for people without a seat, front of the room first, filled in order. */
@@ -237,7 +265,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
     else if (room !== null) pushRoomPiece(sprites, f, anchor);
     if (!spec.seats) continue;
     for (const [c, r] of footprintCells(f)) {
-      const at = cellCenter(c, r);
+      const at = seatAt(f, c, r);
       // Cells further from the anchor are nearer the camera (+col and +row both step down the screen).
       const near = c - f.col + (r - f.row);
       const z = drawn === null ? standDepth(at) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar, near);
@@ -334,5 +362,9 @@ function pushRoomPiece(out: FurnitureSprite[], f: Furniture, a: Point): void {
     at(`armchair/${f.facing}/back`, "object", BACK_LAYER);
     at(`armchair/${f.facing}/front`, "object", FRONT_LAYER);
   } else if (f.kind === "tv") at("tv/0", "wall", BACK_LAYER);
-  else if (f.kind === "lamp" || f.kind === "plant") at(`${f.kind}/0`, "object", BACK_LAYER);
+  else if (f.kind === "lamp" || f.kind === "plant") {
+    const variant = f.variant ?? 0;
+    const key = `${f.kind}/0`;
+    at(recolourOf(f.kind, variant) === undefined ? key : recolourKey(f.kind, variant, key), "object", BACK_LAYER);
+  }
 }

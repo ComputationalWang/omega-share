@@ -245,7 +245,7 @@ fn apply(room: &mut Room, op: &Op, op_now: Option<i64>, now: i64) -> Option<Valu
             if embed.is_some() && item_id.is_none() {
                 return None;
             }
-            switch(&room.set_embed(embed.clone(), by.clone(), item_id.clone(), *since, now).ok()?)?
+            switch(&room.set_embed(embed.clone(), by.clone(), item_id.clone(), None, *since, now).ok()?)?
         }
         Op::Enqueue { id, embed, by } => {
             room.enqueue(QueueItem {

@@ -11,16 +11,16 @@ use crate::app::{App, lock};
 use crate::contract::client_message::{ClientMessage, EmoteKind as InEmote, parse_client_message};
 use crate::contract::constants::{TYPING_TIMEOUT_MS, close};
 use crate::contract::ids::MemberId;
-use crate::contract::room::ControlPolicy;
+use crate::contract::room::{ControlPolicy, FloorCell};
 use crate::contract::server_message::{ErrorCode, ServerMessage};
-use crate::contract::state::{EmoteKind, PingId, ServerTime};
+use crate::contract::state::{EmoteKind, PairPose, PingId, Reaction, ServerTime};
 use crate::outbox::publish_msg;
 use crate::owner_edits;
 use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::{RoomCell, RoomInner};
-use crate::room::{FloorSitResult, SitResult, WalkResult};
+use crate::room::{FloorSitResult, PairResult, SitResult, WalkResult};
 use crate::secrets;
 use std::sync::Arc;
 
@@ -186,7 +186,9 @@ fn admit_type(
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
         ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // A floor sit is a step in place: the walk bucket, dropped silently over it (OME-1499).
-        ClientMessage::FloorSit { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
+        ClientMessage::FloorSit { .. } | ClientMessage::Lie { .. } => {
+            owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none()
+        }
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
         ClientMessage::Leave {}
         | ClientMessage::Ping { .. }
@@ -309,25 +311,9 @@ fn handle(
             WalkResult::Blocked => send_error(inner, conn.id, ErrorCode::BadCell, "you can't stand there"),
             WalkResult::NotMember => {}
             WalkResult::Walked { stood_up } => {
+                inner.room.cancel_pair(member);
                 get_up(inner, member);
-                if stood_up {
-                    publish_msg(
-                        inner,
-                        &ServerMessage::SeatChanged {
-                            member_id: member.clone(),
-                            seat: None,
-                        },
-                    );
-                }
-                publish_msg(
-                    inner,
-                    &ServerMessage::Walked {
-                        member_id: member.clone(),
-                        cell: Some(cell),
-                        run,
-                        teleport,
-                    },
-                );
+                relay_walk(inner, member, cell, stood_up, run, teleport);
             }
         },
         ClientMessage::SetTint { tint } => {
@@ -492,8 +478,9 @@ fn handle(
                 },
             );
         }
-        // shortcut: refused everywhere until OME-1672 lands the pair (invites, the teleport, `paired`).
-        ClientMessage::Pair { .. } => send_error(inner, conn.id, ErrorCode::PairsOff, "no /thrust or /bendover in this room"),
+        ClientMessage::Pair { pose } => pair(app, inner, conn, member, pose),
+        // shortcut: refused everywhere until OME-1691 lands lying down (`lay`, blocked seats, `Member.lying`).
+        ClientMessage::Lie { .. } => send_error(inner, conn.id, ErrorCode::BadCell, "you can't lie down here"),
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }
@@ -505,7 +492,7 @@ fn handle(
             let refused = queue::admit(app, inner, &actor)
                 .err()
                 .map(Refusal::from)
-                .or_else(|| queue::add(app, inner, &actor, url.as_str()).err().map(Refusal::from));
+                .or_else(|| queue::add(app, inner, &actor, url.as_str(), None).err().map(Refusal::from));
             if let Some(refused) = refused {
                 queue_refused(inner, conn, refused);
             }
@@ -539,8 +526,12 @@ fn handle(
         }
         // Handled above.
         ClientMessage::Join { .. } | ClientMessage::Ping { .. } | ClientMessage::Ended { .. } => {}
-        // Contract only (OME-1625): the reaction timeline and its `reacted` relay land with OME-1632.
-        ClientMessage::React { .. } => {}
+        // Stamped and kept by the room (ADR 0056); dropped silently without a synced item, like over the bucket.
+        ClientMessage::React { kind } => {
+            if let Some(Reaction { member_id, kind, media_ms }) = inner.room.react(member, kind, app.wall()) {
+                publish_msg(inner, &ServerMessage::Reacted { member_id, kind, media_ms });
+            }
+        }
     }
 }
 
@@ -708,4 +699,65 @@ fn real_wall_ms() -> ServerTime {
 fn real_mono_ms() -> f64 {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64() * 1000.0
+}
+
+/// A walk that took: `seat-changed` null if it stood them up, then `walked`.
+fn relay_walk(inner: &mut RoomInner, member: &MemberId, cell: FloorCell, stood_up: bool, run: Option<bool>, teleport: Option<bool>) {
+    if stood_up {
+        publish_msg(
+            inner,
+            &ServerMessage::SeatChanged {
+                member_id: member.clone(),
+                seat: None,
+            },
+        );
+    }
+    publish_msg(
+        inner,
+        &ServerMessage::Walked {
+            member_id: member.clone(),
+            cell: Some(cell),
+            run,
+            teleport,
+        },
+    );
+}
+
+/// `pair` (OME-1672): an invite, or a match that stands the inviter up and moves them beside the sender (the sender
+/// first stood on a cell if they had none).
+fn pair(app: &App, inner: &mut RoomInner, conn: &Conn, member: &MemberId, pose: PairPose) {
+    match inner.room.pair(member, pose, app.wall()) {
+        PairResult::NotMember => {}
+        PairResult::PairsOff => send_error(inner, conn.id, ErrorCode::PairsOff, "no /thrust or /bendover in this room"),
+        PairResult::NoCell => send_error(inner, conn.id, ErrorCode::BadCell, "there is no free cell beside you"),
+        PairResult::Invited => {
+            publish_msg(
+                inner,
+                &ServerMessage::PairInvited {
+                    member_id: member.clone(),
+                    pose,
+                },
+            );
+        }
+        PairResult::Paired {
+            thrust,
+            bendover,
+            inviter,
+            cell,
+            stand,
+        } => {
+            // The sender had no cell: stand them first, so the inviter's teleport lands beside someone on the floor.
+            if let Some(at) = stand {
+                get_up(inner, member);
+                if let WalkResult::Walked { stood_up } = inner.room.walk(member, at) {
+                    relay_walk(inner, member, at, stood_up, None, Some(true));
+                }
+            }
+            get_up(inner, &inviter);
+            if let WalkResult::Walked { stood_up } = inner.room.walk(&inviter, cell) {
+                relay_walk(inner, &inviter, cell, stood_up, None, Some(true));
+                publish_msg(inner, &ServerMessage::Paired { thrust, bendover });
+            }
+        }
+    }
 }

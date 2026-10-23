@@ -3,6 +3,7 @@
 import * as v from "valibot";
 import { HAIR_COUNT, TINT_COUNT } from "@omega/shared";
 import { avatars as hairAvatars } from "../../../../assets/avatars/hairs.json";
+import { AVATAR_IDS } from "./avatar-ids";
 
 const HexSchema = v.pipe(v.string(), v.regex(/^#[0-9a-f]{6}$/));
 const SlotSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255));
@@ -11,8 +12,7 @@ const TintsSchema = v.object({
   avatars: v.record(v.string(), v.object({ slots: v.tuple([SlotSchema, SlotSchema, SlotSchema]), tints: v.pipe(v.array(RampSchema), v.length(TINT_COUNT)) })),
 });
 
-/** The avatars' ids by avatar number (avatars.json's order, checked in walk-tint.test.ts). */
-export const AVATAR_IDS: readonly string[] = ["juno", "pip", "mo", "kiki"];
+export { AVATAR_IDS };
 
 export type TintRamp = v.InferOutput<typeof RampSchema>;
 export type AvatarTints = v.InferOutput<typeof TintsSchema>["avatars"][string];

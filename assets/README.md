@@ -9,6 +9,8 @@ assets/
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
   avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
   avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
+  avatars/watching.png  # OME-1640 (lazy): 512×256 indexed PNG-8, the theatre's seated-from-behind base + laugh + gasp, ne/nw × avatar
+  avatars/watching.json # OME-1640: PixiJS v8 atlas, expressions.json's schema (frames, animations, meta.omega.{states, anims})
   avatars/tints.json    # OME-1347: 6 shirt tints per avatar, a runtime PLTE swap table (no extra sheets)
   avatars/hairs.json    # OME-1436: 6 hair colours per avatar, the same PLTE swap (hair slots disjoint from tint slots)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
@@ -30,11 +32,13 @@ assets/
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×1024 indexed PNG-8 (512×512 until OME-1424), 7 more pieces + catalogue v3's 6 (OME-1348) + the door (OME-1424)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
-  furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner, a runtime PLTE swap table (no sheet changes)
+  furniture/recolours.json # OME-1462: 2 extra colours for sofa, rug, beanbag, pouf, stool, runner (+ frame, garland; OME-1688: lamps, plants, shelves), a runtime PLTE swap table (no sheet changes)
   furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops, teleport pad (OME-1546)
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   furniture/furniture-v5.png  # theatre set v2 (OME-1639, lazy-load): 256×1024 indexed PNG-8, raised rows, curtain, big screen, aisle lights, carpet
   furniture/furniture-v5.json # theatre set v2: v4's schema + `seatLiftByColour`
+  furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×256 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin (v4 schema)
+  avatars/dungeon.png|json  # Dank Dungeon (OME-1670, lazy): 256×512 PNG-8, the bendover / thrust emote poses, 48×64 cells
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
   accessories/accessories.png|json  # OME-1388 + OME-1530 (lazy): 256×256 PNG-8, eight head accessories, each a hat per avatar frame (theme hat format)
@@ -894,23 +898,53 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 Two reactions for every avatar, pose and facing, built like the wave (`src/motion.ts`, the set (a) templates through `composeMotion`):
 same 32×64 cells, anchor = floor point `(16, 61)` (`0.5, 61/64`), shading, plum outline and mirroring. `motion.png` is full (1024×512),
 so this is a **second lazy sheet with `motion.json`'s schema**: `frames`, Pixi `animations`, `meta.omega.{tile, cell, floorPoint, gestures, anims}`.
-Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames.
+Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames; a 5th row holds reach (1024×320, not rounded up to 512: the web keeps one tinted copy per look).
 
 | Key | Frames | Notes |
 |---|---|---|
 | `cheer/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | Fists up in a V. `0` elbows bent, fists by the ears, eyes closed in a smile, a small grin; `1` arms high and a wide-open grin, and standing avatars hop onto tiptoe (body up 1 px, heels up, toes on y 60). Kiki keeps her popcorn and pumps her free arm. |
 | `yawn/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | `0` the yawn: a big stretch, elbows out and hands behind the head, eyes shut, mouth a tall O. `1` the doze: arms down, head nods 2 px onto the collar, eyes shut, and a small cream "z z" floats up beside the head (never mirrored, so it never reads backwards). |
+| `reach/<id>/idle/<dir>/<0-1>` | 2 per dir, standing only (OME-1697) | Petting something small on the floor beside the feet (the room cat). Squat: knees forward, body down 4 px, head 1 px more. The template-left arm (never Kiki's popcorn hand) goes down and out; `0` hand on the floor out beside the shoes, `1` stroked 4 px back in. In the 5th sheet row, avatar i in columns 8i–8i+7. |
 
 - **Faces only show facing the camera (se/sw).** From behind (ne/nw) the arms and the head carry the reaction: the V, the elbows-out stretch,
   the nod and the "z". The far arm passes behind the head and hair, so a raised arm never covers a bun or a hat.
 - **`meta.omega.anims`**: `cheer/<id>/<pose>/<dir>` is one-shot, `6 × 180 ms` (three pumps); `yawn/<id>/<pose>/<dir>` is one-shot, `[900, 1800]` ms
-  (yawn, then doze). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
+  (yawn, then doze); `reach/<id>/idle/<dir>` is one-shot, `5 × 160 ms` = 800 ms (stroke, back, stroke, back, stroke). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
 - `meta.omega.gestures = [{id: "cheer", label: "Cheer"}, {id: "yawn", label: "Yawn"}]`, alongside motion.json's `wave`.
-- Keys start with `cheer` or `yawn`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
+- Reach isn't in `gestures` (it's not a picker emote); the web wires it as a `GestureKind` with idle cycles only.
+- Previews: `preview/reach-strip@4x.png` (per avatar: base pose, frame 0, frame 1, in se sw ne nw).
+- Keys start with `cheer`, `yawn` or `reach`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
 - Previews: `preview/expressions-strip@4x.png` (per avatar a cheer row and a yawn row: base pose, frame 0, frame 1, for idle and sit in se sw ne nw, on floor marks)
   and `preview/expressions-scene@1x.png` / `@2x` (the room floor at 1×: every avatar standing and seated in an armchair, each facing a different way;
   frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
 - Engineering hookup (emote picker, server message) is a follow-up issue after the design judge passes.
+
+## Watching poses (`avatars/watching.json`, OME-1640, lazy)
+
+What a seated viewer does while the film plays, seen from behind (theatre rows face the screen). Built like the expressions
+(`watchMotion` in `src/motion.ts` through `composeMotion`): same 32×64 cells, anchor = floor point `(16, 61)`, `nw` is the mirror of `ne`.
+One row per avatar (Juno, Pip, Mo, Kiki); per dir `ne` then `nw`: base 0, laugh 0–1, gasp 0–1.
+
+| Key | Frames | Notes |
+|---|---|---|
+| `watch/base/<id>/<ne\|nw>/0` | 1 | Settled in: sunk 1 px into the seat, the near elbow out on the armrest (Kiki keeps her popcorn). Use it in place of `<id>/sit/<dir>/0` while a video plays; outside playback keep `sit`. No blink frame (no eyes from behind). |
+| `watch/laugh/<id>/<ne\|nw>/<0-1>` | 2 | The shake: `0` bounces up 2 px with the head thrown 1 px aside and the elbows flapping out, `1` drops 1 px. |
+| `watch/gasp/<id>/<ne\|nw>/<0-1>` | 2 | `0` a jolt upright with both hands flung to the cheeks (they frame the jaw beside the hair), `1` the lean in: head dips 2 px toward the screen, hands stay up. |
+
+- **Why these reads:** above a theatre row's seat back only the head, hair and shoulders show, so each reaction lives there (the bounce, the hands).
+  The head never shifts toward the cell's near edge, because wide hats (the witch hat on Mo's brim) would touch the border.
+- **`meta.omega.anims`**: `watch/laugh/<id>/<dir>` is one-shot, `6 × 140 ms` (three shakes); `watch/gasp/<id>/<dir>` is one-shot, `[260, 1400]` ms.
+  Afterwards return to `watch/base`. `meta.omega.states = [{base, 1}, {laugh, 2}, {gasp, 2}]`. Seated frames draw between the seat's `back` and `front` layers,
+  at the seat's lift (`seatLiftByColour` on the theatre row), exactly like `sit`.
+- **Hair colours, shirt tints, hats, bare heads: nothing new to wire.** `watching.png` shares the avatar PLTE, so it's listed in `hairs.json` and
+  `tints.json` `sheets`: patch it like the other avatar sheets. Every `watch/*` key also has its hat in every theme sheet and in
+  `accessories.png`, and a bare-head frame for Pip and Mo in `bare.png` (`bare/watch/...`), because they're generated from the same frame list.
+- Reactions ride the Lead's reaction message (Movie night contract B); this sheet adds no message. Frame swaps only: no per-frame work beyond the texture swap.
+- **Bytes:** sheet 4 548 B + json 1 154 B gz; with the hat and bare frames for the new keys the art total grows by 11 459 B (≤ 20 KB allowance).
+- Previews: `preview/watching-strip@4x.png` (per avatar: plain `sit` back, base, laugh 0–1, gasp 0–1, for ne and nw, on floor marks),
+  `preview/watching-theatre@1x.png` / `@2x` (the theatre set with three raised rows of 4 per side, every row holding all four avatars; panels
+  base, laugh 0, laugh 1 / gasp 0, gasp 1, and a mixed house: front row laughing, middle gasping, back plain) and `preview/watching-rows@3x.png`
+  (the same six panels cut to the seats).
 
 ## Holiday theme: Halloween (`themes/halloween/halloween.json`, OME-1185, lazy)
 
@@ -926,7 +960,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 | `halloween/web/corner-l`, `/corner-r` | | `(0,0)`, where `wall/corner` goes | Cobweb in the back top corner, one half per wall; a spider hangs off the right half. |
 | `halloween/web/l-end`, `/r-end` | | `(0,9)`, `(9,0)`, where `wall/l/end` / `wall/r/end` go | Small webs in the open wall ends' top corners. |
 | `halloween/bat/<0-3>` | 16×16 | anywhere on the back walls | Flap cycle: wings up, mid, down, mid. Facing right; mirror (`scale.x = -1`) to fly left. Anchor = centre `(8, 8)`. |
-| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (416 keys, 32 shared rects). |
+| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (448 keys). |
 
 - **`meta.omega.decor`** lists the decor in draw order, each `{ key, on }`, where `on` is the wall frame key it belongs to. For every wall cell
   drawn with that frame, place the decal at that cell's `cellCenter(col, row)`. If the room has no such wall (an owner removed the window), skip it.
@@ -944,7 +978,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 ## Holiday themes B: Sinterklaas, Christmas, Valentine's, Easter (OME-1187, lazy)
 
 Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per theme under `themes/<id>/`, keys prefixed `<id>/`, decor in
-`meta.omega.decor`, a hat for every avatar frame key (416 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
+`meta.omega.decor`, a hat for every avatar frame key (448 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
 
 - **`meta.omega.period`** is either `{ from: "MM-DD", to: "MM-DD" }` (local date, both ends inclusive) or, for Easter, `{ easter: { from: -7, to: 1 } }`:
   days relative to Easter Sunday (Gregorian computus), so Easter runs from the Sunday before Easter Sunday through Easter Monday.
@@ -969,7 +1003,7 @@ Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per th
 ## Head accessories (`accessories/accessories.json`, OME-1388, lazy)
 
 Eight cosmetics (OME-1388's four, OME-1530's four) in one lazy 256×256 indexed PNG-8, fetched only when someone in the room wears one. Each is a hat in exactly the holiday
-theme format above: one overlay for **every** avatar frame key (416 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`,
+theme format above: one overlay for **every** avatar frame key (448 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `reach`,
 `yawn`, all four dirs; dance reuses the walk frames, so it is covered), anchored at the avatar's floor point, drawn as the avatar's next sibling.
 
 `meta.omega.accessories` = `{ <id>: { prefix, count, rects, replaces } }`. Each value has the theme manifest's `meta.omega.hat` shape, so
@@ -1002,7 +1036,7 @@ Pip and Mo take their headwear off: Pip shows a messy ginger mop with two cowlic
 Their overlays in `accessories.json` are drawn for those bare heads.
 
 `meta.omega.bare` = `{ prefix: "bare/", avatars: ["pip", "mo"], accessories: ["partyhat", "crown", "headphones", "cap", "bow"] }`. Frame `bare/K` exists
-for every avatar frame key `K` of Pip and Mo (104 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, all four
+for every avatar frame key `K` of Pip and Mo (112 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, `reach`, all four
 dirs; dance reuses walk). Each frame is a full 32×64 cell with the avatar sheets' anchor (`16/32`, `61/64`), so it swaps in for the texture
 directly. Keys carry only `frame` + `anchor`. Identical cells share a rect (200 rects for 208 keys).
 
@@ -1255,6 +1289,27 @@ same rows and cells on the flat wall base under the 4 room moods (top to bottom 
 rgb(60 120 255 / .18), `night` rgb(14 12 46 / .5), as flat overlays: OME-1502 owns the real values), then the dark site bg.
 The contract still says `variants: 2` for both; the hookup raises it to 4 (the web picker reads the table already).
 
+**Lamps, plants and shelves (OME-1688).** Every lamp, plant and shelf takes 2 more, same table, same path: **+223 B**, all lazy
+(`recolours.json` gz 936 → 1 159; 308 788 → 309 011 of 409 600). No sheet, thumb or chip changes: every new id reuses an existing
+`swatch/<id>`. The room's `lamp` and `plant` are `room/room.png` frames like the rug (`source` names their shipped colour; no thumb).
+
+| kind | shipped (variant 0..) | new (variant, id) | swapped ramps → new | sheet |
+|---|---|---|---|---|
+| `lamp` (room) | 0 cream shade | 1 `teal`, 2 `lilac` | cream (shade) | room.png |
+| `plant` (room) | 0 rust pot | 1 `teal`, 2 `mustard` | rust (pot) | room.png |
+| `arclamp` | 0 `brass` | 1 `lilac` (lilac arc, cream shade), 2 `teal` (brass arc, teal shade) | mustard, cream | furniture.png |
+| `monstera` | 0 `rust`, 1 `teal` | 2 `mustard`, 3 `lilac` | rust (pot) | furniture.png |
+| `bookshelf` | 0 `wood` | 1 `cream` (cream case with the wood shade tone, cream spines → wood), 2 `teal` (teal case, cream spines, teal spines and globe → navy) | wood, cream, teal | furniture.png |
+| `wallshelf` | 0 `wood` | 1 `cream` (cream plank), 2 `teal` (teal plank, pot band → rust) | wood, teal | furniture-v2.png |
+
+The bookcase swaps its spines out of the case's new ramp so no book vanishes into the case. A pink room-lamp shade was dropped:
+it sits ΔE 6 from teal for deutans. Judge polish (OME-1707): the arc lamp went charcoal → lilac (1.7 → 5.2:1 on the dark
+site bg), the wall shelf lilac → cream (plank on the wall ≥ 2.8:1 in every mood, was 1.45), and the cream case keeps the wood
+shade (a variant's optional `shade` ramp, same table shape) so it reads on the lightest floor (shade 1.22 → 1.83:1). Single-colour kinds pass the ΔE ≥ 20 sibling / ≥ 25 floor / ≥ 3:1 site-bg test on the
+named ramp; the arc lamp (brass is no ramp) and the wall shelf (a wall kind) are compared by pixel like the wall decor. The wall
+shelf is drawn in `preview/recolours-wall@*`, the other five in `preview/recolours-sheet@*` (rows after the runner). Hookup: the
+contract's `variants` become lamp 3, plant 3, arclamp 3, monstera 4, bookshelf 3, wallshelf 3.
+
 ## Set (o) extension popup kit + toolbar "found" state (OME-1041, `ui/popup/` + `store/`)
 
 The extension popup in the site's chrome, and a second toolbar icon for "this page has a video". Previews (1× and 2× device px):
@@ -1320,6 +1375,113 @@ Tokens in `kit.css`: `--ui-page` (popup background), `--ui-text`, `--ui-muted` (
 ## Sound recipes (`sound/recipes.json`, OME-1642)
 WebAudio recipes as data, played by the room's engine (`apps/web/src/audio/`, OME-1638); the format (v1) is `apps/web/src/audio/FORMAT.md`. 14 names: `step.wood|carpet|tile`, `chair.sit|stand`, `door`, `ui.tick|toggle|error`, `pop`, `tone.warm|cool|night` (loop) and `swell`. Each `gain` is the mixed level at master volume 1. Checks: `bun test assets/src/sound.test.ts` (names, fields, ≤ 4 KB, a ≤ -12 dBFS bound, no audio files) and `bun assets/src/sound-meter.ts` (measured peak/RMS per sound, headless). Audition: serve the repo root and open `assets/preview/sound.html`. Look and mix: `STYLE.md`, *Sound palette*.
 
+## Dank Dungeon (OME-1670, lazy): hotel-suite furniture, the preset, the bend-over / thrust emote
+
+A tongue-in-cheek "dungeon" that is really a modern hotel suite after dark. **The room shell costs 0 B:** the honey planks are the wood
+floor, the left wall's `window0`/`window1` pair is the big window, and the moody light is the existing `night` mood (OME-1502,
+`layout.mood`, a multiplied `rgb(36 48 110 / 0.5)`). Previews: `preview/dungeon-room@1x.png` / `@2x` (the preset, full house, a pair
+mid-emote on the runner) and `preview/dungeon-room-night@1x.png` / `@2x` (the same under the night mood, as the room shows it).
+
+### Furniture v6 (`furniture/furniture-v6.png` + `.json`, 256×256, lazy)
+
+A fourth lazy sheet with exactly the v4 schema (frame keys, anchors, `meta.omega.pieces`, `animations`, `useKey`; identical frames share
+a rect). Load it only when a layout uses one of these. Like v4, nothing reads it until the hookup (OME-1672) adds the ids to `FURNITURE`.
+
+| id | label | layer / mount | facings | colours | footprint |
+|---|---|---|---|---|---|
+| `bed` | Twin bed (seat, no front layer) | object, floor | `ne nw se sw` | `velvet` (duvet, headboard, a plum pillow) | 2×1, 2 seats |
+| `whirlpool` | Whirlpool (seat, front layer) | object, floor | `ne nw se sw` | `teal` | 2×1, 2 seats |
+| `mirror` | Wall mirror | wall | `se sw` | `brass` | wall |
+| `minibar` | Minibar | object, floor | `se sw` | `wood` | 1×1 |
+| `desk` | Writing desk | object, floor, wall-backable | `se sw` | `wood` | 1×1 |
+| `washbasin` | Washbasin | object, floor, wall-backed | `se sw` | `cream` | 1×1 |
+
+- **Bed:** low platform bed, plum duvet folded back over cream sheets, a mustard throw at the foot, and five pillows against a tufted
+  headboard at the **anchor end** (local −x). So facing `ne` at `(0, r)` the headboard is on the left wall, facing `nw` at `(c, 0)` on the right
+  wall: it reads wall-backed without being `wallBacked` in the contract. Sitters sit on the duvet (seat 0 among the pillows).
+- **Whirlpool:** cream tub on a wood skirt, a towel roll and a rubber duck on the rim. The rim and the water **in front of each sitter**
+  (toward the camera from that seat) are the `front` layer, so a sitter is in the water to the waist in every facing
+  (`preview/furniture-v6-seats@2x.png`). **In use loop** (`use: { frames: 2, ms: 200 }`, intended trigger: someone sits in it): bubbles rise;
+  swap `back` for `furniture/whirlpool/teal/use/<dir>/<n>` in place, `front` stays. The use frames are the back layer only (same rect and
+  anchor as `back`), so the bubbles (2 px clusters, never on the rim) rise on the water behind the sitters; the water in `front` stays calm.
+  (OME-1685: before that the frames were missing from `furniture-v6.json`; `src/dungeon.test.ts` now checks every animation frame exists.)
+- **Mirror:** an oval 16 × 60 px, 70–130 px up, so it clears the 56 px wainscot and stands over a washbasin or desk. Bevelled brass
+  frame (outer edge lit top-left, inner edge lit bottom-right), pale glass (the `glow` ramp) darker toward the bottom, two sheen streaks
+  and the reflected lamp. OME-1685: it was a tall dark rectangle that read as a door or the night window. Plain wall segments only, like
+  the framed print.
+- **Minibar:** glass door lit from inside (bottles, cans), an ice bucket on top. **Desk:** brass lamp, notepad and pen. Both stand free
+  or against a wall. **Washbasin:** backs onto its cell's wall like the bookcase (row 0 for `sw`, col 0 for `se`).
+- Previews: `preview/furniture-v6-room@1x.png` / `@2x` (every piece, both facings, seats taken and free), `preview/furniture-v6-seats@2x.png`,
+  `preview/furniture-v6-atlas@2x.png`. Tray thumbnails are in `ui/edit.png` (`thumb/<id>/<colour>`), like every catalogue piece.
+
+### The preset (draft for OME-1672)
+
+`presets/` validates every layout against `FURNITURE`, so the preset can't ship there before the hookup. Its layout is `DUNGEON_PRESET` in
+`src/build.ts` (rendered in `preview/dungeon-room*`); move it into `src/presets.ts` once the kinds exist:
+
+- id `dungeon`, name **Dank Dungeon**, blurb "Twin beds, a whirlpool for two and the lights way down.", `mood: "night"`.
+- Pieces: `tv (0,0) se`; `bed (4,0) nw`, `bed (0,3) ne`; `wingback (7,2) nw`, `wingback (7,4) nw` with `coffeetable (7,3) sw` (the sitting corner);
+  `whirlpool (2,7) ne`; `desk (7,0) sw`, `minibar (9,0) sw`; `washbasin (0,7) se` under `mirror (0,7) se`; `neonsign (0,2) se`; `arclamp (1,5) se`;
+  `runner (4,4) nw` variant 1; `monstera (9,9) sw` variant 1.
+- 8 seats, all facing the TV corner: both beds (2 each), the tub (2), the two wingbacks. Nothing on wall segments 5, 6, 8; the middle diagonal stays clear.
+
+### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
+
+Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera
+(Kiki parks her popcorn on the floor); **`thrust`**, a silly hip-thrust dance standing just behind the partner, 3 frames played
+`0 1 2 1` at 110 ms (`meta.omega.thrust`, Pixi `animations["thrust/<avatar>/<dir>"]`). Built from each avatar's own idle frame (head,
+hair, hat, shirt and shading are theirs), so the four stay as distinct as in set (a).
+
+| Key | Cell | Anchor | Draw |
+|---|---|---|---|
+| `bendover/<avatar>/<se\|sw>/0` | 48×64 | the bender's floor point (24, 61) for `se`, (23, 61) for `sw` | at the bender's cell centre, its normal depth |
+| `thrust/<avatar>/<se\|sw>/<0-2>` | 48×64 | **the partner's** floor point (38, 61) for `se`, (9, 61) for `sw` | at the **partner's** cell centre, just behind the partner (zIndex − 0.5) |
+
+- One sheet row per avatar × dir (`juno se`, `juno sw`, `pip se`, …); per row bend, thrust 0, 1, 2. The web reads rects from the JSON.
+- **Facings:** front views only (`se`, `sw`). Turn both avatars to the same front facing for the emote (the nearer of `se`/`sw` to the
+  bender's facing). The thruster's own feet are drawn at `meta.omega.thrust.feetOffset` (−13, −6) px from the partner's floor point
+  (mirror x for `sw`): about a third of a tile up-left, on the floor plane. Because the frame is anchored on the partner, the thruster's own
+  cell (behind, or the nearest free one) doesn't change the picture.
+- **Tints and hair colours** apply: `dungeon.png` is listed in `tints.json` and `hairs.json` `sheets` (same PLTE slots).
+- Shortcut: no theme hat or accessory overlays exist for these keys, so a hat hides for the few seconds of the emote. Add them if it shows.
+- Preview: `preview/dungeon-poses@4x.png` (per avatar and dir: idle, bend, thrust 0–2, then the pair at thrust 0 and 2).
+
+**Bytes** (`bun assets/src/build.ts`): **+17 159 B**, 308 788 → 325 947 (OME-1685 polish: +2 926 B, → 328 873, nearly all the 8 whirlpool use
+frames that were missing), under the 400 KB cap of ADR 0056. Lazy: `furniture-v6.png` +
+`.json` gz, `avatars/dungeon.png` + `.json` gz, `edit.png` / `edit.json` gz for 6 thumbnails. **Eager: +154 B**, the six `.ui-thumb-*`
+rules in `reference.css` (gz), the same per-piece cost every catalogue batch has paid.
+
+## Lying pose (`avatars/lying.json`, OME-1687, lazy)
+
+Someone stretched out on a sofa, or curled up in the cat's bed while the cat is out walking. Built from the set (a) idle frame,
+so hair, clothes, shading and outline are the avatar's own (fully clothed): the body turns 90° in the picture plane (lying on its
+side, front to the camera, **eyes shut**), the torso and legs shear onto the 2:1 axis the seats run along, and the head stays a
+rigid block lying flat on the armrest. Previews: `preview/lying.html` (every facing on each piece, a room at 1×/2×, the strip).
+
+- **Keys:** `lie/<avatar>/<se|sw|ne|nw>/<0|1>` (the sofas, the same four facings as `sit`; se/sw show the face, ne/nw the back
+  over the backrest, like a sitter from behind) and `curl/<avatar>/<se|sw>/<0|1>` (the cat bed, its two facings; the shins tuck in
+  so the body fits the cushion). **Animations:** `lie/<avatar>/<dir>` and `curl/<avatar>/<dir>`: a 2-frame breath, frame 1 lifts the
+  flank 1 px, 1 400 ms then 1 000 ms (`meta.omega.anims`), the same clock as the standing breathe.
+- **Cell 50×34**, wider than the 32×64 avatar cell because a lying body runs along the floor diagonal. **Floor point (36, 26)**
+  (se/nw; sw/ne are mirrored, so (13, 26)): the point on the cushion under the hips. Each frame's `anchor` already holds it.
+  Mirrored facings are re-shaded in the sheet: play each facing's own frames, never `scale.x = -1`.
+- **Where to draw it** (`meta.omega.pieces`): put the frame's anchor at the piece's anchor (its anchor cell's centre, where its
+  `back` frame is drawn) plus this offset in screen px (1×), lift included. Draw it between the piece's `back` and `front`
+  layers, sorted at the piece's sort point (`sortByDir`), exactly like a sitter. One lier takes the whole piece (both seats).
+
+  | piece | style | under it | se | sw | ne | nw |
+  |---|---|---|---|---|---|---|
+  | `sofa` (club sofa) | `lie` | `…/<dir>/back` + `front` | (−4, 4) | (4, 4) | (4, 1) | (−4, 1) |
+  | `couch` (lounge couch) | `lie` | `…/<dir>/back` + `front` | (−4, 4) | (4, 4) | (4, 1) | (−4, 1) |
+  | `cat` (cat bed) | `curl` | `furniture/cat/<colour>/bed/<dir>` (the empty bed) | (12, −2) | (−12, −2) | n/a | n/a |
+
+- **Headwear:** each avatar's own headwear is drawn into the frames (Pip's beanie and Mo's bucket hat, turned sideways), so
+  show the frame as is. There are no lying frames in the theme or accessory hat overlays: hide those overlays while lying. **Tints and hair colours:** `lying.png` uses the same
+  PLTE as `avatars.png` (a test guards it), so apply the `tints.json` / `hairs.json` slots to it for that avatar's frames. It is not
+  added to those tables' `sheets` lists, so the eager files stay byte-for-byte frozen.
+- **Bytes:** `lying.png` 6 457 + `lying.json` 1 308 gz (level 9, as `build.ts` measures) = **7 765 B** of the 12 KB (12 288 B) allowance, all lazy; no other shipped
+  file changes. Measured art total (after merging main, OME-1670/1631): **367 992 B of 409 600**.
+
 ## Budget
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
@@ -1350,7 +1512,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
 | `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437; + pad, OME-1546; lazy) | 19 477 + 1 915 gz |
 | `furniture/furniture-v5.png` + `.json` (theatre set v2, OME-1639, lazy) | 8 810 + 1 335 gz |
-| `furniture/recolours.json` (OME-1462, recolour table, ships with the web bundle) | 3 223 raw / 756 gz |
+| `furniture/recolours.json` (OME-1462 + OME-1500 + OME-1688, recolour table, lazy) | 7 713 raw / 1 159 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -1361,7 +1523,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 320 629 B** after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 352 244 B** after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
@@ -1379,6 +1541,8 @@ Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 �
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
 
 The cat walk (OME-1519) adds **1 969 B**: 292 857 → 294 826 of 307 200 (see "Cat walk").
+
+Lamp, plant and shelf colourways (OME-1688) add **223 B**, all lazy (`recolours.json` gz 936 → 1 159): 308 788 → 309 011 of 409 600 (see "Furniture recolours").
 
 Wall decor recolours (OME-1500) add **401 B**: 292 456 → 292 857 of 307 200 (see "Furniture recolours").
 

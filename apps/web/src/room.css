@@ -34,7 +34,7 @@
 .generic-hint { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .generic-strip-unlock { min-width: 0; min-height: 24px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent); color: #1d1a2b; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .generic-strip-unlock:disabled { opacity: 0.6; }
-.overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
+.overlay, .tags, .bubbles, .reactions { position: absolute; inset: 0; pointer-events: none; }
 /* Cinema dim (OME-1406, cinema.ts): one fixed rgba layer over the canvas, under the floor, seats, tags and bubbles. A class
  * flips on play/pause/editor; the 400 ms fade is a one-off background-colour transition of one flat layer, not a running
  * animation. The room mood (OME-1502) is a fixed tint on the same layer, multiplied into the canvas; multiply commutes, so
@@ -137,6 +137,31 @@
 .ui-seek input:disabled { cursor: default; }
 .ui-seek:focus-within, .ui-vol-track:focus-within { outline: 1px solid var(--ui-text); outline-offset: 5px; }
 .ui-seek.is-disabled .ui-seek-head { display: none; }
+/* ---- Moments strip (OME-1628): under the shelf, a thin density bar and up to 8 pips that seek. Placeholder look. ---- */
+/* Boxed under the shelf at the player's width by layout.ts momentsBox; over the stage's headroom, so above its clip. */
+.moments { position: absolute; z-index: 1; }
+.moments[hidden], .moments.no-room { display: none; }
+.moments-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background-color: var(--field-border); }
+/* A pip's 16×14 icon sits on the bar; a larger key (--pip, OME-1748) grows down over the bar and the wall, never up into
+ * the shelf, and its bottom padding keeps the icon where it was. */
+/* --at is the pip's time point; clamped by half a key so a pip at either end stays inside the strip (OME-1756). */
+.moments-pip { position: absolute; top: 1px; left: clamp(var(--pip, 16px) / 2, var(--at), 100% - var(--pip, 16px) / 2); transform: translateX(-50%); display: grid; place-items: center; width: var(--pip, 16px); height: var(--pip, 14px); padding: 0 0 calc(var(--pip, 14px) - 14px); border: 0; background: none; cursor: pointer; }
+.moments-pip:disabled { cursor: default; opacity: 0.7; }
+.moments-pip:focus-visible { outline: 1px solid var(--ui-text); outline-offset: 1px; }
+.moments-pip .ui-sprite { transform: scale(0.5); }
+/* ---- Recap card (OME-1629): in the page flow under the player, so it never covers the composer. Placeholder look until the
+ * Designer's recap chrome passes the judge. --fg on --panel is 13:1, --muted on --panel 7.6:1 (AA). ---- */
+.recap { margin: 8px 0 0; padding: 8px 10px; max-width: 100%; border: 1px solid var(--field-border); border-radius: 6px; background: var(--panel); color: var(--fg); font-size: 14px; }
+.recap-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.recap-title { margin: 0; font-size: 14px; }
+.recap-close { min-width: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--fg); font-size: 18px; cursor: pointer; }
+.recap-close:focus-visible { outline: 1px solid var(--fg); outline-offset: 1px; }
+.recap-moments { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.recap-moment, .recap-count { display: inline-flex; align-items: center; gap: 4px; }
+.recap-counts { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 0; }
+.recap-watched { margin: 6px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+/* The 16-unit icon at half size: the negative margin gives back the layout box the scale leaves. */
+.recap .ui-sprite { flex: none; transform: scale(0.5); margin: calc(-4 * var(--ui-px)); }
 .room-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .catching-notice { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
 .syslines { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 4px; overflow: hidden; pointer-events: none; }
@@ -196,6 +221,12 @@
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }
+/* Reactions (OME-1631): the bar under the room while something plays, and the glyph bursts (reactions/glyphs.ts writes
+   each glyph's transform and opacity on its step timer; nothing animates in CSS, ADR 0040). */
+.reactions { contain: layout paint; }
+.reaction-glyph { position: absolute; left: 0; top: 0; translate: -50% -100%; }
+.reaction-bar { --ui-px: 1px; display: flex; gap: 4px; justify-content: center; margin: 6px 0 0; }
+.reaction-bar.is-cooling > .reaction-key { opacity: 0.5; }
 
 /* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
 .tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
@@ -305,7 +336,7 @@
 .stage-wrap.is-fs[data-fs-scroll="true"] { overflow-y: auto; scrollbar-width: none; }
 /* No element full screen (iPhone Safari): the same layout as a full-viewport page, clear of the notch and the home bar. */
 .stage-wrap.is-pseudo-fs { position: fixed; z-index: 10; top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right); width: auto; height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-body:has(.is-pseudo-fs) { overflow: hidden; }
+body.room-is-pseudo-fs { overflow: hidden; }
 .controls > .fs-key { flex: none; margin-left: 4px; }
 .fs-strip { position: absolute; --ui-px: 1px; }
 .fs-strip-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
@@ -373,12 +404,37 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 /* --wide-side: the chat column with the right notch inset. A phone held sideways (OME-1297, ≤ 500 px tall) gets 256 px:
  * the field keeps 120 px beside the emote and send keys, and at 667 px the room's column still holds the 356 px picture.
  * The left inset pads the room's column. */
-body:has(> main > .room-wide) { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
+body.room-is-wide { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
 /* Up to 288 px when the room's column keeps the 356 px picture (OME-1595: the fields showed 15 characters at 740 px);
  * 288 still leaves Twitch's 534 px picture its column at 844 px. */
-@media (max-height: 500px) { body:has(> main > .room-wide) { --wide-side: calc(clamp(256px, 100vw - 384px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 288px) + env(safe-area-inset-right, 0px)); } }
-main:has(> .room-wide) { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
-body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }
+@media (max-height: 500px) { body.room-is-wide { --wide-side: calc(clamp(256px, 100vw - 384px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 288px) + env(safe-area-inset-right, 0px)); } }
+/* Chrome zoom (OME-1667, board: "scalings on 2k"): from 1920×900 (1.5×) and 2560×1200 (2×, layout.ts chromeZoom) the
+ * page is 1280's chrome, zoomed: every key at least 40 px. Not the stage, which scales itself; the shelf's zoom is
+ * room-layout.ts's (it's placed in px). The chat column zooms its children, so its fixed box stays in page px. */
+.room-wide[data-chrome="1.5"] { --chrome: 1.5; }
+.room-wide[data-chrome="2"] { --chrome: 2; }
+body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(480px + env(safe-area-inset-right, 0px)); }
+body.room-is-wide[data-chrome="2"] { --wide-side: calc(640px + env(safe-area-inset-right, 0px)); }
+.room-wide[data-chrome] > :not(.stage-wrap, .room-side, .hint-chip, dialog), .room-wide[data-chrome] > .room-side > * { zoom: var(--chrome); }
+/* The emote wheel is placed in viewport px (picker.ts) and is page chrome at 2× already: it keeps 1×. */
+.room-wide[data-chrome] .ui-wheel { zoom: calc(1 / var(--chrome)); }
+/* The help dialog zooms too (QA OME-1696: a 520 px box at 2560); a zoomed dialog's viewport bound is divided by it. */
+.room-wide[data-chrome] > .help-dialog { zoom: var(--chrome); }
+.room-wide[data-chrome] :is(.help-dialog, .report-dialog) { max-height: calc(100dvh / var(--chrome) - 16px); }
+.room-wide[data-chrome] .help-dialog { width: min(calc(100vw / var(--chrome) - 16px), 520px); }
+.room-wide[data-chrome] .report-dialog { width: min(calc(100vw / var(--chrome) - 16px), 480px); }
+.room-wide[data-chrome] .report-dialog:has(> form[hidden]) { width: min(calc(100vw / var(--chrome) - 16px), 380px); }
+/* "Outfits" is a line of text in People: a 27 px row is 40 px at 1.5×. */
+.room-wide[data-chrome] .outfits > summary { display: flex; align-items: center; min-height: 27px; width: max-content; }
+/* The quality list's 25 px options, likewise. */
+.room-wide[data-chrome] .quality-menu .ui-modrow { min-height: 27px; }
+/* A 26 px icon key is 39 px at 1.5×. */
+.room-wide[data-chrome] .ui-button.icon:not(.stage-clip *) { min-width: 27px; }
+/* The moments pips: 40 px once zoomed (OME-1748), 44 px to the finger; [data-chrome] ties the touch rule, which comes last. */
+.room-wide[data-chrome] .moments { --pip: calc(40px / var(--chrome)); }
+.ui-touch .moments, .ui-touch[data-chrome] .moments { --pip: calc(44px / var(--chrome, 1)); }
+body.room-is-wide > main { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
+body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }
 .room-wide { box-sizing: border-box; height: 100%; margin-right: var(--wide-side); padding: 12px 16px 12px max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; overflow-y: auto; }
 .room-wide > * { flex: none; }
 /* At least room for the TV at its minimum and a small room (the column scrolls under an open editor instead). */
@@ -437,8 +493,8 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
    * column's padding, an empty status line and the footer's second line give their height to the floor. */
   .room-wide { padding: 4px 8px 0 max(8px, env(safe-area-inset-left)); }
   .room-wide > .status:empty { display: none; }
-  body:has(> main > .room-wide) > .site-footer { height: var(--room-foot); padding-block: 0; font-size: var(--room-foot-text); white-space: nowrap; overflow: hidden; }
-  body:has(> main > .room-wide) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
+  body.room-is-wide > .site-footer { height: var(--room-foot); padding-block: 0; font-size: var(--room-foot-text); white-space: nowrap; overflow: hidden; }
+  body.room-is-wide > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
   /* The head row with the invite's Copy key (Copy is how a phone shares the link; the label still describes the key). */
   .room-side { padding-inline: 4px max(4px, env(safe-area-inset-right)); }
   .room-side > .room-top { flex-wrap: wrap; gap: 4px; }
@@ -589,13 +645,13 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-not-found .not-found-state { font-size: 13px; }
 
 /* M10 portrait: the viewport owns the height; the room gives space to the composer and chat. */
-body:has(> main > .room-portrait) { height: 100dvh; overflow: hidden; }
+body.room-is-portrait { height: 100dvh; overflow: hidden; }
 /* A downward swipe in the room must not pull-to-refresh it mid-video (OME-1240); pinch zoom is unaffected. */
 :root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
-main:has(> .room-portrait) { max-width: none; padding: 0; }
-body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: var(--room-foot); font-size: var(--room-foot-text); }
+body.room-is-portrait > main { max-width: none; padding: 0; }
+body.room-is-portrait > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: var(--room-foot); font-size: var(--room-foot-text); }
 /* One 20 px line, never two (OME-1597: at 360 px the version wrapped below the viewport); it stays on the landing. */
-body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
+body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
 .room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - var(--room-foot)); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
@@ -692,6 +748,11 @@ body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .f
  * "hidden"). Still nothing of ours over the player (ADR 0012, YouTube's RMF): the handle sits in its own margin and the bubbles
  * in what the screen leaves (the strip's box). Bubbles never take the pointer; CSS animates transform and opacity only. ---- */
 .stage-wrap.fs-chat-hidden > .fs-strip, .stage-wrap.fs-chat-hidden > .controls { display: none; }
+/* OME-1668: a peek slides the hidden chat back in from the bottom edge (compositor-only); entering or pinning it doesn't. */
+@media (prefers-reduced-motion: no-preference) {
+  .stage-wrap.is-fs.fs-peek > .fs-strip, .stage-wrap.is-fs.fs-peek > .controls { animation: fs-peek-in 160ms ease-out; }
+}
+@keyframes fs-peek-in { from { translate: 0 100%; opacity: 0; } }
 .fs-chat-pill { position: absolute; z-index: 4; --ui-px: 1px; opacity: 0.9; transition: opacity 400ms; }
 /* Dimmed, not gone: a pointer over the provider's iframe never reaches us, so the way back stays in sight. */
 .fs-chat-pill.is-idle:not(:focus-within) { opacity: 0.25; }

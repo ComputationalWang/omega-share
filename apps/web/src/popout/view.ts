@@ -223,6 +223,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
       case "room-view":
       case "room-tv":
       case "room-emote":
+      case "room-react":
       case "room-typing":
       case "room-typing-clear":
       case "room-raise":

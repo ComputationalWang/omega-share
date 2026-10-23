@@ -63,6 +63,8 @@ const valid: Raw[] = [
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
   // pair, layout pairs (OME-1671)
   js({ type: "pair", pose: "thrust" }), js({ type: "pair", pose: "bendover" }),
+  // lie (OME-1773)
+  ...[0, 1, 31, null].map((piece) => js({ type: "lie", piece })),
   ...[true, false].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
   js({ type: "walk", cell: { x: 9, y: 0 }, teleport: true }), js({ type: "walk", cell: { x: 9, y: 0 }, teleport: false }), js({ type: "walk", cell: { x: 9, y: 0 }, run: true, teleport: true }),
   js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, { kind: "pad", col: 9, row: 1, facing: "se" }, { kind: "pad", col: 1, row: 9, facing: "se", variant: 1 }] } }),
@@ -147,7 +149,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "typing", on: true }), ...mutations({ type: "set-accessory", accessory: 1 }), ...mutations({ type: "roll", sides: 6 }),
   ...mutations(POLL_OPEN), ...mutations({ type: "vote", pollId: "p1", option: 0 }), ...mutations({ type: "poll-close", pollId: "p1" }),
-  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }), ...mutations({ type: "pair", pose: "thrust" }),
+  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }), ...mutations({ type: "pair", pose: "thrust" }), ...mutations({ type: "lie", piece: 1 }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -200,6 +202,8 @@ const invalid: Raw[] = [
   ...["dark", "Warm", "none ", "", null, 0, true, [], {}].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
   // pair, layout pairs (OME-1671)
   ...["Thrust", "hug", "thrust ", "", null, 0, true, [], {}].map((pose) => js({ type: "pair", pose })), js({ type: "pair" }),
+  // lie (OME-1773)
+  ...[-1, 32, 33, 255, 1.5, "1", true, [], {}].map((piece) => js({ type: "lie", piece })), js({ type: "lie" }), js({ type: "lie", piece: undefined }),
   ...["true", 1, 0, null, [], {}].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
@@ -267,6 +271,7 @@ const deliberate: Raw[] = [
   rr('{"type":"sit","seat":1,"seat":2}'),
   rr('{"type":"leave","type":"chat"}'),
   rr('{"type":"chat","text":"a","text":"b"}'),
+  rr('{"type":"lie","piece":1,"piece":2}'), rr('{"type":"lie","piece":1.0}'), rr('{"type":"lie","piece":-0}'), rr('{"type":"lie","piece":1e0}'),
   rr('{"type":"sit","seat":1.0}'), rr('{"type":"sit","seat":-0}'), rr('{"type":"sit","seat":1e0}'), rr('{"type":"sit","seat":0e5}'),
   rr('{"type":"ping","id":1.0}'), rr('{"type":"ping","id":-0}'), rr('{"type":"ping","id":1e2}'), rr('{"type":"ping","id":2147483647.0}'),
   rr('{"type":"walk","cell":{"x":1.0,"y":2}}'), rr('{"type":"set-tint","tint":1e0}'), rr('{"type":"set-accessory","accessory":4.0}'), rr('{"type":"set-hair","hair":5.0}'),
@@ -324,7 +329,7 @@ const createBodies = (): Raw[] => [
   js({ title: "Friday films", visibility: "public" }),
   js({ title: "Friday films", visibility: "private" }),
   js({ title: " Ｆｉｌｍｓ ", visibility: "public", preset: "cinema" }),
-  ...["classic", "cinema", "living", "lounge", "cafe", "bar", "empty"].map((preset) => js({ title: "Room", visibility: "public", preset })),
+  ...["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"].map((preset) => js({ title: "Room", visibility: "public", preset })),
   ...["", "Classic", "layout", "default", null, 1, [], {}].map((preset) => js({ title: "Room", visibility: "public", preset })),
   js({ title: "Friday films", visibility: "secret" }), js({ title: "Friday films" }), js({ visibility: "public" }), js({}),
   js({ title: "Friday films", visibility: "public", id: "lobby" }), js({ title: "Friday films", visibility: "public", layout: {} }),

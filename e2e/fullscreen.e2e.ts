@@ -315,7 +315,8 @@ async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>)
   const tv = await box(page.locator(site.tv));
   const r = await box(root);
   expect(Math.abs(tv.x - r.x - (r.x + r.width - tv.x - tv.width))).toBeLessThanOrEqual(1);
-  expect(Math.abs(tv.y - r.y - (r.y + r.height - tv.y - tv.height))).toBeLessThanOrEqual(1);
+  // Held sideways the picture keeps the bottom 8 px free for the peek (OME-1668), so it may sit that much high.
+  expect(Math.abs(tv.y - r.y - (r.y + r.height - tv.y - tv.height))).toBeLessThanOrEqual(9);
   expect(Math.max(tv.width / r.width, tv.height / r.height)).toBeGreaterThan(0.9);
   expect(disjoint(await box(toggle), tv)).toBe(true);
   const bubbles = page.locator(site.fsBubbles);
@@ -430,4 +431,43 @@ test("a phone in portrait: the handle on the strip's top edge hides the chat, th
   await page.keyboard.press("Enter");
   await expect(page.locator(site.fsStrip)).toBeVisible();
   await expect(handle).toHaveAttribute("aria-expanded", "true");
+});
+
+// OME-1668 (board OME-1664): with nothing remembered, full screen hides the chat; the pointer at the bottom edge brings
+// it back and it goes ~2 s after the pointer leaves; Enter brings it back with the field focused, and a draft holds it.
+test("full screen hides the chat by default; the bottom edge and Enter bring it back; a draft keeps it", async ({ browser }) => {
+  const [a] = await join(browser, "peek", 1, undefined, () => {
+    localStorage.removeItem("omega.fsChatHidden");
+  });
+  if (!a) throw new Error("no client");
+  const page = a.page;
+  const strip = page.locator(site.fsStrip);
+  const input = page.locator(site.chatInput);
+  await page.locator(site.fullscreenToggle).click();
+  await expect.poll(() => inFullscreen(page)).toBe(true);
+  await expect(strip).toBeHidden();
+  // The picture keeps the screen's bottom rows free: the bottom edge is ours, under the picture too.
+  const r = await box(page.locator(site.fsRoot));
+  const tv = await box(page.locator(site.tv));
+  expect(r.y + r.height - (tv.y + tv.height)).toBeGreaterThanOrEqual(8);
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height - 2);
+  await expect(strip).toBeVisible();
+  await expect(input).toBeVisible();
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height / 3);
+  await expect(strip).toBeHidden({ timeout: 5000 });
+  await expect(input).toBeHidden();
+  // QA OME-1754: a real provider's iframe swallows the pointer's events, the leave too. With no event after the peek,
+  // the chat still goes ~2 s after the last one.
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height - 2);
+  await expect(strip).toBeVisible();
+  await expect(strip).toBeHidden({ timeout: 5000 });
+  await page.keyboard.press("Enter");
+  await expect(input).toBeFocused();
+  await page.keyboard.type("a draft");
+  await input.evaluate((el) => { if (el instanceof HTMLElement) el.blur(); });
+  await page.waitForTimeout(2500);
+  await expect(strip).toBeVisible();
+  await input.fill("");
+  await input.evaluate((el) => { if (el instanceof HTMLElement) el.blur(); });
+  await expect(strip).toBeHidden({ timeout: 5000 });
 });

@@ -1,4 +1,4 @@
-import type { EmoteKind, MemberId, ResumeToken } from "@omega/shared";
+import type { EmoteKind, MemberId, ResumeToken, ServerMessage } from "@omega/shared";
 import type { ClockSync } from "./clock";
 import type { ConnectionEvent } from "./connection";
 import type { ShareTokenTracker } from "./share-token";
@@ -14,6 +14,8 @@ export interface RoomEventSinks {
   readonly dispatch: (e: ViewEvent) => void;
   /** Someone emoted (OME-415): straight to the scene; emotes are never view state. */
   readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
+  /** A pair invite or a pairing (OME-1672): a system line and the pose animation, never view state. */
+  readonly pair: (msg: Extract<ServerMessage, { type: "pair-invited" | "paired" }>) => void;
   /** Someone started or stopped typing (OME-1390): straight to the scene, as emotes. */
   readonly typing: (memberId: MemberId, on: boolean) => void;
   /** I hid this member for myself (OME-769): their chat and emotes stop here, before the state, the log or a pop-out. */
@@ -27,8 +29,9 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
   sinks.shareToken.onEvent(e);
   if (e.type === "message") {
     if (e.msg.type === "pong") sinks.clock.onPong(e.msg.id, e.msg.at);
-    else if ((e.msg.type === "chat" || e.msg.type === "emoted" || e.msg.type === "typing-changed" || e.msg.type === "rolled") && sinks.hidden(e.msg.memberId)) return;
+    else if ((e.msg.type === "chat" || e.msg.type === "emoted" || e.msg.type === "typing-changed" || e.msg.type === "rolled" || e.msg.type === "pair-invited") && sinks.hidden(e.msg.memberId)) return;
     else if (e.msg.type === "emoted") sinks.emoted(e.msg.memberId, e.msg.kind);
+    else if (e.msg.type === "pair-invited" || e.msg.type === "paired") sinks.pair(e.msg);
     else if (e.msg.type === "typing-changed") sinks.typing(e.msg.memberId, e.msg.on);
     else {
       if (e.msg.type === "snapshot") sinks.joined();

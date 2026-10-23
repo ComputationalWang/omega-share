@@ -447,6 +447,27 @@ describe("emotes", () => {
     expect(b[2]).toMatch(/^(kiki\/sit\/nw\/0|breathe\/kiki\/sit\/nw\/1)$/);
   });
 
+  // OME-1734: the pet's reach (OME-1697) is standing only, 5 × 160 ms; a seated avatar keeps its pose.
+  test("a standing reach plays reach/<avatar>/idle/<dir> on 160 ms frames, then the pose comes back", () => {
+    const s = ready();
+    s.at(1000);
+    s.anim.emote(id("a"), "reach");
+    const at = run(s, 1000, 2000);
+    for (const t of [1000, 1160, 1320, 1480, 1640, 1800]) expect(at).toContain(t);
+    const a = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]);
+    expect(a.slice(0, 5)).toEqual(["reach/juno/idle/ne/0", "reach/juno/idle/ne/1", "reach/juno/idle/ne/0", "reach/juno/idle/ne/1", "reach/juno/idle/ne/0"]);
+    expect(a[5]).toMatch(/^(juno\/idle\/ne\/0|breathe\/juno\/idle\/ne\/1)$/);
+    expect(s.stickers.every((x) => x.frame === null)).toBe(true);
+  });
+
+  test("a seated reach does nothing: the sit pose stays", () => {
+    const s = ready();
+    s.at(500);
+    s.anim.emote(id("b"), "reach");
+    s.frame(500);
+    expect(framesOf(s, "b").some((f) => f?.startsWith("reach") === true)).toBe(false);
+  });
+
   test("cheer and yawn play seated in every facing, and standing in both resting facings", () => {
     const s = setup();
     s.anim.setFrames(frames);
@@ -509,6 +530,59 @@ describe("emotes", () => {
     // 7 sticker frames + the frame that clears them; breathing changes may add a few on the shared 400 ms clock.
     expect(s.renders() - before).toBe(at.length);
     expect(at.length).toBeLessThanOrEqual(8 + 4);
+  });
+
+  // OME-1672: the dank-dungeon pair. The thruster's frame is anchored on the bender's floor point and drawn there, just behind.
+  describe("pair", () => {
+    function standing() {
+      const s = setup();
+      s.anim.setFrames(frames);
+      s.walks.place([standAt("a", 4, 9), standAt("b", 5, 9)], 0);
+      s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+      s.frame(0);
+      s.timers.length = 0;
+      s.draws.length = 0;
+      return s;
+    }
+
+    test("the bender plays bendover/<avatar>/<front dir>/0, the thruster thrust/<avatar>/<dir>/<n> at the bender's spot, just behind", () => {
+      const s = standing();
+      s.at(1000);
+      s.anim.pair(id("a"), id("b"));
+      run(s, 1000, 2000);
+      const bender = s.draws.filter((d) => d.id === "b").at(-1);
+      const thruster = s.draws.filter((d) => d.id === "a").at(-1);
+      expect(bender?.frame).toMatch(/^bendover\/kiki\/(se|sw)\/0$/);
+      expect(thruster?.frame).toMatch(/^thrust\/juno\/(se|sw)\/[012]$/);
+      expect(thruster?.pose.x).toBe(bender?.pose.x);
+      expect(thruster?.pose.y).toBe(bender?.pose.y);
+      expect(thruster?.pose.z).toBe((bender?.pose.z ?? 0) - 0.5);
+    });
+
+    test("the thrust loops 0 1 2 1 on 110 ms frames", () => {
+      const s = standing();
+      s.at(1000);
+      s.anim.pair(id("a"), id("b"));
+      const at = run(s, 1000, 1500);
+      for (const t of [1000, 1110, 1220, 1330, 1440]) expect(at).toContain(t);
+      const seq = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]).slice(0, 4).map((f) => f?.slice(-1));
+      expect(seq).toEqual(["0", "1", "2", "1"]);
+    });
+
+    test("after a few seconds both are idle again", () => {
+      const s = standing();
+      s.at(1000);
+      s.anim.pair(id("a"), id("b"));
+      run(s, 1000, 9000);
+      for (const who of ["a", "b"]) expect(framesOf(s, who).at(-1)).not.toMatch(/^(thrust|bendover)\//);
+    });
+
+    test("prefers-reduced-motion: nothing is played", () => {
+      const s = ready({ reduced: true });
+      s.anim.pair(id("a"), id("b"));
+      s.frame(0);
+      expect(s.draws.some((d) => /^(thrust|bendover)\//.test(d.frame ?? ""))).toBe(false);
+    });
   });
 });
 

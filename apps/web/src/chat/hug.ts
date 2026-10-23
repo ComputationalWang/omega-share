@@ -21,7 +21,8 @@ export function matchMember(members: readonly Member[], self: MemberId | null, n
 }
 
 export interface PendingHug {
-  readonly target: MemberId;
+  /** Who I walk over to; null for the cat (OME-1669), who is no member. */
+  readonly target: MemberId | null;
   /** Where the walk over goes. */
   readonly cell: FloorCell;
 }
@@ -33,7 +34,7 @@ export function hugStep(prev: ViewState, next: ViewState, hug: PendingHug): "arr
   const self = next.self;
   // Sitting down cancels; being seated already doesn't (the walk over stands me up first).
   const sat = room.seats.includes(self) && !(prev.room?.seats.includes(self) ?? false);
-  if (sat || !room.members.some((m) => m.id === hug.target)) return "cancel";
+  if (sat || (hug.target !== null && !room.members.some((m) => m.id === hug.target))) return "cancel";
   const mine = room.members.find((m) => m.id === self)?.cell;
   // A `walked` replaces my member, so a new cell object means I walked.
   if (mine === undefined || mine === prev.room?.members.find((m) => m.id === self)?.cell) return null;
