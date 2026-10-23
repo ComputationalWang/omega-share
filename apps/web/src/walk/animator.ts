@@ -66,6 +66,8 @@ export interface Animator {
   emote(id: MemberId, kind: AvatarEmote): void;
   /** The dank-dungeon pair (OME-1672): `thruster` and `bender` play their poses for PAIR_MS, then go back to idle. Nothing under reduced motion. */
   pair(thruster: MemberId, bender: MemberId): void;
+  /** Who's in the /conga line (OME-1690): while they walk, they dance. Nothing under reduced motion. */
+  conga(ids: readonly MemberId[]): void;
   /** A prop started walking (OME-1520): draw on the next frame and keep going while it walks. */
   wake(): void;
   /** Full screen hides the room (OME-597): paused, nothing is drawn or scheduled; on resume one frame draws everyone now. */
@@ -303,6 +305,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       }
       requestFrame();
     },
+    conga() {},
     wake: requestFrame,
     pause(next) {
       if (next === paused || disposed) return;

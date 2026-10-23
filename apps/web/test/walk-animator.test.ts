@@ -393,6 +393,40 @@ describe("emotes", () => {
     expect(at.length).toBeLessThanOrEqual(8);
   });
 
+  // OME-1690: a conga member walks in the dance: its own steps, the facing turning once per cycle; off the line, a plain walk.
+  /** a walks a few tiles: per walking draw, the facing its frame shows and the one it travels in. */
+  const congaWalk = (s: ReturnType<typeof setup>, from: number): [string, string][] => {
+    s.walks.place([standAt("a", 4, 4), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], from);
+    s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+    run(s, from, from + 5000);
+    return s.draws.filter((d) => d.id === "a" && d.pose.walking).map((d) => [/^walk8?\/juno\/(\w+)\//.exec(d.frame ?? "")?.[1] ?? "", d.pose.dir]);
+  };
+
+  test("a conga member walking plays the dance cycle: walk steps, the facing turning off the way it travels", () => {
+    const s = ready();
+    s.anim.conga([id("a")]);
+    const walked = congaWalk(s, 1000);
+    expect(walked.every(([shown]) => shown !== "")).toBe(true);
+    expect(new Set(walked.map(([shown]) => shown)).size).toBe(4);
+    expect(walked.filter(([shown, dir]) => shown !== dir).length).toBeGreaterThan(walked.length / 2);
+    expect(s.draws.filter((d) => d.id === "a").at(-1)?.pose.walking).toBe(false);
+  });
+
+  test("leaving the conga line goes back to the plain walk", () => {
+    const s = ready();
+    s.anim.conga([id("a")]);
+    s.anim.conga([]);
+    const walked = congaWalk(s, 1000);
+    expect(walked.length).toBeGreaterThan(0);
+    expect(walked.every(([shown, dir]) => shown === dir)).toBe(true);
+  });
+
+  test("under reduced motion a conga member walks plainly", () => {
+    const s = ready({ reduced: true });
+    s.anim.conga([id("a")]);
+    expect(congaWalk(s, 1000).every(([shown, dir]) => shown === dir)).toBe(true);
+  });
+
   test("25 dancing together share one render per 150 ms step, like 25 walkers", () => {
     const s = setup();
     s.anim.setFrames(frames);
