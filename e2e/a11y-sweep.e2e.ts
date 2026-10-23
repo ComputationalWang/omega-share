@@ -6,6 +6,7 @@
 //  - no horizontal overflow (`scrollWidth > innerWidth`);
 //  - no focusable control off-screen or clipped by an ancestor (inside a scroller is fine: it scrolls into view);
 //  - under `.ui-touch`, every control at least 44 px each way, counting a `::before` hit area (CEO, OME-1326).
+//  - the same 44 px floor with a coarse pointer for the landing, profile, directory, footer and dialogs (OME-1807);
 //  - under `.ui-touch` or a coarse pointer, no visible text under 12 px, and no link list (a footer, a dialog) counted as
 //    running text: those links are targets too (OME-1596).
 // The tests of this file stay in one worker (no fullyParallel) and each viewport uses rooms of its own.
@@ -110,9 +111,10 @@ const measure = (page: Page): Promise<string[]> =>
     }
     if (was instanceof HTMLElement) was.focus();
     else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    // A touch screen also judges the site footer and the dialogs, which sit outside the room root.
+    // A touch screen also judges what sits outside the room root: the landing and profile form, the directory, the site
+    // footer and the dialogs (OME-1807).
     const coarse = matchMedia("(pointer: coarse)").matches;
-    const judged = (el: Element): boolean => el.closest(coarse ? ".ui-touch, .site-footer, dialog, [role=dialog]" : ".ui-touch") !== null;
+    const judged = (el: Element): boolean => el.closest(coarse ? ".ui-touch, .welcome, .home, .site-footer, dialog, [role=dialog]" : ".ui-touch") !== null;
     for (const el of document.body.querySelectorAll<HTMLElement>("*")) {
       if (!judged(el) || el.closest("[inert], [hidden], dialog:not([open])") !== null) continue;
       if (![...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "")) continue;
