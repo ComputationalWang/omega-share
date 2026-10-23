@@ -311,7 +311,10 @@ export const pageVideo = (page: Page): Promise<{ t: number; paused: boolean; ad:
 
 /** Opens the watch page as a logged-out viewer would: past a consent wall, playing content (not an ad), then seeks to `at` s. */
 export async function watchAt(page: Page, url: string, at: number): Promise<number> {
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  // YouTube's watch page answers a scripted mid-stream seek with "Something went wrong" (OME-1789): open it at `at`.
+  const target = new URL(url);
+  if (target.hostname.endsWith("youtube.com")) target.searchParams.set("t", `${String(at)}s`);
+  await page.goto(target.href, { waitUntil: "domcontentloaded" });
   // EU consent walls (YouTube's own page, Vimeo's banner): decline, as a viewer would.
   // Checked on every poll: YouTube's renders late. Vimeo's sits in a closed shadow root that locators can't reach; it
   // doesn't cover the video, so it stays up. `force`: the players' own overlays intercept a plain click on <video>.
@@ -322,9 +325,27 @@ export async function watchAt(page: Page, url: string, at: number): Promise<numb
     if (v?.paused === true) await page.locator("video").first().click({ force: true, timeout: 2_000 }).catch(() => undefined);
     return v !== null && !v.paused && !v.ad && v.t > 1;
   }, { timeout: 120_000, intervals: [1_000], message: `content playing on ${url}` }).toBe(true);
-  await page.locator("video").first().evaluate((v, to) => {
-    if (v instanceof HTMLVideoElement) v.currentTime = to;
-  }, at);
-  await expect.poll(async () => (await pageVideo(page))?.t ?? 0, { timeout: 15_000, message: "page seeked" }).toBeGreaterThanOrEqual(at);
+  // Seek through YouTube's player when there is one: a raw currentTime write behind it can stall on the buffering
+  // spinner and drop back to 0 (OME-1789). Re-seek on every poll until the page plays on past `at`, so a stall fails
+  // here as an environment error, not later as a wrong start in the popup.
+  let last = Number.NaN;
+  await expect.poll(async () => {
+    const v = await pageVideo(page);
+    if (v === null || v.t < at) {
+      await page.evaluate((to) => {
+        // YouTube's player element carries its IFrame-API methods.
+        const player = document.getElementById("movie_player");
+        const seekTo: unknown = player === null ? undefined : Reflect.get(player, "seekTo");
+        if (typeof seekTo === "function") Reflect.apply(seekTo, player, [to, true]);
+        else { const el = document.querySelector("video"); if (el !== null) el.currentTime = to; }
+      }, at).catch(() => undefined);
+      last = Number.NaN;
+      return false;
+    }
+    if (v.paused) await page.locator("video").first().click({ force: true, timeout: 2_000 }).catch(() => undefined);
+    const advancing = !v.paused && v.t > last;
+    last = v.t;
+    return advancing;
+  }, { timeout: 30_000, intervals: [1_000], message: `environment: page plays on past ${String(at)} s` }).toBe(true);
   return (await pageVideo(page))?.t ?? Number.NaN;
 }
