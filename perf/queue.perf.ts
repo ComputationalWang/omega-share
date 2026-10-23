@@ -72,8 +72,9 @@ test("queue: frames per provider with 20 items up next (8 avatars + video)", asy
     await fill(clients, Array.from({ length: 20 }, (_, i) => kinds[i % kinds.length] ?? EMBED_URL));
     const [observer] = clients;
     if (observer === undefined) throw new Error("no observer");
-    // Tall enough that the stage and the whole panel are on screen together, so both are painted.
-    await observer.page.setViewportSize({ width: 1280, height: 1600 });
+    // Tall enough that the stage and the whole panel are on screen together, so both are painted. Landscape:
+    // a portrait screen gets the phone dock, where they are tabs (OME-1802).
+    await observer.page.setViewportSize({ width: 1600, height: 1280 });
     await expect(observer.page.locator(site.queueRow)).toHaveCount(20);
     await expect(observer.page.locator(site.queueCount)).toHaveText("20 / 20");
     await expect(observer.page.locator(site.queuePanel)).toBeInViewport();

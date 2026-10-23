@@ -154,13 +154,15 @@ const measure = (page: Page): Promise<string[]> =>
  * shortcut: an entry no longer seen doesn't fail; prune it when its issue closes.
  */
 const KNOWN: readonly { issue: string; surface: string; problem: RegExp }[] = [
+  // The shelf's Everyone / Only you chips at 11 px on a tablet (every room surface, "*").
+  { issue: "OME-1800", surface: "*", problem: /^text under 12 px \(touch\): span\.ui-chip\.(shared|self) / },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
 async function audit(page: Page, vp: string, surface: string): Promise<void> {
   await page.waitForTimeout(400);
   const problems = [...(await axe(page)), ...(await measure(page))];
-  const known = (p: string) => KNOWN.find((k) => k.surface === surface && k.problem.test(p));
+  const known = (p: string) => KNOWN.find((k) => (k.surface === "*" || k.surface === surface) && k.problem.test(p));
   for (const p of problems) {
     const k = known(p);
     if (k !== undefined) test.info().annotations.push({ type: `known (${k.issue})`, description: `${vp} ${surface}: ${p}` });
