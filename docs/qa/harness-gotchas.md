@@ -56,6 +56,8 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 **Mock-up shots of time-based CSS** (OME-644). `animations: "disabled"` fast-forwards fades to invisible. Freeze each element with a negative `animation-delay` plus `animation-play-state: paused` and shoot with `animations: "allow"`. `file://` pages can't `fetch()` local JSON in Chromium.
 
+**`expect.soft` still skips the rest of a serial describe** (OME-1792). A failed soft assert fails its test, and `mode: "serial"` then skips every test after it. For limits that must not stop the chain, annotate the miss and fail them all in one late test (`soft()` and the `timings` test in `e2e/real/movie-night-smoke.real.ts`).
+
 **Ad-hoc spec reusing the repo config** (OME-394). In a `qa2-scratch-*` dir: symlink `node_modules` to `../qa2/node_modules`; `package.json` with `{"type":"module"}` (else "Cannot use 'import.meta' outside a module"); a `playwright.config.ts` spreading `../qa2/playwright.config` with `webServer` `cwd` set to the qa2 path and one `e2e-real` project with `testDir: "."`. Run `bun ../qa2/e2e/support/headed.ts ../qa2/node_modules/.bin/playwright test -c playwright.config.ts` with the QA2 ports exported, detached. For an A/B, `git checkout --detach <old>` in qa2, rerun, then back to `main`.
 
 ## Seeded rooms and server limits in e2e
