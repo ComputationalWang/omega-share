@@ -7,6 +7,7 @@
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
 import type { LieStyle, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
+import { LIE_MS, lieKeys } from "./lie";
 import { PAIR_MS, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
@@ -203,8 +204,15 @@ export function createAnimator(o: AnimatorOptions): Animator {
           }
         }
       }
+      // Lying (OME-1691): their own lie/curl frames once arrived, a 2-frame breath on the shared clock; the sheet is lazy, room-view.ts draws nothing new until it is in.
+      const lie = a.lie === undefined || pose.walking ? undefined : lieKeys(a.lie, a.avatar, pose.dir);
+      if (lie !== undefined) frame = lie[still ? 0 : cycleFrame(LIE_MS, pose.restMs).index] ?? lie[0];
       o.draw(a.id, a.avatar, drawn, frame);
       o.drawEmote(a.id, sticker, pose.x, pose.y - (pose.sitting ? EMOTE_LIFT.sit : EMOTE_LIFT.idle));
+      if (lie !== undefined && !still) {
+        next = Math.min(next, cycleFrame(LIE_MS, pose.restMs).nextIn);
+        continue;
+      }
       if (pose.walking || still || frames === null) continue;
       const cycle = (pose.sitting ? frames.rest[a.avatar]?.sit : frames.rest[a.avatar]?.idle)?.[DIRS.indexOf(pose.dir)];
       if (cycle !== undefined) next = Math.min(next, cycleFrame(cycle.ms, pose.restMs).nextIn);

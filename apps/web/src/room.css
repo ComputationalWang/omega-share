@@ -127,6 +127,11 @@
 .chat > button:not(.ui-button) { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
 .room-full { text-align: center; margin: 15vh auto; }
 .seat:disabled { cursor: default; }
+/* Lie keys (OME-1691): a small pad above a sofa, couch or cat bed, not the floor diamond. */
+.lie-key { position: absolute; left: -14px; top: -10px; width: 28px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: transparent; pointer-events: auto; cursor: pointer; }
+.lie-key:hover, .lie-key:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
+.lie-key:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+.lie-key:disabled { cursor: default; }
 .notice { margin: 8px 0 0; color: var(--error); }
 
 /* ---- Set (e) playback chrome (OME-89). Shared transport in the TV's control-bar slot at 1×; personal pod below the stage. ---- */

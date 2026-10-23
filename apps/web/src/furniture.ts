@@ -5,6 +5,7 @@ import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
+import { lieOffset } from "./walk/lie";
 import { cellOf } from "./walk/path";
 
 /**
@@ -265,6 +266,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
   const layers = manifests[0]?.meta.omega.layers;
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
+  const lies = new Map<number, LieSpot>();
   if (room !== null) pushShell(sprites, layout, room);
   for (const [i, f] of layout.furniture.entries()) {
     const spec = FURNITURE[f.kind];
@@ -272,6 +274,12 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
     const anchor = cellCenter(f.col, f.row);
     const sort = piece?.sortByDir[f.facing];
     const drawn = piece !== undefined && sort !== undefined && layers !== undefined ? { piece, sort, layers } : null;
+    const style = spec.lie;
+    const off = style === undefined ? undefined : lieOffset(f.kind, f.facing);
+    if (style !== undefined && off !== undefined) {
+      const z = drawn === null ? standDepth(anchor) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar);
+      lies.set(i, { style, dir: f.facing, at: { x: anchor.x + off.x, y: anchor.y + off.y }, anchor, z });
+    }
     if (drawn !== null) pushSprites(sprites, f, i, anchor, drawn);
     else if (room !== null) pushRoomPiece(sprites, f, anchor);
     if (!spec.seats) continue;
@@ -283,7 +291,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       seats.push({ at, z, marker: f.kind === "armchair" && room === null });
     }
   }
-  return { lies: new Map(), sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
+  return { lies, sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
 }
 
 function pushSprites(

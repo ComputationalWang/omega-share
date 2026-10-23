@@ -2,6 +2,7 @@ import * as v from "valibot";
 import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type MemberId, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
+import { lieStyleOf } from "./walk/lie";
 import { TILE_MS } from "./walk/walks";
 import { cellOf as cellIndex, colOf, rowOf, walkGrid, walkOverCell } from "./walk/path";
 
@@ -32,8 +33,13 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
 }
 
 /** A lie key (OME-1691): lie down on layout piece `piece`, or get up from it if I lie there; null if nobody can lie on it or someone else does. */
-export function lieIntent(_state: ViewState, _piece: number): ClientMessage | null {
-  return null;
+export function lieIntent(state: Pick<ViewState, "status" | "room" | "self">, piece: number): ClientMessage | null {
+  const room = state.room;
+  if (state.status !== "open" || room === null || !Number.isInteger(piece)) return null;
+  if (lieStyleOf(room.layout ?? DEFAULT_LAYOUT, piece) === undefined) return null;
+  const lier = room.members.find((m) => m.lying === piece);
+  if (lier === undefined) return { type: "lie", piece };
+  return lier.id === state.self ? { type: "lie", piece: null } : null;
 }
 
 /** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell, or get up; "no-cell" on a seat or a standing spot. */

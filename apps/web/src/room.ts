@@ -24,7 +24,7 @@ import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { chatIntent, createWalkGate, floorSitIntent, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
+import { chatIntent, createWalkGate, floorSitIntent, lieIntent, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
 import { doorAt, layoutOf } from "./furniture";
 import { createDoorChip } from "./door-chip";
 import { createPendingApplier, stashVia, takeVia } from "./pending-layout";
@@ -1341,8 +1341,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   overlay.addEventListener("click", (ev) => {
     if (!(ev.target instanceof HTMLElement)) return;
+    const lie = ev.target.closest<HTMLElement>("[data-lie]")?.dataset["lie"];
     const seat = Number(ev.target.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? NaN);
-    const msg = sitIntent(state, seat);
+    const msg = lie === undefined ? sitIntent(state, seat) : lieIntent(state, Number(lie));
     if (msg === null) return;
     walkGate.cancel();
     c.send(msg);
