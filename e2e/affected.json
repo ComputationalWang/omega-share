@@ -681,7 +681,8 @@
         "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "e2e/teleport.e2e.ts",
-        "e2e/doors.e2e.ts"
+        "e2e/doors.e2e.ts",
+        "e2e/lie.e2e.ts"
       ]
     },
     {

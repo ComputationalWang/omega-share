@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_POSITION_S, WALK_REFILL_MS, type PlaybackState, type RoomState } from "@omega/shared";
-import { chatIntent, createWalkGate, floorSitIntent, playerIntent, seatViews, seekIntent, sitIntent, DOUBLE_TAP_MS, doubleTap, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
+import { MAX_POSITION_S, WALK_REFILL_MS, type PlaybackState, type RoomLayout, type RoomState } from "@omega/shared";
+import { chatIntent, createWalkGate, floorSitIntent, lieIntent, playerIntent, seatViews, seekIntent, sitIntent, DOUBLE_TAP_MS, doubleTap, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
 import { TILE_MS } from "../src/walk/walks";
 import { initialState, reduce, type ViewState } from "../src/state";
 
@@ -274,5 +274,56 @@ describe("walkOverIntent", () => {
     expect(walkOverIntent(standing(standing(open, "a", 7, 9), "b", 6, 9), "b", nowhere)).toBeNull();
     expect(walkOverIntent(standing(open, "a", 9, 9), "b", nowhere)).toBeNull();
     expect(walkOverIntent(reduce(standing(standing(open, "a", 9, 9), "b", 6, 9), { type: "disconnected" }), "b", nowhere)).toBeNull();
+  });
+});
+
+// OME-1691: a lie key on a sofa, couch or cat bed lies me down on it, or gets me up from it.
+describe("lieIntent", () => {
+  const layout: RoomLayout = { furniture: [{ kind: "sofa", col: 2, row: 5, facing: "ne" }, { kind: "lamp", col: 9, row: 0, facing: "se" }, { kind: "cat", col: 9, row: 9, facing: "sw" }] };
+  const me = { id: "a", nickname: "alice", avatar: 0 } as const;
+  const bob = { id: "b", nickname: "bob", avatar: 3 } as const;
+  const inRoom = (members: RoomState["members"], connected = true, seats: RoomState["seats"] = [null, null, null, null, null, null, null, null]): ViewState => {
+    const s = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "a", room: { ...room, seats, members, layout } }, now: 0 });
+    return connected ? s : reduce(s, { type: "disconnected" });
+  };
+
+  test("a free sofa or cat bed: lie down on it", () => {
+    expect(lieIntent(inRoom([me]), 0)).toEqual({ type: "lie", piece: 0 });
+    expect(lieIntent(inRoom([me]), 2)).toEqual({ type: "lie", piece: 2 });
+  });
+
+  test("the piece I lie on: get up", () => {
+    expect(lieIntent(inRoom([{ ...me, lying: 0 }]), 0)).toEqual({ type: "lie", piece: null });
+  });
+
+  test("lying on another piece, I move to this one", () => {
+    expect(lieIntent(inRoom([{ ...me, lying: 0 }]), 2)).toEqual({ type: "lie", piece: 2 });
+  });
+
+  test("null for a piece someone else lies on, one with no lie style, one that isn't there, and when I'm not connected", () => {
+    expect(lieIntent(inRoom([me, { ...bob, lying: 0 }]), 0)).toBeNull();
+    expect(lieIntent(inRoom([me]), 1)).toBeNull();
+    expect(lieIntent(inRoom([me]), 3)).toBeNull();
+    expect(lieIntent(inRoom([me]), -1)).toBeNull();
+    expect(lieIntent(inRoom([me], false), 0)).toBeNull();
+  });
+
+  // QA OME-1785 §2: the server treats a lain-on piece's seats as taken (and a sitter blocks lying), so the keys say so.
+  test("null while someone else sits on one of the piece's seats; my own seat there doesn't block me", () => {
+    expect(lieIntent(inRoom([me, bob], true, ["b", null, null, null, null, null, null, null]), 0)).toBeNull();
+    expect(lieIntent(inRoom([me, bob], true, [null, "b", null, null, null, null, null, null]), 0)).toBeNull();
+    expect(lieIntent(inRoom([me, bob], true, ["a", null, "b", null, null, null, null, null]), 0)).toEqual({ type: "lie", piece: 0 });
+  });
+
+  test("seats on a piece someone else lies on show them and can't be sat on; mine stay free for me", () => {
+    const bobLies = inRoom([me, { ...bob, lying: 0 }]);
+    expect(seatViews(bobLies).slice(0, 3).map((v) => v.member?.id ?? null)).toEqual(["b", "b", null]);
+    expect(seatViews(bobLies)[0]?.isSelf).toBe(false);
+    expect(sitIntent(bobLies, 0)).toBeNull();
+    expect(sitIntent(bobLies, 1)).toBeNull();
+    expect(sitIntent(bobLies, 2)).toEqual({ type: "sit", seat: 2 });
+    const iLie = inRoom([{ ...me, lying: 0 }, bob]);
+    expect(seatViews(iLie)[0]?.member).toBeNull();
+    expect(sitIntent(iLie, 0)).toEqual({ type: "sit", seat: 0 });
   });
 });

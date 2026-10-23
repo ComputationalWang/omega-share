@@ -20,7 +20,7 @@ use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::{RoomCell, RoomInner};
-use crate::room::{FloorSitResult, PairResult, SitResult, WalkResult};
+use crate::room::{FloorSitResult, LieResult, PairResult, SitResult, WalkResult};
 use crate::secrets;
 use std::sync::Arc;
 
@@ -479,8 +479,29 @@ fn handle(
             );
         }
         ClientMessage::Pair { pose } => pair(app, inner, conn, member, pose),
-        // shortcut: refused everywhere until OME-1691 lands lying down (`lay`, blocked seats, `Member.lying`).
-        ClientMessage::Lie { .. } => send_error(inner, conn.id, ErrorCode::BadCell, "you can't lie down here"),
+        ClientMessage::Lie { piece } => match inner.room.lie(member, piece) {
+            LieResult::BadCell => send_error(inner, conn.id, ErrorCode::BadCell, "you can't lie down there"),
+            LieResult::SeatTaken => send_error(inner, conn.id, ErrorCode::SeatTaken, "seat is taken"),
+            LieResult::Unchanged => {}
+            LieResult::Changed { left_seat } => {
+                if left_seat {
+                    publish_msg(
+                        inner,
+                        &ServerMessage::SeatChanged {
+                            member_id: member.clone(),
+                            seat: None,
+                        },
+                    );
+                }
+                publish_msg(
+                    inner,
+                    &ServerMessage::Lay {
+                        member_id: member.clone(),
+                        piece,
+                    },
+                );
+            }
+        },
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }

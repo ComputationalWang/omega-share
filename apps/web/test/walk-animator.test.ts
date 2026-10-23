@@ -631,6 +631,48 @@ describe("emotes", () => {
       expect(s.draws.some((d) => /^(thrust|bendover)\//.test(d.frame ?? ""))).toBe(false);
     });
   });
+
+  // OME-1691: lying on a piece (assets/avatars/lying.json): the avatar's own lie/curl frames in the piece's facing, a 2-frame breath.
+  describe("lying", () => {
+    function lying(style: "lie" | "curl", dir: "se" | "ne") {
+      const s = setup();
+      s.anim.setFrames(frames);
+      s.walks.place([{ id: id("a"), at: cellCenter(2, 5), z: 7, seatFacing: dir }, standAt("b", 5, 9)], 0);
+      s.anim.set([{ id: id("a"), avatar: 1, lie: style }, { id: id("b"), avatar: 0 }]);
+      s.frame(0);
+      return s;
+    }
+    const lieFrames = (s: ReturnType<typeof setup>): (string | null)[] => s.draws.filter((d) => d.id === "a").map((d) => d.frame);
+
+    test("a lier draws the lie frames in the piece's facing, breathing between frame 0 and 1 on the shared clock", () => {
+      const s = lying("lie", "ne");
+      run(s, 0, 6000);
+      const seen = new Set(lieFrames(s));
+      expect([...seen].sort()).toEqual(["lie/pip/ne/0", "lie/pip/ne/1"]);
+      expect(s.draws.filter((d) => d.id === "a").every((d) => d.pose.z === 7)).toBe(true);
+    });
+
+    test("curling up in the cat bed draws the curl frames", () => {
+      const s = lying("curl", "se");
+      run(s, 0, 6000);
+      expect(new Set(lieFrames(s))).toEqual(new Set(["curl/pip/se/0", "curl/pip/se/1"]));
+    });
+
+    test("someone standing beside them is unaffected", () => {
+      const s = lying("lie", "ne");
+      expect(s.draws.filter((d) => d.id === "b").every((d) => !/^(lie|curl)\//.test(d.frame ?? ""))).toBe(true);
+    });
+
+    test("under reduced motion they lie on frame 0 and no breath timer runs", () => {
+      const s = setup({ reduced: true });
+      s.anim.setFrames(frames);
+      s.walks.place([{ id: id("a"), at: cellCenter(2, 5), z: 7, seatFacing: "se" }], 0);
+      s.anim.set([{ id: id("a"), avatar: 1, lie: "lie" }]);
+      s.frame(0);
+      expect(lieFrames(s).at(-1)).toBe("lie/pip/se/0");
+      expect(s.timers.length).toBe(0);
+    });
+  });
 });
 
 // OME-597 (M7 W2): in full screen the room is hidden, so its render loop stops: nothing is drawn or scheduled while

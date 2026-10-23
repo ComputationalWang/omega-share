@@ -36,7 +36,9 @@ pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberI
     if !persisted(LogEvent::StoreLayout, result) {
         return;
     }
+    let old = inner.room.layout().clone();
     let moved = inner.room.set_layout(layout.clone());
+    let dropped = inner.room.clear_stale_lying(&old);
     publish_msg(inner, &ServerMessage::LayoutChanged { layout, by: by.clone() });
     // After the layout, so clients path on the new floor (ADR 0053).
     for (member_id, cell) in moved {
@@ -50,6 +52,9 @@ pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberI
                 teleport: None,
             },
         );
+    }
+    for member_id in dropped {
+        publish_msg(inner, &ServerMessage::Lay { member_id, piece: None });
     }
 }
 

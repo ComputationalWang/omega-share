@@ -16,6 +16,8 @@ export const site = {
   joinButton: id("join-button"),
   room: id("room"),
   seat: id("seat"),
+  // Lying down (OME-1691): one key per sofa, couch or cat bed, `data-lie` its index in the layout.
+  lieKey: id("lie-key"),
   chatInput: id("chat-input"),
   chatMessage: id("chat-message"),
   // The chat log (OME-594): capped, role=log, one <li> per line.

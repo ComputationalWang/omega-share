@@ -8,7 +8,7 @@ import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
 import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
 import { TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
-import { PADS, doorTo } from "./layouts";
+import { PADS, SET_G, doorTo } from "./layouts";
 
 const path = process.argv[2];
 if (path === undefined || path === ":memory:") throw new Error("usage: seed-rooms.ts <db file path>");
@@ -19,6 +19,8 @@ const store = new RoomStore(db);
 // Rooms whose layout the test needs on the server itself, not only in the snapshot: teleport pads, two doors to each other.
 const SEEDED_LAYOUTS = new Map([
   [testRoomId("teleport", "pads"), PADS],
+  // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
+  [testRoomId("lie", "sofa"), SET_G],
   [testRoomId("doors", "a"), doorTo(testRoomId("doors", "b"))],
   [testRoomId("doors", "b"), doorTo(testRoomId("doors", "a"))],
 ]);

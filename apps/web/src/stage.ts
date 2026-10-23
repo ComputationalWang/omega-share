@@ -13,11 +13,12 @@ import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatP
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
-import { doubleTap, isStepKey, seatViews, type StepKey } from "./intents";
+import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
+import { lieOffset } from "./walk/lie";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
 import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
@@ -64,7 +65,7 @@ export interface StageOptions {
 export interface Stage {
   /** The stage element (`data-testid=room`): the canvas and every layer over it, at 960×600 stage px. */
   readonly root: HTMLElement;
-  /** The seat keys' layer: one `[data-seat]` button per seat. */
+  /** The seat keys' layer: one `[data-seat]` button per seat, and one `[data-lie]` button (OME-1691) per piece to lie on. */
   readonly overlay: HTMLElement;
   /** The nickname tags' layer (the owner's moderation tools hang their menu off a tag). */
   readonly tags: HTMLElement;
@@ -109,6 +110,10 @@ function place(e: HTMLElement, p: Point): void {
   e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
 
+/** Stage px a lie key sits above the lier's floor point. */
+const LIE_KEY_LIFT = 40;
+/** What a lie key's name calls each piece. */
+const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
@@ -129,6 +134,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     return b;
   });
   overlay.append(...seatButtons);
+  // Lie keys (OME-1691): one per sofa, couch or cat bed of the layout, rebuilt on a layout change; `data-lie` is the piece's index.
+  let lieButtons: { readonly b: HTMLButtonElement; readonly piece: number; readonly down: string; readonly up: string }[] = [];
   // Free walking (OME-1350): the floor under the seat keys, tags and bubbles takes clicks, taps and (focused) arrow keys.
   const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell; with Shift, jog. S sits down or gets up." }, "walk-floor");
   const floorNote = el("span", { className: "sr-only", role: "status" });
@@ -373,6 +380,19 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const p = tiles[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
+    for (const k of lieButtons) k.b.remove();
+    lieButtons = next.furniture.flatMap((f, i) => {
+      const off = lieOffset(f.kind, f.facing);
+      if (off === undefined) return [];
+      const b = el("button", { type: "button", className: "lie-key" }, "lie-key");
+      b.dataset["lie"] = String(i);
+      const c = cellCenter(f.col, f.row);
+      // Above the piece, clear of its seat keys.
+      b.style.translate = `${String(c.x + off.x)}px ${String(c.y + off.y - LIE_KEY_LIFT)}px`;
+      const name = LIE_NAMES[f.kind] ?? "sofa";
+      return [{ b, piece: i, down: `Lie down on the ${name}`, up: `Get up from the ${name}` }];
+    });
+    overlay.append(...lieButtons.map((k) => k.b));
     loadRecolours(key, next);
     if (roomAtlas === null) {
       lazyAtlas("room", key, next, () => import("./room-atlas").then((m) => m.loadRoomAtlas()), (a) => (roomAtlas = a));
@@ -431,9 +451,16 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       placedAt = at;
       // Someone new (in my first snapshot, only me) on a door's front cell walked in through it (OME-1558, `join.via`).
       const throughDoor = (id: MemberId, cell: FloorCell): boolean => !before.has(id) && (before.size > 0 || id === s.self) && doorAt(nextLayout, cell.x, cell.y) !== null;
+      // Lying (OME-1691): on the piece's spot, in its facing, drawn between its back and front; they hold no seat, and their cell is where they get up to.
+      for (const m of everyone) {
+        const spot = m.lying === undefined ? undefined : scene.lies.get(m.lying);
+        if (spot === undefined) continue;
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: spot.at, z: spot.z, seatFacing: spot.dir, lie: spot.style });
+        at.set(m.id, spot.at);
+      }
       for (const v of views) {
         const p = seats[v.index];
-        if (v.member !== null && p !== undefined) {
+        if (v.member !== null && p !== undefined && !at.has(v.member.id)) {
           placements.push({ id: v.member.id, avatar: v.member.avatar, tint: v.member.tint ?? 0, hair: v.member.hair ?? 0, accessory: v.member.accessory ?? 0, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
           at.set(v.member.id, p);
         }
@@ -499,6 +526,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       b.disabled = s.status !== "open";
       b.classList.toggle("mine", v.isSelf);
       b.ariaLabel = v.member === null ? `Seat ${String(v.index + 1)}, free` : v.isSelf ? `Seat ${String(v.index + 1)}, yours: stand up` : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
+    }
+
+    for (const { b, piece, down, up } of lieButtons) {
+      const mine = s.room?.members.some((m) => m.id === s.self && m.lying === piece) === true;
+      b.disabled = lieIntent(s, piece) === null;
+      b.classList.toggle("mine", mine);
+      b.ariaLabel = mine ? up : down;
     }
 
     // Nickname tags: exactly one per member, text only.

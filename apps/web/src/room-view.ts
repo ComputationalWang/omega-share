@@ -2,13 +2,14 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type FloorCell, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
 import { oneShotFrame, type AvatarEmote } from "./walk/motion";
+import { isLieFrame } from "./walk/lie";
 import { isPairFrame } from "./walk/pair";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { CAT_SLOT_MS, catRest, catSlot, catWait } from "./walk/cat";
@@ -43,6 +44,8 @@ export interface AvatarPlacement {
   readonly run?: boolean;
   /** Sitting on the floor of their cell (OME-1501, walk/walks.ts). */
   readonly floorSit?: boolean;
+  /** Lying on a sofa, couch or cat bed (OME-1691): `at` is their floor point on it, `seatFacing` the piece's facing. */
+  readonly lie?: LieStyle;
   /** Arrived by a teleport pad (OME-1548): snapped, with a sparkle at both pads. */
   readonly teleport?: boolean;
   /** Walked in through the door they stand in front of (OME-1558): there at once, with a sparkle. */
@@ -418,8 +421,29 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // The Dank Dungeon's poses (OME-1672, walk/pair-atlas.ts): their own lazy chunk, fetched once a room with `pairs` is drawn.
   let pairSheet: TintableSheets | null = null;
   let pairLoad = false;
+  // The lying sheet (OME-1691, walk/lie-atlas.ts): its own lazy chunk, fetched once someone lies down.
+  let lieSheet: TintableSheets | null = null;
+  let lieLoad = false;
+  const loadLie = (): void => {
+    if (lieLoad) return;
+    lieLoad = true;
+    void import("./walk/lie-atlas")
+      .then((m) => m.loadLieAtlas())
+      .then((l) => {
+        if (destroyed) return;
+        lieSheet = l;
+        for (const [id, e] of pool) if (e.tint !== 0 || e.hair !== 0) relook(id, e, e.tint, e.hair);
+        animator.wake();
+      })
+      // Without it a lier is drawn standing at the piece; the next one retries.
+      .catch((e: unknown) => {
+        lieLoad = false;
+        console.warn("lying sheet failed to load", e);
+      });
+  };
   /** The member's body frame: the bare head under an accessory that takes their headwear off, once that sheet is in. */
   const body = (entry: Entry, frame: string, avatar: number): Texture | undefined =>
+    (lieSheet !== null && isLieFrame(frame) ? lieSheet.texture(frame, avatar, entry.tint, entry.hair) : undefined) ??
     (pairSheet !== null && isPairFrame(frame) ? pairSheet.texture(frame, avatar, entry.tint, entry.hair) : undefined) ??
     (bare !== null && wearsBare(avatar, entry.accessory) ? bare.texture(frame, avatar, entry.tint, entry.hair) : undefined) ?? motion?.texture(frame, avatar, entry.tint, entry.hair);
   /** Their accessory changed, or the bare sheet came in: the body frame and the hat again, their look's sheets too. */
@@ -435,7 +459,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const wearHat = (entry: Entry): void => {
     // A hat fitted to the bare head waits for it: on their own headwear it would misfit.
     const own = wearsBare(entry.avatar, entry.accessory) && bare === null ? null : accessories;
-    const texture = entry.frame === null ? undefined : wornHat(entry.accessory, entry.frame, own, theme, entry.avatar, entry.hair);
+    // No lying frames in the hat sheets (assets/README.md, Lying pose): hide the overlay.
+    const texture = entry.frame === null || isLieFrame(entry.frame) ? undefined : wornHat(entry.accessory, entry.frame, own, theme, entry.avatar, entry.hair);
     if (texture === undefined) {
       if (entry.hat?.visible === true) {
         entry.hat.visible = false;
@@ -968,9 +993,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       wearHat(e);
       render();
     };
-    if (m.ready(e.avatar, tint, hair) && b?.ready(e.avatar, tint, hair) !== false && a?.ready(e.avatar, 0, hair) !== false && theme?.ready(e.avatar, 0, hair) !== false) swap();
+    const l = lieSheet;
+    if (m.ready(e.avatar, tint, hair) && l?.ready(e.avatar, tint, hair) !== false && b?.ready(e.avatar, tint, hair) !== false && a?.ready(e.avatar, 0, hair) !== false && theme?.ready(e.avatar, 0, hair) !== false) swap();
     else
-      Promise.all([m.loadTint(e.avatar, tint, hair), b?.loadTint(e.avatar, tint, hair), a?.loadTint(e.avatar, 0, hair), theme?.loadTint(e.avatar, 0, hair)]).then(swap, (err: unknown) => {
+      Promise.all([m.loadTint(e.avatar, tint, hair), l?.loadTint(e.avatar, tint, hair), b?.loadTint(e.avatar, tint, hair), a?.loadTint(e.avatar, 0, hair), theme?.loadTint(e.avatar, 0, hair)]).then(swap, (err: unknown) => {
         console.warn("look sheets failed to load", err);
       });
   }
@@ -1147,6 +1173,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         entry.hat?.destroy();
         pool.delete(id);
       }
+      if (avatars.some((a) => a.lie !== undefined)) loadLie();
       if (avatars.some((a) => a.accessory !== 0)) loadAccessories();
       if (avatars.some((a) => wearsBare(a.avatar, a.accessory))) loadBare();
       walks.place(avatars, performance.now());

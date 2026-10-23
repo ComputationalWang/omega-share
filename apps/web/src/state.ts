@@ -1,6 +1,7 @@
 import { DEFAULT_CONTROL_POLICY, type ControlPolicy, type ErrorCode, type Member, type MemberId, type PlaybackState, type Poll, type PollId, type RoomState, type ServerMessage } from "@omega/shared";
 import { FLOAT_PER_SPEAKER } from "./bubbles/floats";
 import { mutedLine, policyLine, systemLine, type SystemLine } from "./controls/sysline";
+import { lieStyleOf } from "./walk/lie";
 
 /** How long a speech bubble stays up. Bubbles are never stored. */
 export const BUBBLE_MS = 6000;
@@ -180,6 +181,12 @@ function withoutCell(m: Member): Member {
   return next;
 }
 
+function withoutLying(m: Member): Member {
+  const next = { ...m };
+  delete next.lying;
+  return next;
+}
+
 /** Replace one member through `update`; unknown members change nothing. */
 function withMember(state: ViewState, id: MemberId, update: (m: Member) => Member): ViewState {
   return withRoom(state, (room) => {
@@ -302,8 +309,24 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return withMember(state, msg.memberId, (m) => ({ ...m, hair: msg.hair }));
     case "floor-sat":
       return withMember(state, msg.memberId, (m) => ({ ...m, floorSit: msg.on }));
+    // Lying down (OME-1773, OME-1691): a lier stays put (their cell, if any, is where they get up to); the server says `lay` null
+    // before a sit, walk or leave, and before a layout that drops their piece; the check below is for a client that missed it.
+    case "lay": {
+      const piece = msg.piece;
+      // Lying drops the cell and floor sit, as the server does: getting up lands on the standing slot for everyone.
+      return withMember(state, msg.memberId, (m) => {
+        if (piece === null) return withoutLying(m);
+        const next = { ...m, lying: piece };
+        delete next.cell;
+        delete next.floorSit;
+        return next;
+      });
+    }
     case "layout-changed":
-      return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
+      return withRoom(state, (room) => {
+        const stale = (m: Member): boolean => m.lying !== undefined && lieStyleOf(msg.layout, m.lying) === undefined;
+        return { ...room, layout: msg.layout, members: room.members.some(stale) ? room.members.map((m) => (stale(m) ? withoutLying(m) : m)) : room.members };
+      });
     case "title-changed":
       return state.room === null ? state : { ...state, title: msg.title };
     // Away is a flag on the member (ADR 0043): seat, anchor and chat log are untouched, and no chat line is made.
@@ -325,8 +348,6 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // The dank-dungeon pair (OME-1671): drawn by OME-1672, never part of the view state.
     case "pair-invited":
     case "paired":
-    // Lying down (OME-1773): wired into the view by OME-1691.
-    case "lay":
       return state;
     // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
     case "poll": {
