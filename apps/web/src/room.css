@@ -336,7 +336,7 @@
 .stage-wrap.is-fs[data-fs-scroll="true"] { overflow-y: auto; scrollbar-width: none; }
 /* No element full screen (iPhone Safari): the same layout as a full-viewport page, clear of the notch and the home bar. */
 .stage-wrap.is-pseudo-fs { position: fixed; z-index: 10; top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right); width: auto; height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-body:has(.is-pseudo-fs) { overflow: hidden; }
+body.room-is-pseudo-fs { overflow: hidden; }
 .controls > .fs-key { flex: none; margin-left: 4px; }
 .fs-strip { position: absolute; --ui-px: 1px; }
 .fs-strip-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
@@ -404,17 +404,17 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 /* --wide-side: the chat column with the right notch inset. A phone held sideways (OME-1297, ≤ 500 px tall) gets 256 px:
  * the field keeps 120 px beside the emote and send keys, and at 667 px the room's column still holds the 356 px picture.
  * The left inset pads the room's column. */
-body:has(> main > .room-wide) { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
+body.room-is-wide { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
 /* Up to 288 px when the room's column keeps the 356 px picture (OME-1595: the fields showed 15 characters at 740 px);
  * 288 still leaves Twitch's 534 px picture its column at 844 px. */
-@media (max-height: 500px) { body:has(> main > .room-wide) { --wide-side: calc(clamp(256px, 100vw - 384px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 288px) + env(safe-area-inset-right, 0px)); } }
+@media (max-height: 500px) { body.room-is-wide { --wide-side: calc(clamp(256px, 100vw - 384px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 288px) + env(safe-area-inset-right, 0px)); } }
 /* Chrome zoom (OME-1667, board: "scalings on 2k"): from 1920×900 (1.5×) and 2560×1200 (2×, layout.ts chromeZoom) the
  * page is 1280's chrome, zoomed: every key at least 40 px. Not the stage, which scales itself; the shelf's zoom is
  * room-layout.ts's (it's placed in px). The chat column zooms its children, so its fixed box stays in page px. */
 .room-wide[data-chrome="1.5"] { --chrome: 1.5; }
 .room-wide[data-chrome="2"] { --chrome: 2; }
-body:has(> main > .room-wide[data-chrome="1.5"]) { --wide-side: calc(480px + env(safe-area-inset-right, 0px)); }
-body:has(> main > .room-wide[data-chrome="2"]) { --wide-side: calc(640px + env(safe-area-inset-right, 0px)); }
+body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(480px + env(safe-area-inset-right, 0px)); }
+body.room-is-wide[data-chrome="2"] { --wide-side: calc(640px + env(safe-area-inset-right, 0px)); }
 .room-wide[data-chrome] > :not(.stage-wrap, .room-side, .hint-chip, dialog), .room-wide[data-chrome] > .room-side > * { zoom: var(--chrome); }
 /* The emote wheel is placed in viewport px (picker.ts) and is page chrome at 2× already: it keeps 1×. */
 .room-wide[data-chrome] .ui-wheel { zoom: calc(1 / var(--chrome)); }
@@ -433,8 +433,8 @@ body:has(> main > .room-wide[data-chrome="2"]) { --wide-side: calc(640px + env(s
 /* The moments pips: 40 px once zoomed (OME-1748), 44 px to the finger; [data-chrome] ties the touch rule, which comes last. */
 .room-wide[data-chrome] .moments { --pip: calc(40px / var(--chrome)); }
 .ui-touch .moments, .ui-touch[data-chrome] .moments { --pip: calc(44px / var(--chrome, 1)); }
-main:has(> .room-wide) { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
-body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }
+body.room-is-wide > main { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
+body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }
 .room-wide { box-sizing: border-box; height: 100%; margin-right: var(--wide-side); padding: 12px 16px 12px max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; overflow-y: auto; }
 .room-wide > * { flex: none; }
 /* At least room for the TV at its minimum and a small room (the column scrolls under an open editor instead). */
@@ -493,8 +493,8 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
    * column's padding, an empty status line and the footer's second line give their height to the floor. */
   .room-wide { padding: 4px 8px 0 max(8px, env(safe-area-inset-left)); }
   .room-wide > .status:empty { display: none; }
-  body:has(> main > .room-wide) > .site-footer { height: var(--room-foot); padding-block: 0; font-size: var(--room-foot-text); white-space: nowrap; overflow: hidden; }
-  body:has(> main > .room-wide) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
+  body.room-is-wide > .site-footer { height: var(--room-foot); padding-block: 0; font-size: var(--room-foot-text); white-space: nowrap; overflow: hidden; }
+  body.room-is-wide > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
   /* The head row with the invite's Copy key (Copy is how a phone shares the link; the label still describes the key). */
   .room-side { padding-inline: 4px max(4px, env(safe-area-inset-right)); }
   .room-side > .room-top { flex-wrap: wrap; gap: 4px; }
@@ -645,13 +645,13 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-not-found .not-found-state { font-size: 13px; }
 
 /* M10 portrait: the viewport owns the height; the room gives space to the composer and chat. */
-body:has(> main > .room-portrait) { height: 100dvh; overflow: hidden; }
+body.room-is-portrait { height: 100dvh; overflow: hidden; }
 /* A downward swipe in the room must not pull-to-refresh it mid-video (OME-1240); pinch zoom is unaffected. */
 :root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
-main:has(> .room-portrait) { max-width: none; padding: 0; }
-body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: var(--room-foot); font-size: var(--room-foot-text); }
+body.room-is-portrait > main { max-width: none; padding: 0; }
+body.room-is-portrait > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: var(--room-foot); font-size: var(--room-foot-text); }
 /* One 20 px line, never two (OME-1597: at 360 px the version wrapped below the viewport); it stays on the landing. */
-body:has(> main > .room-portrait) > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
+body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
 .room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - var(--room-foot)); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }

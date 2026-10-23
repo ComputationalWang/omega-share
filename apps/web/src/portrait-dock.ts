@@ -120,6 +120,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
       o.queueLayout?.(on);
       keys.hidden = !on;
       o.root.classList.toggle("room-portrait", on);
+      document.body.classList.toggle("room-is-portrait", on);
       o.queue.classList.toggle("portrait-stowed", on);
       for (const node of o.settings) node.classList.toggle("portrait-stowed", on);
       if (on) { o.composer.before(keys); o.composer.insertBefore(link, o.composer.querySelector(":scope > .chat-field, :scope > input")); viewport(); }

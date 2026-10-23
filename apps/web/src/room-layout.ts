@@ -278,6 +278,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const restoreScroll = holdScroll();
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
+    document.body.classList.toggle("room-is-pseudo-fs", mode === "pseudo");
     tvBox.setFullscreen(on);
     o.placeRoom();
     unread = 0;
@@ -329,6 +330,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     syncPortrait();
     const two = wide.matches;
     root.classList.toggle("room-wide", two);
+    // room.css's page rules key on this, not body:has(): that re-styled the page on every chat line (OME-1755).
+    document.body.classList.toggle("room-is-wide", two);
     side.hidden = !two;
     // Wide: the room's placeholder, the invite and Up next head the chat column; otherwise they're back in the page's flow.
     // Short (a phone held sideways, OME-1595): the head row and the invite's Copy key share the column's first row, so
@@ -386,8 +389,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     wrap.style.minHeight = "";
     // Set before the wrap is measured: room.css widens the chat column with it.
     const zoom = wide.matches && fs.mode() === "off" ? chromeZoom(window.innerWidth, window.innerHeight) : 1;
-    if (zoom === 1) delete root.dataset["chrome"];
-    else root.dataset["chrome"] = String(zoom);
+    // The body too: room.css sizes the page's chat column from it (a body class, never body:has(), OME-1755).
+    for (const e of [root, document.body]) {
+      if (zoom === 1) delete e.dataset["chrome"];
+      else e.dataset["chrome"] = String(zoom);
+    }
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
