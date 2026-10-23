@@ -1264,6 +1264,7 @@ mod tests {
             url: YT_URL,
             playing,
             position,
+            countdown: false,
         }
     }
 
@@ -2041,6 +2042,7 @@ mod tests {
             url: "https://www.youtube.com/embed/aaaaaaaaaaa",
             playing: true,
             position: 0.0,
+            countdown: false,
         };
         assert_eq!(r.control(&a, &other, T0), None);
         let next = r.control(&a, &ctl(false, 40.0), T0 + 10_000).unwrap();
@@ -2054,7 +2056,8 @@ mod tests {
                 &Control {
                     url: &url,
                     playing: true,
-                    position: 0.0
+                    position: 0.0,
+                    countdown: false,
                 },
                 T0
             ),
@@ -2072,6 +2075,7 @@ mod tests {
             url: e.url(),
             playing: false,
             position: 77.0,
+            countdown: false,
         };
         let next = r.control(&a, &c, T0 + 1000).unwrap();
         assert_eq!(

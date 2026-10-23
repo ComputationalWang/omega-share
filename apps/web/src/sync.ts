@@ -94,10 +94,17 @@ export interface DecideInput {
   tickPhaseMs: number;
 }
 
-/** The room's position at server time `serverNowMs`, seconds. */
+/** The room's position at server time `serverNowMs`, seconds. A countdown (`startAt`, ADR 0056) holds it until then. */
 export function expectedPosition(room: PlaybackState, serverNowMs: number): number {
-  const p = room.playing ? room.position + ((serverNowMs - room.at) / 1000) * room.rate : room.position;
+  const from = room.startAt ?? room.at;
+  const t = room.startAt !== undefined && serverNowMs < room.startAt ? room.startAt : serverNowMs;
+  const p = room.playing ? room.position + ((t - from) / 1000) * room.rate : room.position;
   return p > 0 ? p : 0;
+}
+
+/** How long a countdown play still holds the room, ms; 0 when there is none or it has passed. */
+function holdMs(room: PlaybackState, serverNowMs: number): number {
+  return room.playing && room.startAt !== undefined && room.startAt > serverNowMs ? room.startAt - serverNowMs : 0;
 }
 
 /** Pure: what to do to the local player this tick. Returns shared constants for none/play/pause. */
@@ -106,6 +113,9 @@ export function decide(i: DecideInput): Correction {
   if (room === null || i.playerState === "ad") return NONE;
   if (i.mode === "live") return decideLive(i, room);
   const expected = expectedPosition(room, i.serverNowMs);
+  const hold = holdMs(room, i.serverNowMs);
+  // A countdown (OME-1634): wait paused at the position, and unpark on the room clock as a seek-only resume does.
+  if (hold > 0 && i.parkAt < 0) return { kind: "park", to: room.position };
   if (i.hardSeek) {
     if (i.mode === "seek-only" && room.playing && i.playerState !== "cued" && i.playerState !== "unstarted" && i.playerState !== "ended") {
       // A paused player near the room is already there: a seek would only drop its buffer (OME-396).
@@ -120,7 +130,7 @@ export function decide(i: DecideInput): Correction {
     return Math.abs(i.playerTime - expected) * 1000 > PAUSED_THRESHOLD_MS ? seekTo(expected, room, 0) : NONE;
   }
   if (i.parkAt >= 0) {
-    const waitMs = ((i.parkAt - expected) * 1000) / room.rate - i.startLatencyMs;
+    const waitMs = hold + ((i.parkAt - expected) * 1000) / room.rate - i.startLatencyMs;
     if (waitMs <= SYNC_INTERVAL_MS / 2) return UNPARK;
     return i.playerState === "playing" ? PAUSE : NONE;
   }

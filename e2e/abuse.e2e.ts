@@ -4,7 +4,7 @@
 // whole time from addresses of their own, still stays in sync. It runs on a lane of its own (ABUSE_PORTS), so the
 // limits it spends never reach the tunnel specs. Serial: one server, one lobby, shared limits.
 import type { Browser, BrowserContext, Page, WebSocketRoute } from "@playwright/test";
-import { CLOSE_CODES, DEFAULT_ROOM_ID, RATE_LIMITED_RECONNECT_MS, SHARE_TOKEN_STORAGE_KEY, parseServerMessage } from "@omega/shared";
+import { CLOSE_CODES, COUNTDOWN_MS, DEFAULT_ROOM_ID, RATE_LIMITED_RECONNECT_MS, SHARE_TOKEN_STORAGE_KEY, parseServerMessage } from "@omega/shared";
 import { WATCH_URL } from "./support/network";
 import { site } from "./support/selectors";
 import { watchCsp } from "./support/csp";
@@ -100,10 +100,12 @@ async function expectInSync(a: Honest, b: Honest): Promise<number> {
   const target = before === PLAYING ? PAUSED : PLAYING;
   await expect(a.page.locator(site.connectionStatus)).toHaveText("");
   await expect(b.page.locator(site.connectionStatus)).toHaveText("");
+  // A play from paused is a shared 3-2-1 (OME-1634): B follows within SYNC_MS of the room's start.
+  const hold = target === PLAYING ? COUNTDOWN_MS : 0;
   const t0 = Date.now();
   await a.page.locator(site.playToggle).click();
-  await expect.poll(() => fakeState(b.page), { timeout: SYNC_MS, intervals: [10] }).toBe(target);
-  const took = Date.now() - t0;
+  await expect.poll(() => fakeState(b.page), { timeout: hold + SYNC_MS, intervals: [10] }).toBe(target);
+  const took = Date.now() - t0 - hold;
   // Both still see each other.
   await expect(b.page.locator(site.nicknameTag, { hasText: a.nickname })).toBeVisible();
   await expect(a.page.locator(site.nicknameTag, { hasText: b.nickname })).toBeVisible();

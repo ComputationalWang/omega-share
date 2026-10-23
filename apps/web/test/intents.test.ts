@@ -81,8 +81,12 @@ const pausedAt10: PlaybackState = { ...playingAt10, playing: false, action: "pau
 const target = (playback: PlaybackState | null): PlaybackTarget => ({ embed, playback });
 
 describe("togglePlayIntent (shared play/pause key → control)", () => {
-  test("paused room: play from where it stopped", () => {
-    expect(togglePlayIntent(target(pausedAt10), 1_005_000)).toEqual({ type: "control", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", playing: true, position: 10 });
+  test("paused room: play from where it stopped, after a shared 3-2-1 (OME-1634)", () => {
+    expect(togglePlayIntent(target(pausedAt10), 1_005_000)).toEqual({ type: "control", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", playing: true, position: 10, countdown: true });
+  });
+  test("a pause during a countdown pauses at the held position", () => {
+    const counting: PlaybackState = { ...playingAt10, startAt: 1_003_000 };
+    expect(togglePlayIntent(target(counting), 1_002_000)).toEqual({ type: "control", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", playing: false, position: 10 });
   });
   test("playing room: pause at the room's position now, from the server clock", () => {
     expect(togglePlayIntent(target(playingAt10), 1_002_500)).toEqual({ type: "control", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", playing: false, position: 12.5 });

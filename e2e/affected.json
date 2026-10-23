@@ -210,7 +210,8 @@
         "perf/heap-movie.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
-        "e2e/doors.e2e.ts"
+        "e2e/doors.e2e.ts",
+        "e2e/countdown.e2e.ts"
       ],
       "why": "room core: stage, state, connection, layout, routes"
     },
@@ -647,6 +648,16 @@
         "perf/walk-tiers.perf.ts"
       ],
       "why": "procedural sound engine, a lazy chunk fed by the walk poses (OME-1638)"
+    },
+    {
+      "paths": [
+        "apps/web/src/countdown/**"
+      ],
+      "specs": [
+        "e2e/countdown.e2e.ts",
+        "e2e/sync.e2e.ts"
+      ],
+      "why": "the shared 3-2-1 overlay (OME-1634)"
     },
     {
       "paths": [

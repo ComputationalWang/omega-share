@@ -933,6 +933,8 @@ fn playback_control_agrees() {
             url: &i.control.url,
             playing: i.control.playing,
             position: i.control.position,
+            // The TS reference has no countdown (ADR 0056: Rust only).
+            countdown: false,
         };
         let next = apply_control(i.state.as_ref(), i.embed.as_ref(), &c, &i.by, i.now)?;
         serde_json::to_value(next).ok()
