@@ -7,6 +7,11 @@ import type { Rect } from "../layout";
 export const MAX_EFFECT_SPRITES = 40;
 /** The effect loop's shortest frame gap: at most ~30 Hz, whatever the screen's refresh rate. */
 export const EFFECT_MIN_INTERVAL_MS = 33;
+/**
+ * Where theme and ambience particles drift: the band of the two back walls and the window, not the whole stage. The
+ * effect's overlay covers only this band (plus margins), at most a third of the stage (QA OME-1211, ADR 0052).
+ */
+export const EFFECT_BAND: Rect = { x: 160, y: 40, w: 640, h: 200 };
 /** How far past the area a particle goes before it wraps in at the other side (an effect sprite is ≤ 16 px). */
 const MARGIN = 16;
 

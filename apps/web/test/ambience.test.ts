@@ -2,13 +2,13 @@
 // holiday theme's effect owns the pool, and reduced motion turns ambience off.
 import { describe, expect, test } from "bun:test";
 import { ROOM_MOODS, type RoomMood } from "@omega/shared";
-import { ambienceFor } from "../src/theme/ambience";
+import { ambienceFor, type Ambience } from "../src/theme/ambience";
 import { MAX_EFFECT_SPRITES } from "../src/theme/effect";
 import { THEME_IDS } from "../src/theme/periods";
 
 describe("ambienceFor", () => {
   test("night snows, warm floats dust motes, none and cool have none", () => {
-    const kinds: Record<RoomMood, string | null> = { none: null, warm: "dust", cool: null, night: "snow" };
+    const kinds: Record<RoomMood, Ambience["kind"] | null> = { none: null, warm: "dust", cool: null, night: "snow" };
     for (const m of ROOM_MOODS) expect(ambienceFor(m, null, true)?.kind ?? null, m).toBe(kinds[m]);
   });
 

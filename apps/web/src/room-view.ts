@@ -2,7 +2,7 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type FloorCell, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type FloorCell, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";
@@ -22,6 +22,7 @@ import { decorSprites } from "./theme/decor";
 import { CONFETTI_MS, CONFETTI_SPRITES, EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, confettiMotion, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectMotion, type EffectPainter, type Particles } from "./theme/effect";
 import { DOOR, cellAt, centerOf, colOf, rowOf } from "./walk/path";
 import { resolveTheme } from "./theme/periods";
+import { ambienceFor, type Ambience } from "./theme/ambience";
 import { livePieces, type LivePieces } from "./live-pieces";
 import { clockFace, handSteps, minuteTicks, type HandSteps } from "./wall-clock";
 
@@ -121,6 +122,8 @@ export interface RoomView {
   confetti(): void;
   /** How many confetti bursts have played, for e2e. */
   confettiBursts(): number;
+  /** The room mood's ambience (OME-1689): night snow, warm dust motes, on the theme effect's pool; none under a holiday theme. */
+  ambience(mood: RoomMood): void;
   /**
    * Reaction glyph bursts (OME-1631) may play now: Smooth, no reduced motion, and the last render's work under
    * REACTION_NEAR_BUDGET_MS. Read once per burst.
@@ -786,6 +789,29 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     { threshold: [0, 0.5, 1] },
   );
+  /** Puts `max` particles of `frames` from `image` on the effect's overlay, sized to their band (theme or mood ambience: one pool). */
+  const mountEffect = (image: CanvasImageSource, frames: readonly EffectFrame[], ms: number, max: number, m: EffectMotion): void => {
+    const b = effectBounds(m, frames);
+    // 1 backing px per stage px: the pixel art scales up with CSS (image-rendering: pixelated) like the rest.
+    fxCanvas.width = b.w;
+    fxCanvas.height = b.h;
+    Object.assign(fxCanvas.style, { left: `${String(b.x)}px`, top: `${String(b.y)}px`, width: `${String(b.w)}px`, height: `${String(b.h)}px` });
+    const ctx = fxCanvas.getContext("2d");
+    if (ctx === null || frames.length === 0) return;
+    ctx.imageSmoothingEnabled = false;
+    effectMs = ms;
+    particles = createParticles(m, max, Math.random);
+    painter = createEffectPainter({ ctx, image, frames, origin: b });
+    if (effectAllowed()) {
+      // In the DOM only for an effect, right over the room canvas: a room without one keeps its DOM unchanged. Hidden
+      // with visibility, not display, so the observer can still see where it is.
+      fxCanvas.style.visibility = "hidden";
+      app.canvas.after(fxCanvas);
+      fxObserver.observe(fxCanvas);
+    }
+  };
+  /** The mood ambience shown (OME-1689); stays null under a holiday theme, whose effect owns the pool. */
+  let ambienceKind: Ambience["kind"] | null = null;
   if (themeId !== null) {
     void import("./theme/atlas")
       .then((m) => m.loadTheme(themeId))
@@ -797,25 +823,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           wearHat(entry);
           if (entry.hair !== 0) relook(id, entry, entry.tint, entry.hair);
         }
-        const b = effectBounds(t.effect.motion, t.effect.frames);
-        // 1 backing px per stage px: the pixel art scales up with CSS (image-rendering: pixelated) like the rest.
-        fxCanvas.width = b.w;
-        fxCanvas.height = b.h;
-        Object.assign(fxCanvas.style, { left: `${String(b.x)}px`, top: `${String(b.y)}px`, width: `${String(b.w)}px`, height: `${String(b.h)}px` });
-        const ctx = fxCanvas.getContext("2d");
-        if (ctx !== null && t.effect.frames.length > 0) {
-          ctx.imageSmoothingEnabled = false;
-          effectMs = t.effect.ms;
-          particles = createParticles(t.effect.motion, t.effect.max, Math.random);
-          painter = createEffectPainter({ ctx, image: t.effect.image, frames: t.effect.frames, origin: b });
-          if (effectAllowed()) {
-            // In the DOM only for an effect, right over the room canvas: an unthemed room's DOM is unchanged. Hidden
-            // with visibility, not display, so the observer can still see where it is.
-            fxCanvas.style.visibility = "hidden";
-            app.canvas.after(fxCanvas);
-            fxObserver.observe(fxCanvas);
-          }
-        }
+        mountEffect(t.effect.image, t.effect.frames, t.effect.ms, t.effect.max, t.effect.motion);
         render();
       })
       // Without the theme's art the room is drawn as usual.
@@ -1272,6 +1280,28 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (confetti.fire()) confettiBursts++;
     },
     confettiBursts: () => confettiBursts,
+    ambience(mood) {
+      const a = ambienceFor(mood, themeId, effectAllowed());
+      if ((a?.kind ?? null) === ambienceKind) return;
+      ambienceKind = a?.kind ?? null;
+      // Swapped under a running loop, not stopped and restarted: a stop leaves its rAF pending, so a start would add a second loop.
+      painter?.clear();
+      particles = null;
+      painter = null;
+      if (a === null) {
+        fxCanvas.style.visibility = "hidden";
+        return;
+      }
+      const image = document.createElement("canvas");
+      image.width = a.w;
+      image.height = a.h;
+      const g = image.getContext("2d");
+      if (g === null) return;
+      a.art(g);
+      mountEffect(image, a.frames, a.ms, a.max, a.motion);
+      if (effectRunning) fxCanvas.style.visibility = "visible";
+      else startEffect();
+    },
     reactionsAllowed: () => !reduced.matches && tier.smooth() && lastWorkMs < REACTION_NEAR_BUDGET_MS,
     destroy() {
       destroyed = true;

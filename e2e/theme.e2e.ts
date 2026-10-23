@@ -6,6 +6,8 @@ import { devices, type BrowserContext, type Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { DEFAULT_LAYOUT } from "@omega/shared";
+import { showLayout } from "../perf/show-layout";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -121,4 +123,32 @@ test("off: no theme at all", async ({ browser }) => {
   await expect.poll(async () => (await theme(page)) !== null).toBe(true);
   await page.waitForTimeout(500);
   expect(await theme(page)).toEqual({ id: null, decor: 0, hats: 0, effect: 0, ticks: 0, worstTickMs: 0 });
+});
+
+/** No holiday theme, Smooth, and the room shown in the night mood (OME-1689: its ambience snows on the theme effect's pool). */
+const nightNoTheme = async (context: BrowserContext): Promise<void> => {
+  await context.addInitScript(() => {
+    localStorage.setItem("omega.theme", "off");
+    localStorage.setItem("omega.motion", "smooth");
+  });
+  await showLayout(context, { ...DEFAULT_LAYOUT, mood: "night" });
+};
+
+test("mood ambience: the night mood snows on the effect's own small layer, with no theme", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "ambience").url, count: 1, nicknamePrefix: "thamb", setup: nightNoTheme });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expectEffectRuns(page);
+  expect((await theme(page))?.id).toBeNull();
+});
+
+test("mood ambience: reduced motion, no snow", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "ambience-rm").url, count: 1, nicknamePrefix: "thambrm", setup: nightNoTheme, contextOptions: () => ({ reducedMotion: "reduce" }) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expect.poll(async () => (await theme(page)) !== null).toBe(true);
+  await page.waitForTimeout(500);
+  const t = await theme(page);
+  expect(t?.effect).toBe(0);
+  expect(t?.ticks).toBe(0);
 });

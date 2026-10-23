@@ -116,6 +116,13 @@ const WALK25_REACT: readonly Budget[] = [
   { id: "walk25.react.missedVsync.phone", area: "Site", metric: "Missed vsyncs with 25 members walking and a reaction burst, Pixel 7 emulation, Smooth tier", docMetric: "Missed vsyncs with a reaction burst while 25 members walk", unit: "%", limit: 1, comparator: "<=" },
 ];
 
+// OME-1689 (Enjoyment R2): Smooth on the Pixel 7 again with the night mood's snow falling (mood ambience on the theme effect's pool, room fitted).
+const WALK25_AMBIENCE: readonly Budget[] = [
+  { id: "walk25.ambience.frameP95.phone", area: "Site", metric: "p95 frame time with 25 members walking and the night mood's snow, Pixel 7 emulation, Smooth tier", docMetric: "Frame rate with mood ambience while 25 members walk", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: "walk25.ambience.workP95.phone", area: "Site", metric: "Main-thread work p95 per frame with 25 members walking and the night mood's snow, Pixel 7 emulation, Smooth tier", docMetric: "Main-thread work per frame with mood ambience while 25 members walk", unit: "ms", limit: 8, comparator: "<=" },
+  { id: "walk25.ambience.missedVsync.phone", area: "Site", metric: "Missed vsyncs with 25 members walking and the night mood's snow, Pixel 7 emulation, Smooth tier", docMetric: "Missed vsyncs with mood ambience while 25 members walk", unit: "%", limit: 1, comparator: "<=" },
+];
+
 // OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
 const LANDING: readonly Budget[] = [
   { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
@@ -145,6 +152,7 @@ export const BUDGETS: readonly Budget[] = [
   ...WALK25_ACCESSORIES,
   ...WALK25_CONGA,
   ...WALK25_REACT,
+  ...WALK25_AMBIENCE,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   // OME-1643 (Movie night Q6): the same soak in a playing room with reactions, the moments strip and the recap card (perf/heap-movie.perf.ts).
   { id: "site.heapMovieNight", area: "Site", metric: "JS heap after 10 min with the moments strip and recap card (after GC)", docMetric: "JS heap after 10 min in room with the moments strip and recap card", unit: "MB", limit: 150, comparator: "<=" },
