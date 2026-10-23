@@ -31,6 +31,11 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   return occupant === state.self ? { type: "sit", seat: null } : null;
 }
 
+/** A lie key (OME-1691): lie down on layout piece `piece`, or get up from it if I lie there; null if nobody can lie on it or someone else does. */
+export function lieIntent(_state: ViewState, _piece: number): ClientMessage | null {
+  return null;
+}
+
 /** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell, or get up; "no-cell" on a seat or a standing spot. */
 export function floorSitIntent(state: ViewState): ClientMessage | "no-cell" | null {
   if (state.status !== "open" || state.room === null) return null;

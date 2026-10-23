@@ -2,7 +2,7 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { cellOf } from "./walk/path";
@@ -234,7 +234,18 @@ export interface SceneSeat {
   readonly marker: boolean;
 }
 
+/** Where someone lies on a piece (OME-1691): their floor point, the piece's anchor, and their depth (the piece's sort point, between its back and front). */
+export interface LieSpot {
+  readonly style: LieStyle;
+  readonly dir: Facing;
+  readonly at: Point;
+  readonly anchor: Point;
+  readonly z: number;
+}
+
 export interface Scene {
+  /** By layout piece index: the pieces someone can lie on. */
+  readonly lies: ReadonlyMap<number, LieSpot>;
   readonly sprites: readonly FurnitureSprite[];
   readonly seats: readonly SceneSeat[];
   /** The layout is the classic preset's (= DEFAULT_LAYOUT; the preset id never reaches the client): theme decor goes here. */
@@ -272,7 +283,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       seats.push({ at, z, marker: f.kind === "armchair" && room === null });
     }
   }
-  return { sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
+  return { lies: new Map(), sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
 }
 
 function pushSprites(

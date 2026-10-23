@@ -72,6 +72,7 @@ export const SPEC_ROOMS = {
   "desk-zoom": ["main"],
   teleport: ["pads"],
   doors: ["a", "b"],
+  lie: ["sofa"],
   replay: ["wire", "clear", "ui"],
   "reaction-safety": ["shape", "big", "flood", "start"],
 } as const;

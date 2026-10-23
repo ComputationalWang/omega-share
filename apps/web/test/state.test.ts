@@ -664,3 +664,32 @@ describe("durable sessions", () => {
     expect(reduce(s, { type: "reclaim" })).toBe(s);
   });
 });
+
+// OME-1691: lying down on a layout piece (OME-1773 contract): `lay` puts a member on a piece or gets them up.
+describe("lay", () => {
+  const sofaLayout: RoomLayout = { furniture: [{ kind: "sofa", col: 2, row: 5, facing: "ne" }, { kind: "lamp", col: 9, row: 0, facing: "se" }] };
+  const lyingOf = (s: ViewState, id: string): number | undefined => s.room?.members.find((m) => m.id === id)?.lying;
+  const inSofaRoom = (): ViewState => joined(room({ layout: sofaLayout }));
+
+  test("lay puts the member on the piece, and null gets them up", () => {
+    const down = server(inSofaRoom(), { type: "lay", memberId: "b", piece: 0 });
+    expect(lyingOf(down, "b")).toBe(0);
+    expect(lyingOf(down, "a")).toBeUndefined();
+    const up = server(down, { type: "lay", memberId: "b", piece: null });
+    expect(lyingOf(up, "b")).toBeUndefined();
+    expect(up.room?.members.find((m) => m.id === "b")).toEqual(bob);
+  });
+
+  test("a snapshot's Member.lying is kept, and lay for someone who isn't here changes nothing", () => {
+    const s = joined(room({ layout: sofaLayout, members: [alice, { ...bob, lying: 0 }] }));
+    expect(lyingOf(s, "b")).toBe(0);
+    expect(server(s, { type: "lay", memberId: "zz", piece: 0 })).toBe(s);
+  });
+
+  test("a layout that drops the piece they lie on gets them up, one that keeps it doesn't", () => {
+    const lying = server(inSofaRoom(), { type: "lay", memberId: "b", piece: 0 });
+    expect(lyingOf(server(lying, { type: "layout-changed", layout: sofaLayout, by: "a" }), "b")).toBe(0);
+    expect(lyingOf(server(lying, { type: "layout-changed", layout: { furniture: [] }, by: "a" }), "b")).toBeUndefined();
+    expect(lyingOf(server(lying, { type: "layout-changed", layout: { furniture: [{ kind: "lamp", col: 9, row: 0, facing: "se" }] }, by: "a" }), "b")).toBeUndefined();
+  });
+});

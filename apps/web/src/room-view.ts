@@ -2,7 +2,7 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type FloorCell, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { standDepth, type CatWalker, type Scene } from "./furniture";
@@ -43,6 +43,8 @@ export interface AvatarPlacement {
   readonly run?: boolean;
   /** Sitting on the floor of their cell (OME-1501, walk/walks.ts). */
   readonly floorSit?: boolean;
+  /** Lying on a sofa, couch or cat bed (OME-1691): `at` is their floor point on it, `seatFacing` the piece's facing. */
+  readonly lie?: LieStyle;
   /** Arrived by a teleport pad (OME-1548): snapped, with a sparkle at both pads. */
   readonly teleport?: boolean;
   /** Walked in through the door they stand in front of (OME-1558): there at once, with a sparkle. */

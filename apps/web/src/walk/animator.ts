@@ -5,7 +5,7 @@
 // timers on the one-shot's own frame times: a gesture (wave, cheer, yawn) swaps the avatar's frames, a sticker is drawn
 // above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock.
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
-import type { MemberId } from "@omega/shared";
+import type { LieStyle, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
 import { PAIR_MS, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
@@ -25,6 +25,8 @@ const SPIN: readonly number[] = [0, 1, 3, 2];
 export interface AnimatedAvatar {
   readonly id: MemberId;
   readonly avatar: number;
+  /** Lying on a piece (OME-1691): drawn in the lying sheet's frames, facing as the piece does, once they've arrived. */
+  readonly lie?: LieStyle;
 }
 
 export interface AnimatorOptions {
