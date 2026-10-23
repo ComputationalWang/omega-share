@@ -186,7 +186,9 @@ fn admit_type(
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
         ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // A floor sit is a step in place: the walk bucket, dropped silently over it (OME-1499).
-        ClientMessage::FloorSit { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
+        ClientMessage::FloorSit { .. } | ClientMessage::Lie { .. } => {
+            owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none()
+        }
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
         ClientMessage::Leave {}
         | ClientMessage::Ping { .. }
@@ -477,6 +479,8 @@ fn handle(
             );
         }
         ClientMessage::Pair { pose } => pair(app, inner, conn, member, pose),
+        // shortcut: refused everywhere until OME-1691 lands lying down (`lay`, blocked seats, `Member.lying`).
+        ClientMessage::Lie { .. } => send_error(inner, conn.id, ErrorCode::BadCell, "you can't lie down here"),
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }

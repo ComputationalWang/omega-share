@@ -13,7 +13,7 @@ use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
-use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PollCount, SeatIndex, Tint};
+use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PieceIndex, PollCount, SeatIndex, Tint};
 use super::state::{
     Conga, EmoteKind, MediaMs, Member, PairPose, PingId, PlaybackState, Poll, QueueItem, Reaction, ReactionKind, RoomState, ServerTime,
     layout, nullable, playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
@@ -232,6 +232,11 @@ server_messages! {
     "accessory-changed" AccessoryChanged AccessoryChangedWire { member_id: MemberId, accessory: Accessory }
     "hair-changed" HairChanged HairChangedWire { member_id: MemberId, hair: Hair }
     "floor-sat" FloorSat FloorSatWire { member_id: MemberId, on: bool }
+    "lay" Lay LayWire {
+        member_id: MemberId,
+        #[serde(deserialize_with = "nullable")]
+        piece: Option<PieceIndex>,
+    }
     "typing-changed" TypingChanged TypingChangedWire { member_id: MemberId, on: bool }
     "chat" Chat ChatWire { member_id: MemberId, text: ChatText, at: ServerTime }
     "embed-changed" EmbedChanged EmbedChangedWire {

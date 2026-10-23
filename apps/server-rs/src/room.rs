@@ -739,6 +739,7 @@ impl Room {
             accessory: None,
             hair: None,
             floor_sit: None,
+            lying: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());

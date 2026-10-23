@@ -13,6 +13,10 @@ export const FACINGS = ["ne", "nw", "se", "sw"] as const;
 export const FacingSchema = v.picklist(FACINGS);
 export type Facing = v.InferOutput<typeof FacingSchema>;
 
+/** How a member lies on a piece (OME-1773): stretched out (`lie`) or curled up (`curl`), art in `assets/avatars/lying.json`. */
+export const LIE_STYLES = ["lie", "curl"] as const;
+export type LieStyle = (typeof LIE_STYLES)[number];
+
 export interface FurnitureSpec {
   /** `floor`: drawn with the floor, walkable, may lie under objects. `object`: solid, depth-sorted. `wall`: hangs on a wall. */
   readonly layer: "floor" | "object" | "wall";
@@ -26,6 +30,8 @@ export interface FurnitureSpec {
   readonly variants: number;
   /** Backs onto a wall: facing sw it stands on row 0 (right wall), facing se on col 0 (left wall). */
   readonly wallBacked: boolean;
+  /** A member may lie on it (`lie` message), blocking its seats. Absent: not a bed for anyone. */
+  readonly lie?: LieStyle;
 }
 
 const ONE = { cols: 1, rows: 1 } as const;
@@ -54,8 +60,8 @@ export const FURNITURE = {
   lamp: piece("object", FIXED, ONE, { variants: 3 }),
   plant: piece("object", FIXED, ONE, { variants: 3 }),
   rug: piece("floor", FIXED, { cols: 7, rows: 7 }, { variants: 3 }),
-  sofa: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 4 }),
-  couch: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
+  sofa: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 4, lie: "lie" }),
+  couch: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2, lie: "lie" }),
   wingback: piece("object", FACINGS, ONE, { seats: true }),
   beanbag: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
   sidetable: piece("object", CAMERA, ONE),
@@ -69,7 +75,8 @@ export const FURNITURE = {
   bench: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
   turntable: piece("object", CAMERA, ONE),
   speaker: piece("object", CAMERA, ONE, { variants: 2 }),
-  cat: piece("object", CAMERA, ONE, { variants: 2 }),
+  /** Curl up beside it; it stays a non-seat, so seat indices don't move (OME-1773). */
+  cat: piece("object", CAMERA, ONE, { variants: 2, lie: "curl" }),
   wallshelf: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 3 }),
   garland: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 4 }),
   coffeetable: piece("object", CAMERA, ONE),
@@ -116,6 +123,10 @@ export const isScreen = (kind: FurnitureKind): boolean => kind === "tv" || kind 
 
 /** Wall segments with a window, poster or sconce (the same on both walls); frames need a plain one. */
 export const WALL_FIXTURE_SEGMENTS: readonly number[] = [5, 6, 8];
+
+/** A piece's place in `layout.furniture` (OME-1773): an integer in `0..MAX_FURNITURE`. */
+export const PieceIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(MAX_FURNITURE - 1));
+export type PieceIndex = v.InferOutput<typeof PieceIndexSchema>;
 
 const CellSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(FLOOR_CELLS - 1));
 
