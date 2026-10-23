@@ -364,8 +364,10 @@ test("1280×800 to 2560×1440, People open: the TV stays put, the room keeps 80 
     const open = await boxOf(page, site.tv);
     expect(Math.abs(open.y - tv.y), `${at} TV y moved`).toBeLessThanOrEqual(2);
     expect(Math.abs(open.x - tv.x), `${at} TV x moved`).toBeLessThanOrEqual(2);
-    // Every row's keys are in reach in the panel.
+    // Every row's keys are in reach: the panel scrolls in the column, and the page (the TV) doesn't move for it.
+    await panel.locator(site.peopleRow).last().scrollIntoViewIfNeeded();
     await expect(panel.locator(site.peopleRow).last()).toBeInViewport();
+    expect(Math.abs((await boxOf(page, site.tv)).y - tv.y), `${at} TV y moved by the panel's scroll`).toBeLessThanOrEqual(2);
   }
 });
 
