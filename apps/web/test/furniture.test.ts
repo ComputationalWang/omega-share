@@ -115,6 +115,31 @@ describe("scene: DEFAULT_LAYOUT looks like today", () => {
   });
 });
 
+// OME-1691: where someone lies on a sofa, couch or cat bed: the piece's anchor plus the lying art's offset, drawn like a sitter.
+describe("scene: lie spots", () => {
+  const scene = sceneOf(SET_G, [manifest]);
+
+  test("a sofa and a couch have one spot each, the others (and a cat in no layout) none", () => {
+    expect([...scene.lies.keys()]).toEqual([2, 3, 4]);
+    expect(sceneOf(DEFAULT_LAYOUT, []).lies.size).toBe(0);
+  });
+
+  test("the lier's floor point is the anchor plus the facing's offset, and their depth sits between the piece's back and front", () => {
+    const sofa = scene.lies.get(2);
+    const anchor = cellCenter(2, 5);
+    expect(sofa).toMatchObject({ style: "lie", dir: "ne", anchor, at: { x: anchor.x + 4, y: anchor.y + 1 } });
+    expect(sofa?.z).toBeGreaterThan(sprite(scene, "furniture/sofa/velvet/ne/back").z);
+    expect(sofa?.z).toBeLessThan(sprite(scene, "furniture/sofa/velvet/ne/front").z);
+    expect(scene.lies.get(3)).toMatchObject({ dir: "nw", at: { x: cellCenter(5, 2).x - 4, y: cellCenter(5, 2).y + 1 } });
+  });
+
+  test("the cat bed curls, on its se or sw side; before the atlas is in the lier still has a spot", () => {
+    const cat = sceneOf({ furniture: [{ kind: "cat", col: 9, row: 9, facing: "sw", variant: 1 }] }, []);
+    const anchor = cellCenter(9, 9);
+    expect(cat.lies.get(0)).toMatchObject({ style: "curl", dir: "sw", at: { x: anchor.x - 12, y: anchor.y - 2 }, z: standDepth(anchor) });
+  });
+});
+
 describe("scene: a set (g) layout", () => {
   const scene = sceneOf(SET_G, [manifest]);
 

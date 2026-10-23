@@ -2,7 +2,7 @@
 //! the wall clock (`Date.now()`) as `now_wall` Unix ms; the server stamps `at` with it, not the monotonic clock.
 
 use crate::contract::capabilities::playback_caps;
-use crate::contract::constants::MAX_POSITION_S;
+use crate::contract::constants::{COUNTDOWN_MS, MAX_POSITION_S};
 use crate::contract::embed::Embed;
 use crate::contract::ids::MemberId;
 use crate::contract::state::{PlaybackAction, PlaybackState, Position, Rate, Rev, ServerTime};
@@ -15,6 +15,8 @@ pub struct Control<'a> {
     pub playing: bool,
     /// The wire schema bounds it to `0..=MAX_POSITION_S`; it is clamped anyway.
     pub position: f64,
+    /// A shared 3-2-1 (ADR 0056): a play starts at `at + COUNTDOWN_MS`.
+    pub countdown: bool,
 }
 
 /// Without the url: which video a member controls is not for logs (ADR 0032).
@@ -23,6 +25,7 @@ impl std::fmt::Debug for Control<'_> {
         f.debug_struct("Control")
             .field("playing", &self.playing)
             .field("position", &self.position)
+            .field("countdown", &self.countdown)
             .finish_non_exhaustive()
     }
 }
@@ -69,9 +72,14 @@ pub fn restored_playback(now_wall: i64) -> PlaybackState {
 }
 
 /// Where the video should be at server time `now_wall`. The expression order is the TS one (f64 rounding).
+/// A countdown play holds at `position` until `start_at`, then runs from there (ADR 0056).
 pub fn expected_position(state: &PlaybackState, now_wall: i64) -> f64 {
     if state.playing {
-        clamp(state.position.get() + ((now_wall as f64 - state.at.0 as f64) / 1000.0) * state.rate.get())
+        let (from, now) = match state.start_at {
+            Some(start) => (start.0 as f64, (now_wall as f64).max(start.0 as f64)),
+            None => (state.at.0 as f64, now_wall as f64),
+        };
+        clamp(state.position.get() + ((now - from) / 1000.0) * state.rate.get())
     } else {
         state.position.get()
     }
@@ -99,16 +107,19 @@ pub fn apply_control(
     } else {
         PlaybackAction::Pause
     };
+    let at = server_time(now_wall);
+    // Only a play: a seek or a pause (also one during a countdown) starts at once (ADR 0056).
+    let start_at = (control.countdown && !live && action == PlaybackAction::Play).then(|| ServerTime(at.0.saturating_add(COUNTDOWN_MS)));
     Some(PlaybackState {
         playing: control.playing,
         // `None` only for a NaN position, which the wire schema never lets through.
         position: Position::new(position)?,
         rate: state.rate,
-        at: server_time(now_wall),
+        at,
         rev: Rev(state.rev.0.saturating_add(1)),
         action,
         by: Some(by.clone()),
-        start_at: None,
+        start_at,
     })
 }
 
@@ -134,7 +145,18 @@ mod tests {
         load_playback(rev - 1, T0, None)
     }
     fn ctl(url: &str, playing: bool, position: f64) -> Control<'_> {
-        Control { url, playing, position }
+        Control {
+            url,
+            playing,
+            position,
+            countdown: false,
+        }
+    }
+    fn countdown(url: &str, playing: bool, position: f64) -> Control<'_> {
+        Control {
+            countdown: true,
+            ..ctl(url, playing, position)
+        }
     }
     fn pos(s: f64) -> Position {
         Position::new(s).unwrap()
@@ -347,6 +369,69 @@ mod tests {
             );
         }
     }
+
+    // ---- countdown (ADR 0056, OME-1634)
+
+    #[test]
+    fn a_countdown_play_from_paused_starts_3s_after_the_press() {
+        let yt = embed_of(URL);
+        let paused = PlaybackState {
+            playing: false,
+            position: pos(42.0),
+            ..loaded(3)
+        };
+        let next = apply_control(Some(&paused), Some(&yt), &countdown(URL, true, 42.0), &bob(), T0 + 60_000).unwrap();
+        assert_eq!(
+            json(&next),
+            r#"{"playing":true,"position":42,"rate":1,"at":1700000060000,"rev":4,"action":"play","by":"22222222-2222-4222-8222-222222222222","startAt":1700000063000}"#
+        );
+    }
+
+    #[test]
+    fn countdown_is_ignored_on_a_pause_a_seek_and_a_live_embed() {
+        let yt = embed_of(URL);
+        let pause = apply_control(Some(&loaded(0)), Some(&yt), &countdown(URL, false, 10.0), &alice(), T0 + 10_000).unwrap();
+        assert_eq!((pause.action, pause.start_at), (PlaybackAction::Pause, None));
+        let seek = apply_control(Some(&loaded(0)), Some(&yt), &countdown(URL, true, 300.0), &alice(), T0 + 10_000).unwrap();
+        assert_eq!((seek.action, seek.start_at), (PlaybackAction::Seek, None));
+        let live = embed_of("https://www.twitch.tv/somechannel");
+        let paused = PlaybackState {
+            playing: false,
+            ..loaded(0)
+        };
+        let play = apply_control(Some(&paused), Some(&live), &countdown(live.url(), true, 0.0), &alice(), T0).unwrap();
+        assert_eq!((play.action, play.start_at), (PlaybackAction::Play, None));
+    }
+
+    #[test]
+    fn the_clock_holds_at_the_position_until_start_at_then_runs_from_there() {
+        let yt = embed_of(URL);
+        let paused = PlaybackState {
+            playing: false,
+            position: pos(42.0),
+            ..loaded(0)
+        };
+        let next = apply_control(Some(&paused), Some(&yt), &countdown(URL, true, 42.0), &alice(), T0).unwrap();
+        assert_eq!(expected_position(&next, T0 + 2_999), 42.0);
+        assert_eq!(expected_position(&next, T0 + 3_000), 42.0);
+        assert_eq!(expected_position(&next, T0 + 5_500), 44.5);
+    }
+
+    #[test]
+    fn a_pause_during_the_countdown_is_a_pause_at_the_held_position_and_cancels_it() {
+        let yt = embed_of(URL);
+        let paused = PlaybackState {
+            playing: false,
+            position: pos(42.0),
+            ..loaded(0)
+        };
+        let counting = apply_control(Some(&paused), Some(&yt), &countdown(URL, true, 42.0), &alice(), T0).unwrap();
+        let cancelled = apply_control(Some(&counting), Some(&yt), &ctl(URL, false, 42.0), &bob(), T0 + 2_000).unwrap();
+        assert_eq!(
+            (cancelled.action, cancelled.playing, cancelled.start_at),
+            (PlaybackAction::Pause, false, None)
+        );
+    }
 }
 
 #[cfg(test)]
@@ -360,6 +445,7 @@ mod debug_tests {
             url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
             playing: true,
             position: 12.5,
+            countdown: false,
         };
         let text = format!("{control:?}");
         assert!(text.contains("Control") && text.contains("12.5") && text.contains("true"), "{text}");

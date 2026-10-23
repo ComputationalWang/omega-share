@@ -9,9 +9,10 @@ export interface ClientSample {
   readonly actual: number;
 }
 
-/** The room's position at server time `t` (the contract's formula, ADR 0011), computed independently of the apps. */
+/** The room's position at server time `t` (the contract's formula, ADR 0011; `startAt` holds it, ADR 0056), computed independently of the apps. */
 function expected(p: PlaybackState, t: number): number {
-  const s = p.playing ? p.position + ((t - p.at) / 1000) * p.rate : p.position;
+  const from = p.startAt ?? p.at;
+  const s = p.playing ? p.position + ((Math.max(t, from) - from) / 1000) * p.rate : p.position;
   return Math.max(0, s);
 }
 

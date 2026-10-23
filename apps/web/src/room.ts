@@ -24,7 +24,7 @@ import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { chatIntent, createWalkGate, floorSitIntent, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
+import { chatIntent, createWalkGate, floorSitIntent, lieIntent, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
 import { doorAt, layoutOf } from "./furniture";
 import { createDoorChip } from "./door-chip";
 import { createPendingApplier, stashVia, takeVia } from "./pending-layout";
@@ -56,6 +56,7 @@ import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createRoomCards } from "./room-cards";
 import { createHelp } from "./help/dialog";
 import { createCinemaDim } from "./cinema";
+import { createCountdown } from "./countdown/countdown";
 import { createHints } from "./help/hints";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
@@ -684,8 +685,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         localStorage.setItem(k, v);
       },
     },
-    // The floor chip sits on the TV just above its player bar, next to the floor without covering it.
+    // The floor chip sits on an empty TV just above its player bar, next to the floor without covering it; with a video
+    // there it goes under the picture instead (hints.ts, OME-1778).
     anchor: (step) => (step === 0 ? controls : step === 1 ? chatForm : people.key),
+    tv: { box: tv, empty: tvBox.empty, picture: wrap },
     next: () => (help.key.hidden ? null : help.key),
   });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");
@@ -811,6 +814,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
 
+  // The shared 3-2-1 (OME-1634): over the room, from each playback; the lights go down on 1.
+  const countdown = createCountdown({
+    serverNow: () => clock.serverNow(),
+    plain: () => reducedMotion.matches || roomStage.root.querySelector("canvas")?.dataset["motion"] === "basic",
+    onChange: () => {
+      dim();
+    },
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h);
+    },
+  });
+  roomStage.root.append(countdown.el);
+
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let shownError: ViewState["lastError"] = null;
@@ -828,7 +845,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** The room dims while the video plays, lifted while the editor is open (OME-1406); the mood shown is the drawn layout's (OME-1502). */
   let lightsDown = false;
   const dim = (): void => {
-    const playing = pbView?.hasVideo === true && pbView.playing;
+    const playing = pbView?.hasVideo === true && pbView.playing && countdown.lit();
     cinema.update(playing, owner.editing());
     const mood = (owner.preview() ?? layoutOf(state.room)).mood ?? "none";
     cinema.mood(mood);
@@ -1080,6 +1097,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (line !== conga) {
       conga = line;
       people.conga(line.ids);
+      roomStage.view.conga(line.ids);
     }
     congaFollow();
     if (hug !== null) {
@@ -1108,6 +1126,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
       playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
+      countdown.set(room?.playback ?? null);
       tvBox.sync(next);
       replay.sync();
     }
@@ -1342,8 +1361,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   overlay.addEventListener("click", (ev) => {
     if (!(ev.target instanceof HTMLElement)) return;
+    const lie = ev.target.closest<HTMLElement>("[data-lie]")?.dataset["lie"];
     const seat = Number(ev.target.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? NaN);
-    const msg = sitIntent(state, seat);
+    const msg = lie === undefined ? sitIntent(state, seat) : lieIntent(state, Number(lie));
     if (msg === null) return;
     walkGate.cancel();
     c.send(msg);

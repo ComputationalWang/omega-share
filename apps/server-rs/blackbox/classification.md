@@ -18,7 +18,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 
 | owner | A | A* | B | C | D | E | skipped | total |
 |---|---|---|---|---|---|---|---|---|
-| ? | 78 | 0 | 0 | 0 | 0 | 0 | 0 | 78 |
+| ? | 95 | 0 | 0 | 0 | 0 | 0 | 0 | 95 |
 | S1 (ported: config.rs) | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 47 |
 | S1 (ported: log.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
@@ -28,7 +28,7 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S6 | 186 | 0 | 1 | 0 | 17 | 0 | 0 | 204 |
 | S7 | 6 | 0 | 0 | 2 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **487** | **1** | **1** | **3** | **271** | **82** | **1** | **846** |
+| **all** | **504** | **1** | **1** | **3** | **271** | **82** | **1** | **863** |
 
 ## Tests
 
@@ -230,6 +230,16 @@ Owner: ?. 2 tests: A 2.
 |---|---|---|
 | 32 | A ✓ | conga line in the snapshot (OME-1574) › a late joiner gets the line, leader first: /conga joins at the back, a repeat keeps its place, /stop leaves; no line, no key |
 | 54 | A ✓ | conga line in the snapshot (OME-1574) › leaving the room, sitting down and sitting on the floor take a member out of the line |
+
+### countdown.test.ts
+
+Owner: ?. 3 tests: A 3.
+
+| line | cat | test |
+|---|---|---|
+| 51 | A ✓ | shared countdown (OME-1634) › a countdown play is relayed to everyone with startAt COUNTDOWN_MS after at |
+| 67 | A ✓ | shared countdown (OME-1634) › a pause during the countdown cancels it for everyone |
+| 82 | A ✓ | shared countdown (OME-1634) › countdown is ignored on a pause and on a live embed |
 
 ### deploy-kit.test.ts
 
@@ -578,6 +588,27 @@ Owner: ?. 10 tests: A 10.
 | 162 | A ✓ | share startSeconds (OME-1633, ADR 0056) › the bounds: 0 and 43200 start there; -1, 43201, 1.5, a string or null are refused as invalid_body |
 | 175 | A ✓ | share startSeconds (OME-1633, ADR 0056) › a queued item keeps its startSeconds until it plays, then starts there |
 | 188 | A ✓ | share startSeconds (OME-1633, ADR 0056) › a queue add into an empty room starts the item at its startSeconds |
+
+### pair.test.ts
+
+Owner: ?. 14 tests: A 14.
+
+| line | cat | test |
+|---|---|---|
+| 58 | A ✓ | pairs (OME-1672) › without pairs on the layout, pair is pairs_off and nothing is relayed |
+| 65 | A ✓ | pairs (OME-1672) › an invite is relayed as pair-invited to the whole room, sender included |
+| 71 | A ✓ | pairs (OME-1672) › a match stands the inviter up, teleports them behind the sender, then paired |
+| 83 | A ✓ | pairs (OME-1672) › a floor-sitting inviter gets floor-sat false first |
+| 96 | A ✓ | pairs (OME-1672) › with the cell behind blocked, the nearest free neighbour (east, south, west, north) is used |
+| 107 | A ✓ | pairs (OME-1672) › a sender on their standing spot is stood on the door cell first, then the inviter goes beside them |
+| 117 | A ✓ | pairs (OME-1672) › a seated sender is stood up onto the door cell first |
+| 129 | A ✓ | pairs (OME-1672) › with no free cell beside the sender, the sender gets bad_cell and the invite stays |
+| 142 | A ✓ | pairs (OME-1672) › an invite lapses after PAIR_INVITE_TTL_MS: the late sender's own invite is made instead |
+| 153 | A ✓ | pairs (OME-1672) › walking cancels the walker's invite |
+| 163 | A ✓ | pairs (OME-1672) › a second invite replaces the first |
+| 173 | A ✓ | pairs (OME-1672) › the old pose of a replaced invite no longer matches |
+| 183 | A ✓ | pairs (OME-1672) › the same pose never matches |
+| 192 | A ✓ | pairs (OME-1672) › a member cannot pair with themselves |
 
 ### persistence.test.ts
 

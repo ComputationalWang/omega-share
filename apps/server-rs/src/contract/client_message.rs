@@ -12,7 +12,7 @@ use super::ids::{InviteKey, MemberId, OwnerToken, PollId, QueueItemId, ResumeTok
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
 use super::room::{
-    Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, PollOptionIndex, QueueIndex, SeatIndex, Tint,
+    Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, PieceIndex, PollOptionIndex, QueueIndex, SeatIndex, Tint,
 };
 use super::state::{PairPose, ReactionKind};
 use super::text::{ChatText, Nickname, PollOption, PollQuestion, RoomTitle};
@@ -130,6 +130,9 @@ pub enum ClientMessage {
     FloorSit {
         on: bool,
     },
+    Lie {
+        piece: Option<PieceIndex>,
+    },
     Pair {
         pose: PairPose,
     },
@@ -222,6 +225,7 @@ impl ClientMessage {
             Self::SetAccessory { .. } => "set-accessory",
             Self::SetHair { .. } => "set-hair",
             Self::FloorSit { .. } => "floor-sit",
+            Self::Lie { .. } => "lie",
             Self::Pair { .. } => "pair",
             Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
@@ -380,6 +384,14 @@ struct TypingW {
 #[serde(deny_unknown_fields)]
 struct FloorSitW {
     on: bool,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct LieW {
+    /// Required; `null` gets up.
+    #[serde(deserialize_with = "Option::deserialize")]
+    piece: Option<PieceIndex>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -546,6 +558,8 @@ enum Wire {
     SetHair(SetHairW),
     #[serde(rename = "floor-sit")]
     FloorSit(FloorSitW),
+    #[serde(rename = "lie")]
+    Lie(LieW),
     #[serde(rename = "pair")]
     Pair(PairW),
     #[serde(rename = "typing")]
@@ -604,6 +618,7 @@ impl Validate for Wire {
             Self::SetAccessory(m) => m.validate(),
             Self::SetHair(m) => m.validate(),
             Self::FloorSit(m) => m.validate(),
+            Self::Lie(m) => m.validate(),
             Self::Pair(m) => m.validate(),
             Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
@@ -658,6 +673,7 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
         Wire::SetHair(m) => ClientMessage::SetHair { hair: m.hair },
         Wire::FloorSit(m) => ClientMessage::FloorSit { on: m.on },
+        Wire::Lie(m) => ClientMessage::Lie { piece: m.piece },
         Wire::Pair(m) => ClientMessage::Pair { pose: m.pose },
         Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
@@ -774,6 +790,8 @@ mod tests {
             json!({"type":"emote","kind":"dance"}),
             json!({"type":"pair","pose":"thrust"}),
             json!({"type":"pair","pose":"bendover"}),
+            json!({"type":"lie","piece":31}),
+            json!({"type":"lie","piece":null}),
             json!({"type":"kick","memberId":"m2"}),
             json!({"type":"mute","memberId":"m2","muted":false}),
             json!({"type":"control-policy","policy":"owner"}),

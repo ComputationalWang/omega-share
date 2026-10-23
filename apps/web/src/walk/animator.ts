@@ -3,10 +3,12 @@
 // until everyone has arrived. At rest, one timer to the next breathe change on a 400 ms clock. Each timer then asks
 // for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
 // timers on the one-shot's own frame times: a gesture (wave, cheer, yawn) swaps the avatar's frames, a sticker is drawn
-// above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock.
+// above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock; a conga
+// member (OME-1690) walks in it.
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
-import type { MemberId } from "@omega/shared";
+import type { LieStyle, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
+import { LIE_MS, lieKeys } from "./lie";
 import { PAIR_MS, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
@@ -25,6 +27,8 @@ const SPIN: readonly number[] = [0, 1, 3, 2];
 export interface AnimatedAvatar {
   readonly id: MemberId;
   readonly avatar: number;
+  /** Lying on a piece (OME-1691): drawn in the lying sheet's frames, facing as the piece does, once they've arrived. */
+  readonly lie?: LieStyle;
 }
 
 export interface AnimatorOptions {
@@ -66,6 +70,8 @@ export interface Animator {
   emote(id: MemberId, kind: AvatarEmote): void;
   /** The dank-dungeon pair (OME-1672): `thruster` and `bender` play their poses for PAIR_MS, then go back to idle. Nothing under reduced motion. */
   pair(thruster: MemberId, bender: MemberId): void;
+  /** Who's in the /conga line (OME-1690): while they walk, they dance. Nothing under reduced motion. */
+  conga(ids: readonly MemberId[]): void;
   /** A prop started walking (OME-1520): draw on the next frame and keep going while it walks. */
   wake(): void;
   /** Full screen hides the room (OME-597): paused, nothing is drawn or scheduled; on resume one frame draws everyone now. */
@@ -96,6 +102,8 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let dancing = false;
   /** Set by drawAll: a prop (the cat, OME-1520) walked in it; same clock. */
   let propWalking = false;
+  /** The /conga line (OME-1690): at most 12, so `includes` per walker per frame costs nothing and allocates nothing. */
+  let congaIds: readonly MemberId[] = [];
 
   function playOf(id: MemberId) {
     let play = plays.get(id);
@@ -142,6 +150,13 @@ export function createAnimator(o: AnimatorOptions): Animator {
     for (const a of list) {
       if (!o.walks.sample(a.id, now, pose)) continue;
       let frame = frameKey(a.avatar, pose, still);
+      if (pose.walking && frames !== null && !still && congaIds.includes(a.id)) {
+        // The dance's turn on the walkers' clock alone: anchored on the travel direction, a corner would turn it back. The step stays the walk's own.
+        const smooth = o.smooth();
+        const k = Math.floor(now / (smooth ? SMOOTH_FRAME_MS : WALK_FRAME_MS));
+        const turn = Math.floor(k / (smooth ? SMOOTH_FRAMES : WALK_FRAMES)) % SPIN.length;
+        frame = frames.walk8[a.avatar]?.[SPIN[turn] ?? 0]?.[pose.step] ?? frame;
+      }
       let sticker: string | null = null;
       let drawn = pose;
       const play = plays.get(a.id);
@@ -201,8 +216,15 @@ export function createAnimator(o: AnimatorOptions): Animator {
           }
         }
       }
+      // Lying (OME-1691): their own lie/curl frames once arrived, a 2-frame breath on the shared clock; the sheet is lazy, room-view.ts draws nothing new until it is in.
+      const lie = a.lie === undefined || pose.walking ? undefined : lieKeys(a.lie, a.avatar, pose.dir);
+      if (lie !== undefined) frame = lie[still ? 0 : cycleFrame(LIE_MS, pose.restMs).index] ?? lie[0];
       o.draw(a.id, a.avatar, drawn, frame);
       o.drawEmote(a.id, sticker, pose.x, pose.y - (pose.sitting ? EMOTE_LIFT.sit : EMOTE_LIFT.idle));
+      if (lie !== undefined && !still) {
+        next = Math.min(next, cycleFrame(LIE_MS, pose.restMs).nextIn);
+        continue;
+      }
       if (pose.walking || still || frames === null) continue;
       const cycle = (pose.sitting ? frames.rest[a.avatar]?.sit : frames.rest[a.avatar]?.idle)?.[DIRS.indexOf(pose.dir)];
       if (cycle !== undefined) next = Math.min(next, cycleFrame(cycle.ms, pose.restMs).nextIn);
@@ -301,6 +323,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
         play.danceAt = null;
         play.gesture = null;
       }
+      requestFrame();
+    },
+    conga(ids) {
+      congaIds = ids;
       requestFrame();
     },
     wake: requestFrame,

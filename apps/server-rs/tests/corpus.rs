@@ -13,7 +13,7 @@ use omega_server::contract::generic_embed::{
     AnyEmbed, AnyEmbedOptions, canonicalize_any_embed, canonicalize_generic_embed, normalize_hostname,
 };
 use omega_server::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken, parse_bearer};
-use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
+use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats, spec};
 use omega_server::contract::requests::{parse_create_room_request, parse_report_request, parse_share_request};
 use omega_server::contract::responses::{
     CreateRoomResponse, DeleteRoomResponse, QueueAddResponse, ReportResponse, RoomListResponse, ShareResponse,
@@ -78,6 +78,7 @@ const RUNNERS: &[&str] = &[
     "embed-policy-accept",
     "embed-policy-restore",
     "footprint-cells",
+    "furniture-lie",
     "hash-secret",
     "is-loopback-key",
     "layout-seats",
@@ -396,6 +397,13 @@ fn footprint_cells_agree() {
         load::<PieceIn, Vec<(u32, u32)>>(include_str!("../corpus/out/footprint-cells.json")),
         |p| Some(footprint_cells(&p.furniture())),
     );
+}
+
+#[test]
+fn furniture_lie_agrees() {
+    agree(load::<Kind, Value>(include_str!("../corpus/out/furniture-lie.json")), |k| {
+        Some(json!({ "lie": spec(*k).lie }))
+    });
 }
 
 #[test]
@@ -925,6 +933,8 @@ fn playback_control_agrees() {
             url: &i.control.url,
             playing: i.control.playing,
             position: i.control.position,
+            // The TS reference has no countdown (ADR 0056: Rust only).
+            countdown: false,
         };
         let next = apply_control(i.state.as_ref(), i.embed.as_ref(), &c, &i.by, i.now)?;
         serde_json::to_value(next).ok()

@@ -20,7 +20,7 @@ use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::{RoomCell, RoomInner};
-use crate::room::{FloorSitResult, PairResult, SitResult, WalkResult};
+use crate::room::{FloorSitResult, LieResult, PairResult, SitResult, WalkResult};
 use crate::secrets;
 use std::sync::Arc;
 
@@ -186,7 +186,9 @@ fn admit_type(
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
         ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // A floor sit is a step in place: the walk bucket, dropped silently over it (OME-1499).
-        ClientMessage::FloorSit { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
+        ClientMessage::FloorSit { .. } | ClientMessage::Lie { .. } => {
+            owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none()
+        }
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
         ClientMessage::Leave {}
         | ClientMessage::Ping { .. }
@@ -424,12 +426,11 @@ fn handle(
         }
         ClientMessage::Vote { poll_id, option } => poll::vote(inner, conn.id, member, &poll_id, option),
         ClientMessage::PollClose { poll_id } => poll::close_by(inner, conn.id, member, owner, &poll_id),
-        // `countdown` lands with OME-1634.
         ClientMessage::Control {
             url,
             playing,
             position,
-            countdown: _,
+            countdown,
         } => {
             if inner.room.control_policy() == ControlPolicy::Owner && !owner {
                 send_error(
@@ -444,6 +445,7 @@ fn handle(
                 url: url.as_str(),
                 playing,
                 position: position.get(),
+                countdown: countdown.unwrap_or(false),
             };
             let Some(playback) = inner.room.control(member, &control, app.wall()) else {
                 send_error(inner, conn.id, ErrorCode::NoEmbed, "that video is not playing here");
@@ -477,6 +479,29 @@ fn handle(
             );
         }
         ClientMessage::Pair { pose } => pair(app, inner, conn, member, pose),
+        ClientMessage::Lie { piece } => match inner.room.lie(member, piece) {
+            LieResult::BadCell => send_error(inner, conn.id, ErrorCode::BadCell, "you can't lie down there"),
+            LieResult::SeatTaken => send_error(inner, conn.id, ErrorCode::SeatTaken, "seat is taken"),
+            LieResult::Unchanged => {}
+            LieResult::Changed { left_seat } => {
+                if left_seat {
+                    publish_msg(
+                        inner,
+                        &ServerMessage::SeatChanged {
+                            member_id: member.clone(),
+                            seat: None,
+                        },
+                    );
+                }
+                publish_msg(
+                    inner,
+                    &ServerMessage::Lay {
+                        member_id: member.clone(),
+                        piece,
+                    },
+                );
+            }
+        },
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
             moderate(app, inner, conn, member, owner, msg);
         }

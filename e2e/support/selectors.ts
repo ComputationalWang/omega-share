@@ -16,6 +16,8 @@ export const site = {
   joinButton: id("join-button"),
   room: id("room"),
   seat: id("seat"),
+  // Lying down (OME-1691): one key per sofa, couch or cat bed, `data-lie` its index in the layout.
+  lieKey: id("lie-key"),
   chatInput: id("chat-input"),
   chatMessage: id("chat-message"),
   // The chat log (OME-594): capped, role=log, one <li> per line.
@@ -26,8 +28,8 @@ export const site = {
   tv: id("tv"),
   roomWindow: id("room-window"),
   // Movie night (OME-1628, OME-1629): QA's heap row (perf/heap-movie.perf.ts) looks for these.
-  momentsStrip: id("moments-strip"),
-  recapCard: id("recap-card"),
+  momentsStrip: id("moments"),
+  recapCard: id("recap"),
   // Full screen (OME-597): our wrapper (the full-screen element), its enter/exit key, the chat strip and its collapse key.
   fsRoot: id("fs-root"),
   fullscreenToggle: id("fullscreen-toggle"),
@@ -90,6 +92,8 @@ export const site = {
   roomNotice: id("room-notice"),
   // Set (e) playback chrome (OME-89).
   playToggle: id("play-toggle"),
+  // The shared 3-2-1 (OME-1634).
+  countdown: id("countdown"),
   seek: id("seek"),
   timeCurrent: id("time-current"),
   timeDuration: id("time-duration"),

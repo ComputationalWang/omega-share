@@ -3,6 +3,7 @@
 // action; each client stamps its own sample with wall-clock time, which the server shares on localhost.
 // Each test has a room of its own (OME-341), so the suite runs alongside the rest, its tests in parallel.
 import { expect, test } from "./support/csp";
+import { COUNTDOWN_MS } from "@omega/shared";
 import type { Page, TestInfo } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
 import { VIDEO_ID } from "./support/network";
@@ -72,7 +73,11 @@ test.describe("M1b sync, 8 clients", () => {
       await expect(c.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(`${a.nickname} paused`);
       await expect(c.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
     }
-    await step("play", () => a.page.locator(site.playToggle).click(), (playing) => {
+    // A play from paused is a shared 3-2-1 (OME-1634): the room starts COUNTDOWN_MS after the press.
+    await step("play", async () => {
+      await a.page.locator(site.playToggle).click();
+      await a.page.waitForTimeout(COUNTDOWN_MS);
+    }, (playing) => {
       expect(playing).toBe(true);
     });
     for (const c of clients) expect(await fakeState(c.page)).toBe(PLAYING);

@@ -1,6 +1,7 @@
 // OME-768 (M9 W2): the first-visit hint (since OME-1587 a three-chip tour), the "?" help dialog and "Room not found", on the real page against the real server.
 // What the hint and the dialog say, their focus rules and the not-found words are unit tests (apps/web/test/help-*.test.ts,
-// not-found.test.ts); this spec checks what only a browser can: placement (a chip never covers the composer), once
+// not-found.test.ts); this spec checks what only a browser can: placement (a chip never covers the composer, nor a
+// video on the TV), once
 // per browser, Show tips again, the real keys, no canvas redraw from opening help, and the server's answer for a bad id.
 import { devices, type BrowserContextOptions, type Locator, type Page } from "@playwright/test";
 import * as v from "valibot";
@@ -8,6 +9,7 @@ import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { joinForToken, postShare } from "./support/share";
 import { site } from "./support/selectors";
 import type { RoomName } from "./support/test-rooms";
 
@@ -116,6 +118,37 @@ test("first visit: three chips, a status each, beside the floor, the message fie
   await page.locator(site.hintSkip).click();
   await expect(hint).toBeHidden();
 });
+
+// OME-1778: Twitch's player doesn't start while anything covers it, so with a video on the TV no chip may sit on the TV
+// (an empty TV is fine: that's where OME-1601 put the floor chip on a phone). The a11y sweep's viewports.
+for (const [name, options] of [
+  ["tvw", { viewport: { width: 1280, height: 800 } }],
+  ["tvp", { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } }],
+  ["tvl", { ...devices["Pixel 7"], viewport: { width: 844, height: 390 } }],
+  ["tvn", { viewport: { width: 320, height: 640 } }],
+] as const) {
+  const { width, height } = options.viewport;
+  test(`${String(width)}×${String(height)}: with a video on the TV, no chip covers the TV, on any step`, async ({ browser, request }) => {
+    const room = testRoom("m9-help", name);
+    const sharer = await joinForToken(room.id, `s${name}`);
+    try {
+      expect((await postShare(request, room.id, sharer.token, "https://youtu.be/aqz-KE-bpKQ")).status()).toBe(200);
+    } finally {
+      sharer.close();
+    }
+    const page = await join(name, browser, false, options);
+    await expect(page.locator(site.sharedVideo)).toBeVisible();
+    const hint = page.locator(site.firstHint);
+    await expect(hint).toBeAttached();
+    for (let i = 0; i < 3; i += 1) {
+      await page.waitForTimeout(300);
+      // Out of sight (nowhere off the TV) is allowed; on the TV never.
+      if (await hint.isVisible()) expect(await overlaps(hint, page.locator(site.tv)), `step ${String(i)}`).toBe(false);
+      await page.locator(site.hintNext).dispatchEvent("click");
+    }
+    await expect(hint).toBeHidden();
+  });
+}
 
 test("the hint goes with Esc", async ({ browser }) => {
   const page = await join("hintesc", browser);

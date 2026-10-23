@@ -4,7 +4,7 @@
 // on each client (perf/spread.ts arrivalSpread). Runs in the `e2e-sync` project; every case shares into a room of its own (OME-341).
 import { expect, test } from "./support/csp";
 import type { BrowserContext, TestInfo } from "@playwright/test";
-import { parseServerMessage } from "@omega/shared";
+import { COUNTDOWN_MS, parseServerMessage } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
 import { FAKE_VIMEO_SDK } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
@@ -94,7 +94,11 @@ test.describe("M2 provider sync, 4 clients", () => {
         for (const cl of clients) expect(await fakePlaying(cl.page, c.provider), cl.nickname).toBe(playing);
       };
       await step("pause", () => a.page.locator(site.playToggle).click(), false);
-      await step("play", () => a.page.locator(site.playToggle).click(), true);
+      // A play from paused is a shared 3-2-1 (OME-1634): the room starts COUNTDOWN_MS after the press.
+      await step("play", async () => {
+        await a.page.locator(site.playToggle).click();
+        await a.page.waitForTimeout(COUNTDOWN_MS);
+      }, true);
       await step("seek", () => a.page.locator(site.seek).fill("120"), true, 120);
       if (rate) {
         // The probe was accepted, so the adapter may nudge: calls beyond the probe are allowed, never required.

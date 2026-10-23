@@ -393,6 +393,53 @@ describe("emotes", () => {
     expect(at.length).toBeLessThanOrEqual(8);
   });
 
+  // OME-1690: a conga member walks in the dance: its own steps, the facing turning once per cycle; off the line, a plain walk.
+  /** a walks a few tiles: per walking draw, the facing its frame shows and the one it travels in. */
+  const congaWalk = (s: ReturnType<typeof setup>, from: number, to: [number, number] = [4, 4]): [string, string][] => {
+    s.walks.place([standAt("a", ...to), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], from);
+    s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+    run(s, from, from + 10000);
+    return s.draws.filter((d) => d.id === "a" && d.pose.walking).map((d) => [/^walk8?\/juno\/(\w+)\//.exec(d.frame ?? "")?.[1] ?? "", d.pose.dir]);
+  };
+
+  test("a conga member walking plays the dance cycle: walk steps, the facing turning off the way it travels", () => {
+    const s = ready();
+    s.anim.conga([id("a")]);
+    const walked = congaWalk(s, 1000);
+    expect(walked.every(([shown]) => shown !== "")).toBe(true);
+    expect(new Set(walked.map(([shown]) => shown)).size).toBe(4);
+    expect(walked.filter(([shown, dir]) => shown !== dir).length).toBeGreaterThan(walked.length / 2);
+    expect(s.draws.filter((d) => d.id === "a").at(-1)?.pose.walking).toBe(false);
+  });
+
+  test("on a route that turns corners the conga facing still turns one quarter per cycle, never back", () => {
+    const s = ready();
+    s.anim.conga([id("a")]);
+    const walked = congaWalk(s, 1000, [0, 0]);
+    const runs = (xs: string[]) => xs.filter((x, i) => x !== xs[i - 1]);
+    // The route turns corners (w, n, w, n): each turn changes the travel direction.
+    expect(runs(walked.map(([, dir]) => dir)).length).toBeGreaterThanOrEqual(4);
+    const shown = runs(walked.map(([f]) => f));
+    expect(shown.length).toBeGreaterThanOrEqual(3);
+    const order = ["se", "sw", "nw", "ne"];
+    for (let i = 1; i < shown.length; i++) expect(order[(order.indexOf(shown[i - 1] ?? "") + 1) % 4]).toBe(shown[i] ?? "");
+  });
+
+  test("leaving the conga line goes back to the plain walk", () => {
+    const s = ready();
+    s.anim.conga([id("a")]);
+    s.anim.conga([]);
+    const walked = congaWalk(s, 1000);
+    expect(walked.length).toBeGreaterThan(0);
+    expect(walked.every(([shown, dir]) => shown === dir)).toBe(true);
+  });
+
+  test("under reduced motion a conga member walks plainly", () => {
+    const s = ready({ reduced: true });
+    s.anim.conga([id("a")]);
+    expect(congaWalk(s, 1000).every(([shown, dir]) => shown === dir)).toBe(true);
+  });
+
   test("25 dancing together share one render per 150 ms step, like 25 walkers", () => {
     const s = setup();
     s.anim.setFrames(frames);
@@ -582,6 +629,48 @@ describe("emotes", () => {
       s.anim.pair(id("a"), id("b"));
       s.frame(0);
       expect(s.draws.some((d) => /^(thrust|bendover)\//.test(d.frame ?? ""))).toBe(false);
+    });
+  });
+
+  // OME-1691: lying on a piece (assets/avatars/lying.json): the avatar's own lie/curl frames in the piece's facing, a 2-frame breath.
+  describe("lying", () => {
+    function lying(style: "lie" | "curl", dir: "se" | "ne") {
+      const s = setup();
+      s.anim.setFrames(frames);
+      s.walks.place([{ id: id("a"), at: cellCenter(2, 5), z: 7, seatFacing: dir }, standAt("b", 5, 9)], 0);
+      s.anim.set([{ id: id("a"), avatar: 1, lie: style }, { id: id("b"), avatar: 0 }]);
+      s.frame(0);
+      return s;
+    }
+    const lieFrames = (s: ReturnType<typeof setup>): (string | null)[] => s.draws.filter((d) => d.id === "a").map((d) => d.frame);
+
+    test("a lier draws the lie frames in the piece's facing, breathing between frame 0 and 1 on the shared clock", () => {
+      const s = lying("lie", "ne");
+      run(s, 0, 6000);
+      const seen = new Set(lieFrames(s));
+      expect([...seen].sort()).toEqual(["lie/pip/ne/0", "lie/pip/ne/1"]);
+      expect(s.draws.filter((d) => d.id === "a").every((d) => d.pose.z === 7)).toBe(true);
+    });
+
+    test("curling up in the cat bed draws the curl frames", () => {
+      const s = lying("curl", "se");
+      run(s, 0, 6000);
+      expect(new Set(lieFrames(s))).toEqual(new Set(["curl/pip/se/0", "curl/pip/se/1"]));
+    });
+
+    test("someone standing beside them is unaffected", () => {
+      const s = lying("lie", "ne");
+      expect(s.draws.filter((d) => d.id === "b").every((d) => !/^(lie|curl)\//.test(d.frame ?? ""))).toBe(true);
+    });
+
+    test("under reduced motion they lie on frame 0 and no breath timer runs", () => {
+      const s = setup({ reduced: true });
+      s.anim.setFrames(frames);
+      s.walks.place([{ id: id("a"), at: cellCenter(2, 5), z: 7, seatFacing: "se" }], 0);
+      s.anim.set([{ id: id("a"), avatar: 1, lie: "lie" }]);
+      s.frame(0);
+      expect(lieFrames(s).at(-1)).toBe("lie/pip/se/0");
+      expect(s.timers.length).toBe(0);
     });
   });
 });
