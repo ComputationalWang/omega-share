@@ -395,10 +395,10 @@ describe("emotes", () => {
 
   // OME-1690: a conga member walks in the dance: its own steps, the facing turning once per cycle; off the line, a plain walk.
   /** a walks a few tiles: per walking draw, the facing its frame shows and the one it travels in. */
-  const congaWalk = (s: ReturnType<typeof setup>, from: number): [string, string][] => {
-    s.walks.place([standAt("a", 4, 4), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], from);
+  const congaWalk = (s: ReturnType<typeof setup>, from: number, to: [number, number] = [4, 4]): [string, string][] => {
+    s.walks.place([standAt("a", ...to), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], from);
     s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
-    run(s, from, from + 5000);
+    run(s, from, from + 10000);
     return s.draws.filter((d) => d.id === "a" && d.pose.walking).map((d) => [/^walk8?\/juno\/(\w+)\//.exec(d.frame ?? "")?.[1] ?? "", d.pose.dir]);
   };
 
@@ -410,6 +410,19 @@ describe("emotes", () => {
     expect(new Set(walked.map(([shown]) => shown)).size).toBe(4);
     expect(walked.filter(([shown, dir]) => shown !== dir).length).toBeGreaterThan(walked.length / 2);
     expect(s.draws.filter((d) => d.id === "a").at(-1)?.pose.walking).toBe(false);
+  });
+
+  test("on a route that turns corners the conga facing still turns one quarter per cycle, never back", () => {
+    const s = ready();
+    s.anim.conga([id("a")]);
+    const walked = congaWalk(s, 1000, [0, 0]);
+    const runs = (xs: string[]) => xs.filter((x, i) => x !== xs[i - 1]);
+    // The route turns corners (w, n, w, n): each turn changes the travel direction.
+    expect(runs(walked.map(([, dir]) => dir)).length).toBeGreaterThanOrEqual(4);
+    const shown = runs(walked.map(([f]) => f));
+    expect(shown.length).toBeGreaterThanOrEqual(3);
+    const order = ["se", "sw", "nw", "ne"];
+    for (let i = 1; i < shown.length; i++) expect(order[(order.indexOf(shown[i - 1] ?? "") + 1) % 4]).toBe(shown[i] ?? "");
   });
 
   test("leaving the conga line goes back to the plain walk", () => {
