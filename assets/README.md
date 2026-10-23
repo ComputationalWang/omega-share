@@ -1430,6 +1430,37 @@ frames that were missing), under the 400 KB cap of ADR 0056. Lazy: `furniture-v6
 `.json` gz, `avatars/dungeon.png` + `.json` gz, `edit.png` / `edit.json` gz for 6 thumbnails. **Eager: +154 B**, the six `.ui-thumb-*`
 rules in `reference.css` (gz), the same per-piece cost every catalogue batch has paid.
 
+## Lying pose (`avatars/lying.json`, OME-1687, lazy)
+
+Someone stretched out on a sofa, or curled up in the cat's bed while the cat is out walking. Built from the set (a) idle frame,
+so hair, clothes, shading and outline are the avatar's own (fully clothed): the body turns 90° in the picture plane (lying on its
+side, front to the camera, **eyes shut**), the torso and legs shear onto the 2:1 axis the seats run along, and the head stays a
+rigid block lying flat on the armrest. Previews: `preview/lying.html` (every facing on each piece, a room at 1×/2×, the strip).
+
+- **Keys:** `lie/<avatar>/<se|sw|ne|nw>/<0|1>` (the sofas, the same four facings as `sit`; se/sw show the face, ne/nw the back
+  over the backrest, like a sitter from behind) and `curl/<avatar>/<se|sw>/<0|1>` (the cat bed, its two facings; the shins tuck in
+  so the body fits the cushion). **Animations:** `lie/<avatar>/<dir>` and `curl/<avatar>/<dir>`: a 2-frame breath, frame 1 lifts the
+  flank 1 px, 1 400 ms then 1 000 ms (`meta.omega.anims`), the same clock as the standing breathe.
+- **Cell 50×34**, wider than the 32×64 avatar cell because a lying body runs along the floor diagonal. **Floor point (36, 26)**
+  (se/nw; sw/ne are mirrored, so (13, 26)): the point on the cushion under the hips. Each frame's `anchor` already holds it.
+  Mirrored facings are re-shaded in the sheet: play each facing's own frames, never `scale.x = -1`.
+- **Where to draw it** (`meta.omega.pieces`): put the frame's anchor at the piece's anchor (its anchor cell's centre, where its
+  `back` frame is drawn) plus this offset in screen px (1×), lift included. Draw it between the piece's `back` and `front`
+  layers, sorted at the piece's sort point (`sortByDir`), exactly like a sitter. One lier takes the whole piece (both seats).
+
+  | piece | style | under it | se | sw | ne | nw |
+  |---|---|---|---|---|---|---|
+  | `sofa` (club sofa) | `lie` | `…/<dir>/back` + `front` | (−4, 4) | (4, 4) | (4, 1) | (−4, 1) |
+  | `couch` (lounge couch) | `lie` | `…/<dir>/back` + `front` | (−4, 4) | (4, 4) | (4, 1) | (−4, 1) |
+  | `cat` (cat bed) | `curl` | `furniture/cat/<colour>/bed/<dir>` (the empty bed) | (12, −2) | (−12, −2) | n/a | n/a |
+
+- **Headwear:** each avatar's own headwear is drawn into the frames (Pip's beanie and Mo's bucket hat, turned sideways), so
+  show the frame as is. There are no lying frames in the theme or accessory hat overlays: hide those overlays while lying. **Tints and hair colours:** `lying.png` uses the same
+  PLTE as `avatars.png` (a test guards it), so apply the `tints.json` / `hairs.json` slots to it for that avatar's frames. It is not
+  added to those tables' `sheets` lists, so the eager files stay byte-for-byte frozen.
+- **Bytes:** `lying.png` 6 457 + `lying.json` 1 308 gz (level 9, as `build.ts` measures) = **7 765 B** of the 12 KB (12 288 B) allowance, all lazy; no other shipped
+  file changes. Measured art total (after merging main, OME-1670/1631): **367 992 B of 409 600**.
+
 ## Budget
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
