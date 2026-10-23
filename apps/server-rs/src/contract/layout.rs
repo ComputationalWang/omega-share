@@ -335,8 +335,10 @@ pub fn layout_seats(furniture: &[Furniture]) -> Vec<Seat> {
 
 /// The seat indices piece `piece` gives (OME-1691): empty for a piece without seats, `None` past the last piece.
 pub fn piece_seats(furniture: &[Furniture], piece: usize) -> Option<std::ops::Range<usize>> {
-    let _ = (furniture, piece);
-    Some(0..0)
+    let f = furniture.get(piece)?;
+    let cells = |f: &Furniture| if spec(f.kind).seats { footprint_cells(f).len() } else { 0 };
+    let before = furniture.iter().take(piece).fold(0usize, |n, f| n.saturating_add(cells(f)));
+    Some(before..before.saturating_add(cells(f)))
 }
 
 /// Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se.

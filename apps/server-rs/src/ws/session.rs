@@ -133,6 +133,9 @@ fn end(app: &App, inner: &mut RoomInner, member: &MemberId) -> Option<Session> {
         inner.subscribers.unsubscribe(conn);
     }
     let wall = app.wall();
+    if !inner.closed {
+        lay_null(inner, member);
+    }
     inner.room.leave(member, wall);
     if !inner.closed {
         member_left(inner, member);
@@ -232,14 +235,28 @@ pub fn closed(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, conn:
 }
 
 /// Explicit `leave`: no grace, both tokens die now. The socket keeps its buckets, the queue's included (ws.ts).
-/// Gets the member up off the floor and tells the room, if they sat there (OME-1499): before a walk, a sit or a layout move is relayed.
+/// Gets the member up off the floor or a piece and tells the room, if they were there (OME-1499, OME-1691): before a walk, a sit or a layout move is relayed.
 pub fn get_up(inner: &mut RoomInner, member: &MemberId) {
+    lay_null(inner, member);
     if inner.room.set_floor_sit(member, false) == FloorSitResult::Changed {
         publish_msg(
             inner,
             &ServerMessage::FloorSat {
                 member_id: member.clone(),
                 on: false,
+            },
+        );
+    }
+}
+
+/// `lay null` if `member` was lying down.
+pub fn lay_null(inner: &mut RoomInner, member: &MemberId) {
+    if inner.room.clear_lying(member) {
+        publish_msg(
+            inner,
+            &ServerMessage::Lay {
+                member_id: member.clone(),
+                piece: None,
             },
         );
     }
