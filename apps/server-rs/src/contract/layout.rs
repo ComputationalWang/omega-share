@@ -1269,7 +1269,6 @@ mod tests {
         assert!(!default_layout().has_door_to(&id("lobby")));
     }
 
-    // packages/shared/test/preset-contract.test.ts:5
     #[test]
     fn piece_seats_are_the_seat_indices_a_piece_gives() {
         let f = |kind, col, row, facing| Furniture::new(kind, col, row, facing);
@@ -1286,6 +1285,7 @@ mod tests {
         assert_eq!(piece_seats(&furniture, 4), None);
     }
 
+    // packages/shared/test/preset-contract.test.ts:5
     #[test]
     fn preset_ids() {
         let ids: Vec<&str> = ROOM_PRESET_IDS.iter().map(|i| i.as_str()).collect();

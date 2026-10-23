@@ -1,7 +1,7 @@
 // The lying pose's frame keys and where it sits on a piece (OME-1691, assets/avatars/lying.json): `lie/<avatar>/<dir>/<0|1>`
 // on a sofa or couch, `curl/<avatar>/<se|sw>/<0|1>` in the cat bed. Built once so a frame draw allocates nothing.
 // No JSON imports: e2e specs load animator → this under Node (walk-lie.test.ts pins every table to lying.json).
-import { FURNITURE, type FurnitureKind, type LieStyle, type RoomLayout } from "@omega/shared";
+import { FURNITURE, footprintCells, type FurnitureKind, type LieStyle, type RoomLayout } from "@omega/shared";
 import type { Point } from "../layout";
 import { AVATAR_IDS } from "./avatar-ids";
 import type { Dir } from "./walks";
@@ -35,4 +35,15 @@ export const isLieFrame = (frame: string): boolean => frame.startsWith("lie/") |
 export const lieStyleOf = (layout: RoomLayout, piece: number): LieStyle | undefined => {
   const f = layout.furniture[piece];
   return f === undefined ? undefined : FURNITURE[f.kind].lie;
+};
+
+/** The seat indices layout piece `piece` gives, [first, end); the twin of server-rs `piece_seats` (seats count in layout order). */
+export const pieceSeats = (layout: RoomLayout, piece: number): readonly [number, number] => {
+  let first = 0;
+  for (let i = 0; i < piece && i < layout.furniture.length; i++) {
+    const f = layout.furniture[i];
+    if (f !== undefined && FURNITURE[f.kind].seats) first += footprintCells(f).length;
+  }
+  const f = layout.furniture[piece];
+  return [first, f !== undefined && FURNITURE[f.kind].seats ? first + footprintCells(f).length : first];
 };

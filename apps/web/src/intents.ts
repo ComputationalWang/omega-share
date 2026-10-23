@@ -2,7 +2,7 @@ import * as v from "valibot";
 import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type MemberId, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
-import { lieStyleOf } from "./walk/lie";
+import { lieStyleOf, pieceSeats } from "./walk/lie";
 import { TILE_MS } from "./walk/walks";
 import { cellOf as cellIndex, colOf, rowOf, walkGrid, walkOverCell } from "./walk/path";
 
@@ -12,12 +12,22 @@ export interface SeatView {
   readonly isSelf: boolean;
 }
 
+/** Someone else lying on the piece that gives seat `seat`: the server holds its seats for them (OME-1691). */
+function lierOn(room: NonNullable<ViewState["room"]>, self: MemberId | null, seat: number): Member | null {
+  for (const m of room.members) {
+    if (m.lying === undefined || m.id === self) continue;
+    const [first, end] = pieceSeats(room.layout ?? DEFAULT_LAYOUT, m.lying);
+    if (seat >= first && seat < end) return m;
+  }
+  return null;
+}
+
 export function seatViews(state: Pick<ViewState, "room" | "self">): SeatView[] {
   const room = state.room;
   const views: SeatView[] = [];
   for (let index = 0; index < SEAT_COUNT; index++) {
     const id = room?.seats[index] ?? null;
-    const member = id === null ? null : (room?.members.find((m) => m.id === id) ?? null);
+    const member = room === null ? null : id === null ? lierOn(room, state.self, index) : (room.members.find((m) => m.id === id) ?? null);
     views.push({ index, member, isSelf: id !== null && id === state.self });
   }
   return views;
@@ -28,7 +38,7 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   if (state.status !== "open" || state.room === null) return null;
   if (!Number.isInteger(seat) || seat < 0 || seat >= SEAT_COUNT) return null;
   const occupant = state.room.seats[seat] ?? null;
-  if (occupant === null) return { type: "sit", seat };
+  if (occupant === null) return lierOn(state.room, state.self, seat) === null ? { type: "sit", seat } : null;
   return occupant === state.self ? { type: "sit", seat: null } : null;
 }
 
@@ -38,7 +48,11 @@ export function lieIntent(state: Pick<ViewState, "status" | "room" | "self">, pi
   if (state.status !== "open" || room === null || !Number.isInteger(piece)) return null;
   if (lieStyleOf(room.layout ?? DEFAULT_LAYOUT, piece) === undefined) return null;
   const lier = room.members.find((m) => m.lying === piece);
-  if (lier === undefined) return { type: "lie", piece };
+  if (lier === undefined) {
+    const [first, end] = pieceSeats(room.layout ?? DEFAULT_LAYOUT, piece);
+    for (let i = first; i < end; i++) if ((room.seats[i] ?? null) !== null && room.seats[i] !== state.self) return null;
+    return { type: "lie", piece };
+  }
   return lier.id === state.self ? { type: "lie", piece: null } : null;
 }
 

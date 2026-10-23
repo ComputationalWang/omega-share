@@ -313,7 +313,14 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // before a sit, walk or leave, and before a layout that drops their piece; the check below is for a client that missed it.
     case "lay": {
       const piece = msg.piece;
-      return withMember(state, msg.memberId, (m) => (piece === null ? withoutLying(m) : { ...m, lying: piece }));
+      // Lying drops the cell and floor sit, as the server does: getting up lands on the standing slot for everyone.
+      return withMember(state, msg.memberId, (m) => {
+        if (piece === null) return withoutLying(m);
+        const next = { ...m, lying: piece };
+        delete next.cell;
+        delete next.floorSit;
+        return next;
+      });
     }
     case "layout-changed":
       return withRoom(state, (room) => {
