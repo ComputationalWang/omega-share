@@ -212,23 +212,27 @@ pub const fn spec(kind: Kind) -> Spec {
     use Layer::{Floor, Object, Wall};
     match kind {
         Kind::Armchair => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Tv | Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1),
+        Kind::Tv => Spec::new(Object, FIXED, 1, 1),
+        Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1).variants(3),
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7).variants(3),
         Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4),
         Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
         Kind::Beanbag | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(4),
         Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
-        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
+        Kind::Arclamp => Spec::new(Object, CAMERA, 1, 1).variants(3),
+        Kind::Sidetable | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
             Spec::new(Object, CAMERA, 1, 1)
         }
-        Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
-        Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
+        Kind::Monstera => Spec::new(Object, CAMERA, 1, 1).variants(4),
+        Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).variants(3).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(4),
         Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(4),
         Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
-        Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Wallshelf => Spec::new(Wall, CAMERA, 0, 0).variants(3),
+        Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
         Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(4),
@@ -722,6 +726,26 @@ mod tests {
         ])
     }
 
+    // packages/shared/test/layout-contract.test.ts (OME-1688 colourways)
+    #[test]
+    fn lamps_plants_and_shelves_take_their_r2_colourways() {
+        for (kind, at, n) in [
+            ("lamp", p("lamp", 9, 0, "se"), 3),
+            ("plant", p("plant", 0, 9, "se"), 3),
+            ("arclamp", p("arclamp", 9, 0, "sw"), 3),
+            ("monstera", p("monstera", 0, 9, "se"), 4),
+            ("bookshelf", p("bookshelf", 3, 0, "sw"), 3),
+            ("wallshelf", p("wallshelf", 2, 0, "sw"), 3),
+        ] {
+            let mut last = at.clone();
+            last["variant"] = json!(n - 1);
+            let mut over = at;
+            over["variant"] = json!(n);
+            assert!(piece_accepts(&last), "{kind} variant {}", n - 1);
+            assert!(!piece_accepts(&over), "{kind} variant {n}");
+        }
+    }
+
     // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
     // packages/shared/test/pair-contract.test.ts (OME-1671)
     #[test]
@@ -1017,7 +1041,7 @@ mod tests {
             ("a cat facing the TV", p("cat", 0, 0, "ne")),
             ("a wall shelf off the wall", p("wallshelf", 3, 2, "sw")),
             ("a wall shelf on a window segment", p("wallshelf", 0, 6, "se")),
-            ("a second wall shelf colour", pv("wallshelf", 2, 0, "sw", 1)),
+            ("a fourth wall shelf colour", pv("wallshelf", 2, 0, "sw", 3)),
             ("a garland off the wall", p("garland", 1, 3, "se")),
             ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),

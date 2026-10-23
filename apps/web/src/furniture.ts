@@ -362,5 +362,9 @@ function pushRoomPiece(out: FurnitureSprite[], f: Furniture, a: Point): void {
     at(`armchair/${f.facing}/back`, "object", BACK_LAYER);
     at(`armchair/${f.facing}/front`, "object", FRONT_LAYER);
   } else if (f.kind === "tv") at("tv/0", "wall", BACK_LAYER);
-  else if (f.kind === "lamp" || f.kind === "plant") at(`${f.kind}/0`, "object", BACK_LAYER);
+  else if (f.kind === "lamp" || f.kind === "plant") {
+    const variant = f.variant ?? 0;
+    const key = `${f.kind}/0`;
+    at(recolourOf(f.kind, variant) === undefined ? key : recolourKey(f.kind, variant, key), "object", BACK_LAYER);
+  }
 }

@@ -189,7 +189,7 @@ describe("fits", () => {
   });
   test("a disallowed facing or variant does not fit", () => {
     expect(fits(L, { kind: "lamp", col: 8, row: 8, facing: "ne" })).toBe(false);
-    expect(fits(L, { kind: "lamp", col: 8, row: 8, facing: "se", variant: 1 })).toBe(false);
+    expect(fits(L, { kind: "lamp", col: 8, row: 8, facing: "se", variant: 3 })).toBe(false);
     expect(fits(L, { kind: "beanbag", col: 8, row: 8, facing: "se", variant: 1 })).toBe(true);
   });
   test("a piece whose footprint leaves the floor does not fit", () => {

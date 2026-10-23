@@ -58,6 +58,18 @@ describe("the scene draws a new colour from its recoloured copy", () => {
     expect(keysOf(scene).filter((k) => k.startsWith("floor/"))).toHaveLength(51);
   });
 
+  test("the room's lamp and plant draw from their copy (OME-1706)", () => {
+    const lit = v.parse(RoomLayoutSchema, {
+      furniture: [...NEW.furniture, { kind: "lamp", col: 9, row: 0, facing: "se", variant: 1 }, { kind: "plant", col: 0, row: 9, facing: "se", variant: 2 }],
+    });
+    const keys = keysOf(sceneOf(lit, [manifest, v2, v4], room));
+    expect(keys).toContain("recolour/lamp/1/lamp/0");
+    expect(keys).toContain("recolour/plant/2/plant/0");
+    expect(keys).not.toContain("lamp/0");
+    expect(keys).not.toContain("plant/0");
+    for (const k of ["lamp/0", "plant/0"]) expect(room.frames[k]).toBeDefined();
+  });
+
   test("a shipped colour is drawn as before", () => {
     expect(keysOf(scene)).toContain("furniture/sofa/navy/ne/back");
     const old = sceneOf({ furniture: NEW.furniture.map(({ kind, col, row, facing }) => ({ kind, col, row, facing })) }, [manifest, v2, v4], room);
@@ -110,7 +122,7 @@ describe("the editor offers every variant", () => {
     for (const kind of TRAY_TABS.flatMap((t) => t.kinds)) {
       if (FURNITURE[kind].variants > 1) expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
     }
-    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner", "frame", "garland", "pad"] as const) {
+    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner", "frame", "garland", "pad", "lamp", "plant", "arclamp", "monstera", "bookshelf", "wallshelf"] as const) {
       for (const c of coloursOf(kind)) expect(edit[`swatch/${c}`]).toBeDefined();
     }
   });

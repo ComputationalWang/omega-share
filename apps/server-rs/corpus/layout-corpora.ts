@@ -249,7 +249,7 @@ const rawInputs = (): RawInput[] => {
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":-0}'), rustRefuses: true },
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":0.0}'), rustRefuses: true },
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":0e5}'), rustRefuses: true },
-    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":1e0}') },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":1e0}'), rustRefuses: true },
     // Duplicate keys: TS keeps the last, Rust refuses.
     { text: `{"furniture":[],"furniture":[${tvText},${chairText.join(",")}]}`, rustRefuses: true },
     { text: `{"furniture":[${tvText},${chairText.join(",")}],"furniture":[]}`, rustRefuses: true },
