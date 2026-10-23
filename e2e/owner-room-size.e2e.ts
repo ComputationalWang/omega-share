@@ -267,3 +267,36 @@ test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag 
   await expect(host.locator(site.modMenu)).toBeVisible();
   expect(await exposedSmall(host)).toEqual([]);
 });
+
+// OME-1801 (audit OME-1797): with the editor open the room shrank to a thumbnail, and more the bigger the screen
+// (278×154 at 1280×800, 198×110 at 2560×1440), the Mood and Save rows below the fold.
+test("1280×800 to 2560×1440, editing: the room keeps 80 % of its size, never shrinks as the window grows, every editor control in view", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { id, ownerToken, inviteKey } = ownedRoom("roomedit");
+  const host = await open(browser, DESK, `${URLS.web}/r/${id}`, `host${String(test.info().retry)}`, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } }));
+  const size = async (): Promise<{ w: number; h: number }> => {
+    const b = await host.locator(site.roomWindow).boundingBox();
+    return { w: b?.width ?? 0, h: b?.height ?? 0 };
+  };
+  const editKey = host.locator(site.editRoom);
+  let last = 0;
+  for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080], [2560, 1440]] as const) {
+    const at = `${String(w)}×${String(h)}`;
+    await host.setViewportSize({ width: w, height: h });
+    if ((await editKey.getAttribute("aria-pressed")) === "true") await editKey.click();
+    await expect(host.locator(site.editorTray)).toHaveCount(0);
+    await expect.poll(async () => (await size()).w, { message: `${at} room laid out` }).toBeGreaterThan(0);
+    const rest = await size();
+    await editKey.click();
+    await expect(host.locator(site.editorTray)).toBeVisible();
+    await expect.poll(async () => (await size()).w / rest.w, { message: `${at} editing width / at rest (${String(rest.w)})` }).toBeGreaterThanOrEqual(0.8);
+    const editing = await size();
+    expect(editing.h / rest.h, `${at} editing height / at rest`).toBeGreaterThanOrEqual(0.8);
+    expect(editing.w, `${at} editing width vs the smaller window's`).toBeGreaterThanOrEqual(last);
+    last = editing.w;
+    // Nothing scrolls: each control is wholly in the viewport as laid out.
+    for (const sel of [site.editorTab, site.editorTray, site.editorRotate, site.editorRemove, site.editorMood, site.editorSave]) {
+      await expect(host.locator(sel).last(), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
+    }
+  }
+});
