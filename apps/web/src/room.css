@@ -420,6 +420,12 @@ body.room-is-wide { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); 
 .room-wide[data-chrome="2"] { --chrome: 2; }
 body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(480px + env(safe-area-inset-right, 0px)); }
 body.room-is-wide[data-chrome="2"] { --wide-side: calc(640px + env(safe-area-inset-right, 0px)); }
+/* From 1280 px the column is 360 px of 1280's chrome (OME-1804, design OME-1799 §2): at 320 the composer said "Press Enter to ch". */
+@media (min-width: 1280px) and (min-height: 501px) {
+  body.room-is-wide { --wide-side: calc(360px + env(safe-area-inset-right, 0px)); }
+  body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(540px + env(safe-area-inset-right, 0px)); }
+  body.room-is-wide[data-chrome="2"] { --wide-side: calc(720px + env(safe-area-inset-right, 0px)); }
+}
 .room-wide[data-chrome] > :not(.stage-wrap, .room-side, .hint-chip, dialog), .room-wide[data-chrome] > .room-side > * { zoom: var(--chrome); }
 /* The emote wheel is placed in viewport px (picker.ts) and is page chrome at 2× already: it keeps 1×. */
 .room-wide[data-chrome] .ui-wheel { zoom: calc(1 / var(--chrome)); }
@@ -466,6 +472,29 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-side > * { flex: none; margin: 0; }
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
+/* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
+ * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
+ * finger (44 px keys) the name gets a line of its own too. */
+.room-side .ui-qrow { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "src title title title" "src meta chip keys"; row-gap: var(--ui-px); }
+.ui-touch .room-side .ui-qrow { grid-template-areas: "src title title title" "src meta meta meta" "src . chip keys"; }
+.room-side .ui-qrow > .body { display: contents; }
+/* A shrunk list (a short window) scrolls its rows; it doesn't squash their lines into each other. */
+.room-side .ui-qlist { grid-auto-rows: max-content; }
+.room-side .ui-qrow > .ui-qsrc { grid-area: src; }
+.room-side .ui-qrow .title { grid-area: title; }
+.room-side .ui-qrow .meta { grid-area: meta; min-width: 0; overflow: hidden; }
+.room-side .ui-qrow > .ui-chip { grid-area: chip; }
+.room-side .ui-qrow > .queue-keys { grid-area: keys; }
+@media (min-height: 501px) {
+  /* The head keeps one line per word: no glyph (the card is named Up next), Play next now on a line of its own under it. */
+  .room-side .queue-head { flex-wrap: wrap; row-gap: 4px; white-space: nowrap; }
+  .room-side .queue-head > .ui-sprite { display: none; }
+  .room-side .queue-head > .queue-next { order: 1; flex: 1 1 100%; }
+  /* 800 px tall or less, that line is a 32 px key: a full queue's owner still sees a whole row at 1024×768 (OME-1320). */
+  @media (max-height: 800px) { .room-side .queue-head > .queue-next { min-height: calc(16 * var(--ui-px)); } }
+  /* The field gets the row: the link glyph and Add's icon go ("Paste a video link" showed 10 characters). */
+  .room-side .queue-form > .ui-sprite, .room-side .queue-form .ui-button > .ui-sprite { display: none; }
+}
 /* An open poll (QA OME-1460): beside the owner's invite row and bar at 1280×720 it pushed Close poll and the composer
  * below the fold. Up next gives way first (down to its head, its content scrolling), then the card, its options
  * scrolling between its question and Close; the log keeps three lines. */

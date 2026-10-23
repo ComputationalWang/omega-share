@@ -44,6 +44,7 @@ export const SPEC_ROOMS = {
   "m7-a11y": ["walkseat", "w1280", "w1920", "phone", "fs", "chatwin", "roomwin", "quality", "states", "gone", "log", "logone", "motion", "motionrm", "reduced", "send", "qreduced"],
   "m7-spoof": ["chat", "stage"],
   "wide-perf": ["frames"],
+  "side-column": ["l844", "t1024", "w1280", "w1440", "w1920", "w2560"],
   bubbles: ["renders", "stack", "caps", "fs", "popin", "twin", "typing"],
   "m8-wheel": ["gchat", "gfield", "gdialog", "gime", "gmods", "pick", "close", "outside", "keys", "cool", "walk", "axe", "reduced"],
   "m8-bubbles": ["float", "cap", "reduced", "aria", "abuse", "overlap", "batch"],
