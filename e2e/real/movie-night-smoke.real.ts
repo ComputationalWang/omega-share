@@ -18,7 +18,8 @@ import { popup, site } from "../support/selectors";
 import { BASELINE_ID, embedUrl, extensionDir, profile, record, requireVirtualDisplay, sampleVideo, shot, spreadOver, waitVideoPlaying, watchAt, ytFrame } from "./real";
 
 test.beforeAll(requireVirtualDisplay);
-// Serial: each row builds on the last. Timings are soft asserts, so one slow row still lets the rest run and record.
+// Serial: each row builds on the last, and any failure skips the rows after it (`expect.soft` included). So timings go
+// through `soft()`: a miss is annotated on its row and the `timings` test near the end fails them all together.
 test.describe.configure({ mode: "serial" });
 test.setTimeout(180_000);
 
@@ -57,6 +58,16 @@ let roomId = "";
 let roomUrl = "";
 let ownerToken = "";
 const members: Member[] = [];
+/** Soft limits missed so far, `row · what: value > max` (OME-1792). */
+const overBudget: string[] = [];
+
+/** A soft limit: a miss is annotated on the running row and recorded for the `timings` test; the row carries on. */
+function soft(value: number, max: number, what: string): void {
+  if (value <= max) return;
+  const miss = `${what}: ${String(value)} > ${String(max)}`;
+  overBudget.push(`${test.info().title.split(" · ")[0] ?? ""} · ${miss}`);
+  test.info().annotations.push({ type: "over budget", description: miss });
+}
 const by = (name: Member["name"]): Member => {
   const m = members.find((x) => x.name === name);
   if (m === undefined) throw new Error(`${name} hasn't joined`);
@@ -219,8 +230,8 @@ async function playPauseSeek(row: string): Promise<void> {
   const lagMs = { pause: behindA(pause), play: behindA(play), fwd: behindA(fwd), back: behindA(back) };
   const result = { followMs: { pause, play, fwd, back }, lagMs, steadyMaxMs: steady.map((s) => s.maxAbsMs), afterMaxMs: after.map((s) => s.maxAbsMs) };
   record(`movie-night-${row}`, result);
-  for (const ms of Object.values(lagMs).flat()) expect.soft(ms).toBeLessThanOrEqual(SYNC_MS);
-  for (const ms of [...result.steadyMaxMs, ...result.afterMaxMs]) expect.soft(ms).toBeLessThanOrEqual(SYNC_MS);
+  for (const [step, ms] of Object.entries(lagMs)) for (const t of ms) soft(t, SYNC_MS, `${step} lag`);
+  for (const ms of [...result.steadyMaxMs, ...result.afterMaxMs]) soft(ms, SYNC_MS, "drift");
 }
 
 test.beforeAll(async () => {
@@ -305,7 +316,7 @@ test("row 2 · sit: A, B, C take seats; every context sees each within 500 ms; n
   await expect(seat(by("B").page, 0)).toHaveAttribute("aria-label", "Seat 1, taken by smoke-A");
   await shot(by("B").page, "movie-night-2-sit");
   record("movie-night-2", { seenMs: seen });
-  for (const ms of Object.values(seen).flat()) expect.soft(ms).toBeLessThanOrEqual(SYNC_MS);
+  for (const ms of Object.values(seen).flat()) soft(ms, SYNC_MS, "seat seen");
 });
 
 test("row 3 · react: B and C burst reactions; glyphs everywhere, throttled, not in the chat log (OME-1631, OME-1632)", async () => {
@@ -341,7 +352,7 @@ test("row 3 · react: B and C burst reactions; glyphs everywhere, throttled, not
     expect(got[m.name], `${m.name} throttled`).toBeLessThanOrEqual(most);
   }
   // The bar cools before the server would refuse: no rate_limited flood.
-  for (const n of Object.values(rateLimited)) expect.soft(n).toBeLessThanOrEqual(1);
+  for (const [name, n] of Object.entries(rateLimited)) soft(n, 1, `${name} rate-limited notices`);
   // Every context got the same reactions, in the same order.
   for (const m of abc) expect(m.wire.reacted.slice(from), `${m.name}'s reactions`).toEqual(a.wire.reacted.slice(from));
   for (const m of abc) expect(glyphs[m.name], `${m.name} showed glyphs`).toBeGreaterThan(0);
@@ -372,7 +383,7 @@ test("row 4b · late-join replay: D's moments strip shows row 3's reactions in o
   record("movie-night-4b", { reactions: all.length, stripMs, pips });
   expect(pips.D, "D's strip counts what A's does").toBe(pips.A);
   expect(pips.D).toBeGreaterThan(0);
-  expect.soft(stripMs, "strip within 2 s of joining").toBeLessThanOrEqual(2_000);
+  soft(stripMs, 2_000, "strip after joining (ms)");
 });
 
 test("row 5 · countdown: A's shared 3-2-1 shows in step on every context, playback starts together (OME-1634)", async () => {
@@ -393,8 +404,8 @@ test("row 5 · countdown: A's shared 3-2-1 shows in step on every context, playb
   const startLagMs = start.slice(1).map((t) => t - (start[0] ?? Number.NaN));
   record("movie-night-5", { shownSpreadMs, startMs: start, startLagMs });
   expect(start[0], "A starts after the 3-2-1").toBeGreaterThanOrEqual(2_500);
-  expect.soft(shownSpreadMs, "overlay in step").toBeLessThanOrEqual(SYNC_MS);
-  for (const ms of startLagMs) expect.soft(ms, "starts together").toBeLessThanOrEqual(SYNC_MS);
+  soft(shownSpreadMs, SYNC_MS, "overlay spread");
+  for (const ms of startLagMs) soft(ms, SYNC_MS, "start lag");
 });
 
 test("row 6 · share at a time: extension one-click share from ~1:30 starts the room there; rooms list watchingCount (OME-1636, OME-1633, OME-1635)", async () => {
@@ -473,7 +484,7 @@ test("row 9 · reload: B reloads mid-video and is back in its seat, on the same 
   await shot(b.page, "movie-night-9-reload");
   record("movie-night-9", { spread, pips });
   expect(pips.B, "B's strip counts what A's does").toBe(pips.A);
-  expect.soft(spread.maxAbsMs).toBeLessThanOrEqual(SYNC_MS);
+  soft(spread.maxAbsMs, SYNC_MS, "drift after reload");
 });
 
 test("row 8 · recap: the recap card shows the same numbers on every context at the video's end (OME-1629)", async () => {
@@ -501,6 +512,10 @@ test("row 8 · recap: the recap card shows the same numbers on every context at 
     await m.page.getByTestId("recap-close").click();
     await expect(card(m), `${m.name}'s recap dismissed`).toBeHidden();
   }
+});
+
+test("timings: every soft limit held (misses are annotated on their rows)", () => {
+  expect(overBudget).toEqual([]);
 });
 
 test("console: no site errors on any context", () => {
