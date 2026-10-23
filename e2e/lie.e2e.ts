@@ -18,7 +18,7 @@ test.afterEach(async () => {
 });
 
 const SOFA = 2;
-const State = v.object({ self: v.string(), room: v.object({ seats: v.array(v.nullable(v.string())), members: v.array(v.object({ id: v.string(), lying: v.optional(v.number()) })) }) });
+const State = v.object({ self: v.string(), room: v.object({ seats: v.array(v.nullable(v.string())), members: v.array(v.object({ id: v.string(), lying: v.optional(v.number()), cell: v.optional(v.object({ x: v.number(), y: v.number() })), floorSit: v.optional(v.boolean()) })) }) });
 const Frames = v.nullable(v.object({ avatar: v.nullable(v.string()) }));
 
 /** The dev handle (apps/web/src/main.ts `window.__omega.room`): the view state now. */
@@ -83,4 +83,38 @@ test("sitting down while lying gets you up from the sofa", async ({ browser }) =
   await a.page.locator(`${site.seat}[data-seat="2"]`).click();
   await expect.poll(() => lyingOf(b.page, aId), { timeout: 15_000 }).toBeNull();
   await expect.poll(async () => (await state(b.page)).room.seats[2], { timeout: 15_000 }).toBe(aId);
+});
+
+// QA OME-1785: a lain-on sofa's seats read taken for the others, and a lier who had a floor cell gets up on the same
+// spot for everyone: a client that saw them lie down agrees with one that joins afterwards.
+test("a lain-on sofa's seats are taken for others, and getting up from a floor sit agrees with a late joiner", async ({ browser }) => {
+  const roomUrl = testRoom("lie", "sofa").url;
+  clients = await joinRoom(browser, { roomUrl, count: 2, nicknamePrefix: "floor" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  const aId = (await state(a.page)).self;
+  const key = a.page.locator(`${site.lieKey}[data-lie="${String(SOFA)}"]`);
+  const memberOf = async (page: Page) => {
+    const m = (await state(page)).room.members.find((x) => x.id === aId);
+    return { cell: m?.cell ?? null, floorSit: m?.floorSit ?? null };
+  };
+
+  await a.page.locator(site.walkFloor).focus();
+  await a.page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await memberOf(b.page)).cell, { timeout: 15_000 }).not.toBeNull();
+  await a.page.keyboard.press("s");
+  await expect.poll(async () => (await memberOf(b.page)).floorSit, { timeout: 15_000 }).toBe(true);
+
+  await key.click();
+  await expect.poll(() => lyingOf(b.page, aId), { timeout: 15_000 }).toBe(SOFA);
+  await expect(b.page.locator(`${site.seat}[data-seat="0"]`)).toHaveAccessibleName("Seat 1, taken by floor-1");
+  await key.click();
+  await expect.poll(() => lyingOf(b.page, aId), { timeout: 15_000 }).toBeNull();
+
+  const [c] = await joinRoom(browser, { roomUrl, count: 1, nicknamePrefix: "late" });
+  if (c === undefined) throw new Error("need a late joiner");
+  clients.push(c);
+  await expect.poll(() => lyingOf(c.page, aId), { timeout: 15_000 }).toBeNull();
+  expect(await memberOf(b.page)).toEqual(await memberOf(c.page));
+  expect(await memberOf(b.page)).toEqual({ cell: null, floorSit: null });
 });

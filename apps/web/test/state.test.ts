@@ -680,6 +680,16 @@ describe("lay", () => {
     expect(up.room?.members.find((m) => m.id === "b")).toEqual(bob);
   });
 
+  // QA OME-1785 §1: the server drops cell and floorSit on lie; clients already here must too, or they disagree with a late joiner.
+  test("lying down drops the cell and floor sit, so getting up lands on the standing slot", () => {
+    const sat = joined(room({ layout: sofaLayout, members: [alice, { ...bob, cell: { x: 5, y: 9 }, floorSit: true }] }));
+    const down = server(sat, { type: "lay", memberId: "b", piece: 0 });
+    const b = down.room?.members.find((m) => m.id === "b");
+    expect(b?.cell).toBeUndefined();
+    expect(b?.floorSit).toBeUndefined();
+    expect(server(down, { type: "lay", memberId: "b", piece: null }).room?.members.find((m) => m.id === "b")).toEqual(bob);
+  });
+
   test("a snapshot's Member.lying is kept, and lay for someone who isn't here changes nothing", () => {
     const s = joined(room({ layout: sofaLayout, members: [alice, { ...bob, lying: 0 }] }));
     expect(lyingOf(s, "b")).toBe(0);
