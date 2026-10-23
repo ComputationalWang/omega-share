@@ -137,7 +137,8 @@
         "e2e/real/real-invite-referrer.real.ts",
         "e2e/real/real-providers.real.ts",
         "e2e/real/real-tunnel.real.ts",
-        "e2e/real/real-youtube.real.ts"
+        "e2e/real/real-youtube.real.ts",
+        "e2e/real/share-now.real.ts"
       ],
       "why": "real-lane helpers"
     },
@@ -963,9 +964,24 @@
       "specs": [
         "e2e/real/real-providers.real.ts",
         "e2e/real/real-tunnel.real.ts",
-        "e2e/real/real-youtube.real.ts"
+        "e2e/real/real-youtube.real.ts",
+        "e2e/real/share-now.real.ts"
       ],
       "why": "embed detection: e2e-real"
+    },
+    {
+      "paths": [
+        "apps/extension/src/{rooms,found}.ts",
+        "apps/extension/src/entrypoints/popup/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/real/share-now.real.ts"
+      ],
+      "why": "popup start time + watching badge on real providers (OME-1646)"
     },
     {
       "paths": [
