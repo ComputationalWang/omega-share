@@ -103,6 +103,8 @@ export interface RoomView {
   loadPairPoses(): void;
   /** Two members paired: the thruster and the bender play their poses, once the sheet is in (OME-1672). */
   pair(thruster: MemberId, bender: MemberId): void;
+  /** Who's in the /conga line (OME-1690): they dance while they walk. */
+  conga(ids: readonly MemberId[]): void;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: AvatarEmote): void;
   /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint and hair drawn, for e2e checks. */
@@ -1216,6 +1218,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           console.warn("pair look sheets failed to load", err);
         },
       );
+    },
+    conga(ids) {
+      animator.conga(ids);
     },
     emote(id, kind) {
       opts.sound?.play("pop");
