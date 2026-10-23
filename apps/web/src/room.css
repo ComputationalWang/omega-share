@@ -458,7 +458,7 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   body.room-editing .room-wide > .editor-panel { position: fixed; top: 0; bottom: 0; right: calc(var(--wide-side) / var(--chrome, 1)); width: var(--editor-w); box-sizing: border-box; padding: 12px 8px; overflow-y: auto; border-left: 1px solid #3a3452; background: var(--bg); }
   body.room-editing .room-wide > .editor-panel > .editor { display: flex; flex-direction: column; height: 100%; margin: 0; }
   body.room-editing .room-wide > .editor-panel > .editor > * { flex: none; }
-  body.room-editing .room-wide > .editor-panel .ui-tabs { flex-wrap: wrap; }
+  body.room-editing .room-wide > .editor-panel :is(.ui-tabs, .editor-mood-options) { flex-wrap: wrap; }
   body.room-editing .room-wide > .editor-panel .ui-tray { flex: 0 1 auto; flex-wrap: wrap; min-height: calc(120 * var(--ui-px)); overflow: hidden auto; }
 }
 .room-side { position: fixed; top: 0; right: 0; bottom: 0; width: var(--wide-side); box-sizing: border-box; padding: 12px max(12px, env(safe-area-inset-right)) 12px 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
