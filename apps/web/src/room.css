@@ -465,6 +465,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-side[hidden] { display: none; }
 .room-side > * { flex: none; margin: 0; }
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
+.room-side > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* People open is the column's People tab (OME-1805): it has the log's height; the field stays under it. */
+.room-side:has(> .people:not([hidden])) > :is(.chat-log, .poll-card) { display: none; }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
 /* An open poll (QA OME-1460): beside the owner's invite row and bar at 1280×720 it pushed Close poll and the composer
  * below the fold. Up next gives way first (down to its head, its content scrolling), then the card, its options
@@ -601,6 +604,8 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
 .people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
 .people[hidden] { display: none; }
+/* The stacked tablet page (OME-1805): a sheet over the page's foot, so the TV above stays where it is. */
+.room:not(.room-wide, .room-portrait) > .people { position: fixed; left: 8px; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 6; max-height: 45dvh; margin: 0; overflow-y: auto; overscroll-behavior: contain; }
 .look { display: flex; flex-wrap: wrap; column-gap: 32px; }
 .tint-section { margin-bottom: 8px; }
 .tint-section .tints { margin-top: 0; }

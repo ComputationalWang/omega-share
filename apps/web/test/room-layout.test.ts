@@ -42,15 +42,16 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const notice = div();
   const roomAway = div();
   const roomTop = div();
+  const people = div();
   const invite = div();
   const poll = div();
   const side = div();
   const ownerBar = div();
   const editorPanel = div();
-  root.append(roomTop, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
+  root.append(roomTop, people, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, roomTop, invite, side, ownerBar, editorPanel,
+    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, roomTop, people, invite, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
@@ -64,7 +65,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, log, poll, form, notice, side, queue, roomTop, invite, ownerBar, editorPanel };
+  return { layout, root, wrap, log, poll, form, notice, side, queue, roomTop, people, invite, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -88,6 +89,14 @@ describe("room layout", () => {
     expect(queue.root.parentElement).toBe(side);
     expect(log.root.parentElement).toBe(side);
     expect(form.parentElement).toBe(side);
+  });
+
+  test("People is a tab of the chat column on a wide screen, right above the log; elsewhere under the head row (OME-1805)", async () => {
+    const wide = await setup({ wide: true });
+    expect(wide.people.parentElement).toBe(wide.side);
+    expect(wide.people.nextElementSibling).toBe(wide.log.root);
+    const page = await setup();
+    expect(page.roomTop.nextElementSibling).toBe(page.people);
   });
 
   test("the owner's bar goes under Up next on a wide screen, and stays over the editor on a short one (OME-1301)", async () => {

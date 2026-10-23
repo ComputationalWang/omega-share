@@ -796,6 +796,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     notice,
     roomAway,
     roomTop,
+    people: people.panel,
     invite,
     side,
     ownerBar: editBar,

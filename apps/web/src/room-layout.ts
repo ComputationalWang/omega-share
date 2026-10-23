@@ -71,6 +71,8 @@ export interface RoomLayoutOptions {
   readonly roomAway: HTMLElement;
   /** The room's head row (title, Photo, People, Help): the root's first child, or the chat column's on a short screen. */
   readonly roomTop: HTMLElement;
+  /** The People panel (outfits and the people list): under the head row, or a tab of the chat column on a wide screen. */
+  readonly people: HTMLElement;
   readonly invite: HTMLElement;
   /** The wide layout's right-hand column. */
   readonly side: HTMLElement;
@@ -353,6 +355,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
     else notice.after(o.poll, chatLog.root, chatForm, chatAway);
+    // Wide: People takes the log's place in the chat column while open (OME-1805), never above the TV.
+    if (two && fs.mode() === "off") chatLog.root.before(o.people);
+    else o.roomTop.after(o.people);
     if (portraitOn) chatForm.before(dock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).
