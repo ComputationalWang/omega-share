@@ -1,14 +1,16 @@
 // Helpers for the opt-in real-YouTube run (OME-91, docs/qa/m1b-real-youtube.md). Real network, headed Chromium, never in CI.
 // Nothing here stubs YouTube: the site's real loader, adapter and sync loop talk to the real IFrame API and player.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import type { APIRequestContext, Browser, BrowserContext, Frame, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
-import { ROOT, URLS } from "../support/apps";
+import { EXTENSION_DIR, ROOT, URLS, extensionBuildError } from "../support/apps";
+import { watchCsp } from "../support/csp";
 import { desktopLeak } from "../support/xvfb";
-import { site } from "../support/selectors";
+import { popup, site } from "../support/selectors";
 import { joinForToken, postShare } from "../support/share";
 
 /** `test.beforeAll` in every real spec: headed Chromium only through `bun run e2e:real`, so it lands on Xvfb, not the desktop (OME-210). */
@@ -250,4 +252,79 @@ export async function cdpTargets(port: number): Promise<CdpTarget[]> {
   const r: unknown = await (await fetch(`http://127.0.0.1:${String(port)}/json`)).json();
   if (!Array.isArray(r)) return [];
   return r.filter((t): t is CdpTarget => typeof t === "object" && t !== null && "type" in t && "url" in t && "webSocketDebuggerUrl" in t);
+}
+
+declare const chrome: {
+  tabs: { query(q: Record<string, never>): Promise<{ id?: number; url?: string }[]> };
+  storage: { local: { set(items: Record<string, string>): Promise<void> } };
+};
+
+/** A copy of the e2e extension build with `hosts` added to its host permissions (the e2e build only lists youtube.com). */
+export function extensionDir(hosts: readonly string[]): string {
+  const missing = extensionBuildError();
+  if (missing !== null) throw new Error(missing);
+  const dir = join(mkdtempSync(join(tmpdir(), "omega-real-ext-")), "ext");
+  cpSync(EXTENSION_DIR, dir, { recursive: true });
+  const path = join(dir, "manifest.json");
+  const m = JSON.parse(readFileSync(path, "utf8")) as { host_permissions?: string[] };
+  m.host_permissions = [...(m.host_permissions ?? []), ...hosts];
+  writeFileSync(path, JSON.stringify(m));
+  return dir;
+}
+
+export interface Profile {
+  readonly context: BrowserContext;
+  readonly openPopup: (target: Page) => Promise<{ page: Page; listedMs: number }>;
+}
+
+/** A fresh Chromium profile with the extension, pointed at `server` (like e2e/support/extension.ts, headed, real network). */
+export async function profile(dir: string, server: string): Promise<Profile> {
+  const context = await watchCsp(await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    headless: false,
+    args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`, "--autoplay-policy=document-user-activation-required"],
+  }));
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
+  await sw.evaluate((url) => chrome.storage.local.set({ serverBaseUrl: url }), server);
+  const extensionId = new URL(sw.url()).host;
+  return {
+    context,
+    async openPopup(target) {
+      const tabId = await sw.evaluate(async (url) => (await chrome.tabs.query({})).find((t) => t.url === url)?.id, target.url());
+      if (tabId === undefined) throw new Error(`no tab for ${target.url()}`);
+      const page = await context.newPage();
+      await page.goto(`chrome-extension://${extensionId}/popup.html?tabId=${String(tabId)}`);
+      await page.locator(popup.embedItem).first().waitFor({ timeout: 10_000 });
+      // performance.now() is relative to the popup's navigation start (perf/extension.perf.ts).
+      return { page, listedMs: Math.round(await page.evaluate(() => performance.now())) };
+    },
+  };
+}
+
+/** The watch page's first <video>: time, paused, and whether an ad is showing (YouTube / Twitch markers). */
+export const pageVideo = (page: Page): Promise<{ t: number; paused: boolean; ad: boolean } | null> =>
+  page.evaluate(() => {
+    const v = document.querySelector("video");
+    const ad = document.querySelector(".ad-showing, [data-a-target='video-ad-label'], [data-a-target='video-ad-countdown']") !== null;
+    return v === null ? null : { t: v.currentTime, paused: v.paused, ad };
+  }).catch(() => null);
+
+/** Opens the watch page as a logged-out viewer would: past a consent wall, playing content (not an ad), then seeks to `at` s. */
+export async function watchAt(page: Page, url: string, at: number): Promise<number> {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  // EU consent walls (YouTube's own page, Vimeo's banner): decline, as a viewer would.
+  // Checked on every poll: YouTube's renders late. Vimeo's sits in a closed shadow root that locators can't reach; it
+  // doesn't cover the video, so it stays up. `force`: the players' own overlays intercept a plain click on <video>.
+  const decline = page.getByRole("button", { name: /^(reject all|alles afwijzen|reject|decline)/i }).first();
+  await expect.poll(async () => {
+    if (await decline.isVisible().catch(() => false)) await decline.click({ timeout: 2_000 }).catch(() => undefined);
+    const v = await pageVideo(page);
+    if (v?.paused === true) await page.locator("video").first().click({ force: true, timeout: 2_000 }).catch(() => undefined);
+    return v !== null && !v.paused && !v.ad && v.t > 1;
+  }, { timeout: 120_000, intervals: [1_000], message: `content playing on ${url}` }).toBe(true);
+  await page.locator("video").first().evaluate((v, to) => {
+    if (v instanceof HTMLVideoElement) v.currentTime = to;
+  }, at);
+  await expect.poll(async () => (await pageVideo(page))?.t ?? 0, { timeout: 15_000, message: "page seeked" }).toBeGreaterThanOrEqual(at);
+  return (await pageVideo(page))?.t ?? Number.NaN;
 }
