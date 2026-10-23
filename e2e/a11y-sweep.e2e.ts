@@ -1,11 +1,13 @@
 // OME-1326: the a11y and viewport regression gate (docs/qa/a11y-sweep.md), promoted from the OME-1300/OME-1324 sweep.
-// Every surface below, at each of 4 viewports (1280×800, 390×844 touch, 844×390 touch, 320×640), plus the
+// Every surface below, at each of 6 viewports (1280×800, 390×844 touch, 844×390 touch, 320×640, and the tablets
+// 768×1024 and 1024×1366 touch, OME-1802), plus the
 // extension's popup, options and consent pages, must have:
 //  - no serious or critical axe violation (wcag2a/2aa/21a/21aa/22aa, iframes excluded, border-image contrast judged by
 //    `paintedContrast`). axe's `target-size` (WCAG 2.5.8, spacing-aware) is in wcag22aa, so it runs everywhere;
 //  - no horizontal overflow (`scrollWidth > innerWidth`);
 //  - no focusable control off-screen or clipped by an ancestor (inside a scroller is fine: it scrolls into view);
-//  - under `.ui-touch`, every control at least 44 px each way, counting a `::before` hit area (CEO, OME-1326).
+//  - under `.ui-touch`, every control at least 44 px each way on screen, counting a `::before` hit area scaled as its
+//    element is (CEO, OME-1326; on-screen, not CSS, px: OME-1802).
 //  - under `.ui-touch` or a coarse pointer, no visible text under 12 px, and no link list (a footer, a dialog) counted as
 //    running text: those links are targets too (OME-1596).
 // The tests of this file stay in one worker (no fullyParallel) and each viewport uses rooms of its own.
@@ -34,9 +36,11 @@ const VIEWPORTS: VP[] = [
   { name: "390x844-touch", opts: touch(390, 844) },
   { name: "844x390-touch", opts: touch(844, 390) },
   { name: "320x640", opts: { viewport: { width: 320, height: 640 } } },
+  { name: "768x1024-touch", opts: touch(768, 1024) },
+  { name: "1024x1366-touch", opts: touch(1024, 1366) },
 ];
-const ROOMS = ["w1280", "p390", "l844", "n320"] as const;
-const OWNED: OwnedRoomName[] = ["sweepa", "sweepb", "sweepc", "sweepd"];
+const ROOMS = ["w1280", "p390", "l844", "n320", "t768", "t1024"] as const;
+const OWNED: OwnedRoomName[] = ["sweepa", "sweepb", "sweepc", "sweepd", "sweepe", "sweepf"];
 
 /** Serious/critical axe violations, with border-image contrast re-judged by `paintedContrast`. */
 async function axe(page: Page): Promise<string[]> {
@@ -134,8 +138,11 @@ const measure = (page: Page): Promise<string[]> =>
       let [w, h] = [t.width, t.height];
       const before = getComputedStyle(target, "::before");
       if (before.content !== "none" && before.position === "absolute") {
-        w = Math.max(w, parseFloat(before.width) || 0);
-        h = Math.max(h, parseFloat(before.height) || 0);
+        // The pseudo's size is CSS px; a transform or zoom on the way scales it as it does the element (OME-1802).
+        const kx = target.offsetWidth > 0 ? t.width / target.offsetWidth : 1;
+        const ky = target.offsetHeight > 0 ? t.height / target.offsetHeight : 1;
+        w = Math.max(w, (parseFloat(before.width) || 0) * kx);
+        h = Math.max(h, (parseFloat(before.height) || 0) * ky);
       }
       if (w < 43.5 || h < 43.5) out.push(`target under 44 px (touch): ${describe(el)} ${String(Math.round(w))}x${String(Math.round(h))}`);
     }
@@ -347,12 +354,16 @@ const GUEST_SKIPS: Record<string, string[]> = {
   "390x844-touch": ["report", "pop-out chat.html", "pop-out room.html"],
   "844x390-touch": ["pop-out chat.html", "pop-out room.html"],
   "320x640": ["report", "pop-out chat.html", "pop-out room.html"],
+  "768x1024-touch": ["report", "pop-out chat.html", "pop-out room.html"],
+  "1024x1366-touch": ["report", "pop-out chat.html", "pop-out room.html"],
 };
 const OWNER_SKIPS: Record<string, string[]> = {
   "1280x800": ["owner settings"],
   "390x844-touch": ["editor", "night mood"],
   "844x390-touch": ["owner settings"],
   "320x640": ["editor", "night mood"],
+  "768x1024-touch": ["editor", "night mood"],
+  "1024x1366-touch": ["editor", "night mood"],
 };
 
 async function extAudit(page: Page, surface: string, width: number, height: number): Promise<void> {

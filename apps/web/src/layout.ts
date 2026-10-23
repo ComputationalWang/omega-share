@@ -79,6 +79,7 @@ const sidesFit = (r: Rect, side: number, width: number): boolean => r.x >= side 
 /** Set (k) phone watch layout (OME-596): at most this wide, the room page stacks TV, room and chat, with no editor. */
 export const PHONE_MAX_W = 600;
 export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px)`;
+export const PORTRAIT_QUERY = `${PHONE_QUERY} and (orientation: portrait)`;
 /** The phone's room window: the stage at 1× (until the viewer zooms it, OME-1184), cropped to this height (set k: "cropped to the seats"). */
 export const PHONE_ROOM_H = 270;
 /** The portrait room window is at least this tall (its row of zoom keys and a strip of room) or not shown (OME-1302). */

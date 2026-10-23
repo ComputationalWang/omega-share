@@ -180,6 +180,7 @@
         "e2e/owner-room-size.e2e.ts",
         "e2e/persistence.e2e.ts",
         "e2e/phone-layout.e2e.ts",
+        "e2e/tablet-layout.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
         "e2e/reconnect.e2e.ts",
         "e2e/room-view.e2e.ts",
