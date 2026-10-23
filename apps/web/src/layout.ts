@@ -132,6 +132,12 @@ export const WIDE_CHAT_W = 320;
  * room is the larger part at 16:9; 0.37 still keeps a 1920×1080 window's TV above the stacked page's 560 px.
  */
 const WIDE_TV_SHARE = 0.37;
+/**
+ * OME-1803 (design OME-1799 §2): with a video loaded the TV is the hero and the room an audience band under the shelf,
+ * at least this tall and BAND_SHARE of the column. An empty room keeps the room-first split above.
+ */
+const BAND_MIN_H = 240;
+const BAND_SHARE = 0.28;
 
 /**
  * The wide room page's chrome zoom (OME-1667, board: "scalings on 2k"): 1× below 1920×900, 1.5× from there, 2× from
@@ -154,7 +160,9 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
   const barH = CONTROL_BAR_H * chrome;
   const rest = Math.max(0, h - (TV_BEZEL + GAP + barH + GAP));
-  const tvW = Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((rest * WIDE_TV_SHARE * 16) / 9)));
+  const split = rest * WIDE_TV_SHARE;
+  const tvFit = provider === null ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
+  const tvW = Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((tvFit * 16) / 9)));
   const tv = { x: Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   // A TV narrower than the zoomed shelf's keys (People open, QA OME-1696) gets a wider shelf, centred under it. 1× as before.
   const keysW = chrome > 1 ? (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome : 0;
