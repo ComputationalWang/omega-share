@@ -246,6 +246,30 @@ describe("on a computer", () => {
     expect(key("fit").closest("[hidden]")).not.toBeNull();
   });
 
+  // OME-1811: at an integer scale the band can be smaller than the room (1× at 1280×800): it looks at the seats first,
+  // a mouse drag looks around in both directions, its click is dropped, and the Fit key brings back the seats.
+  test("a band smaller than the room looks at the seats, a mouse drag pans it (inside the room), and Fit goes back", async () => {
+    const { win, clip, stage, key } = await setup();
+    win.desk(1, { w: 900, h: 300 });
+    expect(stage.style.transform).toBe("translate(-30px, -150px) scale(1)");
+    const mouse = (type: string, x: number, y: number): void => {
+      clip.dispatchEvent(new PointerEvent(type, { pointerId: 7, clientX: x, clientY: y, isPrimary: true, button: 0, bubbles: true, pointerType: "mouse" }));
+    };
+    mouse("pointerdown", 400, 200);
+    mouse("pointermove", 380, 160);
+    await frame();
+    expect(stage.style.transform).toBe("translate(-50px, -190px) scale(1)");
+    mouse("pointermove", 0, 0);
+    await frame();
+    mouse("pointerup", 0, 0);
+    expect(stage.style.transform).toBe("translate(-60px, -292px) scale(1)");
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 });
+    clip.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    key("fit").click();
+    expect(stage.style.transform).toBe("translate(-30px, -150px) scale(1)");
+  });
+
   test("on the phone the wheel does nothing new", async () => {
     const { win, clip, zoom } = await setup();
     win.set(true, VIEW.w, VIEW.h);

@@ -55,7 +55,7 @@ export interface RoomWindow {
   /** Look at `p` (stage px), clamped to the stage. */
   centre(p: Point): void;
   /** Off the phone (OME-1490): the room fitted at `scale` (its ROOM_VIEW in the clip); the wheel zooms it from there. */
-  desk(scale: number): void;
+  desk(scale: number, view?: { readonly w: number; readonly h: number }): void;
   /** Where the window looks now (stage px, top-left), for checks. */
   readonly pan: () => Point;
 }

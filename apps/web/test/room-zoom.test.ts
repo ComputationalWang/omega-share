@@ -136,3 +136,22 @@ describe("wheelView: the stage point under the pointer stays under it", () => {
     expect(wheelView(FIT, v, { x: 37, y: 211 }, 1).pan).toEqual({ x: ROOM_VIEW.x, y: ROOM_VIEW.y });
   });
 });
+
+// OME-1811: at an integer scale the room can be bigger than its band (1× in a 1280 window's 936×420): the view is the
+// band's box, not the whole room, and it still never leaves ROOM_VIEW.
+describe("wheelView in a band smaller than the room", () => {
+  const BAND = { w: 900, h: 300 };
+  test("the view is clamped inside ROOM_VIEW at the band's size", () => {
+    expect(wheelView(1, { zoom: 1, pan: { x: -100, y: 0 } }, { x: 0, y: 0 }, 1, BAND).pan).toEqual({ x: ROOM_VIEW.x, y: ROOM_VIEW.y });
+    expect(wheelView(1, { zoom: 1, pan: { x: 500, y: 500 } }, { x: 0, y: 0 }, 1, BAND).pan).toEqual({ x: ROOM_VIEW.x + ROOM_VIEW.w - BAND.w, y: ROOM_VIEW.y + ROOM_VIEW.h - BAND.h });
+    const z = wheelView(2, { zoom: 1, pan: { x: 500, y: 500 } }, { x: 0, y: 0 }, 1, BAND);
+    expect(z.pan).toEqual({ x: ROOM_VIEW.x + ROOM_VIEW.w - BAND.w / 2, y: ROOM_VIEW.y + ROOM_VIEW.h - BAND.h / 2 });
+  });
+  test("the stage point under the pointer still stays under it", () => {
+    const from = { zoom: 1, pan: { x: 30, y: 150 } };
+    const at = { x: 450, y: 150 };
+    const v = wheelView(1, from, at, 1.5, BAND);
+    expect(v.pan.x + at.x / 1.5).toBeCloseTo(from.pan.x + at.x, 9);
+    expect(v.pan.y + at.y / 1.5).toBeCloseTo(from.pan.y + at.y, 9);
+  });
+});

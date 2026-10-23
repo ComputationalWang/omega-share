@@ -154,7 +154,12 @@ export function chromeZoom(width: number, height: number): number {
  * larger), the shelf right under it, and the stage below, scaled to fill what's left (up past 1× too, OME-1050) and centred.
  * `chrome` is the page's zoom (chromeZoom): the shelf's height and minimum width grow with it.
  */
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1): RoomLayout {
+/** OME-1811 stub. */
+export function roomScale(_width: number, _height: number): number {
+  return 1;
+}
+
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, _maxScale = 1): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
@@ -433,7 +438,7 @@ export interface DeskView {
  * The desktop wheel (OME-1490): the room fitted at `fit`, zoomed from `from` to `zoom` (clamped from the whole room, 1, to
  * MAX_ZOOM) around `at` (px in the room's box): the stage point under `at` stays under it, and the view stays in ROOM_VIEW.
  */
-export function wheelView(fit: number, from: DeskView, at: Point, zoom: number): DeskView {
+export function wheelView(fit: number, from: DeskView, at: Point, zoom: number, _view?: Size): DeskView {
   const z = Number.isFinite(zoom) ? Math.max(1, Math.min(MAX_ZOOM, zoom)) : 1;
   const k0 = fit * from.zoom;
   const k1 = fit * z;
