@@ -24,8 +24,10 @@ const drape = (): UiFrame => tile("drape", 8, 8, (x) => c("velvet", FOLD[x] ?? 1
 /** 16×13, repeats across the top: wood rail, one velvet swag, its mustard fringe, and a tassel where swags meet. */
 function pelmet(): UiFrame {
   const W = 16;
-  return tile("pelmet", W, 13, (x, y) => {
+  return tile("pelmet", W, 13, (px, y) => {
     if (y < 3) return c("wood", y as Tone);
+    // Drawn half a tile over so the tassel and its outline sit mid-tile: the tile edges fall mid-swag and repeat seamlessly.
+    const x = (px + W / 2) % W;
     // Tassel at the join (x 0), with plum either side of its knot so it reads against the velvet.
     if (x === 0 && y < 7) return c("mustard", y === 3 ? 0 : y === 6 ? 2 : 1);
     if ((x === 1 || x === W - 1) && y === 4) return OUTLINE;
@@ -49,8 +51,8 @@ function hem(): UiFrame {
   });
 }
 
-/** 4×6, repeats down the middle: the drapes' shaded leading edges with the TV glow leaking between them. */
-const seam = (): UiFrame => tile("seam", 4, 6, (x, y) => (x === 0 || x === 3 ? c("velvet", 2) : c("glow", y === 0 ? 0 : 1)));
+/** 3×6, repeats down the middle: the drapes' shaded leading edges with one art pixel of dim TV glow between them. */
+const seam = (): UiFrame => tile("seam", 3, 6, (x) => (x === 1 ? c("glow", 2) : c("velvet", 2)));
 
 export function buildResponsiveScenes(): UiFrame[] {
   return [pelmet(), drape(), hem(), seam()];

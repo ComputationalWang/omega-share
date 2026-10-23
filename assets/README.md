@@ -1632,7 +1632,7 @@ which leaves room for the rest of batch 5. GPU cost when loaded: 1 MB → 2 MB R
 With nothing playing, the TV was a black slab at every size. Four lazy repeat tiles in `ui/scenes/` draw the theatre's velvet
 curtain closed across the picture box, whatever its size: `curtain-pelmet.png` 16×13 (repeat-x, top: wood rail, a swag, its
 fringe, a tassel at each join), `curtain-drape.png` 8×8 (repeat both: the folds), `curtain-hem.png` 12×7 (repeat-x, bottom:
-fringe and stage boards), `curtain-seam.png` 4×6 (repeat-y, centred: the glow leaking between the drapes). Layer them top to
+fringe and stage boards), `curtain-seam.png` 3×6 (repeat-y, centred: one art pixel of dim glow between the drapes). Layer them top to
 bottom pelmet, hem, seam, drape, each sized at the page chrome's `--ui-px` (2 px; 4 px under the 2× chrome zoom), so they keep the
-shelf's and the keys' pixel size on any TV width. Every pixel is opaque; the TV bezel is the outline. 555 B in total, all lazy;
+shelf's and the keys' pixel size on any TV width. Every pixel is opaque; the TV bezel is the outline. 551 B in total, all lazy;
 eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are on [OME-1799](/OME/issues/OME-1799).
