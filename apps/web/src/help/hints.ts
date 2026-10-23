@@ -34,6 +34,9 @@ export interface HintsOptions {
   readonly storage: Pick<Storage, "getItem" | "setItem">;
   /** What chip `step` sits beside; while it's null or has no box the chip is out of sight (and the tour still open). */
   readonly anchor: (step: number) => HTMLElement | null;
+  /** While the TV shows anything (a player, a Load card), no chip covers it: Twitch's player doesn't start covered
+   * (OME-1778). One that would goes under the picture (the TV and the stage), or out of sight if that's on the TV too. */
+  readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement };
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
 }
@@ -51,6 +54,19 @@ export interface Hints {
 
 const GAP = 8;
 
+interface Spot {
+  readonly left: number;
+  readonly top: number;
+}
+
+/** Where a `w`×`h` chip goes against `anchor`, kept in the viewport; null while the anchor has no box. */
+function spot(anchor: HTMLElement | null, side: Side, w: number, h: number): Spot | null {
+  const r = anchor?.getBoundingClientRect();
+  if (r === undefined || r.width === 0 || r.height === 0) return null;
+  const top = side === "above" ? r.top - h - GAP : r.bottom + GAP;
+  return { left: Math.max(GAP, Math.min(r.left + (r.width - w) / 2, window.innerWidth - w - GAP)), top: Math.max(GAP, Math.min(top, window.innerHeight - h - GAP)) };
+}
+
 export function createHints(o: HintsOptions): Hints {
   // The status exists (empty, hidden) before the words go in, so a screen reader announces them.
   const root = el("div", { className: "ui-panel hint-chip", hidden: true }, "first-hint");
@@ -66,23 +82,27 @@ export function createHints(o: HintsOptions): Hints {
   const sized = new ResizeObserver(() => {
     place();
   });
+  // A video arriving swaps the TV's screen without a resize: the chip moves off before the player loads.
+  const swapped = new MutationObserver(() => {
+    place();
+  });
 
   const place = (): void => {
     const side = STEPS[step]?.side;
     if (side === undefined) return;
-    const r = o.anchor(step)?.getBoundingClientRect();
-    // Nothing to sit beside (the stage behind People on a phone): out of sight until it's back, never over the room bar.
-    const away = r === undefined || r.width === 0 || r.height === 0;
-    if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
-    root.style.visibility = away ? "hidden" : "";
-    if (away) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
     const w = root.offsetWidth;
     const h = root.offsetHeight;
-    const top = side === "above" ? r.top - h - GAP : r.bottom + GAP;
-    root.style.left = `${String(Math.max(GAP, Math.min(r.left + (r.width - w) / 2, vw - w - GAP)))}px`;
-    root.style.top = `${String(Math.max(GAP, Math.min(top, vh - h - GAP)))}px`;
+    const tv = o.tv.empty() ? null : o.tv.box.getBoundingClientRect();
+    const onTv = (p: Spot): boolean => tv !== null && p.left < tv.right && tv.left < p.left + w && p.top < tv.bottom && tv.top < p.top + h;
+    let at = spot(o.anchor(step), side, w, h);
+    if (at !== null && onTv(at)) at = spot(o.tv.picture, "below", w, h);
+    // Nothing to sit beside (the stage behind People on a phone), or nowhere off the TV: out of sight until there is.
+    const away = at === null || onTv(at);
+    if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
+    root.style.visibility = away ? "hidden" : "";
+    if (at === null || away) return;
+    root.style.left = `${String(at.left)}px`;
+    root.style.top = `${String(at.top)}px`;
   };
 
   const go = (to: number): void => {
@@ -92,6 +112,7 @@ export function createHints(o: HintsOptions): Hints {
       window.addEventListener("resize", place);
       window.addEventListener("scroll", place, { capture: true, passive: true });
     }
+    if (step === -1) swapped.observe(o.tv.box, { childList: true });
     step = to;
     sized.disconnect();
     const a = o.anchor(to);
@@ -106,6 +127,7 @@ export function createHints(o: HintsOptions): Hints {
     if (step === -1) return;
     step = -1;
     sized.disconnect();
+    swapped.disconnect();
     window.removeEventListener("resize", place);
     window.removeEventListener("scroll", place, { capture: true });
     const had = root.contains(document.activeElement);

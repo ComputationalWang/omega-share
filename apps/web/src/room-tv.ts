@@ -35,6 +35,8 @@ export interface RoomTv {
   readonly hint: HTMLElement;
   /** The shown embed's provider, if it's synced. */
   readonly provider: () => Embed["provider"] | null;
+  /** The TV shows its "Share a video" line: no player, no Load card (the tour's chip may sit on it, OME-1778). */
+  readonly empty: () => boolean;
   /** Swap the TV for the room's embed. */
   readonly sync: (s: ViewState) => void;
   /** The shelf follows the player. */
@@ -238,6 +240,7 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     notice: syncNotice,
     hint: tvHint,
     provider: () => tvProvider,
+    empty: () => tv.firstChild === tvEmpty,
     sync: syncTv,
     show,
     setFullscreen: (on) => {
