@@ -562,7 +562,7 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }
 /* OME-776: on touch the wheel's chip names the sticker without its key ("1"): there's no keyboard to press it on. */
 @media (pointer: coarse), (hover: none) { .ui-wheel-label .ui-kbd { display: none; } }
-/* OME-1587: the first-visit tour's chip, fixed beside what it talks about (hints.ts places it), under the emote wheel. A
+/* OME-1587: the first-visit tour's chip, fixed beside what it talks about (hints.ts places it, never on a video: OME-1778), under the emote wheel. A
  * short slide-in, none under reduced motion. M9 W2 (OME-768): the "?" help dialog on the report dialog's scrim, and
  * "Room not found". Plain chrome until a design set skins them. */
 .hint-chip { --ui-px: 1px; position: fixed; z-index: 20; box-sizing: border-box; max-width: min(320px, calc(100vw - 16px)); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 6px 6px 10px; }
