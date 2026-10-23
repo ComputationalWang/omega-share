@@ -91,6 +91,25 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560
   });
 }
 
+// OME-1803 (design OME-1799 §2): with a video playing the TV was a small island, 25–30 % of a big monitor's width. It's
+// the hero now: at least 45 % of the window and as wide as its shelf, with the room and the transport still in view and
+// the page unscrolled. At 1280×800 it's no smaller than before (360 px).
+for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440, 900, 0.45], ["hero1920", 1920, 1080, 0.45], ["hero2560", 2560, 1440, 0.45]] as const) {
+  test(`${String(w)}×${String(h)} with a video: the TV is the hero, the room and the transport stay in view`, async ({ browser, request }) => {
+    const room = testRoom("wide", name);
+    await shareVideo(request, room.id);
+    const page = await one(browser, name, DESKTOP(w, h));
+    await waitPlaying(clients);
+    const tv = await box(page.locator(site.tv));
+    const shelf = await box(page.locator(".ui-tv-shelf"));
+    expect(tv.width).toBeGreaterThanOrEqual(Math.max(360, share * w));
+    if (share > 0) expect(tv.width).toBeGreaterThanOrEqual(shelf.width - 1);
+    for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow]) await inView(page, page.locator(l));
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(h);
+  });
+}
+
 /** Every visible key in the room's chrome (not the stage's seats and tags, not the site footer), with its size. */
 const keys = (page: Page): Promise<{ name: string; w: number; h: number }[]> =>
   page.evaluate(() => [...document.querySelectorAll<HTMLElement>("main button, main summary, main [role=button]")]
