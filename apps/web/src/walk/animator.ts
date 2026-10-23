@@ -148,10 +148,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
       if (!o.walks.sample(a.id, now, pose)) continue;
       let frame = frameKey(a.avatar, pose, still);
       if (pose.walking && frames !== null && !still && congaIds.includes(a.id)) {
-        // The dance's turn on the walkers' clock, from the way they travel; the step stays the walk's own.
+        // The dance's turn on the walkers' clock alone: anchored on the travel direction, a corner would turn it back. The step stays the walk's own.
         const smooth = o.smooth();
         const k = Math.floor(now / (smooth ? SMOOTH_FRAME_MS : WALK_FRAME_MS));
-        const turn = (SPIN.indexOf(DIRS.indexOf(pose.dir)) + Math.floor(k / (smooth ? SMOOTH_FRAMES : WALK_FRAMES))) % SPIN.length;
+        const turn = Math.floor(k / (smooth ? SMOOTH_FRAMES : WALK_FRAMES)) % SPIN.length;
         frame = frames.walk8[a.avatar]?.[SPIN[turn] ?? 0]?.[pose.step] ?? frame;
       }
       let sticker: string | null = null;
