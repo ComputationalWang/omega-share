@@ -38,6 +38,8 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
   // happy-dom lays nothing out: each anchor reports a box, as on a real page.
   for (const a of anchors) a.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 200, width: 300, height: 100 });
   const after = document.createElement("button");
+  // The TV (empty until a test says otherwise, no box until a test gives it one) and the picture it's in.
+  const tv = { box: document.createElement("div"), empty: true, picture: document.createElement("div") };
   const asked: number[] = [];
   const hints = createHints({
     storage: store,
@@ -45,11 +47,12 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
       asked.push(step);
       return anchors[step] ?? null;
     },
+    tv: { box: tv.box, empty: () => tv.empty, picture: tv.picture },
     next: () => after,
   });
-  document.body.replaceChildren(...anchors, hints.root, after);
+  document.body.replaceChildren(...anchors, tv.picture, tv.box, hints.root, after);
   const key = (id: string) => hints.root.querySelector<HTMLButtonElement>(`button[data-testid=${id}]`);
-  return { hints, store, after, asked, key };
+  return { hints, store, after, asked, key, tv };
 }
 
 describe("parseHints: what `omega.hints` says (localStorage is untrusted)", () => {
@@ -194,5 +197,29 @@ describe("the first-visit tour", () => {
     floor.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 200, width: 300, height: 100 });
     window.dispatchEvent(new Event("resize"));
     expect(hints.root.style.visibility).toBe("");
+  });
+
+  test("a chip may sit on an empty TV; once the TV shows something it goes under the picture, out of sight if that's on the TV too, back when the TV is empty (OME-1778)", async () => {
+    const { hints, tv } = await setup();
+    // The anchors' chips (y 192 above, 308 below) are all on this TV.
+    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });
+    tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 });
+    hints.show();
+    expect(hints.root.style.top).toBe("192px");
+    // A video arrives: the TV's screen is swapped, no resize (Twitch's player must never start covered).
+    tv.empty = false;
+    tv.box.replaceChildren(document.createElement("iframe"));
+    await Promise.resolve();
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("608px");
+    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 2000 });
+    window.dispatchEvent(new Event("resize"));
+    expect(hints.root.style.visibility).toBe("hidden");
+    expect(hints.isOpen()).toBe(true);
+    tv.empty = true;
+    tv.box.replaceChildren(document.createElement("p"));
+    await Promise.resolve();
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("192px");
   });
 });
