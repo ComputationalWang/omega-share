@@ -56,6 +56,7 @@ import { buildRoomsFrames, buildRoomsScenes, roomsCss } from "./rooms";
 import { buildModerationFrames, buildModerationScenes, moderationCss } from "./moderation";
 import { buildQueueFrames, queueCss } from "./queue";
 import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES } from "./fullscreen";
+import { buildResponsiveScenes } from "./responsive";
 import { buildStoreIcons, buildToolbarIcons, renderFoundIcon, renderScreenOff } from "./store";
 import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSources } from "./site";
 import { buildPopupVignettes } from "./popup";
@@ -662,7 +663,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   for (const s of POPUP_KIT_SLICES) if (!existsSync(join(dir, "slices", `${s}.png`))) throw new Error(`popup kit: no slice ${s}`);
   // Set (i): the closed / invite-required vignettes are standalone PNGs, fetched only by the pages that show them.
   mkdirSync(join(dir, "scenes"), { recursive: true });
-  const scenes = [...buildRoomsScenes(), ...buildModerationScenes(), ...buildFullscreenScenes()];
+  const scenes = [...buildRoomsScenes(), ...buildModerationScenes(), ...buildFullscreenScenes(), ...buildResponsiveScenes()];
   registerKeys("ui", scenes.map((f) => f.key));
   for (const f of scenes) {
     const small = compactPalette(f.img);
