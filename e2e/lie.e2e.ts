@@ -118,3 +118,25 @@ test("a lain-on sofa's seats are taken for others, and getting up from a floor s
   expect(await memberOf(b.page)).toEqual(await memberOf(c.page));
   expect(await memberOf(b.page)).toEqual({ cell: null, floorSit: null });
 });
+
+// OME-1807: a lie key is 44 px each way to a finger, and it never covers a seat key.
+for (const [width, height] of [[390, 844], [844, 390], [1024, 768]] as const) {
+  test(`the lie key is a 44 px target on a ${String(width)}x${String(height)} touch screen, clear of the seat keys`, async ({ browser }) => {
+    clients = await joinRoom(browser, { roomUrl: testRoom("lie", "sofa").url, count: 1, nicknamePrefix: "touch", contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+    const [a] = clients;
+    if (a === undefined) throw new Error("need a client");
+    const key = a.page.locator(`${site.lieKey}[data-lie="${String(SOFA)}"]`);
+    await key.scrollIntoViewIfNeeded();
+    const box = await key.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    const covered = await a.page.locator(site.seat).evaluateAll((seats) =>
+      seats.flatMap((s) => {
+        const r = s.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return r.width > 0 && hit?.classList.contains("lie-key") === true ? [s.getAttribute("data-seat")] : [];
+      }),
+    );
+    expect(covered).toEqual([]);
+  });
+}
