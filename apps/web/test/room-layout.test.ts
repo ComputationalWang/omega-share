@@ -43,6 +43,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const roomAway = div();
   const roomTop = div();
   const people = div();
+  people.hidden = true;
   const invite = div();
   const poll = div();
   const side = div();
@@ -92,19 +93,30 @@ describe("room layout", () => {
     expect(form.parentElement).toBe(side);
   });
 
-  test("People is a tab of the chat column on a wide screen, right above the log; elsewhere under the head row (OME-1805)", async () => {
+  test("People is a tab of the chat column on a wide screen, above the owner's bar and the log; elsewhere under the head row (OME-1805)", async () => {
     const wide = await setup({ wide: true });
     expect(wide.people.parentElement).toBe(wide.side);
-    expect(wide.people.nextElementSibling).toBe(wide.log.root);
+    expect(wide.people.nextElementSibling).toBe(wide.ownerBar);
     const page = await setup();
     expect(page.roomTop.nextElementSibling).toBe(page.people);
   });
 
-  test("the owner's bar goes under Up next on a wide screen; on a short one it and Report room end the People tab (OME-1301, OME-1841)", async () => {
+  test("the owner's bar ends the People tab on a wide screen, Report room too on a short one (OME-1841, OME-1842)", async () => {
     const tall = await setup({ wide: true });
-    expect(tall.queue.root.nextElementSibling).toBe(tall.ownerBar);
+    expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
+    expect(tall.ownerBar.nextElementSibling).toBe(tall.log.root);
     expect(tall.foot.parentElement).toBe(tall.root);
+    // Open, People holds the bar at its end, so they scroll as one (OME-1842); closed, it's back above the log.
+    tall.people.append(div());
+    tall.people.hidden = false;
+    await Promise.resolve();
+    expect(tall.people.lastElementChild).toBe(tall.ownerBar);
+    tall.people.hidden = true;
+    await Promise.resolve();
+    expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
     const short = await setup({ wide: true, short: true });
+    short.people.hidden = false;
+    await Promise.resolve();
     expect(short.people.nextElementSibling).toBe(short.ownerBar);
     expect(short.ownerBar.nextElementSibling).toBe(short.foot);
     expect(short.foot.parentElement).toBe(short.side);
