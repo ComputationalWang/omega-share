@@ -36,7 +36,8 @@ test.describe("source link", () => {
       await page.setViewportSize({ width: 1280, height: 720 });
       const link = page.locator(site.sourceLink);
       await expect(link).toBeVisible();
-      const stage = await page.locator(site.room).boundingBox();
+      // The room as shown: its window (OME-1811: at 1× the stage element runs past it, cropped).
+      const stage = await page.locator(site.roomWindow).boundingBox();
       const box = await link.boundingBox();
       if (stage === null || box === null) throw new Error("no layout");
       const overlaps = box.x < stage.x + stage.width && stage.x < box.x + box.width && box.y < stage.y + stage.height && stage.y < box.y + box.height;

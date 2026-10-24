@@ -848,7 +848,9 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
 @media (min-width: 1024px) and (min-height: 501px) and (orientation: landscape) {
   :is(.follow-chip, .door-chip) .ui-button, .room-foot .report-key, .editor-slot-name, .queue-move, .poproom-plate, .people-hidden, .people-away, .fs-bubble-name,
   .ui-tag, .ui-chip, .ui-room .ui-chip, .ui-readout, .ui-room .ui-readout, .ui-live, .ui-room .ui-live, .ui-hint, .ui-room .ui-hint, .ui-plate, .ui-room .ui-plate,
-  .ui-live-note, .ui-room .ui-live-note, .ui-pill-full, .ui-room .ui-pill-full, .ui-room .ui-ticket, .ui-pill-private, .ui-room .ui-pill-private,
+  .ui-live-note, .ui-room .ui-live-note, .ui-room .ui-ticket, .ui-pill-private, .ui-room .ui-pill-private,
   .ui-qrow .meta, .ui-qrow .ui-chip, .ui-qmenu .foot, .ui-report .count { font-size: var(--text-xs); }
   .fs-unread { font-size: var(--text-xs); line-height: 14px; }
+  /* The FULL pill: 12 px caps (about 9 px tall) on its old 9 px line, so the full queue's notice keeps its height. */
+  .ui-pill-full, .ui-room .ui-pill-full { font-size: var(--text-xs); line-height: 9px; }
 }

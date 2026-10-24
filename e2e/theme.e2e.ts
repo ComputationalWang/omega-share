@@ -75,8 +75,12 @@ async function expectEffectRuns(page: Page): Promise<void> {
   expect((await theme(page))?.worstTickMs ?? Infinity).toBeLessThan(4);
 }
 
+/** A window whose band shows the whole room at 1× (OME-1811). Smaller, the band crops the back walls around the seats,
+ * and the effect sleeps there, as in the phone's window (QA OME-1216, below). */
+const WHOLE_ROOM = { viewport: { width: 1600, height: 1100 } };
+
 test("desk: a forced theme dresses the classic room, hats every avatar and runs its effect", async ({ browser }) => {
-  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "desk").url, count: 1, nicknamePrefix: "thdesk", setup: christmas });
+  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "desk").url, count: 1, nicknamePrefix: "thdesk", setup: christmas, contextOptions: () => WHOLE_ROOM });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expectThemed(page);
@@ -135,7 +139,7 @@ const nightNoTheme = async (context: BrowserContext): Promise<void> => {
 };
 
 test("mood ambience: the night mood snows on the effect's own small layer, with no theme", async ({ browser }) => {
-  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "ambience").url, count: 1, nicknamePrefix: "thamb", setup: nightNoTheme });
+  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "ambience").url, count: 1, nicknamePrefix: "thamb", setup: nightNoTheme, contextOptions: () => WHOLE_ROOM });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expectEffectRuns(page);
