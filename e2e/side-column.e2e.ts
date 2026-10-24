@@ -137,8 +137,8 @@ for (const [name, w, h, extra, owned] of OWNER_VIEWPORTS) {
     const log = page.locator(site.chatLog);
     await expect(log).toBeVisible();
     const lb = await box(log);
-    const lh = await log.evaluate((e) => parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.2);
-    expect(lb.height).toBeGreaterThanOrEqual(3 * lh);
+    const line = await box(page.locator(site.chatLogLine).first());
+    expect(lb.height).toBeGreaterThanOrEqual(3 * line.height);
     expect(lb.y + lb.height).toBeLessThanOrEqual(h);
 
     // 3. The owner's tools end the People tab instead of sitting above it.
