@@ -1894,21 +1894,22 @@ export function buildThumbs(): RoomFrame[] {
   const out: RoomFrame[] = [];
   for (const def of PIECES) {
     const dir: FurnDir = def.dirs.includes("se") ? "se" : "ne";
-    for (const colour of def.colours) {
-      const at = (s: number): Uint8Array => pieceImage(def, colour, dir, s, cv);
-      let s = 0.5;
-      for (;;) {
-        const img = at(s);
-        let x0 = cv.w, y0 = cv.h, x1 = -1, y1 = -1;
-        for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) if ((img[y * cv.w + x] ?? 0) !== 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-        const w = x1 - x0 + 1, h = y1 - y0 + 1;
-        if (w > THUMB_BOX.w || h > THUMB_BOX.h) { s -= 1 / 32; continue; }
-        const crop = new Uint8Array(w * h);
-        for (let y = 0; y < h; y++) crop.set(img.subarray((y0 + y) * cv.w + x0, (y0 + y) * cv.w + x0 + w), y * w);
-        out.push({ key: `thumb/${def.id}/${colour}`, w, h, img: crop, ax: Math.floor(w / 2), ay: Math.floor(h / 2) });
-        break;
-      }
-    }
+    for (const colour of def.colours) out.push(fitThumb(`thumb/${def.id}/${colour}`, cv, (s) => pieceImage(def, colour, dir, s, cv)));
   }
   return out;
+}
+
+/** The largest scale ≤ ½ at which `at(s)` (drawn on `cv`) fits THUMB_BOX, cropped; anchor = its visual centre. */
+export function fitThumb(key: string, cv: Canvas, at: (s: number) => Uint8Array): RoomFrame {
+  for (let s = 0.5; s > 0; s -= 1 / 32) {
+    const img = at(s);
+    let x0 = cv.w, y0 = cv.h, x1 = -1, y1 = -1;
+    for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) if ((img[y * cv.w + x] ?? 0) !== 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    if (w > THUMB_BOX.w || h > THUMB_BOX.h) continue;
+    const crop = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) crop.set(img.subarray((y0 + y) * cv.w + x0, (y0 + y) * cv.w + x0 + w), y * w);
+    return { key, w, h, img: crop, ax: Math.floor(w / 2), ay: Math.floor(h / 2) };
+  }
+  throw new Error(`${key}: no scale fits the tray thumbnail box`);
 }
