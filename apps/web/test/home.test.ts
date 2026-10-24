@@ -438,6 +438,21 @@ describe("room presets in the create form (OME-910)", () => {
     }
   });
 
+  // OME-1848 (design OME-1847 §3): the 4-column grid hides the card blurbs (CSS) and shows the picked one once, under it.
+  test("one polite note under the grid holds the picked preset's blurb; each radio is described by its own blurb", async () => {
+    const root = await mount();
+    const note = root.querySelector(".preset-note");
+    expect(note?.getAttribute("aria-live")).toBe("polite");
+    expect(note?.textContent).toBe(PRESETS.find((p) => p.id === "classic")?.blurb);
+    for (const p of PRESETS) {
+      const id = radio(root, p.id).getAttribute("aria-describedby") ?? "";
+      expect(id).not.toBe("");
+      expect(root.querySelector(`[id="${id}"]`)?.textContent).toBe(p.blurb);
+    }
+    radio(root, "cinema").click();
+    expect(note?.textContent).toBe(PRESETS.find((p) => p.id === "cinema")?.blurb);
+  });
+
   test("the default sends preset classic; a picked preset is sent as is", async () => {
     let root = await mount();
     await submit(root, "Movie night", false);
