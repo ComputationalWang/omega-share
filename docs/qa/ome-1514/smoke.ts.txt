@@ -1,0 +1,93 @@
+// OME-1514 hosted smoke (QA2 scratch). ONE private room. A (fullscreen), B guest. Run headed under xvfb.
+import { chromium } from "/home/wang/Projects/omega-share-worktrees/qa2/node_modules/@playwright/test";
+import { writeFileSync } from "node:fs";
+const ORIGIN = "https://omega-share.duckdns.org";
+const OUT = process.env["OUT"] ?? ".";
+const id = (n: string) => `[data-testid="${n}"]`;
+const rows: { check: string; ok: boolean; detail: string }[] = [];
+const T = 15000;
+async function check(name: string, fn: () => Promise<string | void>) {
+  try { const d = (await fn()) ?? ""; rows.push({ check: name, ok: true, detail: d }); console.log("PASS", name, d); }
+  catch (e) { const d = String(e instanceof Error ? e.message.split("\n").slice(0, 3).join(" / ") : e); rows.push({ check: name, ok: false, detail: d }); console.log("FAIL", name, d); }
+  writeFileSync(`${OUT}/hosted-smoke.json`, JSON.stringify({ origin: ORIGIN, at: new Date().toISOString(), rows }, null, 2));
+}
+const assert = (c: boolean, m: string) => { if (!c) throw new Error(m); };
+const browser = await chromium.launch({ channel: "chromium", headless: false });
+const mk = async () => { const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); const page = await ctx.newPage(); const errs: string[] = []; page.on("pageerror", (e) => errs.push(String(e))); return { ctx, page, errs }; };
+const A = await mk(); const B = await mk();
+const enter = async (p: typeof A.page, nick: string, av: number) => {
+  await p.locator(id("nickname-input")).fill(nick, { timeout: T }); await p.locator(id("avatar-option")).nth(av).click({ timeout: T });
+  await p.locator(id("join-button")).click({ timeout: T }); await p.locator(id("walk-floor")).waitFor({ timeout: T });
+};
+const say = async (p: typeof A.page, t: string) => { await p.locator(id("chat-input")).fill(t); await p.locator(id("chat-input")).press("Enter"); };
+const fs = (p: typeof A.page) => p.evaluate(() => document.fullscreenElement !== null);
+let url = "";
+try {
+  await A.page.goto(`${ORIGIN}/`, { timeout: T });
+  const v = await A.page.locator(id("build-version")).textContent(); console.log("version", v);
+  const find = A.page.locator(id("find-room")); if (await find.isVisible()) { await A.page.locator(id("nickname-input")).fill("s1514a"); await find.click(); }
+  await A.page.getByRole("link", { name: "lobby" }).click();
+  await A.page.waitForURL(/\/r\//, { timeout: T }); url = A.page.url();
+  if (await A.page.locator(id("join-button")).isVisible({ timeout: 3000 }).catch(() => false)) await enter(A.page, "s1514a", 0);
+  await A.page.locator(id("walk-floor")).waitFor({ timeout: T });
+  await B.page.goto(url, { timeout: T }); await enter(B.page, "s1514b", 1);
+  await A.page.waitForTimeout(5000);
+
+  await check("hide chat in full screen: C hides strip + controls", async () => {
+    await A.page.locator(id("fullscreen-toggle")).click();
+    await A.page.waitForFunction(() => document.fullscreenElement !== null, null, { timeout: T });
+    await A.page.locator(id("fs-strip")).waitFor({ state: "visible", timeout: T });
+    await A.page.keyboard.press("c");
+    await A.page.locator(id("fs-strip")).waitFor({ state: "hidden", timeout: T });
+    assert(await A.page.locator(id("chat-input")).isHidden(), "chat input still visible");
+    assert(await A.page.locator(id("fs-chat-toggle")).getAttribute("aria-pressed") === "true", "toggle not pressed");
+    return "strip + chat input hidden, toggle pressed";
+  });
+  await check("guest message shows as a bubble and fades", async () => {
+    await say(B.page, "hello from the guest");
+    const bub = A.page.locator(id("fs-bubbles")).getByText("hello from the guest");
+    await bub.waitFor({ state: "visible", timeout: 5000 });
+    await A.page.screenshot({ path: `${OUT}/a-fs-bubble.png` });
+    await bub.waitFor({ state: "detached", timeout: 10000 });
+    return "bubble visible then gone";
+  });
+  await check("leaving full screen restores the layout", async () => {
+    await A.page.keyboard.press("f");
+    await A.page.waitForFunction(() => document.fullscreenElement === null, null, { timeout: T });
+    await A.page.locator(id("chat-input")).waitFor({ state: "visible", timeout: T });
+    await A.page.locator(id("room-window")).or(A.page.locator(id("room"))).first().waitFor({ state: "visible" });
+    await A.page.screenshot({ path: `${OUT}/a-after-leave.png` });
+    return "chat input visible again";
+  });
+  await check("wheel zoom over the room zooms, Fit restores", async () => {
+    const scale = () => A.page.locator(id("walk-floor")).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
+    const fit = await scale();
+    const r = await A.page.locator(id("walk-floor")).boundingBox(); if (!r) throw new Error("no floor");
+    await A.page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+    for (let i = 0; i < 3; i++) { await A.page.mouse.wheel(0, -100); await A.page.waitForTimeout(80); }
+    await A.page.waitForTimeout(300);
+    const z = await scale(); assert(z > fit * 1.5, `fit ${fit} zoomed ${z}`);
+    await A.page.screenshot({ path: `${OUT}/a-wheel-zoom.png` });
+    await A.page.getByTestId("room-zoom-fit").click();
+    await A.page.waitForTimeout(300);
+    const back = await scale(); assert(Math.abs(back - fit) < 0.001, `fit back ${back} vs ${fit}`);
+    return `fit ${fit.toFixed(3)} -> ${z.toFixed(3)} -> ${back.toFixed(3)}`;
+  });
+  await check("facing: B stands after walking left vs right; A's picture of B differs", async () => {
+    const floor = await A.page.locator(id("walk-floor")).boundingBox(); if (!floor) throw new Error("no floor");
+    const bf = await B.page.locator(id("walk-floor")).boundingBox(); if (!bf) throw new Error("no b floor");
+    const tag = async () => { const bx = await A.page.locator(id("nickname-tag")).filter({ hasText: "s1514b" }).boundingBox(); if (!bx) throw new Error("no tag"); return bx; };
+    const rest = async () => { let last = ""; for (let i = 0; i < 40; i++) { const t = await tag(); const s = `${Math.round(t.x)},${Math.round(t.y)}`; if (s === last) return t; last = s; await A.page.waitForTimeout(500); } throw new Error("never at rest"); };
+    const shotAt = async (name: string) => { const t = await rest(); const buf = await A.page.screenshot({ path: `${OUT}/${name}.png`, clip: { x: Math.max(0, t.x + t.width / 2 - 40), y: Math.max(0, t.y - 100), width: 80, height: 110 } }); return buf; };
+    const walkTo = async (fx: number, fy: number) => { await B.page.mouse.click(bf.x + bf.width * fx, bf.y + bf.height * fy); await B.page.waitForTimeout(500); };
+    await walkTo(0.2, 0.6); const left = await shotAt("a-b-after-left");
+    await walkTo(0.8, 0.6); const right = await shotAt("a-b-after-right");
+    assert(!left.equals(right), "B's standing picture identical after walking opposite ways");
+    return `images differ (${left.length} vs ${right.length} bytes)`;
+  });
+  await check("no page errors on A, B", async () => { assert(A.errs.length + B.errs.length === 0, JSON.stringify([...A.errs, ...B.errs])); return "0 errors"; });
+} catch (e) { await A.page.screenshot({ path: `${OUT}/fatal-a.png` }).catch(() => {}); console.log("FATAL", e instanceof Error ? e.message.split("\n").slice(0,4).join(" | ") : e); } finally {
+  writeFileSync(`${OUT}/room-url.txt`, url);
+  await browser.close();
+  process.exit(rows.every((r) => r.ok) ? 0 : 1);
+}
