@@ -208,6 +208,10 @@
 .editor .ui-slot { cursor: pointer; }
 .editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
 .ui-touch .editor-slot-name { font-size: 12px; }
+/* OME-1800: no chip text under 12 px on a touch screen (a portrait tablet misses the computer rule below). Before the
+ * container rules that drop a chip's word to font-size 0. */
+.ui-touch .ui-chip { font-size: var(--text-xs); }
+.ui-touch .fs-unread { line-height: 14px; }
 .editor-mood-options { display: flex; gap: 4px; }
 .editor-mood .ui-button[aria-checked="true"] { outline: 2px solid var(--ui-text); outline-offset: -2px; }
 .editor-piece, .editor-mood, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
