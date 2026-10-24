@@ -132,6 +132,8 @@
 .lie-key:hover, .lie-key:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
 .lie-key:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .lie-key:disabled { cursor: default; }
+/* OME-1807: 44 px to a finger, its bottom edge where the 20 px pad's was, so it stays clear of the sofa's seat keys. */
+.ui-touch .lie-key { left: -22px; top: -34px; width: 44px; height: 44px; }
 .notice { margin: 8px 0 0; color: var(--error); }
 
 /* ---- Set (e) playback chrome (OME-89). Shared transport in the TV's control-bar slot at 1×; personal pod below the stage. ---- */
