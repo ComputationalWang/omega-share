@@ -105,15 +105,16 @@ for (const [name, w, h, extra] of VIEWPORTS) {
 // OME-1842 (responsive audit round 2): as the owner with a video on, the column stacked the invite, Up next, Edit room and
 // Who controls playback above People, which got ~110 px (the shirt row only), and People open hid the chat log.
 const OWNER_VIEWPORTS = [
-  ["t1024", 1024, 768, TOUCH, "scownt"],
-  ["w1280", 1280, 800, {}, "scownw"],
-  ["w1920", 1920, 1080, {}, "scownx"],
-  ["w2560", 2560, 1440, {}, "scowny"],
+  ["t1024", 1024, 768, TOUCH, ["scownt", "scowntr"]],
+  ["w1280", 1280, 800, {}, ["scownw", "scownwr"]],
+  ["w1920", 1920, 1080, {}, ["scownx", "scownxr"]],
+  ["w2560", 2560, 1440, {}, ["scowny", "scownyr"]],
 ] as const;
 
-for (const [name, w, h, extra, owned] of OWNER_VIEWPORTS) {
+for (const [name, w, h, extra, [first, again]] of OWNER_VIEWPORTS) {
   test(`${String(w)}×${String(h)}${"hasTouch" in extra ? " touch" : ""}, the owner: People shows its look rows and first person, the chat keeps 3 lines, the owner's tools end the tab`, async ({ browser }) => {
-    const page = await queued(browser, name, { viewport: { width: w, height: h }, ...extra }, owned);
+    // A retry gets a fresh room: the first try's video still plays in this one, so its first link would queue.
+    const page = await queued(browser, name, { viewport: { width: w, height: h }, ...extra }, test.info().retry === 0 ? first : again);
     await expect(page.locator(site.editRoom)).toBeVisible();
     const tv = await box(page.locator(site.tv));
     await page.locator(site.peopleKey).click();
