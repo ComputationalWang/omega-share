@@ -66,6 +66,7 @@ for (const [w, h] of [[1024, 768], [1280, 800], [1920, 1080], [2560, 1440]] as c
     await expect(page.locator(site.findRoom)).toBeVisible();
     expect(await smallText(page, "body")).toEqual([]);
     await openDirectory(page, "Polish");
+    await shot(page, `1-create-${String(w)}x${String(h)}`);
     const card = page.locator(site.createRoomForm);
     expect((await card.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(360);
     const list = page.locator(".preset-list");
@@ -80,7 +81,6 @@ for (const [w, h] of [[1024, 768], [1280, 800], [1920, 1080], [2560, 1440]] as c
     expect(blurb.size).toBeGreaterThanOrEqual(12);
     expect(blurb.lead).toBeCloseTo(1.45, 2);
     expect(await smallText(page, "body")).toEqual([]);
-    await shot(page, `1-create-${String(w)}x${String(h)}`);
     await context.close();
   });
 }
@@ -115,13 +115,13 @@ for (const [name, w, h] of [["d1280", 1280, 800], ["d1920", 1920, 1080], ["d2560
     await page.waitForTimeout(300);
     // The room's empty corner inside the stage (the floor is a diamond) and the page just outside the stage's box: one
     // colour, so the stage's edge doesn't show.
+    await shot(page, `3-dungeon-${String(w)}x${String(h)}`);
     const area = await page.locator(".stage-clip").boundingBox();
     if (area === null) throw new Error("not laid out");
     const y = Math.floor(area.y + area.height - 4);
     const [inside, outside] = await pixels(page, [[Math.floor(area.x + 4), y], [Math.max(2, Math.floor(area.x - 8)), y]]);
     // Two paths to the same multiply: a rounding step apart at most.
     for (const [i, c] of (outside ?? []).entries()) expect(Math.abs(c - (inside?.[i] ?? -9))).toBeLessThanOrEqual(2);
-    await shot(page, `3-dungeon-${String(w)}x${String(h)}`);
   });
 }
 
@@ -136,6 +136,7 @@ for (const [name, w, h, options] of [["f1024", 1024, 768, TOUCH(1024, 768)], ["f
     await page.locator(site.fullscreenToggle).click();
     await expect(page.locator(site.fsStrip)).toBeVisible();
     await page.waitForTimeout(400);
+    await shot(page, `4-fullscreen-${String(w)}x${String(h)}`);
     const tv = await page.locator(site.tv).boundingBox();
     const bar = await page.locator(`${site.fsRoot} .controls, .stage-wrap.is-fs > .controls`).first().boundingBox();
     const wrap = await page.locator(".stage-wrap.is-fs").boundingBox();
@@ -150,6 +151,5 @@ for (const [name, w, h, options] of [["f1024", 1024, 768, TOUCH(1024, 768)], ["f
     // The leftover is letterbox: plain black, no page colour and no bezel rule over or under the picture.
     await expect(page.locator(".stage-wrap.is-fs")).toHaveCSS("background-color", "rgb(0, 0, 0)");
     await expect(page.locator(site.tv)).toHaveCSS("border-image-source", "none");
-    await shot(page, `4-fullscreen-${String(w)}x${String(h)}`);
   });
 }
