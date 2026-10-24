@@ -279,6 +279,9 @@ test("844×390 touch, the owner: the head row labels Copy, keeps the title whole
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.chatInput)).toBeVisible();
 
+  // The owner's room window is whole too (their bar under the room took its height).
+  await inside(page.locator(site.roomWindow), 0, 390, 0, 844);
+  for (const k of ["in", "out", "fit"]) await inside(page.locator(`[data-testid=room-zoom-${k}]`), 0, 390, 0, 844);
   // Copy says what it copies: the invite field or its label shows beside it.
   const copy = page.locator(site.inviteCopy);
   await inside(copy, 0, 390, 0, 844);
