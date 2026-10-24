@@ -56,8 +56,11 @@ export function createCinemaDim(store: CinemaStore): CinemaDim {
     },
     mood(m) {
       if ((layer.dataset["mood"] ?? "none") === m) return;
-      if (m === "none") delete layer.dataset["mood"];
-      else layer.dataset["mood"] = m;
+      // The page takes the mood too, so it reaches the room area's edges (OME-1810, room.css).
+      for (const host of [layer, document.body]) {
+        if (m === "none") delete host.dataset["mood"];
+        else host.dataset["mood"] = m;
+      }
     },
   };
 }

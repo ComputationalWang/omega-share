@@ -84,7 +84,14 @@ legend { padding: 0; margin-bottom: 6px; }
 .preset img { width: 100%; height: auto; border-radius: 4px; image-rendering: pixelated; }
 .preset input { position: absolute; top: 10px; left: 10px; margin: 0; }
 .preset-name { font-weight: 600; }
-.preset-blurb { color: var(--muted); font-size: max(12px, 0.8em); }
+.preset-blurb { color: var(--muted); font-size: var(--text-xs); line-height: var(--leading-body); }
+/* A computer (OME-1810, design OME-1809): all 8 presets at once, a 4×2 grid with no sideways scroll; 2 columns under 360 px. */
+@media (min-width: 1024px) {
+  .home .preset-picker { container-type: inline-size; }
+  .home .preset-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; padding-bottom: 0; }
+  .home .preset { width: auto; }
+  @container (min-width: 360px) { .home .preset-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+}
 .saved-item { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .saved-name { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .saved-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -262,7 +269,8 @@ legend { padding: 0; margin-bottom: 6px; }
   .how-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
   .get-extension { grid-area: ext; margin-top: 24px; }
   .home h1 { font-size: 32px; }
-  .directory { grid-template-columns: 328px minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  /* The create card is 410 px: 360 for the preset grid's 4 columns inside its 24 px padding and 1 px border (OME-1810). */
+  .directory { grid-template-columns: 410px minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .home .create-room { grid-row: 1 / span 2; }
   .home .rooms-yours, .home .rooms-public { grid-column: 2; }
 }
