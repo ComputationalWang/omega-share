@@ -389,7 +389,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       if (x < p.x || x > p.x + w || y < p.y || y > p.y + h) applyDesk(desk, { zoom: deskView.zoom, pan: { x: x - w / 2, y: y - h / 2 } });
       return;
     }
-    if (!active || !(ev.target instanceof Element)) return;
+    // A press's focus (a tap on a seat; :focus-visible is off for it, and a touch focuses after the finger lifts) is under
+    // the finger already: panning to it slid the seat away before its click landed (OME-1841).
+    if (!active || down !== null || !(ev.target instanceof Element) || !ev.target.matches(":focus-visible")) return;
     const r = ev.target.getBoundingClientRect();
     const s = stage.getBoundingClientRect();
     const x = (r.left - s.left + r.width / 2) / zoom;
