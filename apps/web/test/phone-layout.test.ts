@@ -144,8 +144,8 @@ describe("where the window looks first (QA OME-1324 G3)", () => {
   const ys = SEATS.map((p) => p.y);
   const top = Math.min(...ys);
   const front = Math.max(...ys);
-  test("a window tall enough for every seat looks at their middle", () => {
-    expect(seatsHome(SEATS, 400).y).toBe((top + front) / 2);
+  test("a window tall enough for every seat looks at their middle: hit areas' top to name tags' foot (OME-1843)", () => {
+    expect(seatsHome(SEATS, 400).y).toBe((top - 22 + front + 30) / 2);
   });
   test("a shorter one shows the front row whole (its 44 px hit areas) instead of every row cropped", () => {
     const h = 77;

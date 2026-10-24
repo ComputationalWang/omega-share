@@ -134,7 +134,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     if (desk === null) return;
     // Kept to the stage, not ROOM_VIEW: the browser scrolled within the stage's box and measured what it showed there.
     const k = desk * deskView.zoom;
-    const keep = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), v));
+    // A band wider than the stage keeps it centred (OME-1843).
+    const keep = (v: number, max: number): number => (max < 0 ? max / 2 : Math.max(0, Math.min(max, v)));
     deskMoved = true;
     deskView = { zoom: deskView.zoom, pan: { x: keep(deskView.pan.x + dx / k, STAGE_W - deskBox.w / k), y: keep(deskView.pan.y + dy / k, STAGE_H - deskBox.h / k) } };
     showDesk(desk);

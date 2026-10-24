@@ -114,7 +114,7 @@ export interface RoomLayout {
   readonly syncPortrait: () => boolean;
   readonly portraitOn: () => boolean;
   readonly dock: ReturnType<typeof createPortraitDock>;
-  /** The seats moved (a new layout): the phone's window looks at their middle. */
+  /** A new layout's seats and standing spots: the room window (phone or band) looks at them. */
   readonly seats: (points: readonly Point[]) => void;
   /** I sat down: the phone's window centres on my seat. */
   readonly centre: (p: Point) => void;
@@ -391,7 +391,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   placeChat();
 
-  /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
+  /** The room window looks at the seats and standing spots (the audience) until you drag it, sit, or focus something off-screen. */
   const roomWindow = createRoomWindow(clip, stage, (h) => seatsHome(seatPoints, h), o.labelScale);
   let seatPoints: readonly Point[] = [];
   let fsScrollWidth = -1;
@@ -541,7 +541,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     dock,
     seats: (points) => {
       seatPoints = points;
-      if (phone.matches) fit();
+      // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle.
+      fit();
     },
     centre: (p) => {
       roomWindow.centre(p);

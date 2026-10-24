@@ -145,13 +145,16 @@ for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["a
     const band = await box(page.locator(site.roomWindow));
     const column = await box(page.locator(".stage-wrap"));
     expect(band.width).toBeGreaterThanOrEqual(column.width - 1);
-    for (const tag of await tags.all()) {
-      const t = await box(tag);
-      expect(t.y).toBeGreaterThanOrEqual(band.y);
-      expect(t.y + t.height).toBeLessThanOrEqual(band.y + band.height);
-      expect(t.x).toBeGreaterThanOrEqual(band.x);
-      expect(t.x + t.width).toBeLessThanOrEqual(band.x + band.width);
-    }
+    // Once everyone has walked to their spot (a joiner walks in from the room's edge).
+    await expect(async () => {
+      for (const tag of await tags.all()) {
+        const t = await box(tag);
+        expect(t.y).toBeGreaterThanOrEqual(band.y);
+        expect(t.y + t.height).toBeLessThanOrEqual(band.y + band.height);
+        expect(t.x).toBeGreaterThanOrEqual(band.x);
+        expect(t.x + t.width).toBeLessThanOrEqual(band.x + band.width);
+      }
+    }).toPass({ timeout: 10_000 });
   });
 }
 

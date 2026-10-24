@@ -48,8 +48,9 @@
  * flips on play/pause/editor; the 400 ms fade is a one-off background-colour transition of one flat layer, not a running
  * animation. The room mood (OME-1502) is a fixed tint on the same layer, multiplied into the canvas; multiply commutes, so
  * the dim (the background colour, under the tint image) stacks on it and looks as it does with no mood. */
-.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); transition: background-color 400ms ease; }
-.cinema-dim.is-on { background-color: rgb(8 6 18 / 0.45); }
+/* Its spread reaches the band's void past the stage's box (OME-1843: the band spans the column), clipped by .stage-clip. */
+.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0); transition: background-color 400ms ease, box-shadow 400ms ease; }
+.cinema-dim.is-on { background-color: rgb(8 6 18 / 0.45); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0.45); }
 .cinema-dim[data-mood] { mix-blend-mode: multiply; }
 .cinema-dim[data-mood="warm"] { background-image: linear-gradient(rgb(255 176 96 / 0.25) 0 0); }
 .cinema-dim[data-mood="cool"] { background-image: linear-gradient(rgb(120 170 255 / 0.25) 0 0); }
