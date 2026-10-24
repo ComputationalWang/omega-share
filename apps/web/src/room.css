@@ -506,6 +506,8 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-side:has(> .people:not([hidden])) > .chat-log { flex: none; height: 76px; }
 .room-side:has(> .people:not([hidden])) > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form, .queue-next) { display: none; }
 .room-side:has(> .people:not([hidden])) > .invite { display: none; }
+/* 800 px tall or less, Up next's head steps aside too (as on a short screen): with CI's wider font it cut the first person. */
+@media (max-height: 800px) { .room-side:has(> .people:not([hidden])) > .queue-panel { display: none; } }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
 /* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
  * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
