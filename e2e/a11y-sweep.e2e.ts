@@ -118,9 +118,9 @@ const measure = (page: Page): Promise<string[]> =>
     if (was instanceof HTMLElement) was.focus();
     else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     // A touch screen also judges what sits outside the room root: the landing and profile form, the directory, the site
-    // footer and the dialogs (OME-1807).
+    // footer, the dialogs (OME-1807) and the legal pages (OME-1844).
     const coarse = matchMedia("(pointer: coarse)").matches;
-    const judged = (el: Element): boolean => el.closest(coarse ? ".ui-touch, .welcome, .home, .site-footer, dialog, [role=dialog]" : ".ui-touch") !== null;
+    const judged = (el: Element): boolean => el.closest(coarse ? ".ui-touch, .welcome, .home, .site-footer, .privacy, dialog, [role=dialog]" : ".ui-touch") !== null;
     for (const el of document.body.querySelectorAll<HTMLElement>("*")) {
       if (!judged(el) || el.closest("[inert], [hidden], dialog:not([open])") !== null) continue;
       if (![...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "")) continue;
@@ -257,6 +257,12 @@ VIEWPORTS.forEach((vp, i) => {
       await expect(page.locator(site.firstHint)).toBeVisible();
       await audit(page, vp.name, "guest rest");
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
+      // OME-1844: the emote wheel's keys, held sideways too.
+      await step(page, vp, "emote wheel", skipped, async () => {
+        if (!(await visibleClick(page, site.emoteKey))) return false;
+        await expect(page.getByRole("menu", { name: "Emotes" })).toBeVisible();
+        return true;
+      });
       await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
       // A phone held sideways keeps Report room in the People tab (OME-1841).
       await step(page, vp, "report", skipped, async () => {
