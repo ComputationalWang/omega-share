@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
@@ -444,14 +444,14 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight));
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
-        // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
+        // A touch screen whose band can't hold the room at its scale (a phone held sideways) gets the phone's window: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
         // under the keys' column height (Twitch's taller TV, QA OME-1330 R1), so every seat row shows whole beside the
         // keys; the wrap grows to hold it and the column scrolls to the rest.
-        if (o.coarse.matches && l.scale < 1) {
+        if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
           const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.max(KEYS_COLUMN_H, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
@@ -460,7 +460,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         } else {
           box(clip, l.stage);
           roomWindow.set(false, 0, 0);
-          roomWindow.desk(l.scale);
+          roomWindow.desk(l.scale, l.stage);
           stage.style.setProperty("--stage-scale", String(l.scale));
         }
       }

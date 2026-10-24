@@ -136,7 +136,8 @@ test("1280×800 with a video: no visible text in the room page is under 12 px", 
   const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
     .filter((e) => [...e.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim() !== "") && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
     .map((e) => ({ text: e.textContent.trim().slice(0, 30), cls: e.className, px: Number.parseFloat(getComputedStyle(e).fontSize) }))
-    .filter((t) => t.px < 12));
+    // font-size 0 is a label's text hidden behind its art (the share chip's), not small text.
+    .filter((t) => t.px > 0 && t.px < 12));
   expect(small).toEqual([]);
 });
 

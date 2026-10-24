@@ -144,7 +144,7 @@ describe("wheelView in a band smaller than the room", () => {
   test("the view is clamped inside ROOM_VIEW at the band's size", () => {
     expect(wheelView(1, { zoom: 1, pan: { x: -100, y: 0 } }, { x: 0, y: 0 }, 1, BAND).pan).toEqual({ x: ROOM_VIEW.x, y: ROOM_VIEW.y });
     expect(wheelView(1, { zoom: 1, pan: { x: 500, y: 500 } }, { x: 0, y: 0 }, 1, BAND).pan).toEqual({ x: ROOM_VIEW.x + ROOM_VIEW.w - BAND.w, y: ROOM_VIEW.y + ROOM_VIEW.h - BAND.h });
-    const z = wheelView(2, { zoom: 1, pan: { x: 500, y: 500 } }, { x: 0, y: 0 }, 1, BAND);
+    const z = wheelView(2, { zoom: 1, pan: { x: 900, y: 900 } }, { x: 0, y: 0 }, 1, BAND);
     expect(z.pan).toEqual({ x: ROOM_VIEW.x + ROOM_VIEW.w - BAND.w / 2, y: ROOM_VIEW.y + ROOM_VIEW.h - BAND.h / 2 });
   });
   test("the stage point under the pointer still stays under it", () => {

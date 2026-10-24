@@ -14,7 +14,7 @@
 .door-chip { position: absolute; right: 8px; top: 8px; z-index: 3; text-transform: none; }
 .door-chip .ui-button { font-size: 10px; padding: 0 4px; }
 .stage { position: absolute; top: 0; left: 0; width: 960px; height: 600px; transform-origin: 0 0; }
-.scene { position: absolute; inset: 0; width: 960px; height: 600px; }
+.scene { position: absolute; inset: 0; width: 960px; height: 600px; image-rendering: pixelated; }
 /* The holiday theme's effect (ADR 0052): a small overlay over its band only, 1 backing px per stage px. */
 .scene-fx { position: absolute; pointer-events: none; image-rendering: pixelated; }
 /* The TV box is the player rect (>= 356x200, layout.ts); the bezel is an outline so it never eats into it. */
@@ -839,3 +839,16 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
   .ui-report .count { font-size: 12px; }
 }
 .ui-touch .help-pages a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+
+/* OME-1811 (design OME-1799 §2): a band smaller than the room at its integer scale is a window you drag to look around. */
+.stage-clip.is-band { cursor: grab; }
+.stage-clip.is-band.is-dragging { cursor: grabbing; }
+/* OME-1811 (design OME-1799 §3, OME-1809 item 4): no text under --text-xs (12 px) on a computer. The room's 9–11 px
+ * chips, plates, hints, queue meta and editor names (reference.css and above) come up to it; the keys keep their size. */
+@media (min-width: 1024px) and (min-height: 501px) and (orientation: landscape) {
+  :is(.follow-chip, .door-chip) .ui-button, .room-foot .report-key, .editor-slot-name, .queue-move, .poproom-plate, .people-hidden, .people-away, .fs-bubble-name,
+  .ui-tag, .ui-chip, .ui-room .ui-chip, .ui-readout, .ui-room .ui-readout, .ui-live, .ui-room .ui-live, .ui-hint, .ui-room .ui-hint, .ui-plate, .ui-room .ui-plate,
+  .ui-live-note, .ui-room .ui-live-note, .ui-pill-full, .ui-room .ui-pill-full, .ui-room .ui-ticket, .ui-pill-private, .ui-room .ui-pill-private,
+  .ui-qrow .meta, .ui-qrow .ui-chip, .ui-qmenu .foot, .ui-report .count { font-size: var(--text-xs); }
+  .fs-unread { font-size: var(--text-xs); line-height: 14px; }
+}

@@ -150,16 +150,20 @@ export function chromeZoom(width: number, height: number): number {
 }
 
 /**
- * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
- * larger), the shelf right under it, and the stage below, scaled to fill what's left (up past 1× too, OME-1050) and centred.
- * `chrome` is the page's zoom (chromeZoom): the shelf's height and minimum width grow with it.
+ * The room's largest scale in a `width`×`height` window (OME-1811, design OME-1799 §2): whole numbers only, 1× or 2×
+ * (STYLE.md, nearest-neighbour), never a fraction. 2× from 2400×1300; wideLayout drops it to 1× in a short band.
  */
-/** OME-1811 stub. */
-export function roomScale(_width: number, _height: number): number {
-  return 1;
+export function roomScale(width: number, height: number): number {
+  return width >= 2400 && height >= 1300 ? 2 : 1;
 }
 
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, _maxScale = 1): RoomLayout {
+/**
+ * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
+ * larger), the shelf right under it, and the room's band below. `chrome` is the page's zoom (chromeZoom): the shelf's
+ * height and minimum width grow with it. The room is at `maxScale` (roomScale) where the band holds BAND_MIN_H per scale
+ * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits.
+ */
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
@@ -174,8 +178,10 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const cw = Math.max(tv.w, Math.min(w, keysW));
   const controls = { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
   const sy = controls.y + controls.h + GAP;
-  const scale = Math.max(0.05, Math.min(w / ROOM_VIEW.w, (h - sy) / ROOM_VIEW.h));
-  const stage = { x: (w - ROOM_VIEW.w * scale) / 2, y: sy, w: ROOM_VIEW.w * scale, h: ROOM_VIEW.h * scale };
+  const band = Math.max(0, h - sy);
+  const scale = Math.max(1, Math.min(maxScale, Math.floor(band / BAND_MIN_H)));
+  const sw = Math.min(w, ROOM_VIEW.w * scale);
+  const stage = { x: Math.floor((w - sw) / 2), y: sy, w: sw, h: Math.min(band, ROOM_VIEW.h * scale) };
   const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
@@ -435,15 +441,16 @@ export interface DeskView {
 }
 
 /**
- * The desktop wheel (OME-1490): the room fitted at `fit`, zoomed from `from` to `zoom` (clamped from the whole room, 1, to
+ * The desktop wheel (OME-1490): the room fitted at `fit`, zoomed from `from` to `zoom` (clamped from the fit, 1, to
  * MAX_ZOOM) around `at` (px in the room's box): the stage point under `at` stays under it, and the view stays in ROOM_VIEW.
+ * `view` is the room's box (CSS px): ROOM_VIEW at `fit`, or a band smaller than that (OME-1811).
  */
-export function wheelView(fit: number, from: DeskView, at: Point, zoom: number, _view?: Size): DeskView {
+export function wheelView(fit: number, from: DeskView, at: Point, zoom: number, view: Size = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }): DeskView {
   const z = Number.isFinite(zoom) ? Math.max(1, Math.min(MAX_ZOOM, zoom)) : 1;
   const k0 = fit * from.zoom;
   const k1 = fit * z;
-  const clamp = (v: number, lo: number, span: number): number => Math.max(lo, Math.min(lo + span - span / z, v));
-  return { zoom: z, pan: { x: clamp(from.pan.x + at.x / k0 - at.x / k1, ROOM_VIEW.x, ROOM_VIEW.w), y: clamp(from.pan.y + at.y / k0 - at.y / k1, ROOM_VIEW.y, ROOM_VIEW.h) } };
+  const clamp = (v: number, lo: number, span: number, shown: number): number => Math.max(lo, Math.min(lo + Math.max(0, span - shown / k1), v));
+  return { zoom: z, pan: { x: clamp(from.pan.x + at.x / k0 - at.x / k1, ROOM_VIEW.x, ROOM_VIEW.w, view.w), y: clamp(from.pan.y + at.y / k0 - at.y / k1, ROOM_VIEW.y, ROOM_VIEW.h, view.h) } };
 }
 
 /** A stage-space rect on the page. */

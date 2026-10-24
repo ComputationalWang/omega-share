@@ -14,6 +14,24 @@
   font: 16px/1.4 system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
+/* Type and spacing tokens per size class (OME-1811, design OME-1799 §3): medium here, then mobile, large and large ≥ 1600
+ * (layout.ts PHONE_QUERY and WIDE_QUERY's widths). Text never goes under --text-xs, 12 px. Under the room's chrome zoom
+ * (OME-1667: 1.5× from 1920, 2× from 2560) they grow with it, so these are the CSS px before the zoom. */
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --gutter: 16px; --key-h: 44px;
+  --text-xs: 12px; --text-sm: 14px; --text-base: 16px; --text-lg: 18px; --text-title: 22px; --text-display: 40px;
+  --leading-body: 1.45; --leading-heading: 1.15;
+}
+@media (max-width: 600px), (max-height: 500px) and (orientation: landscape) {
+  :root { --gutter: 8px; --text-sm: 13px; --text-base: 15px; --text-lg: 17px; --text-title: 20px; --text-display: 32px; }
+}
+@media (min-width: 1024px) and (min-height: 501px) and (orientation: landscape) {
+  :root { --gutter: 24px; --key-h: 36px; --text-sm: 13px; --text-base: 15px; --text-lg: 18px; --text-title: 24px; --text-display: 44px; }
+}
+@media (min-width: 1600px) and (min-height: 501px) and (orientation: landscape) {
+  :root { --space-6: 40px; --gutter: 32px; --key-h: 40px; --text-xs: 13px; --text-sm: 14px; --text-base: 16px; --text-lg: 20px; --text-title: 28px; --text-display: 52px; }
+}
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--fg); }
 /* viewport-fit=cover (OME-596): the page reaches the screen's edges, so it keeps the notch and the rounded corners' insets clear. */

@@ -30,7 +30,8 @@ async function cellOnPage(page: Page, x: number, y: number): Promise<{ x: number
 const scaleOf = (page: Page): Promise<number> => page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
 
 test("the wheel zooms the room around the pointer, a click still walks to the tile under it, the Fit key fits it again", async ({ browser }) => {
-  clients = await joinRoom(browser, { roomUrl: testRoom("desk-zoom", "main").url, count: 1, nicknamePrefix: "wheel" });
+  // A window whose band holds the whole room at 1× (OME-1811): at 1280×720 the band is a window onto it (room-window.test.ts).
+  clients = await joinRoom(browser, { roomUrl: testRoom("desk-zoom", "main").url, count: 1, nicknamePrefix: "wheel", contextOptions: () => ({ viewport: { width: 1600, height: 1100 } }) });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   const { page } = a;
