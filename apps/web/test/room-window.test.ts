@@ -161,6 +161,19 @@ describe("on a phone, edges", () => {
     expect(win.pan().x).toBeGreaterThan(before);
   });
 
+  test("a tap's focus doesn't pan: the seat stays under the finger, so its click lands (OME-1841, a seat near the edge)", async () => {
+    const { win, stage, key } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    for (let i = 0; i < 4; i++) key("in").click();
+    const before = win.pan();
+    const seat = document.createElement("button");
+    seat.getBoundingClientRect = () => ({ left: 1200, top: 600, width: 0, height: 0, right: 1200, bottom: 600, x: 1200, y: 600, toJSON: () => ({}) });
+    stage.append(seat);
+    seat.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 380, clientY: 135, isPrimary: true, button: 0, bubbles: true, pointerType: "touch" }));
+    seat.focus();
+    expect(win.pan()).toEqual(before);
+  });
+
   test("a pinch that starts on a seat keeps going when the seat loses the finger to the window (OME-1197)", async () => {
     const { win, stage, zoom, pointer } = await setup();
     win.set(true, VIEW.w, VIEW.h);
