@@ -436,7 +436,7 @@ closed teal ring + dots = fits · dashed rust ring + hatching = can't go there �
 | `tray/0` | 24×24 | 10 | Furniture tray: a planked wooden drawer with a sunken night well (`.ui-tray`, under the stage). |
 | `tab/<idle\|hover\|on>` | 16×14 | 5 5 4 5 | Tray tabs (`.ui-tabs > .ui-tab[role=tab]`). `on` (`aria-selected="true"`) is the lit wood face whose bottom runs into the tray rim (1 art px overlap, already in the CSS). Tabs: Seats `glyph/tab-seats`, Decor `glyph/tab-decor`, Floor & wall `glyph/tab-floor`. |
 | `slot/<idle\|hover\|held\|off>` | 16×16 | 6 | Cubby, one per piece (`.ui-slot`): dusk glass in a wood rim. hover/focus = cream edge, `held` (`aria-pressed="true"`) = mustard double rim (it's in your hand), `off` (`aria-disabled="true"`) = charcoal glass (the room has `MAX_FURNITURE` pieces). |
-| `thumb/<id>/<colour>` *(edit.png)* | ≤ 44×40 | — | Tray thumbnail for every catalogue piece and colour (29: 17 for v1, 12 for v2). The catalogue model re-cast at ≤ ½ scale (same light, tones, outline), not a shrunk sprite. Seats face `se`, the runner `ne`. Centre it in the cubby. |
+| `thumb/<id>/<colour>` *(edit.png)* | ≤ 44×40 | — | Tray thumbnail for every catalogue piece and colour (29: 17 for v1, 12 for v2). The catalogue model re-cast at ≤ ½ scale (same light, tones, outline), not a shrunk sprite. Seats face `se`, the runner `ne`. Centre it in the cubby. The five room atlas pieces have one each too (OME-1847, from `presets.ts` `buildRoomThumbs`): `thumb/armchair/velvet`, `thumb/tv/charcoal`, `thumb/lamp/cream`, `thumb/plant/rust`, and `thumb/rug/navy` (a 3×3 corner of the big rug). The armchair and TV have no colours, so the editor maps them to those names. |
 | `glyph/fp-<1x1\|2x1\|1x2\|3x2\|2x3\|wall>` | 10×6 · 14×8 · 22×12 · wall 10×7 | — | Footprint glyph, bottom-left in each cubby (`.ui-fp`): the piece's floor cells as a tiny iso plan (8×4 px per cell, plum seams and outline), or "wall". Pick `footprintByDir[dir]` for the facing the thumbnail shows, so the plan slants like the piece: the two-seaters and the bookcase show `se`, which is `1x2`. |
 | `swatch/<colour>` + `swatch/ring` *(edit.png)* | 10×10, 14×14 | — | Variant chips under the tray (`.ui-swatches > .ui-swatch[role=radio]`), one per colour in the piece's `colours`. The picked one shows its mustard ring. Prints get a tiny picture of their art. |
 | `ticket/<idle\|copied\|expired>` | 34×20 | 4 6 4 15, fixed height | Invite link field (`.ui-ticket`): a cinema ticket, plum mono text on cream. `copied` stamps a teal check on the stub. `expired` tears the stub off, greys the card and strikes the text. |
@@ -1420,7 +1420,7 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
 `presets/` validates every layout against `FURNITURE`, so the preset can't ship there before the hookup. Its layout is `DUNGEON_PRESET` in
 `src/build.ts` (rendered in `preview/dungeon-room*`); move it into `src/presets.ts` once the kinds exist:
 
-- id `dungeon`, name **Dank Dungeon**, blurb "Twin beds, a whirlpool for two and the lights way down.", `mood: "night"`.
+- id `dungeon`, name **Dank Dungeon**, blurb "Twin beds, a whirlpool for two, lights down.", `mood: "night"`.
 - Pieces: `tv (0,0) se`; `bed (4,0) nw`, `bed (0,3) ne`; `wingback (7,2) nw`, `wingback (7,4) nw` with `coffeetable (7,3) sw` (the sitting corner);
   `whirlpool (2,7) ne`; `desk (7,0) sw`, `minibar (9,0) sw`; `washbasin (0,7) se` under `mirror (0,7) se`; `neonsign (0,2) se`; `arclamp (1,5) se`;
   `runner (4,4) nw` variant 1; `monstera (9,9) sw` variant 1.

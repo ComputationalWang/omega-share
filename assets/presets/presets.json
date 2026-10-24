@@ -11,56 +11,56 @@
   {
    "id": "classic",
    "name": "Classic",
-   "blurb": "Two rows of armchairs on the big rug. The room you know.",
+   "blurb": "Two rows of armchairs on the big rug.",
    "layout": "classic.json",
    "thumb": "thumbs/classic.png"
   },
   {
    "id": "cinema",
    "name": "Theatre",
-   "blurb": "Rows on risers facing the big screen, curtains drawn back.",
+   "blurb": "Rows on risers before the big screen.",
    "layout": "cinema.json",
    "thumb": "thumbs/cinema.png"
   },
   {
    "id": "living",
    "name": "Living room",
-   "blurb": "Couches, a reading chair and a bookcase. Feet up.",
+   "blurb": "Couches, a reading chair, a bookcase.",
    "layout": "living.json",
    "thumb": "thumbs/living.png"
   },
   {
    "id": "lounge",
    "name": "Lounge",
-   "blurb": "Beanbags and poufs on kilim runners, neon glow, plants.",
+   "blurb": "Beanbags, poufs, kilim runners, neon.",
    "layout": "lounge.json",
    "thumb": "thumbs/lounge.png"
   },
   {
    "id": "cafe",
    "name": "Café",
-   "blurb": "Little tables for two, a bookcase and a snack cart.",
+   "blurb": "Tables for two, books, a snack cart.",
    "layout": "cafe.json",
    "thumb": "thumbs/cafe.png"
   },
   {
    "id": "bar",
    "name": "Bar",
-   "blurb": "Stools at the bar, hammocks, a piano and a crackling fire.",
+   "blurb": "Bar stools, hammocks, a piano, a fire.",
    "layout": "bar.json",
    "thumb": "thumbs/bar.png"
   },
   {
    "id": "empty",
    "name": "Empty",
-   "blurb": "Just beanbags and bare boards. Furnish it your way.",
+   "blurb": "Bare boards and beanbags. Furnish it.",
    "layout": "empty.json",
    "thumb": "thumbs/empty.png"
   },
   {
    "id": "dank-dungeon",
    "name": "Dank Dungeon",
-   "blurb": "Twin beds, a whirlpool for two and the lights way down.",
+   "blurb": "Twin beds, a whirlpool for two, lights down.",
    "layout": "dank-dungeon.json",
    "thumb": "thumbs/dank-dungeon.png"
   }

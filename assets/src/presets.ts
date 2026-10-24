@@ -8,10 +8,10 @@
 // Thumbnails re-cast the same 3D models at 5/16 scale (a 20×10 tile), like set (h)'s tray thumbnails: not a downscaled
 // screenshot, so light, tones and the plum outline are the room's own. No avatars: it's the empty room you'll walk into.
 import { DEFAULT_LAYOUT, FURNITURE, footprintCells, type Furniture, type RoomLayout } from "@omega/shared";
-import { PIECES, pieceImage, type Canvas, type PieceDef } from "./furniture";
+import { PIECES, fitThumb, pieceImage, type Canvas, type PieceDef } from "./furniture";
 import { addOutline, box, renderSolids, type Solid, type Vec3 } from "./iso";
 import type { RampName } from "./palette";
-import { WALL_H, armchairSolids, leftWall, planks, rightWall, rug, tvSolids } from "./room";
+import { WALL_H, armchairSolids, type RoomFrame, leftWall, planks, rightWall, rug, tvSolids } from "./room";
 
 export interface Preset {
   /** Stable id: what the create form sends (C1 contract, OME-908). `[a-z]`, ≤ 12 chars. */
@@ -33,13 +33,13 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "classic",
     name: "Classic",
-    blurb: "Two rows of armchairs on the big rug. The room you know.",
+    blurb: "Two rows of armchairs on the big rug.",
     layout: DEFAULT_LAYOUT,
   },
   {
     id: "cinema",
     name: "Theatre",
-    blurb: "Rows on risers facing the big screen, curtains drawn back.",
+    blurb: "Rows on risers before the big screen.",
     layout: {
       furniture: [
         // The theatre set (OME-1639's judged theatre room, OME-1630): the big screen in the TV corner between two
@@ -58,7 +58,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "living",
     name: "Living room",
-    blurb: "Couches, a reading chair and a bookcase. Feet up.",
+    blurb: "Couches, a reading chair, a bookcase.",
     layout: {
       furniture: [
         TV,
@@ -77,7 +77,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "lounge",
     name: "Lounge",
-    blurb: "Beanbags and poufs on kilim runners, neon glow, plants.",
+    blurb: "Beanbags, poufs, kilim runners, neon.",
     layout: {
       furniture: [
         TV,
@@ -96,7 +96,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "cafe",
     name: "Café",
-    blurb: "Little tables for two, a bookcase and a snack cart.",
+    blurb: "Tables for two, books, a snack cart.",
     layout: {
       furniture: [
         TV,
@@ -116,7 +116,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "bar",
     name: "Bar",
-    blurb: "Stools at the bar, hammocks, a piano and a crackling fire.",
+    blurb: "Bar stools, hammocks, a piano, a fire.",
     layout: {
       furniture: [
         TV,
@@ -136,7 +136,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "empty",
     name: "Empty",
-    blurb: "Just beanbags and bare boards. Furnish it your way.",
+    blurb: "Bare boards and beanbags. Furnish it.",
     layout: {
       furniture: [
         TV,
@@ -149,7 +149,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "dank-dungeon",
     name: "Dank Dungeon",
-    blurb: "Twin beds, a whirlpool for two and the lights way down.",
+    blurb: "Twin beds, a whirlpool for two, lights down.",
     // A hotel suite after dark (OME-1670, assets/README.md § "Dank Dungeon"); `pairs` turns on /thrust and /bendover (OME-1671).
     layout: {
       mood: "night",
@@ -256,6 +256,31 @@ function pieceThumb(f: Furniture): Uint8Array {
   if (f.kind === "rug") throw new Error("the big rug is painted with the floor");
   const def = defOf(f.kind);
   return pieceImage(def, def.colours[f.variant ?? 0] ?? def.colours[0] ?? "", f.facing, THUMB_SCALE, CV);
+}
+
+/** Tray thumbnails (ui/edit.png) for the room atlas pieces, which the catalogue's `buildThumbs` doesn't cover (OME-1847):
+ *  the same solids as the preset thumbnails, fitted like the catalogue's. The big rug shows a 3×3 corner of itself. */
+export function buildRoomThumbs(): RoomFrame[] {
+  const cv: Canvas = { w: 240, h: 200, ax: 110, ay: 150 };
+  const at = (list: readonly Solid[]) => (s: number): Uint8Array => renderSolids(list, cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
+  const chair = armchairSolids("se");
+  const part = (c: number, r: number): Parameters<typeof rug>[0] => {
+    const nw = c === 0, se = c === 2, ne = r === 0, sw = r === 2;
+    return nw && ne ? "n" : se && ne ? "e" : se && sw ? "s" : nw && sw ? "w" : nw ? "nw" : se ? "se" : ne ? "ne" : sw ? "sw" : "c";
+  };
+  const rugSlab = box(-8, 40, -8, 40, -2, 0, "navy", {
+    paint: (q, f) => {
+      const c = Math.min(2, Math.floor((q.u + 8) / 16)), r = Math.min(2, Math.floor((q.v + 8) / 16));
+      return f === "top" ? rug(part(c, r), 0)(q.u - c * 16, q.v - r * 16) : ["navy", 2];
+    },
+  });
+  return [
+    fitThumb("thumb/armchair/velvet", cv, at([...chair.back, ...chair.front])),
+    fitThumb("thumb/tv/charcoal", cv, at(tvSolids())),
+    fitThumb("thumb/lamp/cream", cv, at(propSolids("lamp"))),
+    fitThumb("thumb/plant/rust", cv, at(propSolids("plant"))),
+    fitThumb("thumb/rug/navy", cv, at([rugSlab])),
+  ];
 }
 
 function blitCell(dst: Uint8Array, src: Uint8Array, c: number, r: number): void {

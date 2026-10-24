@@ -56,7 +56,7 @@ describe("room presets", () => {
   test("Dank Dungeon (OME-1672): night mood, pair emote on, the README's blurb; no other preset has pairs", () => {
     const dd = PRESETS.find((p) => p.id === "dank-dungeon");
     expect(dd?.name).toBe("Dank Dungeon");
-    expect(dd?.blurb).toBe("Twin beds, a whirlpool for two and the lights way down.");
+    expect(dd?.blurb).toBe("Twin beds, a whirlpool for two, lights down.");
     expect(dd?.layout.mood).toBe("night");
     expect(dd?.layout.pairs).toBe(true);
     expect(PRESETS.filter((p) => p.layout.pairs === true).map((p) => p.id)).toEqual(["dank-dungeon"]);
