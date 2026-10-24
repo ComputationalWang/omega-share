@@ -63,7 +63,7 @@ import { buildPopupVignettes } from "./popup";
 import { POPUP_KIT_SLICES, POPUP_KIT_SPRITES, brightDots, chevronFrame, popupKitCss } from "./popupkit";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 import { SHEET as REACT_SHEET, buildReactionFrames, layout as reactLayout, momentsCss, reactionAnims } from "./reactions";
-import { PRESETS, THUMB, THUMB_SCALE, presetThumb } from "./presets";
+import { PRESETS, THUMB, THUMB_SCALE, buildRoomThumbs, presetThumb } from "./presets";
 import { HALLOWEEN } from "./halloween";
 import { CHRISTMAS } from "./christmas";
 import { EASTER } from "./easter";
@@ -560,7 +560,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
     if (!f) throw new Error(`missing print ${dir}`);
     return f;
   };
-  const owner = buildOwnerFrames(print("se"), print("sw"), buildThumbs());
+  const owner = buildOwnerFrames(print("se"), print("sw"), [...buildThumbs(), ...buildRoomThumbs()]);
   // Set (h): the owner's edit kit (grid, markers, handles, tray thumbnails, swatches) is its own lazy atlas, ui/edit.png:
   // only a room owner who presses "Edit room" loads it. Everything any member sees (door, host/key glyphs, invite icons) stays in ui.png.
   const editKit = owner.filter((f) => EDIT_KIT.test(f.key));
