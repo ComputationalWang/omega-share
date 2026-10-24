@@ -361,14 +361,16 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       tvBox.personal.after(queuePanel.root);
     }
     // Wide and tall enough, the owner's bar goes under Up next (OME-1301): under the stage it cost the owner half the room.
+    // Short, it's in the People tab with Report room (below, OME-1841): under the room it took the room window's height.
+    const sideTab = two && o.short.matches && fs.mode() === "off";
     if (two && !o.short.matches) queuePanel.root.after(o.ownerBar);
-    else o.editorPanel.before(o.ownerBar);
+    else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
     else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
     else notice.after(o.poll, chatLog.root, chatForm, chatAway);
     placePeople(two);
-    if (two && o.short.matches && fs.mode() === "off") o.people.after(o.foot);
+    if (sideTab) o.people.after(o.ownerBar, o.foot);
     if (portraitOn) chatForm.before(dock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).

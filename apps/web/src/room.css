@@ -589,8 +589,12 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   /* People open is the column's tab (OME-1841): Up next steps aside too, or People squeezed it until its field and Add
    * were clipped. */
   .room-side:has(> .people:not([hidden])) > .queue-panel { display: none; }
-  /* Report room is the People tab's last row (room-layout.ts): under the room it cost the room window its height. */
-  .room-side:not(:has(> .people:not([hidden]))) > .room-foot { display: none; }
+  /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
+  .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
+  /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */
+  .room-side:has(> .people:not([hidden])) { overflow-y: auto; overscroll-behavior: contain; }
+  .room-side:has(> .people:not([hidden])) > .people { flex: none; overflow: visible; }
+  .room-side:has(> .people:not([hidden])) > .chat { position: sticky; bottom: 0; z-index: 1; margin-top: auto; background: var(--bg); box-shadow: 0 12px 0 var(--bg), 0 -4px 0 var(--bg); }
   .room-side.is-typing > .room-top:not(:focus-within) { display: none; }
   /* CI's wider fonts (DejaVu) need ~133 px for 15 characters: every px of the row goes to the field. */
   .room-side .chat { gap: 2px; }
