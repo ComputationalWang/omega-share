@@ -5,9 +5,12 @@ import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { WATCH_URL } from "./support/network";
+import { URLS } from "./support/apps";
+import { ownedRoom, type OwnedRoomName } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import type { RoomName } from "./support/test-rooms";
+import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -48,8 +51,13 @@ const placeholderOver = (l: Locator): Promise<number> =>
     return ctx.measureText(e.placeholder).width - (e.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight));
   });
 
-async function queued(browser: Browser, name: RoomName<"side-column">, options: BrowserContextOptions): Promise<Page> {
-  clients = await joinRoom(browser, { roomUrl: testRoom("side-column", name).url, count: 1, nicknamePrefix: `sc${name}`, contextOptions: () => options });
+async function queued(browser: Browser, name: RoomName<"side-column">, options: BrowserContextOptions, owned?: OwnedRoomName): Promise<Page> {
+  const room = owned === undefined ? undefined : ownedRoom(owned);
+  clients = await joinRoom(browser, { roomUrl: room === undefined ? testRoom("side-column", name).url : `${URLS.web}/r/${room.id}`, count: 1,
+    nicknamePrefix: `sc${name}${String(test.info().retry)}`, contextOptions: () => options,
+    setup: room === undefined ? undefined : async (context) => { await context.addInitScript(([origin, key, value]) => {
+      if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+    }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [room.id]: { ownerToken: room.ownerToken, inviteKey: room.inviteKey } } })]); } });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   const panel = page.locator(site.queuePanel);
@@ -91,5 +99,56 @@ for (const [name, w, h, extra] of VIEWPORTS) {
 
     // 3. From 1280×800 the link field and the composer say all of their placeholder.
     if (w >= 1280) for (const l of [page.locator(site.queueUrl), page.locator(site.chatInput)]) expect(await placeholderOver(l)).toBeLessThanOrEqual(0);
+  });
+}
+
+// OME-1842 (responsive audit round 2): as the owner with a video on, the column stacked the invite, Up next, Edit room and
+// Who controls playback above People, which got ~110 px (the shirt row only), and People open hid the chat log.
+const OWNER_VIEWPORTS = [
+  ["t1024", 1024, 768, TOUCH, "scownt"],
+  ["w1280", 1280, 800, {}, "scownw"],
+  ["w1920", 1920, 1080, {}, "scownx"],
+  ["w2560", 2560, 1440, {}, "scowny"],
+] as const;
+
+for (const [name, w, h, extra, owned] of OWNER_VIEWPORTS) {
+  test(`${String(w)}×${String(h)}${"hasTouch" in extra ? " touch" : ""}, the owner: People shows its look rows and first person, the chat keeps 3 lines, the owner's tools end the tab`, async ({ browser }) => {
+    const page = await queued(browser, name, { viewport: { width: w, height: h }, ...extra }, owned);
+    await expect(page.locator(site.editRoom)).toBeVisible();
+    const tv = await box(page.locator(site.tv));
+    await page.locator(site.peopleKey).click();
+    const panel = page.locator(site.peoplePanel);
+    await expect(panel).toBeVisible();
+    await expect(page.locator(site.peopleRow).first()).toBeVisible();
+    await page.waitForTimeout(300);
+
+    // 1. The shirt, hair and accessory rows and the first person show without scrolling; the TV stays put.
+    expect(await panel.evaluate((e) => e.scrollTop)).toBe(0);
+    const p = await box(panel);
+    const bottom = Math.min(p.y + p.height, h);
+    for (const l of [...await panel.locator(".look > *").all(), page.locator(site.peopleRow).first()]) {
+      const b = await box(l);
+      expect(b.y + b.height, `${await l.evaluate((e) => e.className)} shows whole`).toBeLessThanOrEqual(bottom + 0.5);
+    }
+    expect(await panel.locator(".look > *").count()).toBeGreaterThanOrEqual(3);
+    expect(await box(page.locator(site.tv))).toEqual(tv);
+
+    // 2. The chat log keeps at least three lines beside People.
+    const log = page.locator(site.chatLog);
+    await expect(log).toBeVisible();
+    const lb = await box(log);
+    const lh = await log.evaluate((e) => parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.2);
+    expect(lb.height).toBeGreaterThanOrEqual(3 * lh);
+    expect(lb.y + lb.height).toBeLessThanOrEqual(h);
+
+    // 3. The owner's tools end the People tab instead of sitting above it.
+    const edit = page.locator(site.editRoom);
+    expect((await box(edit)).y).toBeGreaterThan(p.y);
+    await edit.scrollIntoViewIfNeeded();
+    await expect(edit).toBeInViewport();
+
+    await page.locator(site.peopleKey).click();
+    await expect(panel).toBeHidden();
+    expect(await box(page.locator(site.tv))).toEqual(tv);
   });
 }
