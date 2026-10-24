@@ -108,6 +108,22 @@ describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => 
     win.set(false, 960, 40);
     expect(clip.style.visibility).toBe("");
   });
+
+  test("a wide short window (a phone held sideways, OME-1841) has the keys in a row beside the room, so the room keeps its height", async () => {
+    const { win, clip } = await setup();
+    win.set(true, 540, 120);
+    expect(clip.dataset["keys"]).toBe("side");
+    win.set(true, 390, 120);
+    expect(clip.dataset["keys"]).toBe("row");
+  });
+
+  test("windowH: a wide window takes what the column leaves if the room shows in it, else the keys' column and the column scrolls", async () => {
+    const { windowH, KEYS_COLUMN_H } = await import("../src/room-window");
+    expect(windowH(540, 120)).toBe(120);
+    expect(windowH(540, 40)).toBe(KEYS_COLUMN_H);
+    expect(windowH(395, 105)).toBe(KEYS_COLUMN_H);
+    expect(windowH(540, 200)).toBe(200);
+  });
 });
 
 describe("on a phone, edges", () => {
@@ -143,6 +159,19 @@ describe("on a phone, edges", () => {
     stage.append(seat);
     seat.focus();
     expect(win.pan().x).toBeGreaterThan(before);
+  });
+
+  test("a tap's focus doesn't pan: the seat stays under the finger, so its click lands (OME-1841, a seat near the edge)", async () => {
+    const { win, stage, key } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    for (let i = 0; i < 4; i++) key("in").click();
+    const before = win.pan();
+    const seat = document.createElement("button");
+    seat.getBoundingClientRect = () => ({ left: 1200, top: 600, width: 0, height: 0, right: 1200, bottom: 600, x: 1200, y: 600, toJSON: () => ({}) });
+    stage.append(seat);
+    seat.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 380, clientY: 135, isPrimary: true, button: 0, bubbles: true, pointerType: "touch" }));
+    seat.focus();
+    expect(win.pan()).toEqual(before);
   });
 
   test("a pinch that starts on a seat keeps going when the seat loses the finger to the window (OME-1197)", async () => {

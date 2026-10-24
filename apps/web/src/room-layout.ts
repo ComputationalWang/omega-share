@@ -9,7 +9,7 @@ import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
 import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
-import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
+import { createRoomWindow, windowH } from "./room-window";
 
 /** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
 const STRIP_STORAGE_KEY = "omega.fsStrip";
@@ -74,6 +74,8 @@ export interface RoomLayoutOptions {
   /** The People panel (outfits and the people list): under the head row, or a tab of the chat column on a wide screen. */
   readonly people: HTMLElement;
   readonly invite: HTMLElement;
+  /** The guest's "Report this room" foot: under the room, or under People in the chat column on a short screen (OME-1841). */
+  readonly foot: HTMLElement;
   /** The wide layout's right-hand column. */
   readonly side: HTMLElement;
   /** The owner's bar (Edit room, Who controls playback) and the editor's panel under it. */
@@ -350,6 +352,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       side.prepend(roomAway, o.roomTop, queuePanel.root);
       o.roomTop.prepend(invite);
     } else root.prepend(o.roomTop);
+    // Short and wide, the foot gives the room window its row too (OME-1841): it ends the People tab instead (below).
+    if (o.foot.parentElement === side) side.after(o.foot);
     if (two && !o.short.matches) side.prepend(roomAway, invite, queuePanel.root);
     else if (!two) {
       wrap.after(roomAway);
@@ -357,13 +361,16 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       tvBox.personal.after(queuePanel.root);
     }
     // Wide and tall enough, the owner's bar goes under Up next (OME-1301): under the stage it cost the owner half the room.
+    // Short, it's in the People tab with Report room (below, OME-1841): under the room it took the room window's height.
+    const sideTab = two && o.short.matches && fs.mode() === "off";
     if (two && !o.short.matches) queuePanel.root.after(o.ownerBar);
-    else o.editorPanel.before(o.ownerBar);
+    else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
     else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
     else notice.after(o.poll, chatLog.root, chatForm, chatAway);
     placePeople(two);
+    if (sideTab) o.people.after(o.ownerBar, o.foot);
     if (portraitOn) chatForm.before(dock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).
@@ -459,11 +466,12 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
         // A touch screen whose band can't hold the room at its scale (a phone held sideways) gets the phone's window: seats
-        // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
-        // under the keys' column height (Twitch's taller TV, QA OME-1330 R1), so every seat row shows whole beside the
-        // keys; the wrap grows to hold it and the column scrolls to the rest.
+        // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves (windowH:
+        // the keys beside it in a row, OME-1841); where that's too little (Twitch's taller TV, QA OME-1330 R1) the keys'
+        // column height, so every seat row shows whole beside the keys; the wrap grows to hold it and the column scrolls.
         if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
-          const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.max(KEYS_COLUMN_H, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
+          const rw = Math.min(w, STAGE_W);
+          const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
           stage.style.setProperty("--stage-scale", "1");
