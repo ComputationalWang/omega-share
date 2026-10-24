@@ -309,11 +309,19 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   const dock = createPortraitDock({ root, log: chatLog.root, composer: chatForm,
     queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: o.settings, onViewport: () => { fit(); tvBox.place(); } });
   let portraitOn = false;
+  // Wide: People takes the log's place in the chat column while open (OME-1805), never above the TV.
+  // Portrait dock (a phone, or a tablet since OME-1802): under the picture, so the TV stays put and the room gives way.
+  const placePeople = (two: boolean): void => {
+    if (two && fs.mode() === "off") chatLog.root.before(o.people);
+    else if (portraitOn) wrap.after(o.people);
+    else o.roomTop.after(o.people);
+  };
   const syncPortrait = (): boolean => {
     const on = o.portrait.matches && fs.mode() === "off" && o.stageShown();
     if (on === portraitOn) return false;
     portraitOn = on;
     dock.setActive(on);
+    placePeople(wide.matches);
     return true;
   };
   /**
@@ -355,9 +363,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
     else notice.after(o.poll, chatLog.root, chatForm, chatAway);
-    // Wide: People takes the log's place in the chat column while open (OME-1805), never above the TV.
-    if (two && fs.mode() === "off") chatLog.root.before(o.people);
-    else o.roomTop.after(o.people);
+    placePeople(two);
     if (portraitOn) chatForm.before(dock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).
