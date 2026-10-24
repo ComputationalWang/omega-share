@@ -23,7 +23,15 @@
 .controls { position: absolute; }
 .tv iframe { width: 100%; height: 100%; border: 0; }
 .tv .tv-sdk { width: 100%; height: 100%; }
-.tv-empty { margin: 16px; color: var(--muted); text-align: center; font-size: 0.9em; }
+/* Nothing on (OME-1812, design OME-1799 §5): the closed curtain, lazy tiles at the chrome's art pixel (4 px at the 2x
+ * chrome zoom). Layers top to bottom: pelmet, hem, seam, drape. */
+.tv-curtain { --ui-px: 2px; position: absolute; inset: 0; display: grid; place-items: end center; padding-bottom: 18%; image-rendering: pixelated; background:
+  url("../../../assets/ui/scenes/curtain-pelmet.png") 0 0 / calc(16 * var(--ui-px)) calc(13 * var(--ui-px)) repeat-x,
+  url("../../../assets/ui/scenes/curtain-hem.png") 0 100% / calc(12 * var(--ui-px)) calc(7 * var(--ui-px)) repeat-x,
+  url("../../../assets/ui/scenes/curtain-seam.png") 50% 0 / calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) repeat-y,
+  url("../../../assets/ui/scenes/curtain-drape.png") 50% 0 / calc(8 * var(--ui-px)) calc(8 * var(--ui-px)) repeat; }
+.room-wide[data-chrome="2"] .tv-curtain { --ui-px: 4px; }
+.tv-empty { max-width: 80%; margin: 0; padding: calc(2 * var(--ui-px)) calc(5 * var(--ui-px)); background: var(--ui-page); border: var(--ui-px) solid var(--ui-accent); color: var(--ui-text); font-weight: 500; text-align: center; }
 /* Generic tier (ADR 0024 §3): the load card fills the TV until Load; the strip takes the sync controls' slot. */
 .tv .tv-generic { width: 100%; height: 100%; display: grid; place-items: center; }
 .generic-card { max-width: 80%; text-align: center; color: #eee; }

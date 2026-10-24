@@ -47,10 +47,30 @@ describe("room TV", () => {
   test("nothing shared: the empty card, and the synced shelf ends with the full-screen key", async () => {
     const { tv, fsKey } = await setup();
     tv.sync(withEmbed(null));
-    expect(tv.tv.textContent).toContain("Share a video");
+    expect(tv.tv.textContent).toContain("Nothing on yet");
     expect(tv.controls.lastElementChild).toBe(fsKey);
     expect(tv.controls.childElementCount).toBeGreaterThan(1);
     expect(tv.provider()).toBeNull();
+  });
+
+  test("nothing on: the closed curtain fills the TV, its line the only text (OME-1812, design OME-1799 §5)", async () => {
+    const { tv } = await setup();
+    tv.sync(withEmbed(null));
+    const curtain = tv.tv.querySelector(".tv-curtain");
+    expect(curtain).not.toBeNull();
+    expect(tv.tv.firstElementChild).toBe(curtain);
+    expect(curtain?.querySelector("p")?.textContent).toBe("Nothing on yet. Paste a link in Up next to raise the curtain.");
+    expect(tv.empty()).toBe(true);
+  });
+
+  test("the curtain goes when something loads and comes back when it ends", async () => {
+    const { tv } = await setup();
+    tv.sync(withEmbed(page));
+    expect(tv.tv.querySelector(".tv-curtain")).toBeNull();
+    expect(tv.empty()).toBe(false);
+    tv.sync(withEmbed(null));
+    expect(tv.tv.querySelector(".tv-curtain")).not.toBeNull();
+    expect(tv.empty()).toBe(true);
   });
 
   test("a generic page: its load card, no sync chrome, and the shelf is the strip and the full-screen key", async () => {

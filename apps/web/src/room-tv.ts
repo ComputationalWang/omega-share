@@ -35,7 +35,7 @@ export interface RoomTv {
   readonly hint: HTMLElement;
   /** The shown embed's provider, if it's synced. */
   readonly provider: () => Embed["provider"] | null;
-  /** The TV shows its "Share a video" line: no player, no Load card (the tour's chip may sit on it, OME-1778). */
+  /** The TV shows its closed curtain: no player, no Load card (the tour's chip may sit on it, OME-1778). */
   readonly empty: () => boolean;
   /** Swap the TV for the room's embed. */
   readonly sync: (s: ViewState) => void;
@@ -61,7 +61,9 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
   fsKey.append(fsIcon);
   const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
   const controls = el("div", { className: "controls ui-tv-shelf", role: "group", ariaLabel: "Playback controls" });
-  const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension, or paste a link under Up next, to watch it here." });
+  // Nothing on: the theatre's curtain, closed (OME-1812, design OME-1799 §5). Only ever in the box without a player (ADR 0012).
+  const tvEmpty = el("div", { className: "tv-curtain" });
+  tvEmpty.append(el("p", { className: "tv-empty", textContent: "Nothing on yet. Paste a link in Up next to raise the curtain." }));
   tv.append(tvEmpty);
   const syncNotice = el("p", { className: "notice sync-notice", role: "status", hidden: true }, "sync-notice");
   const tvHint = el("p", { className: "notice tv-hint", hidden: true }, "tv-hint");

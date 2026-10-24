@@ -52,8 +52,11 @@ function landing(): Plugin {
   };
 }
 
-/** The D1 "how it works" panels and the room preset thumbnails (OME-910) stay files (lazy, cached), never data: URLs in the page. */
-const SITE_ART = /[\\/]assets[\\/](?:site|presets)[\\/]/;
+/**
+ * The D1 "how it works" panels, the room preset thumbnails (OME-910) and the lazy scenes (the empty-TV curtain, OME-1812)
+ * stay files (lazy, cached), never data: URLs in the page.
+ */
+const SITE_ART = /[\\/]assets[\\/](?:site|presets|ui[\\/]scenes)[\\/]/;
 
 export default defineConfig(({ command, mode }) => ({
   plugins: [cspDevOrigins(mode), sourceLink(mode), landing()],
