@@ -335,6 +335,26 @@ describe("chat log: sticking to the foot (OME-1755)", () => {
     expect(frames.length).toBe(1);
   });
 
+  // OME-1831: the window narrows, the chat column with it, the lines rewrap and the browser's scroll anchoring moves
+  // scrollTop, all before the ResizeObserver's callback. That scroll is the layout's, not the reader's.
+  test("a scroll at a new box size keeps a following log at its foot", async () => {
+    const frames: (() => void)[] = [];
+    const { log, chat } = await setup("settle", undefined, frames);
+    let width = 300;
+    let height = 900;
+    Object.defineProperty(log.root, "clientWidth", { configurable: true, get: () => width });
+    measured(log.root, () => height);
+    log.root.scrollTop = 800;
+    log.root.dispatchEvent(new Event("scroll"));
+    width = 200;
+    height = 1000;
+    log.root.scrollTop = 850;
+    log.root.dispatchEvent(new Event("scroll"));
+    expect(log.root.scrollTop).toBe(1000);
+    chat("Kit", "a");
+    expect(frames.length).toBe(1);
+  });
+
   test("a reader scrolled up stays put: no frame is asked for", async () => {
     const frames: (() => void)[] = [];
     const { log, chat } = await setup("settle", undefined, frames);
