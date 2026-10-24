@@ -46,6 +46,13 @@
 .cinema-dim[data-mood="cool"] { background-image: linear-gradient(rgb(120 170 255 / 0.25) 0 0); }
 .cinema-dim[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5) 0 0); }
 @media (prefers-reduced-motion: reduce) { .cinema-dim { transition: none; } }
+/* The mood reaches the room area's edges (OME-1810, design OME-1809 item 5): under the tint the stage's empty pixels are
+ * the page colour, multiplied, and the page is the same multiply of the same tint, so the stage's box doesn't show. */
+body[data-mood] .stage { background: var(--bg); }
+body[data-mood] { background-color: var(--bg); background-blend-mode: multiply; }
+body[data-mood="warm"] { background-image: linear-gradient(rgb(255 176 96 / 0.25) 0 0); }
+body[data-mood="cool"] { background-image: linear-gradient(rgb(120 170 255 / 0.25) 0 0); }
+body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5) 0 0); }
 /* A seat is the 52×26 floor diamond: a 26√2 square turned 45° and squashed to half height (stage.ts places it with the
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
  * trace the tile (a clip-path would cut a focus ring away, OME-701): a light ring over a dark one reads on any floor. */
@@ -341,7 +348,9 @@
 
 /* ---- Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`): our wrapper, never the provider's iframe. room.ts places the
  * picture, shelf and strip from layout.ts `fullscreenLayout` (absolute, like the room page): nothing of ours over the player. ---- */
-.stage-wrap.is-fs { background: var(--bg); overflow: hidden; }
+/* Full screen's leftover is letterbox (OME-1810, design OME-1809 item 6): plain black, no bezel rule over the picture. */
+.stage-wrap.is-fs { background: #000; overflow: hidden; }
+.stage-wrap.is-fs .tv { border-image: none; }
 /* Keep the provider intact on very short screens; scroll to reach picture or controls, with no overlay.
  * Hidden scrollbars keep clientWidth stable when this fallback switches on. */
 .stage-wrap.is-fs[data-fs-scroll="true"] { overflow-y: auto; scrollbar-width: none; }
