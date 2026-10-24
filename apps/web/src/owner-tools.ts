@@ -65,6 +65,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     editor?.destroy();
     editor = null;
     preview = null;
+    document.body.classList.remove("room-editing");
     if (editToggle !== null) {
       editToggle.ariaPressed = "false";
       editToggle.lastChild?.replaceWith("Edit room");
@@ -76,6 +77,8 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     const gen = ++editorGen;
     toggle.ariaPressed = "true";
     toggle.lastChild?.replaceWith("Done");
+    // room.css: on a wide desktop the editor is a column beside the room, not a stack under it (OME-1801).
+    document.body.classList.add("room-editing");
     o.requestRender();
     void import("./editor/editor")
       .then(({ mountEditor }) =>
