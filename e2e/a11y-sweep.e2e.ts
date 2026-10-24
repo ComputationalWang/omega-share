@@ -162,6 +162,9 @@ const KNOWN: readonly { issue: string; surface: RegExp; problem: RegExp }[] = [
   { issue: "OME-1800", surface: /./, problem: /^target under 44 px \(touch\): div\[data-testid=chat-log\] "Chat messages" 736x/ },
   // The shelf's Everyone / Only you chips at 11 px on a tablet, on every room surface.
   { issue: "OME-1800", surface: /./, problem: /^text under 12 px \(touch\): span\.ui-chip\.(shared|self) / },
+  // By design: held sideways, the landing's Enter key is sticky (OME-1806) and the form scrolls under it; axe judges
+  // the swatch it covers in place, one scroll uncovers it.
+  { issue: "OME-1806", surface: /^landing$/, problem: /^target-size \(serious\) button\[aria-label="[^"]+"\] :: .*partially obscured/ },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
