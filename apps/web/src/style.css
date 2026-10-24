@@ -47,6 +47,9 @@ button, input { font: inherit; color: inherit; }
 @media (pointer: coarse) {
   .site-footer { font-size: max(12px, 0.85rem); }
   .site-footer a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; vertical-align: middle; }
+  /* OME-1844: the legal pages' links on a line of their own (the way back, the contact address) and the skip link are keys too. */
+  .privacy :is(a[href="/"], .legal-key > a) { display: inline-flex; align-items: center; min-height: 44px; }
+  .skip-link { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; }
 }
 
 /* Skip link (OME-767): the first stop in tab order, out of sight until it has focus. */
