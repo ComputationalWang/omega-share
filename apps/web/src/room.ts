@@ -802,6 +802,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     ownerBar: editBar,
     editorPanel,
     settings: [editBar, tvBox.personal, invite, cards.foot],
+    foot: cards.foot,
     phone,
     coarse,
     portrait,

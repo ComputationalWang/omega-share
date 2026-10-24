@@ -313,15 +313,18 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .stage-clip.is-phone .tag, .stage-clip.is-phone .tag-pad, .stage-clip.is-phone .float-motion { transform-origin: 0 0; scale: var(--label-scale, 1); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
 .stage-pane { position: absolute; inset: 0; }
-/* The zoom keys keep a band of their own (room-window.ts KEYS_BAND): a column beside the room, or a row under a short one. */
+/* The zoom keys keep a band of their own (room-window.ts KEYS_BAND): a column beside the room, a row under a short one, or
+ * a row beside a short wide one (a phone held sideways, OME-1841). */
 /* The pane hides, not clips (OME-1325): axe-core only counts `overflow: hidden` as clipping, so a cropped tag would read as
  * overlapping the keys under the window. room-window.ts holds the pane's scroll at 0, so focus still can't scroll it. */
 .stage-clip.is-phone > .stage-pane { overflow: hidden; }
 .stage-clip.is-phone[data-keys="column"] > .stage-pane { right: 52px; }
 .stage-clip.is-phone[data-keys="row"] > .stage-pane { bottom: 52px; }
+.stage-clip.is-phone[data-keys="side"] > .stage-pane { right: 148px; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
 .stage-clip[data-keys="column"] > .room-zoom { flex-direction: column; }
 /* The column's band reads as a rail, not an empty strip beside the room (OME-1597): panel fill, a wall-light edge. */
+.stage-clip.is-phone[data-keys="side"] { background: linear-gradient(#8a6f9e, #8a6f9e) right 146px top 0 / 2px 100% no-repeat, linear-gradient(var(--ui-panel), var(--ui-panel)) right / 148px 100% no-repeat; }
 .stage-clip.is-phone[data-keys="column"] { background: linear-gradient(#8a6f9e, #8a6f9e) right 50px top 0 / 2px 100% no-repeat, linear-gradient(var(--ui-panel), var(--ui-panel)) right / 52px 100% no-repeat; }
 .room-zoom > .ui-button { display: inline-flex; align-items: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; font-size: 16px; font-weight: 700; }
 /* Seats: a 52×44 oval to the finger instead of the floor diamond. */
@@ -551,11 +554,10 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
    * that stays put (the portrait sheet's pattern). The field gets the row: the link glyph goes, Add keeps only its icon. */
   .room-side > .queue-panel { display: flex; flex-direction: column; gap: 4px; flex-shrink: 1; min-height: 0; max-height: none; padding: 4px; overflow: hidden; }
   .room-side .queue-panel > * { flex: none; }
-  /* The head is one row: its glyph goes and "Up next" is for screen readers only (the panel is named Up next too). */
+  /* The head is one row: its glyph goes, "Up next" stays beside the count (OME-1841: "0 / 20" alone named nothing). */
   .room-side { gap: 4px; }
   .room-side .queue-head { flex-wrap: wrap; }
   .room-side .queue-head > :first-child { display: none; }
-  .room-side .queue-head > h3 { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   /* The log takes what's left but keeps three lines (QA OME-1309); past that Up next shrinks, its list scrolling. */
   .room-side > .chat-log { flex: 1 1 0; min-height: 60px; }
   .room-side .queue-panel > .queue-content { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; }
@@ -569,15 +571,26 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
    * column's padding, an empty status line and the footer's second line give their height to the floor. */
   .room-wide { padding: 4px 8px 0 max(8px, env(safe-area-inset-left)); }
   .room-wide > .status:empty { display: none; }
-  body.room-is-wide > .site-footer { height: var(--room-foot); padding-block: 0; font-size: var(--room-foot-text); white-space: nowrap; overflow: hidden; }
-  body.room-is-wide > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
-  /* The head row with the invite's Copy key (Copy is how a phone shares the link; the label still describes the key). */
+  /* To a finger the wrap is what the column has (OME-1841), not 420 px: the room window takes what the shelf leaves on
+   * screen (room-layout.ts sets the wrap's min-height where that's too little, and the column scrolls then). */
+  .room-wide.ui-touch > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; }
+  /* OME-1841: the footer's 44 px row gives the room window its height (it showed a 76 px strip); its pages, Source
+   * included, are in Help, the "?" key at the head of the chat column (help/dialog.ts). */
+  body.room-is-wide > .site-footer { display: none; }
+  /* The head row with the invite's Copy key (Copy is how a phone shares the link), its label beside it (OME-1841: a bare
+   * grey Copy said nothing). The title has the line above to itself, so it isn't cut to "QA own…" by the keys. */
   .room-side { padding-inline: 4px max(4px, env(safe-area-inset-right)); }
-  .room-side > .room-top { flex-wrap: wrap; gap: 4px; }
-  .room-side > .room-top > .room-title { order: -1; flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .room-side > .room-top { flex-wrap: wrap; align-items: center; gap: 4px; }
+  .room-side > .room-top > .room-title { order: -1; flex: 1 1 100%; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
   .room-side > .room-top > .invite { display: contents; }
   .room-side > .room-top .invite-note { order: 1; flex: 1 1 100%; margin: 0; font-size: 12px; }
-  .room-side > .room-top > .invite > :is(label, input) { display: none; }
+  .room-side > .room-top > .invite > input { display: none; }
+  .room-side > .room-top > .invite > label { font-size: 12px; white-space: nowrap; }
+  /* People open is the column's tab (OME-1841): Up next steps aside too, or People squeezed it until its field and Add
+   * were clipped. */
+  .room-side:has(> .people:not([hidden])) > .queue-panel { display: none; }
+  /* Report room is the People tab's last row (room-layout.ts): under the room it cost the room window its height. */
+  .room-side:not(:has(> .people:not([hidden]))) > .room-foot { display: none; }
   .room-side.is-typing > .room-top:not(:focus-within) { display: none; }
   /* CI's wider fonts (DejaVu) need ~133 px for 15 characters: every px of the row goes to the field. */
   .room-side .chat { gap: 2px; }
