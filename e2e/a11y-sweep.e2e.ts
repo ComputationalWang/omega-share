@@ -1,11 +1,13 @@
 // OME-1326: the a11y and viewport regression gate (docs/qa/a11y-sweep.md), promoted from the OME-1300/OME-1324 sweep.
-// Every surface below, at each of 7 viewports (1280×800, 390×844 touch, 844×390 touch, 320×640, 768×1024 touch, 1024×768 touch, 1920×1080), plus the
+// Every surface below, at each of 8 viewports (1280×800, 390×844 touch, 844×390 touch, 320×640, 768×1024 touch, 1024×1366 touch
+// (OME-1802), 1024×768 touch, 1920×1080), plus the
 // extension's popup, options and consent pages, must have:
 //  - no serious or critical axe violation (wcag2a/2aa/21a/21aa/22aa, iframes excluded, border-image contrast judged by
 //    `paintedContrast`). axe's `target-size` (WCAG 2.5.8, spacing-aware) is in wcag22aa, so it runs everywhere;
 //  - no horizontal overflow (`scrollWidth > innerWidth`);
 //  - no focusable control off-screen or clipped by an ancestor (inside a scroller is fine: it scrolls into view);
-//  - under `.ui-touch`, every control at least 44 px each way, counting a `::before` hit area (CEO, OME-1326).
+//  - under `.ui-touch`, every control at least 44 px each way on screen, counting a `::before` hit area scaled as its
+//    element is (CEO, OME-1326; on-screen, not CSS, px: OME-1802).
 //  - under `.ui-touch` or a coarse pointer, no visible text under 12 px, and no link list (a footer, a dialog) counted as
 //    running text: those links are targets too (OME-1596).
 // The tests of this file stay in one worker (no fullyParallel) and each viewport uses rooms of its own.
@@ -35,11 +37,12 @@ const VIEWPORTS: VP[] = [
   { name: "844x390-touch", opts: touch(844, 390) },
   { name: "320x640", opts: { viewport: { width: 320, height: 640 } } },
   { name: "768x1024-touch", opts: touch(768, 1024) },
+  { name: "1024x1366-touch", opts: touch(1024, 1366) },
   { name: "1024x768-touch", opts: touch(1024, 768) },
   { name: "1920x1080", opts: { viewport: { width: 1920, height: 1080 } } },
 ];
-const ROOMS = ["w1280", "p390", "l844", "n320", "t768", "t1024", "d1920"] as const;
-const OWNED: OwnedRoomName[] = ["sweepa", "sweepb", "sweepc", "sweepd", "sweepe", "sweepf", "sweepg"];
+const ROOMS = ["w1280", "p390", "l844", "n320", "t768", "t1366", "t1024", "d1920"] as const;
+const OWNED: OwnedRoomName[] = ["sweepa", "sweepb", "sweepc", "sweepd", "sweepe", "sweeph", "sweepf", "sweepg"];
 
 /** Serious/critical axe violations, with border-image contrast re-judged by `paintedContrast`. */
 async function axe(page: Page): Promise<string[]> {
@@ -137,8 +140,11 @@ const measure = (page: Page): Promise<string[]> =>
       let [w, h] = [t.width, t.height];
       const before = getComputedStyle(target, "::before");
       if (before.content !== "none" && before.position === "absolute") {
-        w = Math.max(w, parseFloat(before.width) || 0);
-        h = Math.max(h, parseFloat(before.height) || 0);
+        // The pseudo's size is CSS px; a transform or zoom on the way scales it as it does the element (OME-1802).
+        const kx = target.offsetWidth > 0 ? t.width / target.offsetWidth : 1;
+        const ky = target.offsetHeight > 0 ? t.height / target.offsetHeight : 1;
+        w = Math.max(w, (parseFloat(before.width) || 0) * kx);
+        h = Math.max(h, (parseFloat(before.height) || 0) * ky);
       }
       if (w < 43.5 || h < 43.5) out.push(`target under 44 px (touch): ${describe(el)} ${String(Math.round(w))}x${String(Math.round(h))}`);
     }
@@ -152,7 +158,8 @@ const measure = (page: Page): Promise<string[]> =>
 const KNOWN: readonly { issue: string; surface: RegExp; problem: RegExp }[] = [
   { issue: "OME-1800", surface: /./, problem: /^off-screen: div\[data-testid=(walk-floor|editor-hit)\].*\(vw 768\)$/ },
   { issue: "OME-1800", surface: /./, problem: /^target under 44 px \(touch\): div\[data-testid=chat-log\] "Chat messages" 736x/ },
-  { issue: "OME-1800", surface: /^full screen$/, problem: /^text under 12 px \(touch\): span\.ui-chip\.(shared|self) .* 11 px$/ },
+  // The shelf's Everyone / Only you chips at 11 px on a tablet, on every room surface.
+  { issue: "OME-1800", surface: /./, problem: /^text under 12 px \(touch\): span\.ui-chip\.(shared|self) / },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
@@ -353,7 +360,8 @@ const GUEST_SKIPS: Record<string, string[]> = {
   "390x844-touch": ["report", "pop-out chat.html", "pop-out room.html"],
   "844x390-touch": ["pop-out chat.html", "pop-out room.html"],
   "320x640": ["report", "pop-out chat.html", "pop-out room.html"],
-  "768x1024-touch": ["pop-out chat.html", "pop-out room.html"],
+  "768x1024-touch": ["report", "pop-out chat.html", "pop-out room.html"],
+  "1024x1366-touch": ["report", "pop-out chat.html", "pop-out room.html"],
   "1024x768-touch": ["pop-out chat.html", "pop-out room.html"],
 };
 const OWNER_SKIPS: Record<string, string[]> = {
@@ -361,7 +369,8 @@ const OWNER_SKIPS: Record<string, string[]> = {
   "390x844-touch": ["editor", "night mood"],
   "844x390-touch": ["owner settings"],
   "320x640": ["editor", "night mood"],
-  "768x1024-touch": ["owner settings"],
+  "768x1024-touch": ["editor", "night mood"],
+  "1024x1366-touch": ["editor", "night mood"],
   "1024x768-touch": ["owner settings"],
   "1920x1080": ["owner settings"],
 };

@@ -76,9 +76,13 @@ export interface RoomLayout {
 
 const sidesFit = (r: Rect, side: number, width: number): boolean => r.x >= side && r.x + r.w + side <= width;
 
-/** Set (k) phone watch layout (OME-596): at most this wide, the room page stacks TV, room and chat, with no editor. */
+/**
+ * Set (k) phone watch layout (OME-596): at most this wide, or any portrait screen (a tablet held upright gets the phone's
+ * dock at its size, OME-1802, design OME-1799 §2 "medium"), the room page stacks TV, room and chat, with no editor.
+ */
 export const PHONE_MAX_W = 600;
-export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px)`;
+export const PORTRAIT_QUERY = "(orientation: portrait)";
+export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px), ${PORTRAIT_QUERY}`;
 /** The phone's room window: the stage at 1× (until the viewer zooms it, OME-1184), cropped to this height (set k: "cropped to the seats"). */
 export const PHONE_ROOM_H = 270;
 /** The portrait room window is at least this tall (its row of zoom keys and a strip of room) or not shown (OME-1302). */
