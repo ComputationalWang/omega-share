@@ -7,6 +7,9 @@
 .status { min-height: 1.4em; margin: 0 0 8px; color: var(--muted); }
 .stage-wrap { position: relative; width: 100%; }
 .stage-clip { position: absolute; overflow: hidden; }
+/* The desktop band in a column wider than the room (OME-1843, room-layout.ts): clipped to the column's edges, so the
+ * cinema dim's spread fills its width and the band isn't an island. */
+.stage-clip.is-bleed { overflow: visible; clip-path: inset(0 calc(-1 * var(--bleed))); }
 /* Follow (OME-1389): a small chip in the room window's top-left corner while I follow someone. */
 .follow-chip { position: absolute; left: 8px; top: 8px; z-index: 3; text-transform: none; }
 .follow-chip .ui-button { font-size: 10px; padding: 0 4px; }
@@ -48,8 +51,9 @@
  * flips on play/pause/editor; the 400 ms fade is a one-off background-colour transition of one flat layer, not a running
  * animation. The room mood (OME-1502) is a fixed tint on the same layer, multiplied into the canvas; multiply commutes, so
  * the dim (the background colour, under the tint image) stacks on it and looks as it does with no mood. */
-.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); transition: background-color 400ms ease; }
-.cinema-dim.is-on { background-color: rgb(8 6 18 / 0.45); }
+/* Its spread reaches the band's void past the stage's box (OME-1843: the band spans the column), clipped by .stage-clip. */
+.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0); transition: background-color 400ms ease, box-shadow 400ms ease; }
+.cinema-dim.is-on { background-color: rgb(8 6 18 / 0.45); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0.45); }
 .cinema-dim[data-mood] { mix-blend-mode: multiply; }
 .cinema-dim[data-mood="warm"] { background-image: linear-gradient(rgb(255 176 96 / 0.25) 0 0); }
 .cinema-dim[data-mood="cool"] { background-image: linear-gradient(rgb(120 170 255 / 0.25) 0 0); }

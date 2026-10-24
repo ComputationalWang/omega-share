@@ -384,7 +384,8 @@ test("a held arrow key steps at most once a tile", async ({ browser }) => {
 });
 
 test("a click on a solid piece sends nothing and flashes can't-go-there", async ({ browser }) => {
-  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "blocked").url, count: 1, nicknamePrefix: "blocked" });
+  // A band that holds the whole room (OME-1811): a shorter one looks at the audience in front (OME-1843), not the back corner.
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "blocked").url, count: 1, nicknamePrefix: "blocked", contextOptions: () => ({ viewport: { width: 1600, height: 1100 } }) });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   await a.page.waitForTimeout(4000);

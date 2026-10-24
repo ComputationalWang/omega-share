@@ -6,6 +6,7 @@
 import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
+import { presetFile, showLayout } from "../perf/show-layout";
 import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
@@ -125,6 +126,39 @@ for (const [name, w, h] of [["int1280", 1280, 800], ["int1920", 1920, 1080], ["i
       expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(h);
     });
   }
+}
+
+// OME-1843 (design OME-1799 §2 m1/m2): with a video the room's band was a 960 px island in a wider column (the dim stopped
+// at the room's box), and it looked at the room's middle, so the front row's name tags showed 1–5 px of 20. Its backdrop
+// spans the column now and it looks at the audience: in the Theatre with four people standing, every name tag is whole.
+for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["aud2560", 2560, 1440]] as const) {
+  test(`${String(w)}×${String(h)} Theatre with a video and 4 people: the band spans the column, every name tag whole in it`, async ({ browser, request }) => {
+    const room = testRoom("wide", name);
+    await shareVideo(request, room.id);
+    const theatre = presetFile("cinema");
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 4, nicknamePrefix: `wd${name}`, setup: (context) => showLayout(context, theatre), contextOptions: () => DESKTOP(w, h) });
+    await waitPlaying(clients);
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    const tags = page.locator(site.nicknameTag);
+    await expect(tags).toHaveCount(4);
+    const band = await box(page.locator(site.roomWindow));
+    const column = await box(page.locator(".stage-wrap"));
+    // The band's backdrop and dim bleed past the room's box to the column's edges.
+    const bleed = await page.locator(site.roomWindow).evaluate((el) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue("--bleed")) : 0));
+    expect(band.x - bleed).toBeLessThanOrEqual(column.x + 1);
+    expect(band.x + band.width + bleed).toBeGreaterThanOrEqual(column.x + column.width - 1);
+    // Once everyone has walked to their spot (a joiner walks in from the room's edge).
+    await expect(async () => {
+      for (const tag of await tags.all()) {
+        const t = await box(tag);
+        expect(t.y).toBeGreaterThanOrEqual(band.y);
+        expect(t.y + t.height).toBeLessThanOrEqual(band.y + band.height);
+        expect(t.x).toBeGreaterThanOrEqual(band.x);
+        expect(t.x + t.width).toBeLessThanOrEqual(band.x + band.width);
+      }
+    }).toPass({ timeout: 10_000 });
+  });
 }
 
 // OME-1811 (design OME-1799 §3, OME-1809 item 4): no text in the room page under 12 px on a computer.

@@ -37,8 +37,8 @@ export interface StageOptions {
   readonly reducedMotion: { readonly matches: boolean };
   /** Draw again on the next frame (the furniture atlas arrived). */
   readonly requestRender: () => void;
-  /** The seats moved (a new layout): the phone's room window looks at their middle. */
-  readonly onLayout?: (seats: readonly Point[]) => void;
+  /** A new layout: its seats and its standing spots (the room window looks at them, the band at both, OME-1843). */
+  readonly onLayout?: (seats: readonly Point[], standing: readonly Point[]) => void;
   /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
   readonly onMove?: (id: MemberId) => void;
   /** An avatar came to rest (/hug arrives, OME-1453). */
@@ -368,10 +368,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     layoutKey = key;
     layoutBuilds++;
     seats = seatPoints(next);
-    o.onLayout?.(seats);
+    standing = standingPoints(next);
+    o.onLayout?.(seats, standing);
     seatFacings = layoutSeats(next).map((s) => s.facing);
     grid = walkGrid(next);
-    standing = standingPoints(next);
     buildScene(next);
     // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
     // on the tile, not the lifted sitter: a riser's 44 px phone key would otherwise cover the row in front (QA OME-1743).

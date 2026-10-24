@@ -220,8 +220,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     requestRender: () => {
       requestRender();
     },
-    onLayout: (points) => {
-      layout.seats(points);
+    onLayout: (seats, standing) => {
+      layout.seats(seats, standing);
     },
     onFloor: (cell, run) => {
       // A tap on a cat's cell pets it (OME-1669); a cat's cell isn't somewhere to walk anyway.

@@ -34,7 +34,8 @@ async function twitchSrc(room: Page): Promise<URL> {
 async function expectHintAboveFold(room: Page): Promise<void> {
   const box = await room.locator(site.tvHint).evaluate((h) => {
     const r = h.getBoundingClientRect();
-    const stage = document.querySelector('[data-testid="room"]')?.getBoundingClientRect();
+    // The room's window, not the stage inside it: the band pans the stage to its audience (OME-1843).
+    const stage = document.querySelector('[data-testid="room-window"]')?.getBoundingClientRect();
     return { bottom: r.bottom + window.scrollY, stageTop: (stage?.top ?? 0) + window.scrollY, fold: window.innerHeight };
   });
   expect(box.bottom).toBeLessThanOrEqual(box.fold);

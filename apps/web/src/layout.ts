@@ -165,7 +165,8 @@ export function roomScale(width: number, height: number): number {
  * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
  * larger), the shelf right under it, and the room's band below. `chrome` is the page's zoom (chromeZoom): the shelf's
  * height and minimum width grow with it. The room is at `maxScale` (roomScale) where the band holds BAND_MIN_H per scale
- * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits.
+ * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits. The band's
+ * backdrop reaches the column's edges past it (OME-1843, room-layout.ts).
  */
 export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1): RoomLayout {
   const w = Math.floor(width);
@@ -393,13 +394,17 @@ export function panTo(view: { readonly w: number; readonly h: number }, centre: 
 
 /** A seat's touch hit area is 44 px tall (room.css .ui-touch .seat), centred on its point. */
 const SEAT_HIT_H = 44;
+/** A name tag's foot under its member's point (tagRect): the lowest thing a member shows. */
+export const TAG_FOOT = 30;
 
 /**
- * Where the phone's room window looks first (stage px), `h` stage px tall: the middle of the seats' bounding box, or in
- * a window too short for every row (320×640, QA OME-1324 G3) the front row with a pixel to spare, so those seats show
- * whole and stay tappable instead of every row cropped (room-window.ts makes a cropped seat inert).
+ * Where the room window looks first (stage px), `h` stage px tall: the middle of the points' bounding box (each from
+ * its seat's hit area's top to `foot` under it), or in a window too short for every row (320×640, QA OME-1324 G3) the
+ * front row with a pixel to spare, so those seats show whole and stay tappable instead of every row cropped
+ * (room-window.ts makes a cropped seat inert). The phone's window: the seats, to their hit areas' foot. The desktop band
+ * (OME-1843): the seats and standing spots, to their name tags' foot (TAG_FOOT).
  */
-export function seatsHome(points: readonly Point[], h: number): Point {
+export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H / 2): Point {
   if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const p of points) {
@@ -408,7 +413,9 @@ export function seatsHome(points: readonly Point[], h: number): Point {
     y0 = Math.min(y0, p.y);
     y1 = Math.max(y1, p.y);
   }
-  return { x: (x0 + x1) / 2, y: y1 - y0 + SEAT_HIT_H <= h ? (y0 + y1) / 2 : y1 + SEAT_HIT_H / 2 + 1 - h / 2 };
+  const top = y0 - SEAT_HIT_H / 2;
+  const bottom = y1 + foot;
+  return { x: (x0 + x1) / 2, y: bottom - top <= h ? (top + bottom) / 2 : bottom + 1 - h / 2 };
 }
 
 interface Size { readonly w: number; readonly h: number }
