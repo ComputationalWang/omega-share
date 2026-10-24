@@ -37,8 +37,8 @@ export interface StageOptions {
   readonly reducedMotion: { readonly matches: boolean };
   /** Draw again on the next frame (the furniture atlas arrived). */
   readonly requestRender: () => void;
-  /** A new layout: where members can be, its seats then its standing spots (the room window looks at them, OME-1843). */
-  readonly onLayout?: (spots: readonly Point[]) => void;
+  /** A new layout: its seats and its standing spots (the room window looks at them, the band at both, OME-1843). */
+  readonly onLayout?: (seats: readonly Point[], standing: readonly Point[]) => void;
   /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
   readonly onMove?: (id: MemberId) => void;
   /** An avatar came to rest (/hug arrives, OME-1453). */
@@ -369,7 +369,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     layoutBuilds++;
     seats = seatPoints(next);
     standing = standingPoints(next);
-    o.onLayout?.([...seats, ...standing]);
+    o.onLayout?.(seats, standing);
     seatFacings = layoutSeats(next).map((s) => s.facing);
     grid = walkGrid(next);
     buildScene(next);

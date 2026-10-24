@@ -79,7 +79,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h: number) => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
@@ -107,7 +107,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
     const k = fit * zoom;
-    const c = home(deskBox.h / k);
+    const c = home(deskBox.h / k, true);
     return { zoom, pan: { x: c.x - deskBox.w / (2 * k), y: c.y - deskBox.h / (2 * k) } };
   };
   /** The band shows less than the whole room at the fit: a drag looks around it. */
@@ -134,8 +134,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     if (desk === null) return;
     // Kept to the stage, not ROOM_VIEW: the browser scrolled within the stage's box and measured what it showed there.
     const k = desk * deskView.zoom;
-    // A band wider than the stage keeps it centred (OME-1843).
-    const keep = (v: number, max: number): number => (max < 0 ? max / 2 : Math.max(0, Math.min(max, v)));
+    const keep = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), v));
     deskMoved = true;
     deskView = { zoom: deskView.zoom, pan: { x: keep(deskView.pan.x + dx / k, STAGE_W - deskBox.w / k), y: keep(deskView.pan.y + dy / k, STAGE_H - deskBox.h / k) } };
     showDesk(desk);
@@ -185,7 +184,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
 
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
-    pan = panTo(view, looking ?? home(view.h / zoom), zoom);
+    pan = panTo(view, looking ?? home(view.h / zoom, false), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
   };
   /** The window's centre now, stage px. */

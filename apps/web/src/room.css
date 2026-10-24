@@ -7,6 +7,9 @@
 .status { min-height: 1.4em; margin: 0 0 8px; color: var(--muted); }
 .stage-wrap { position: relative; width: 100%; }
 .stage-clip { position: absolute; overflow: hidden; }
+/* The desktop band in a column wider than the room (OME-1843, room-layout.ts): clipped to the column's edges, so the
+ * cinema dim's spread fills its width and the band isn't an island. */
+.stage-clip.is-bleed { overflow: visible; clip-path: inset(0 calc(-1 * var(--bleed))); }
 /* Follow (OME-1389): a small chip in the room window's top-left corner while I follow someone. */
 .follow-chip { position: absolute; left: 8px; top: 8px; z-index: 3; text-transform: none; }
 .follow-chip .ui-button { font-size: 10px; padding: 0 4px; }

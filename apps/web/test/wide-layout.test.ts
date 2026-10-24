@@ -60,11 +60,11 @@ describe("wideLayout", () => {
     expect(controls.w).toBe(tv.w);
   });
 
-  test.each(BOXES)("at %p×%p the room is at 1× in a band the column's width (OME-1843) under the shelf: whole if it fits, else a window onto it", (w, h) => {
+  test.each(BOXES)("at %p×%p the room is at 1×, centred in the band the shelf leaves: whole if it fits, else a window onto it", (w, h) => {
     for (const provider of [null, "youtube"] as const) {
       const { stage, scale } = wideLayout(w, h, provider);
       expect(scale).toBe(1);
-      expect(stage.w).toBe(w);
+      expect(stage.w).toBe(Math.min(w, ROOM_VIEW.w));
       expect(stage.h).toBe(Math.min(h - stage.y, ROOM_VIEW.h));
       expect(Math.abs(stage.x + stage.w / 2 - w / 2)).toBeLessThanOrEqual(1);
     }
@@ -141,7 +141,7 @@ describe("chrome zoom (OME-1667)", () => {
 // OME-1811 (design OME-1799 §2, finding F2; OME-1809 item 3): the room was drawn at min(w/960, h/532), 0.87× at 2560 and
 // 1.17× at 1920, so its pixel rows doubled unevenly. It's 1× or 2× now (STYLE.md: integers only, nearest-neighbour): 2× from
 // a 2400×1300 window, and only where the band under the shelf holds 2 × 240 px, so the 2× room shows as many rows as 1×'s.
-// The rest of the band is the stage's void, the room centred in it (OME-1843). The page chrome keeps its 1.5× step at 1920 (OME-1667, CEO on OME-1811).
+// The rest of the band is the stage's void. The page chrome keeps its 1.5× step at 1920 (OME-1667, CEO on OME-1811).
 describe("integer room scale (OME-1811)", () => {
   test("the scale picker: 1× up to 2399 px wide or 1299 px tall, 2× from 2400×1300", () => {
     for (const [w, h, k] of [[1024, 768, 1], [1280, 800, 1], [1440, 900, 1], [1920, 1080, 1], [2399, 1440, 1], [2400, 1299, 1], [2400, 1300, 2], [2560, 1440, 2], [3840, 2160, 2]] as const) {
@@ -160,8 +160,9 @@ describe("integer room scale (OME-1811)", () => {
       const l = wideLayout(w, h, provider, chromeZoom(vw, vh), roomScale(vw, vh));
       expect([1, 2]).toContain(l.scale);
       for (const dpr of [1, 2]) expect(Number.isInteger(l.scale * Math.min(2, dpr))).toBe(true);
-      expect(l.stage.w).toBe(w);
+      expect(l.stage.w).toBe(Math.min(w, ROOM_VIEW.w * l.scale));
       expect(l.stage.h).toBe(Math.min(h - l.stage.y, ROOM_VIEW.h * l.scale));
+      expect(Math.abs(l.stage.x + l.stage.w / 2 - w / 2)).toBeLessThanOrEqual(1);
       expect(inside(l.stage, w, h)).toBe(true);
       expect(l.stage.y).toBeGreaterThanOrEqual(l.controls.y + l.controls.h);
     }

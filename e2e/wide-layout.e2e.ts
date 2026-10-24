@@ -128,9 +128,9 @@ for (const [name, w, h] of [["int1280", 1280, 800], ["int1920", 1920, 1080], ["i
   }
 }
 
-// OME-1843 (design OME-1799 §2 m1/m2): with a video the room's band stayed 960 px wide, an island in a wider column, and
-// looked at the room's middle, so the front row's name tags showed 1–5 px of 20. It spans the column now and looks at the
-// audience: in the Theatre with four people standing in front, every name tag is whole in the band.
+// OME-1843 (design OME-1799 §2 m1/m2): with a video the room's band was a 960 px island in a wider column (the dim stopped
+// at the room's box), and it looked at the room's middle, so the front row's name tags showed 1–5 px of 20. Its backdrop
+// spans the column now and it looks at the audience: in the Theatre with four people standing, every name tag is whole.
 for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["aud2560", 2560, 1440]] as const) {
   test(`${String(w)}×${String(h)} Theatre with a video and 4 people: the band spans the column, every name tag whole in it`, async ({ browser, request }) => {
     const room = testRoom("wide", name);
@@ -144,7 +144,10 @@ for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["a
     await expect(tags).toHaveCount(4);
     const band = await box(page.locator(site.roomWindow));
     const column = await box(page.locator(".stage-wrap"));
-    expect(band.width).toBeGreaterThanOrEqual(column.width - 1);
+    // The band's backdrop and dim bleed past the room's box to the column's edges.
+    const bleed = await page.locator(site.roomWindow).evaluate((el) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue("--bleed")) : 0));
+    expect(band.x - bleed).toBeLessThanOrEqual(column.x + 1);
+    expect(band.x + band.width + bleed).toBeGreaterThanOrEqual(column.x + column.width - 1);
     // Once everyone has walked to their spot (a joiner walks in from the room's edge).
     await expect(async () => {
       for (const tag of await tags.all()) {

@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, TAG_FOOT, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH } from "./room-window";
 
@@ -114,8 +114,8 @@ export interface RoomLayout {
   readonly syncPortrait: () => boolean;
   readonly portraitOn: () => boolean;
   readonly dock: ReturnType<typeof createPortraitDock>;
-  /** A new layout's seats and standing spots: the room window (phone or band) looks at them. */
-  readonly seats: (points: readonly Point[]) => void;
+  /** A new layout's seats and standing spots: the phone's window looks at the seats, the band at both (OME-1843). */
+  readonly seats: (points: readonly Point[], standing: readonly Point[]) => void;
   /** I sat down: the phone's window centres on my seat. */
   readonly centre: (p: Point) => void;
   /** A line from someone else came in: counted while the strip is collapsed in full screen. */
@@ -391,9 +391,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   placeChat();
 
-  /** The room window looks at the seats and standing spots (the audience) until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, (h) => seatsHome(seatPoints, h), o.labelScale);
+  /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843), until you drag it, sit, or focus something off-screen. */
+  const roomWindow = createRoomWindow(clip, stage, (h, band) => (band ? seatsHome(audience, h, TAG_FOOT) : seatsHome(seatPoints, h)), o.labelScale);
   let seatPoints: readonly Point[] = [];
+  /** The seats and the standing spots: where members are. */
+  let audience: readonly Point[] = [];
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -416,8 +418,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     const roomOut = o.roomOut();
-    // Only the wide layout's touch window (below) stretches the wrap.
+    // Only the wide layout's touch window (below) stretches the wrap; only its desktop band bleeds (OME-1843).
     wrap.style.minHeight = "";
+    clip.classList.remove("is-bleed");
     // Set before the wrap is measured: room.css widens the chat column with it.
     const zoom = wide.matches && fs.mode() === "off" ? chromeZoom(window.innerWidth, window.innerHeight) : 1;
     // The body too: room.css sizes the page's chat column from it (a body class, never body:has(), OME-1755).
@@ -491,6 +494,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           roomWindow.set(true, r.w, r.h);
         } else {
           box(clip, l.stage);
+          // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
+          clip.classList.toggle("is-bleed", l.stage.w < w);
+          clip.style.setProperty("--bleed", `${String(Math.ceil((w - l.stage.w) / 2))}px`);
           roomWindow.set(false, 0, 0);
           roomWindow.desk(l.scale, l.stage);
           stage.style.setProperty("--stage-scale", String(l.scale));
@@ -539,8 +545,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     syncPortrait,
     portraitOn: () => portraitOn,
     dock,
-    seats: (points) => {
+    seats: (points, standing) => {
       seatPoints = points;
+      audience = [...points, ...standing];
       // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle.
       fit();
     },

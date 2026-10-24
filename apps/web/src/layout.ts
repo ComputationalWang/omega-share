@@ -165,8 +165,8 @@ export function roomScale(width: number, height: number): number {
  * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
  * larger), the shelf right under it, and the room's band below. `chrome` is the page's zoom (chromeZoom): the shelf's
  * height and minimum width grow with it. The room is at `maxScale` (roomScale) where the band holds BAND_MIN_H per scale
- * step, else 1× (OME-1811): `stage` is the band's window onto it, the column's full width (OME-1843: the room window
- * centres the room in it, or crops it to the audience), and the whole room's height where it fits.
+ * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits. The band's
+ * backdrop reaches the column's edges past it (OME-1843, room-layout.ts).
  */
 export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1): RoomLayout {
   const w = Math.floor(width);
@@ -185,7 +185,8 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const sy = controls.y + controls.h + GAP;
   const band = Math.max(0, h - sy);
   const scale = Math.max(1, Math.min(maxScale, Math.floor(band / BAND_MIN_H)));
-  const stage = { x: 0, y: sy, w, h: Math.min(band, ROOM_VIEW.h * scale) };
+  const sw = Math.min(w, ROOM_VIEW.w * scale);
+  const stage = { x: Math.floor((w - sw) / 2), y: sy, w: sw, h: Math.min(band, ROOM_VIEW.h * scale) };
   const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
@@ -394,16 +395,16 @@ export function panTo(view: { readonly w: number; readonly h: number }, centre: 
 /** A seat's touch hit area is 44 px tall (room.css .ui-touch .seat), centred on its point. */
 const SEAT_HIT_H = 44;
 /** A name tag's foot under its member's point (tagRect): the lowest thing a member shows. */
-const TAG_FOOT = 30;
+export const TAG_FOOT = 30;
 
 /**
- * Where the room window looks first (stage px), `h` stage px tall: `points` are where members are (seats and standing
- * spots, OME-1843), each from its seat's hit area's top to its name tag's foot. The middle of their bounding box, or in a
- * window too short for every row (320×640, QA OME-1324 G3; the band under a hero TV) the front row's name tags whole
- * with a pixel to spare, so those members show whole and stay tappable instead of every row cropped (room-window.ts
- * makes a cropped seat inert).
+ * Where the room window looks first (stage px), `h` stage px tall: the middle of the points' bounding box (each from
+ * its seat's hit area's top to `foot` under it), or in a window too short for every row (320×640, QA OME-1324 G3) the
+ * front row with a pixel to spare, so those seats show whole and stay tappable instead of every row cropped
+ * (room-window.ts makes a cropped seat inert). The phone's window: the seats, to their hit areas' foot. The desktop band
+ * (OME-1843): the seats and standing spots, to their name tags' foot (TAG_FOOT).
  */
-export function seatsHome(points: readonly Point[], h: number): Point {
+export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H / 2): Point {
   if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const p of points) {
@@ -413,8 +414,8 @@ export function seatsHome(points: readonly Point[], h: number): Point {
     y1 = Math.max(y1, p.y);
   }
   const top = y0 - SEAT_HIT_H / 2;
-  const foot = y1 + TAG_FOOT;
-  return { x: (x0 + x1) / 2, y: foot - top <= h ? (top + foot) / 2 : foot + 1 - h / 2 };
+  const bottom = y1 + foot;
+  return { x: (x0 + x1) / 2, y: bottom - top <= h ? (top + bottom) / 2 : bottom + 1 - h / 2 };
 }
 
 interface Size { readonly w: number; readonly h: number }
@@ -453,14 +454,13 @@ export interface DeskView {
 /**
  * The desktop wheel (OME-1490): the room fitted at `fit`, zoomed from `from` to `zoom` (clamped from the fit, 1, to
  * MAX_ZOOM) around `at` (px in the room's box): the stage point under `at` stays under it, and the view stays in ROOM_VIEW.
- * `view` is the room's box (CSS px): ROOM_VIEW at `fit`, or a band smaller than that (OME-1811); a band wider than the
- * room shows it centred (OME-1843).
+ * `view` is the room's box (CSS px): ROOM_VIEW at `fit`, or a band smaller than that (OME-1811).
  */
 export function wheelView(fit: number, from: DeskView, at: Point, zoom: number, view: Size = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }): DeskView {
   const z = Number.isFinite(zoom) ? Math.max(1, Math.min(MAX_ZOOM, zoom)) : 1;
   const k0 = fit * from.zoom;
   const k1 = fit * z;
-  const clamp = (v: number, lo: number, span: number, shown: number): number => (shown / k1 > span ? lo + (span - shown / k1) / 2 : Math.max(lo, Math.min(lo + span - shown / k1, v)));
+  const clamp = (v: number, lo: number, span: number, shown: number): number => Math.max(lo, Math.min(lo + Math.max(0, span - shown / k1), v));
   return { zoom: z, pan: { x: clamp(from.pan.x + at.x / k0 - at.x / k1, ROOM_VIEW.x, ROOM_VIEW.w, view.w), y: clamp(from.pan.y + at.y / k0 - at.y / k1, ROOM_VIEW.y, ROOM_VIEW.h, view.h) } };
 }
 
