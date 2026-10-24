@@ -59,6 +59,9 @@ export interface Editor {
   destroy(): void;
 }
 
+/** The tray thumbnail of a piece with no colours (ui/edit.png, OME-1847): the rest fall back to their name. */
+const TRAY_ONLY_COLOUR: Readonly<Partial<Record<FurnitureKind, string>>> = { armchair: "velvet", tv: "charcoal" };
+
 const NAMES: Readonly<Record<FurnitureKind, string>> = {
   armchair: "Armchair",
   tv: "TV console",
@@ -332,7 +335,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     for (const kind of t.kinds) {
       const b = el("button", { type: "button", className: "ui-slot", title: NAMES[kind], ariaLabel: NAMES[kind] }, "editor-slot");
       b.dataset["kind"] = kind;
-      const colour = coloursOf(kind)[0];
+      const colour = coloursOf(kind)[0] ?? TRAY_ONLY_COLOUR[kind];
       b.append(colour === undefined ? el("span", { className: "editor-slot-name", textContent: NAMES[kind] }) : sprite(`ui-thumb-${atlasId(kind) ?? kind}-${colour}`));
       b.addEventListener("click", (ev) => {
         if (b.ariaDisabled === "true") return;

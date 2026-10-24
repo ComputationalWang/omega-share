@@ -78,7 +78,7 @@ export const SPEC_ROOMS = {
   lie: ["sofa"],
   replay: ["wire", "clear", "ui"],
   "reaction-safety": ["shape", "big", "flood", "start"],
-  rpolish: ["c1280", "c1920", "c2560", "d1280", "d1920", "d2560", "f1024", "f1366", "f1280"],
+  rpolish: ["c1280", "c1920", "c2560", "d1280", "d1920", "d2560", "f1024", "f1366", "f1280", "e1280", "e1920", "e2560"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

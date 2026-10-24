@@ -1,10 +1,12 @@
 // Responsive polish, audit round 1 (OME-1810, design OME-1809): the directory's create card and its preset grid, no text
 // under 12 px in the room page's chrome on a computer, the room's backdrop across the whole room area (the Dank Dungeon's
 // night showed as a box), and full screen on a touch tablet: the picture and its bar centred as one group in black.
+// Round 2 (OME-1848, design OME-1847): the curtain caption scales with the TV, the room pieces have tray art, the 4-column
+// grid shows the picked blurb once, and the plain pages zoom 2× at the room page's 2× step.
 // POLISH_SHOTS=<dir> also saves each case's screenshot there (the PR's before/after pictures).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { RoomLayoutSchema } from "@omega/shared";
+import { ROOM_SECRETS_STORAGE_KEY, RoomLayoutSchema } from "@omega/shared";
 import type { BrowserContextOptions, Page } from "@playwright/test";
 import * as v from "valibot";
 import { shareVideo, waitPlaying } from "../perf/sync";
@@ -12,6 +14,7 @@ import { showLayout } from "../perf/show-layout";
 import { PENDING, ROOT, available, URLS } from "./support/apps";
 import { expect, test, watchCsp } from "./support/csp";
 import { openDirectory } from "./support/directory";
+import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 
@@ -151,5 +154,82 @@ for (const [name, w, h, options] of [["f1024", 1024, 768, TOUCH(1024, 768)], ["f
     // The leftover is letterbox: plain black, no page colour and no bezel rule over or under the picture.
     await expect(page.locator(".stage-wrap.is-fs")).toHaveCSS("background-color", "rgb(0, 0, 0)");
     await expect(page.locator(site.tv)).toHaveCSS("border-image-source", "none");
+  });
+}
+
+for (const [name, w, h] of [["e1280", 1280, 800], ["e1920", 1920, 1080], ["e2560", 2560, 1440]] as const) {
+  test(`${String(w)}×${String(h)}: the empty TV's caption is 2.2 % of the TV's width, between --text-sm and 40 px`, async ({ browser }) => {
+    clients = await joinRoom(browser, { roomUrl: testRoom("rpolish", name).url, count: 1, nicknamePrefix: `po${name}`, contextOptions: () => DESKTOP(w, h) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    const caption = page.locator(".tv-empty");
+    await expect(caption).toBeVisible();
+    await shot(page, `5-curtain-${String(w)}x${String(h)}`);
+    const m = await caption.evaluate((el) => {
+      const s = getComputedStyle(el);
+      const tv = el.parentElement?.getBoundingClientRect().width ?? 0;
+      return { size: Number.parseFloat(s.fontSize), sm: Number.parseFloat(s.getPropertyValue("--text-sm")), tv, width: el.getBoundingClientRect().width };
+    });
+    expect(m.size).toBeCloseTo(Math.min(40, Math.max(m.sm, 0.022 * m.tv)), 0);
+    expect(m.width).toBeLessThanOrEqual(0.8 * m.tv + 1);
+  });
+}
+
+test("1280×800: the Armchair and TV console tray cubbies show their art, still named for screen readers", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("trayart");
+  const context = await watchCsp(await browser.newContext(DESKTOP(1280, 800)));
+  await context.addInitScript(([key, value]) => {
+    localStorage.setItem(key, value);
+  }, [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })] as const);
+  const page = await context.newPage();
+  await page.goto(`${URLS.web}/r/${id}`);
+  await page.locator(site.nicknameInput).fill("trayart");
+  await page.locator(site.joinButton).click();
+  await page.locator(site.editRoom).click();
+  await expect(page.locator(site.editorTray)).toBeVisible();
+  await shot(page, "6-tray-1280x800");
+  for (const [kind, art, label] of [["armchair", "ui-thumb-armchair-velvet", "Armchair"], ["tv", "ui-thumb-tv-charcoal", "TV console"]] as const) {
+    const slot = page.locator(`${site.editorSlot}[data-kind="${kind}"]`);
+    await expect(slot).toHaveAttribute("aria-label", label);
+    await expect(slot.locator(`.${art}`)).toHaveCount(1);
+    await expect(slot.locator(".editor-slot-name")).toHaveCount(0);
+  }
+  await context.close();
+});
+
+for (const [w, h, cols] of [[1024, 768, 4], [1920, 1080, 4], [2560, 1440, 4], [700, 900, 0]] as const) {
+  test(`${String(w)}×${String(h)}: ${cols === 4 ? "the 4-column grid shows the picked preset's blurb once, under it" : "the phone strip keeps its blurbs on the cards"}`, async ({ browser }) => {
+    const context = await watchCsp(await browser.newContext(DESKTOP(w, h)));
+    const page = await context.newPage();
+    await page.goto(URLS.web);
+    await openDirectory(page, "Polish");
+    const note = page.locator(".preset-note");
+    if (cols === 4) {
+      await expect(page.locator(".preset-blurb").first()).toBeHidden();
+      await expect(note).toBeVisible();
+      await expect(note).toHaveText("Two rows of armchairs on the big rug.");
+      await page.locator(".preset").nth(1).click();
+      await expect(note).toHaveText("Rows on risers before the big screen.");
+      expect(Number.parseFloat(await note.evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(13);
+    } else {
+      await expect(page.locator(".preset-blurb").first()).toBeVisible();
+      await expect(note).toBeHidden();
+    }
+    await context.close();
+  });
+}
+
+for (const [w, h, zoom] of [[1920, 1080, "1"], [2560, 1440, "2"], [2560, 1080, "1"]] as const) {
+  test(`${String(w)}×${String(h)}: the landing, directory and legal page columns zoom ${zoom}×`, async ({ browser }) => {
+    const context = await watchCsp(await browser.newContext(DESKTOP(w, h)));
+    const page = await context.newPage();
+    await page.goto(URLS.web);
+    await expect(page.locator("main")).toHaveCSS("zoom", zoom);
+    await shot(page, `7-landing-${String(w)}x${String(h)}`);
+    await openDirectory(page, "Polish");
+    await expect(page.locator("main")).toHaveCSS("zoom", zoom);
+    await page.goto(`${URLS.web}/privacy.html`);
+    await expect(page.locator("main")).toHaveCSS("zoom", zoom);
+    await context.close();
   });
 }

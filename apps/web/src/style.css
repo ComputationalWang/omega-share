@@ -90,8 +90,16 @@ legend { padding: 0; margin-bottom: 6px; }
   .home .preset-picker { container-type: inline-size; }
   .home .preset-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; padding-bottom: 0; }
   .home .preset { width: auto; }
-  @container (min-width: 360px) { .home .preset-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @container (min-width: 360px) {
+    .home .preset-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    /* ~80 px a card: the picked blurb once, under the grid (OME-1848). */
+    .home .preset-blurb { display: none; }
+    .home .preset-note { display: block; }
+  }
 }
+.preset-note { display: none; margin: 0; color: var(--muted); font-size: var(--text-sm); line-height: var(--leading-body); }
+/* The room page's 2× step (chromeZoom ≥ 2560×1200) on the plain pages' column (OME-1848); no 1.5×: it smears the pixel art. */
+@media (min-width: 2560px) and (min-height: 1200px) { :root:is([data-view="entry"], [data-view="directory"]) :is(.site-head, main, .site-footer), .privacy, .privacy ~ .site-footer { zoom: 2; } }
 .saved-item { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .saved-name { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .saved-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
