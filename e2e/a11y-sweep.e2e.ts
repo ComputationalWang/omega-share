@@ -258,7 +258,12 @@ VIEWPORTS.forEach((vp, i) => {
       await audit(page, vp.name, "guest rest");
       await step(page, vp, "help", skipped, () => visibleClick(page, site.helpKey));
       await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
-      await step(page, vp, "report", skipped, async () => (await visibleClick(page, site.reportKey)) && (await page.locator(site.reportDialog).isVisible()));
+      // A phone held sideways keeps Report room in the People tab (OME-1841).
+      await step(page, vp, "report", skipped, async () => {
+        if (!(await page.locator(site.reportKey).isVisible())) await visibleClick(page, site.peopleKey);
+        return (await visibleClick(page, site.reportKey)) && (await page.locator(site.reportDialog).isVisible());
+      });
+      if (await page.locator(site.peoplePanel).isVisible()) await page.locator(site.peopleKey).click();
       await step(page, vp, "share sheet", skipped, async () => (await visibleClick(page, id("portrait-link"))) || (await page.locator(id("invite-copy")).isVisible()));
       await step(page, vp, "people", skipped, () => visibleClick(page, site.peopleKey));
       if (await page.locator(site.peoplePanel).isVisible()) await page.locator(site.peopleKey).click();
@@ -329,6 +334,8 @@ VIEWPORTS.forEach((vp, i) => {
       await step(owner, vp, "editor", skipped, async () => {
         const settings = owner.locator(id("portrait-settings"));
         if (await settings.isVisible()) await settings.click();
+        // A phone held sideways keeps Edit room in the People tab (OME-1841).
+        else if (!(await owner.locator(site.editRoom).isVisible()) && !(await owner.locator(site.peoplePanel).isVisible())) await visibleClick(owner, site.peopleKey);
         if (!(await visibleClick(owner, site.editRoom))) return false;
         await expect(owner.locator(site.editorTray)).toBeVisible();
         return true;
@@ -341,6 +348,7 @@ VIEWPORTS.forEach((vp, i) => {
         if (!(await owner.locator(site.editorTray).isVisible())) {
           const settings = owner.locator(id("portrait-settings"));
           if (await settings.isVisible()) await settings.click();
+          else if (!(await owner.locator(site.editRoom).isVisible()) && !(await owner.locator(site.peoplePanel).isVisible())) await visibleClick(owner, site.peopleKey);
           if (!(await visibleClick(owner, site.editRoom))) return false;
         }
         await owner.locator(`${site.editorMood}[data-mood="night"]`).click();

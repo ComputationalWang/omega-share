@@ -170,12 +170,18 @@ export function createHelp(o: HelpOptions): Help {
     ownerPart = owner;
 
     const report = section("Reporting a room", "help-report");
-    report.append(el("p", { textContent: "Something wrong here? Use Report room at the bottom of the room (on a phone, it's in the Room panel). It goes to the people who run omega-share, not to the host or anyone in the room." }));
+    report.append(el("p", { textContent: "Something wrong here? Use Report room at the bottom of the room (on a phone, it's in the Room panel; held sideways, under People). It goes to the people who run omega-share, not to the host or anyone in the room." }));
     reportPart = report;
 
     const pages = section("About omega-share");
     const links = el("p", { className: "help-pages" });
-    PAGES.forEach(([href, label], i) => {
+    // The footer's Source (AGPL §13) and Feedback, from the page's own links: a phone held sideways hides the footer (OME-1841).
+    const footer = ["source-link", "feedback-link"].flatMap((id): (readonly [string, string])[] => {
+      const a = document.querySelector<HTMLAnchorElement>(`body > .site-footer [data-testid="${id}"]`);
+      const href = a?.getAttribute("href");
+      return a === null || href === null || href === undefined ? [] : [[href, a.textContent.trim()]];
+    });
+    [...PAGES, ...footer].forEach(([href, label], i) => {
       if (i > 0) links.append(" · ");
       links.append(el("a", { href, textContent: label, ariaLabel: `${label} (opens in a new tab)`, target: "_blank", rel: "noopener noreferrer" }));
     });

@@ -48,10 +48,11 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const side = div();
   const ownerBar = div();
   const editorPanel = div();
-  root.append(roomTop, people, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
+  const foot = div();
+  root.append(roomTop, people, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side, foot);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, roomTop, people, invite, side, ownerBar, editorPanel,
+    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, roomTop, people, invite, foot, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
@@ -65,7 +66,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, log, poll, form, notice, side, queue, roomTop, people, invite, ownerBar, editorPanel };
+  return { layout, root, wrap, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -99,11 +100,16 @@ describe("room layout", () => {
     expect(page.roomTop.nextElementSibling).toBe(page.people);
   });
 
-  test("the owner's bar goes under Up next on a wide screen, and stays over the editor on a short one (OME-1301)", async () => {
+  test("the owner's bar goes under Up next on a wide screen; on a short one it and Report room end the People tab (OME-1301, OME-1841)", async () => {
     const tall = await setup({ wide: true });
     expect(tall.queue.root.nextElementSibling).toBe(tall.ownerBar);
+    expect(tall.foot.parentElement).toBe(tall.root);
     const short = await setup({ wide: true, short: true });
-    expect(short.ownerBar.nextElementSibling).toBe(short.editorPanel);
+    expect(short.people.nextElementSibling).toBe(short.ownerBar);
+    expect(short.ownerBar.nextElementSibling).toBe(short.foot);
+    expect(short.foot.parentElement).toBe(short.side);
+    const narrow = await setup({ wide: false, short: true });
+    expect(narrow.ownerBar.nextElementSibling).toBe(narrow.editorPanel);
   });
 
   test("a short wide screen moves the head row, holding the invite, to the top of the chat column (OME-1595)", async () => {

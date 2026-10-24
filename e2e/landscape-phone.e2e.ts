@@ -11,6 +11,8 @@ import { URLS } from "./support/apps";
 import AxeBuilder from "@axe-core/playwright";
 import { providerCase, shareProvider } from "../perf/providers";
 import { FAKE_VIMEO_SDK } from "./support/network";
+import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { ownedRoom } from "./support/owned-rooms";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -43,7 +45,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "f844" | "f740" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "f844" | "f740" | "w844" | "p844" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`, setup,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -245,3 +247,77 @@ for (const [name, key, at] of [["tvshelf", "twitchVod", 0], ["tliveshelf", "twit
     expect(violations.flatMap((v) => v.nodes.map((n) => `${v.id} ${n.target.join(" ")}`))).toEqual([]);
   });
 }
+
+// OME-1841 (responsive audit round 2): at 844×390 the room window was 154 px tall from y 270, so the column showed a 76 px
+// strip of chair backs and only the + key; People squeezed Up next until its field and Add were clipped and the column
+// scrolled the TV half off; the head row was a bare Copy key, a title cut to "QA own…" and an Up next card without its name.
+test("844×390 touch, seated: the room window is wholly on screen with my avatar's tag in it and all three zoom keys", async ({ browser }) => {
+  const page = await open(browser, "w844", 844, 390);
+  await page.locator(`${site.seat}:not([inert])`).first().click();
+  const win = page.locator(site.roomWindow);
+  await inside(win, 0, 390, 0, 844);
+  for (const k of ["in", "out", "fit"]) await inside(page.locator(`[data-testid=room-zoom-${k}]`), 0, 390, 0, 844);
+  const nickname = clients[0]?.nickname ?? "";
+  const tag = page.locator(site.nicknameTag).filter({ hasText: nickname });
+  await expect.poll(async () => {
+    const w = await box(win);
+    const t = await box(tag);
+    return t.y >= w.y && t.y + t.height <= w.y + w.height && t.x >= w.x && t.x + t.width <= w.x + w.width;
+  }, { message: "my name tag inside the room window" }).toBe(true);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
+});
+
+test("844×390 touch, the owner: the head row labels Copy, keeps the title whole and Up next its heading; People leaves the TV and Up next's field alone", async ({ browser }) => {
+  const { id, ownerToken, inviteKey, title } = ownedRoom("landown");
+  clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}`, count: 1, nicknamePrefix: `landown${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
+    contextOptions: () => ({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }),
+    setup: async (context) => { await context.addInitScript(([origin, key, value]) => {
+      if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+    }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })]); } });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expect(page.locator(site.chatInput)).toBeVisible();
+
+  // The owner's room window is whole too (their bar under the room took its height).
+  await inside(page.locator(site.roomWindow), 0, 390, 0, 844);
+  for (const k of ["in", "out", "fit"]) await inside(page.locator(`[data-testid=room-zoom-${k}]`), 0, 390, 0, 844);
+  // Copy says what it copies: the invite field or its label shows beside it.
+  const copy = page.locator(site.inviteCopy);
+  await inside(copy, 0, 390, 0, 844);
+  const label = page.locator("#invite-label");
+  expect(await page.locator(site.inviteLink).isVisible() || (await label.isVisible() && (await box(label)).width > 1), "the invite field or its label is visible").toBe(true);
+  // The title shows whole: the room has the space for it.
+  const roomTitle = page.locator(site.roomTitle);
+  await expect(roomTitle).toHaveText(title);
+  await inside(roomTitle, 0, 390, 0, 844);
+  expect(await roomTitle.evaluate((n) => n.scrollWidth <= n.clientWidth), "title not cut").toBe(true);
+  // Up next keeps its heading.
+  const heading = page.locator(`${site.queuePanel} .queue-head h3`);
+  await expect(heading).toHaveText("Up next");
+  expect((await box(heading)).width).toBeGreaterThan(20);
+  await inside(heading, 0, 390, 0, 844);
+
+  // People opens as the column's tab: the TV stays put; Up next is either whole or out of the way, never clipped.
+  const tv = await box(page.locator(site.tv));
+  await page.locator(site.peopleKey).click();
+  await expect(page.locator(site.peoplePanel)).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(await box(page.locator(site.tv))).toEqual(tv);
+  expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
+  for (const l of [site.queueUrl, site.queueAdd]) {
+    if (await page.locator(l).isVisible()) await inside(page.locator(l), 0, 390, 0, 844);
+  }
+  await page.locator(site.peopleKey).click();
+  await expect(page.locator(site.peoplePanel)).toBeHidden();
+  for (const l of [site.queueUrl, site.queueAdd]) await inside(page.locator(l), 0, 390, 0, 844);
+  expect(await box(page.locator(site.tv))).toEqual(tv);
+});
+
+test("844×390 touch: the footer gives the room its height; its pages, Source (AGPL §13) and Feedback included, are in Help", async ({ browser }) => {
+  const page = await open(browser, "p844", 844, 390);
+  await page.locator(site.helpKey).click();
+  const dialog = page.locator(site.helpDialog);
+  await expect(dialog).toBeVisible();
+  for (const name of [/^Source/, /^Feedback/, /^Privacy/]) await expect(dialog.getByRole("link", { name })).toBeVisible();
+});
