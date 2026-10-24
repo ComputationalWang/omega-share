@@ -52,7 +52,7 @@ is empty, use the tray-only name (`armchair` → `velvet`, `tv` → `charcoal`) 
 
 At 1280+ the create card's 4-column grid leaves about 80 px per card, so any blurb wraps a word per line.
 
-- **Copy (shipped here):** every blurb is now ≤ 44 characters, one idea, no tagline ("Two rows of armchairs on the big
+- **Copy (shipped here):** every blurb is now ≤ 44 characters, one idea, no tagline, and no word wider than the ~80 px column at 13 px (CI caught "Beanbags," overflowing by 1 px) ("Two rows of armchairs on the big
   rug.", "Bar stools, hammocks, a piano, a fire.", …). That helps the phone strip (140 px cards, 2–3 lines) too.
 - **Layout (Lead):** in the 4-column grid (`@container (min-width: 360px)`), hide `.preset-blurb` in the cards and show
   the picked preset's blurb once, under the grid, in a `.preset-note` line (`--text-sm`, `--muted`; `aria-live="polite"`;

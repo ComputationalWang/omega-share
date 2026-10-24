@@ -77,7 +77,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "lounge",
     name: "Lounge",
-    blurb: "Beanbags, poufs, kilim runners, neon.",
+    blurb: "Beanbags and poufs on kilim runners, neon.",
     layout: {
       furniture: [
         TV,
