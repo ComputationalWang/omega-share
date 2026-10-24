@@ -11,9 +11,10 @@
 // fit, around the pointer (`wheelView`): a trackpad pinch (a ctrlKey wheel) too, never the page's. The wheel is summed
 // and drawn once a frame, the transform alone. Zoomed in, the Fit key shows in the room's corner and goes back to the
 // whole room (a double-click on the floor is a jog, OME-1350). Its own key in localStorage, as its zoom is a multiple of
-// the fit, not the phone's stage scale.
+// the fit, not the phone's stage scale. At an integer scale (OME-1811) the room can be bigger than its band: then the view
+// starts on the seats, a mouse drag looks around (both ways, the same once-a-frame transform), and Fit goes back.
 import { el } from "./controls/dom";
-import { PHONE_ROOM_MIN_H, ROOM_VIEW, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView, type DeskView, type Point } from "./layout";
+import { PHONE_ROOM_MIN_H, ROOM_VIEW, STAGE_H, STAGE_W, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView, type DeskView, type Point } from "./layout";
 
 /** A press that moves less than this is a tap (it sits); more is a drag (it pans, and its click is dropped). */
 const DRAG_SLOP = 8;
@@ -54,8 +55,11 @@ export interface RoomWindow {
   set(active: boolean, w: number, h: number): void;
   /** Look at `p` (stage px), clamped to the stage. */
   centre(p: Point): void;
-  /** Off the phone (OME-1490): the room fitted at `scale` (its ROOM_VIEW in the clip); the wheel zooms it from there. */
-  desk(scale: number): void;
+  /**
+   * Off the phone (OME-1490): the room at `scale` in a `box` (CSS px, default its whole ROOM_VIEW); the wheel zooms it
+   * from there. A box smaller than the room (OME-1811's band) looks at the seats first, and a drag looks around.
+   */
+  desk(scale: number, box?: { readonly w: number; readonly h: number }): void;
   /** Where the window looks now (stage px, top-left), for checks. */
   readonly pan: () => Point;
 }
@@ -71,13 +75,28 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   let desk: number | null = null;
   const roomTopLeft: Point = { x: ROOM_VIEW.x, y: ROOM_VIEW.y };
   let deskView: DeskView = { zoom: storedZoom(DESK_ZOOM_STORAGE_KEY) ?? 1, pan: roomTopLeft };
+  /** The room's box off the phone (CSS px): ROOM_VIEW at the fit, or a band smaller than the room (OME-1811). */
+  let deskBox = { w: 0, h: 0 };
+  /** Off the phone, whether the viewer moved the view (wheel, drag): until then it follows `home`, as the phone's does. */
+  let deskMoved = false;
   const keys = el("div", { className: "room-zoom", hidden: true });
-  const applyDesk = (fit: number, v: DeskView): void => {
-    deskView = v;
-    const k = fit * v.zoom;
-    stage.style.transform = `translate(${String(-v.pan.x * k)}px, ${String(-v.pan.y * k)}px) scale(${String(k)})`;
-    keys.hidden = v.zoom <= 1;
+  const showDesk = (fit: number): void => {
+    const k = fit * deskView.zoom;
+    stage.style.transform = `translate(${String(-deskView.pan.x * k)}px, ${String(-deskView.pan.y * k)}px) scale(${String(k)})`;
+    keys.hidden = deskView.zoom <= 1 && !deskMoved;
   };
+  const applyDesk = (fit: number, v: DeskView): void => {
+    deskView = wheelView(fit, v, { x: 0, y: 0 }, v.zoom, deskBox);
+    showDesk(fit);
+  };
+  /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
+  const deskHome = (fit: number, zoom: number): DeskView => {
+    const k = fit * zoom;
+    const c = home(deskBox.h / k);
+    return { zoom, pan: { x: c.x - deskBox.w / (2 * k), y: c.y - deskBox.h / (2 * k) } };
+  };
+  /** The band shows less than the whole room at the fit: a drag looks around it. */
+  const deskPans = (): boolean => desk !== null && (deskBox.w < ROOM_VIEW.w * desk - 0.5 || deskBox.h < ROOM_VIEW.h * desk - 0.5);
   // The stage's own pane, clipped beside (or above) the keys' band, so no key ever sits on a seat.
   const pane = el("div", { className: "stage-pane" });
   stage.before(pane);
@@ -88,6 +107,23 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     pane.scrollLeft = 0;
   };
   pane.addEventListener("scroll", unscroll, { passive: true });
+  // Off the phone the clip is the one the browser scrolls to show something in it (find in page, a screen reader, a
+  // focus): in a band (OME-1811) that scroll becomes the view's pan, so what it showed stays where it is, and the clip is
+  // never left scrolled under the transform.
+  clip.addEventListener("scroll", () => {
+    const dx = clip.scrollLeft;
+    const dy = clip.scrollTop;
+    if (dx === 0 && dy === 0) return;
+    clip.scrollLeft = 0;
+    clip.scrollTop = 0;
+    if (desk === null) return;
+    // Kept to the stage, not ROOM_VIEW: the browser scrolled within the stage's box and measured what it showed there.
+    const k = desk * deskView.zoom;
+    const keep = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), v));
+    deskMoved = true;
+    deskView = { zoom: deskView.zoom, pan: { x: keep(deskView.pan.x + dx / k, STAGE_W - deskBox.w / k), y: keep(deskView.pan.y + dy / k, STAGE_H - deskBox.h / k) } };
+    showDesk(desk);
+  }, { passive: true });
   // In the window, a seat the pane crops is inert: no finger or focus lands on a sliver of it (QA OME-1324 G3); the
   // rows it shows whole are enough to sit. A cropped name tag (and its hit pad) is only off to pointers: it stays in the
   // tab order, and its focus pans the window to show it whole, or an owner at 320 px couldn't reach a member's menu at
@@ -168,7 +204,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
 
   const fitDesk = (): void => {
     if (desk === null) return;
-    applyDesk(desk, { zoom: 1, pan: roomTopLeft });
+    deskMoved = false;
+    applyDesk(desk, deskHome(desk, 1));
     storeZoom(1, DESK_ZOOM_STORAGE_KEY);
   };
   const key = (name: string, label: string, text: string, next: () => number): void => {
@@ -184,14 +221,21 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   key("fit", "Fit the room", "Fit", () => minZoom(view));
   clip.append(keys);
 
-  let down: { id: number; x: number; from: Point } | null = null;
+  let down: { id: number; x: number; y: number; from: Point; deskPan: Point } | null = null;
   let dragged = false;
   /** The latest drag position not yet drawn (client x), and the frame that draws it. */
   let dragX = 0;
+  let dragY = 0;
   let dragFrame = 0;
   const drawDrag = (): void => {
     dragFrame = 0;
-    if (down !== null) centre({ x: down.from.x - (dragX - down.x) / zoom, y: down.from.y });
+    if (down === null) return;
+    if (desk !== null) {
+      // Off the phone (OME-1811): a band smaller than the room pans both ways, inside the room.
+      const k = desk * deskView.zoom;
+      deskMoved = true;
+      applyDesk(desk, { zoom: deskView.zoom, pan: { x: down.deskPan.x - (dragX - down.x) / k, y: down.deskPan.y - (dragY - down.y) / k } });
+    } else centre({ x: down.from.x - (dragX - down.x) / zoom, y: down.from.y });
   };
 
   /** Fingers on the window (client px), and the pinch two of them make: where it started, and its pending frame. */
@@ -222,7 +266,14 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   );
 
   clip.addEventListener("pointerdown", (ev) => {
-    if (!active) return;
+    if (!active && !(deskPans() || deskView.zoom > 1)) return;
+    if (!active) {
+      // Off the phone: a press is a drag or a click, never a pinch (the wheel and a trackpad pinch zoom here).
+      if (!ev.isPrimary || ev.button !== 0) return;
+      down = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, from: shown(), deskPan: deskView.pan };
+      dragged = false;
+      return;
+    }
     if (ev.pointerType === "touch") fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     const start = fingers.size >= 2 && pinch === null ? two() : null;
     if (start !== null) {
@@ -238,7 +289,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       return;
     }
     if (!ev.isPrimary || ev.button !== 0) return;
-    down = { id: ev.pointerId, x: ev.clientX, from: shown() };
+    down = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, from: shown(), deskPan: deskView.pan };
     dragged = false;
   });
   clip.addEventListener("pointermove", (ev) => {
@@ -249,13 +300,15 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     }
     if (down?.id !== ev.pointerId) return;
     const dx = ev.clientX - down.x;
-    if (!dragged && Math.abs(dx) < DRAG_SLOP) return;
+    const moved = desk === null ? Math.abs(dx) : Math.hypot(dx, ev.clientY - down.y);
+    if (!dragged && moved < DRAG_SLOP) return;
     if (!dragged) {
       dragged = true;
       clip.setPointerCapture(ev.pointerId);
       clip.classList.add("is-dragging");
     }
     dragX = ev.clientX;
+    dragY = ev.clientY;
     if (dragFrame === 0) dragFrame = requestAnimationFrame(drawDrag);
   });
   const end = (ev: PointerEvent): void => {
@@ -310,17 +363,17 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   // Keyboard: whatever takes focus in the stage (a seat, a name tag) is panned into the window.
   stage.addEventListener("focusin", (ev) => {
     unscroll();
-    if (desk !== null && deskView.zoom > 1 && ev.target instanceof Element) {
+    if (desk !== null && (deskView.zoom > 1 || deskPans()) && ev.target instanceof Element) {
       // Zoomed in on a computer: something focused outside the view is centred in it.
       const r = ev.target.getBoundingClientRect();
       const s = stage.getBoundingClientRect();
       const k = desk * deskView.zoom;
       const x = (r.left - s.left + r.width / 2) / k;
       const y = (r.top - s.top + r.height / 2) / k;
-      const w = ROOM_VIEW.w / deskView.zoom;
-      const h = ROOM_VIEW.h / deskView.zoom;
+      const w = deskBox.w / k;
+      const h = deskBox.h / k;
       const p = deskView.pan;
-      if (x < p.x || x > p.x + w || y < p.y || y > p.y + h) applyDesk(desk, wheelView(desk, { zoom: deskView.zoom, pan: { x: x - w / 2, y: y - h / 2 } }, { x: 0, y: 0 }, deskView.zoom));
+      if (x < p.x || x > p.x + w || y < p.y || y > p.y + h) applyDesk(desk, { zoom: deskView.zoom, pan: { x: x - w / 2, y: y - h / 2 } });
       return;
     }
     if (!active || !(ev.target instanceof Element)) return;
@@ -348,7 +401,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     wheelLog = 0;
     if (desk === null) return;
     const r = clip.getBoundingClientRect();
-    applyDesk(desk, wheelView(desk, deskView, { x: wheelAt.x - r.left, y: wheelAt.y - r.top }, deskView.zoom * Math.exp(log)));
+    deskMoved = true;
+    applyDesk(desk, wheelView(desk, deskView, { x: wheelAt.x - r.left, y: wheelAt.y - r.top }, deskView.zoom * Math.exp(log), deskBox));
     storeZoom(deskView.zoom, DESK_ZOOM_STORAGE_KEY);
   };
   // Only the room's own box hears it: the TV, chat, panels and dialogs are outside the clip and keep their scroll.
@@ -368,6 +422,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   return {
     set(on, w, h) {
       desk = null;
+      clip.classList.remove("is-band");
       const was = active;
       active = on;
       if (on !== was) for (const e of cropped) crop(e);
@@ -393,9 +448,11 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       }
     },
     centre,
-    desk(fit) {
+    desk(fit, box = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }) {
       desk = fit;
-      applyDesk(fit, wheelView(fit, deskView, { x: 0, y: 0 }, deskView.zoom));
+      deskBox = box;
+      clip.classList.toggle("is-band", deskPans());
+      applyDesk(fit, deskMoved ? deskView : deskHome(fit, deskView.zoom));
     },
     pan: () => pan,
   };

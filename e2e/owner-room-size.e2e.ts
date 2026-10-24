@@ -278,6 +278,7 @@ test("1280×800 to 2560×1440, editing: the room keeps 80 % of its size, never s
     const b = await host.locator(site.roomWindow).boundingBox();
     return { w: b?.width ?? 0, h: b?.height ?? 0 };
   };
+  const scale = (): Promise<number> => host.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
   const editKey = host.locator(site.editRoom);
   let last = 0;
   for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080], [2560, 1440]] as const) {
@@ -287,10 +288,14 @@ test("1280×800 to 2560×1440, editing: the room keeps 80 % of its size, never s
     await expect(host.locator(site.editorTray)).toHaveCount(0);
     await expect.poll(async () => (await size()).w, { message: `${at} room laid out` }).toBeGreaterThan(0);
     const rest = await size();
+    const restScale = await scale();
     await editKey.click();
     await expect(host.locator(site.editorTray)).toBeVisible();
-    await expect.poll(async () => (await size()).w / rest.w, { message: `${at} editing width / at rest (${String(rest.w)})` }).toBeGreaterThanOrEqual(0.8);
+    // OME-1811: the room is at an integer scale, so it never shrinks while editing; the tray narrows its window instead,
+    // which still shows at least half the room's width and 80 % of its height.
+    await expect.poll(async () => (await size()).w, { message: `${at} editing width (at rest ${String(rest.w)})` }).toBeGreaterThanOrEqual(Math.min(rest.w, 480 * restScale));
     const editing = await size();
+    expect(await scale(), `${at} editing scale`).toBe(restScale);
     expect(editing.h / rest.h, `${at} editing height / at rest`).toBeGreaterThanOrEqual(0.8);
     expect(editing.w, `${at} editing width vs the smaller window's`).toBeGreaterThanOrEqual(last);
     last = editing.w;
