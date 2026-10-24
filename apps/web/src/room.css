@@ -553,6 +553,12 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   /* QA OME-1305: no 40 % cap; Up next sizes to its content, its list scrolling above a link field
    * that stays put (the portrait sheet's pattern). The field gets the row: the link glyph goes, Add keeps only its icon. */
   .room-side > .queue-panel { display: flex; flex-direction: column; gap: 4px; flex-shrink: 1; min-height: 0; max-height: none; padding: 4px; overflow: hidden; }
+  /* Never under its head (Play next's 44 px key) and the link field's row: only the list gives way (OME-1841: the head row's
+   * title line and a poll squeezed it until Add was clipped). */
+  .ui-touch .room-side > .queue-panel { min-height: 112px; }
+  /* An open poll has the room instead (as on a tall screen, QA OME-1460): Up next gives way to its head, count included. */
+  .room-side:has(> .poll-card:not([hidden])) > .queue-panel { min-height: 0; }
+  .room-side:has(> .poll-card:not([hidden])) > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form) { display: none; }
   .room-side .queue-panel > * { flex: none; }
   /* The head is one row: its glyph goes, "Up next" stays beside the count (OME-1841: "0 / 20" alone named nothing). */
   .room-side { gap: 4px; }

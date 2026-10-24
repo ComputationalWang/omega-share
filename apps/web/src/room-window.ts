@@ -20,6 +20,8 @@ import { PHONE_ROOM_MIN_H, ROOM_VIEW, STAGE_H, STAGE_W, clampZoom, labelScale, m
 const DRAG_SLOP = 8;
 /** How close to the window's edge a focused element may sit before the window pans to it. */
 const REVEAL_MARGIN = 32;
+/** A focus this soon after a press in the window is the press's own (a tap's comes after the finger lifts). */
+const PRESS_FOCUS_MS = 1000;
 /** One zoom key press. */
 const ZOOM_STEP = 1.25;
 export const ZOOM_STORAGE_KEY = "omega.roomZoom";
@@ -234,6 +236,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   key("fit", "Fit the room", "Fit", () => minZoom(view));
   clip.append(keys);
 
+  /** When the last press in the window began (event time, ms). */
+  let pressedAt = -Infinity;
   let down: { id: number; x: number; y: number; from: Point; deskPan: Point } | null = null;
   let dragged = false;
   /** The latest drag position not yet drawn (client x), and the frame that draws it. */
@@ -279,6 +283,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   );
 
   clip.addEventListener("pointerdown", (ev) => {
+    pressedAt = ev.timeStamp;
     if (!active && !(deskPans() || deskView.zoom > 1)) return;
     if (!active) {
       // Off the phone: a press is a drag or a click, never a pinch (the wheel and a trackpad pinch zoom here).
@@ -389,9 +394,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       if (x < p.x || x > p.x + w || y < p.y || y > p.y + h) applyDesk(desk, { zoom: deskView.zoom, pan: { x: x - w / 2, y: y - h / 2 } });
       return;
     }
-    // A press's focus (a tap on a seat; :focus-visible is off for it, and a touch focuses after the finger lifts) is under
-    // the finger already: panning to it slid the seat away before its click landed (OME-1841).
-    if (!active || down !== null || !(ev.target instanceof Element) || !ev.target.matches(":focus-visible")) return;
+    // A press's focus (a tap on a seat: a touch focuses after the finger lifts) is under the finger already: panning to it
+    // slid the seat away before its click landed (OME-1841).
+    if (!active || ev.timeStamp - pressedAt < PRESS_FOCUS_MS || !(ev.target instanceof Element)) return;
     const r = ev.target.getBoundingClientRect();
     const s = stage.getBoundingClientRect();
     const x = (r.left - s.left + r.width / 2) / zoom;
