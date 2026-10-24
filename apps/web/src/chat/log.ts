@@ -159,13 +159,27 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
     stickDue = false;
     root.scrollTop = root.scrollHeight;
   };
+  /** The box size last seen (-1: none yet). */
+  let seenW = -1;
+  let seenH = -1;
+  /** The box changed size since it was last seen: the lines rewrapped, so a scroll now is the layout's (OME-1831). */
+  const resized = (): boolean => {
+    const changed = seenW >= 0 && (root.clientWidth !== seenW || root.clientHeight !== seenH);
+    seenW = root.clientWidth;
+    seenH = root.clientHeight;
+    return changed;
+  };
   root.addEventListener("scroll", () => {
     // A box that was just moved reads 0 tall (or reset to the top) until it's laid out again: that's not the reader.
-    if (!stickDue && root.clientHeight > 0) following = atFoot();
+    if (stickDue || root.clientHeight === 0) return;
+    // A narrower column's scroll anchoring fires before the ResizeObserver: re-pin here, don't stop following.
+    if (!resized()) following = atFoot();
+    else if (following) root.scrollTop = root.scrollHeight;
   }, { passive: true });
   // Moving the log resets its scroll, and the strip settles its size after full screen starts (QA OME-658).
   if (typeof ResizeObserver !== "undefined") {
     new ResizeObserver(() => {
+      resized();
       if (following && root.clientHeight > 0) root.scrollTop = root.scrollHeight;
     }).observe(root);
   }
