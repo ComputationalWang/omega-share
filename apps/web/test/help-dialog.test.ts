@@ -128,6 +128,22 @@ describe("what it says", () => {
     const hrefs = [...help.dialog.querySelectorAll("a")].map((a) => a.getAttribute("href"));
     for (const page of ["/privacy.html", "/terms.html", "/contact.html", "/licenses.html"]) expect(hrefs).toContain(page);
   });
+
+  test("links the page footer's Source (AGPL §13) and Feedback too, in a new tab: a phone held sideways hides the footer (OME-1841)", async () => {
+    const { help } = await setup();
+    const footer = document.createElement("footer");
+    footer.className = "site-footer";
+    footer.innerHTML = '<a href="https://example.org/src" data-testid="source-link">Source</a><a href="https://example.org/src/issues" data-testid="feedback-link">Feedback</a>';
+    document.body.append(footer);
+    help.key.click();
+    const links = [...help.dialog.querySelectorAll("a")];
+    for (const [href, label] of [["https://example.org/src", "Source"], ["https://example.org/src/issues", "Feedback"]]) {
+      const a = links.find((l) => l.getAttribute("href") === href);
+      expect(a?.textContent).toBe(label);
+      expect(a?.target).toBe("_blank");
+      expect(a?.getAttribute("data-testid")).toBeNull();
+    }
+  });
 });
 
 describe("the ? key", () => {

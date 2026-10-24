@@ -108,6 +108,22 @@ describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => 
     win.set(false, 960, 40);
     expect(clip.style.visibility).toBe("");
   });
+
+  test("a wide short window (a phone held sideways, OME-1841) has the keys in a row beside the room, so the room keeps its height", async () => {
+    const { win, clip } = await setup();
+    win.set(true, 540, 120);
+    expect(clip.dataset["keys"]).toBe("side");
+    win.set(true, 390, 120);
+    expect(clip.dataset["keys"]).toBe("row");
+  });
+
+  test("windowH: a wide window takes what the column leaves if the room shows in it, else the keys' column and the column scrolls", async () => {
+    const { windowH, KEYS_COLUMN_H } = await import("../src/room-window");
+    expect(windowH(540, 120)).toBe(120);
+    expect(windowH(540, 40)).toBe(KEYS_COLUMN_H);
+    expect(windowH(395, 105)).toBe(KEYS_COLUMN_H);
+    expect(windowH(540, 200)).toBe(200);
+  });
 });
 
 describe("on a phone, edges", () => {

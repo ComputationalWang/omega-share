@@ -31,6 +31,10 @@ const PINCH_RATE = 0.01;
 const KEYS_BAND = 52;
 /** A column beside the room needs three keys' height; a shorter window has them in a row under the room. */
 export const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
+/** OME-1841 stub: the window's height in a wide column with `avail` px left under the shelf. */
+export function windowH(_w: number, avail: number): number {
+  return Math.max(KEYS_COLUMN_H, avail);
+}
 /** How far inside the pane a tag's box must sit to be whole to the finger: its 52 px ::before less its 20 px height, halved. */
 const TAG_CROP = 16;
 
