@@ -498,8 +498,14 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-side > * { flex: none; margin: 0; }
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-/* People open is the column's People tab (OME-1805): it has the log's height; the field stays under it. */
-.room-side:has(> .people:not([hidden])) > :is(.chat-log, .poll-card) { display: none; }
+/* People open is the column's People tab (OME-1805): it has the log's height but three lines (OME-1842: with the log
+ * gone only the field said there was a chat); Up next folds to its head, the invite steps aside (Copy is back with
+ * People closed) and the owner's bar ends the tab (room-layout.ts), so People shows its look and first person at 1024×768. */
+.room-side:has(> .people:not([hidden])) { gap: 4px; }
+.room-side:has(> .people:not([hidden])) > .poll-card { display: none; }
+.room-side:has(> .people:not([hidden])) > .chat-log { flex: none; height: 76px; }
+.room-side:has(> .people:not([hidden])) > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form, .queue-next) { display: none; }
+.room-side:has(> .people:not([hidden])) > .invite { display: none; }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
 /* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
  * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
@@ -537,12 +543,12 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-side.is-typing:has(> .queue-panel:focus-within) > :is(.chat-log, .chat, .chat-away) { display: none; }
 .room-side > .chat-away, .room-side > .room-away { max-width: none; }
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
-.room-side > .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
-.room-side > .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
+.room-side .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+.room-side .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
 /* 800 px tall or less (OME-1320): the policy's explanation is for screen readers only, so the chat log keeps three lines
  * beside a full Up next (at 1024×768 it had two). The tiles say who controls playback. */
 @media (max-height: 800px) {
-  .room-side > .edit-bar .mod-policy-note { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .room-side .edit-bar .mod-policy-note { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
@@ -594,7 +600,7 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   .room-side > .room-top > .invite > label { font-size: 12px; white-space: nowrap; }
   /* People open is the column's tab (OME-1841): Up next steps aside too, or People squeezed it until its field and Add
    * were clipped. */
-  .room-side:has(> .people:not([hidden])) > .queue-panel { display: none; }
+  .room-side:has(> .people:not([hidden])) > :is(.queue-panel, .chat-log) { display: none; }
   /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
   .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
   /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */

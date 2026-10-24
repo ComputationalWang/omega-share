@@ -336,6 +336,18 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       for (const h of held) h.e.scrollTop = h.foot ? h.e.scrollHeight : h.top;
     };
   };
+  let sideTabOn = false;
+  // Tall, the owner's bar ends People inside its scroll while it's open (OME-1842: beside it, it left People ~110 px);
+  // short, the column scrolls as one, the bar and Report room after People (OME-1841).
+  const placeTabFoot = (): void => {
+    if (!sideTabOn) return;
+    // Only if it moves: a move resets the bar's focus and scroll.
+    if (!o.short.matches && !o.people.hidden) {
+      if (o.people.lastElementChild !== o.ownerBar) o.people.append(o.ownerBar);
+    } else if (o.people.nextElementSibling !== o.ownerBar) o.people.after(o.ownerBar);
+    if (o.short.matches && o.ownerBar.nextElementSibling !== o.foot) o.ownerBar.after(o.foot);
+  };
+  new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
     dock.close();
@@ -360,17 +372,18 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       notice.after(invite);
       tvBox.personal.after(queuePanel.root);
     }
-    // Wide and tall enough, the owner's bar goes under Up next (OME-1301): under the stage it cost the owner half the room.
-    // Short, it's in the People tab with Report room (below, OME-1841): under the room it took the room window's height.
-    const sideTab = two && o.short.matches && fs.mode() === "off";
-    if (two && !o.short.matches) queuePanel.root.after(o.ownerBar);
+    // Wide, the owner's bar ends the People tab (below, OME-1842): under the stage it cost the owner half the room
+    // (OME-1301), above People it left People ~110 px. Short, Report room joins it (OME-1841). Full screen, under Up next.
+    const sideTab = two && fs.mode() === "off";
+    if (two && !sideTab) queuePanel.root.after(o.ownerBar);
     else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
     else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
     else notice.after(o.poll, chatLog.root, chatForm, chatAway);
     placePeople(two);
-    if (sideTab) o.people.after(o.ownerBar, o.foot);
+    sideTabOn = sideTab;
+    placeTabFoot();
     if (portraitOn) chatForm.before(dock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).
