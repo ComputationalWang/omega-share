@@ -77,11 +77,11 @@ export function mountHome(opts: HomeOptions): Home {
   const title = el("input", { type: "text", id: "create-room-title", maxLength: ROOM_TITLE_MAX_LENGTH, required: true, autocomplete: "off" }, "create-room-title");
   const titleLabel = el("label", { htmlFor: title.id, textContent: "Room name" });
   const priv = el("input", { type: "checkbox", id: "create-room-private" }, "create-room-private");
-  const privLabel = el("label", { htmlFor: priv.id, textContent: "Private · only people with the invite link can join" });
   const submit = el("button", { type: "submit", className: "enter", textContent: SUBMIT_LABEL }, "create-room-submit");
   const error = el("p", { className: "error", id: "create-room-error", ariaLive: "polite" }, "create-room-error");
-  const check = el("div", { className: "check" });
-  check.append(priv, privLabel);
+  // The label wraps the box: the whole line is its 44 px touch target (OME-1807).
+  const check = el("label", { className: "check" });
+  check.append(priv, "Private · only people with the invite link can join");
 
   // Layout: the presets (native radios: one tab stop, arrows move) and, below, the owner's own saved layouts. One
   // `name="preset"` group, so there is one choice across both. The server resolves the id; only a saved layout also

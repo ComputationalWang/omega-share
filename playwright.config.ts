@@ -68,6 +68,8 @@ const perfStorage = perfMotion !== ""
 // Chrome's own default: sound needs a user activation (item 3 of the real-YouTube checklist relies on it).
 const AUTOPLAY_DEFAULT = "--autoplay-policy=document-user-activation-required";
 
+const WIDE_A11Y = /768x1024|1024x768|1920x1080/;
+
 export default defineConfig({
   outputDir: "test-results",
   reporter: process.env["CI"] ? [["list"], ["html", { open: "never" }]] : "list",
@@ -86,7 +88,9 @@ export default defineConfig({
     // The M3 abuse suite (OME-191) and the HTTP flood suite (OME-281) run here too, each on a lane of its own so their spent limits never reach the tunnel specs.
     { name: "e2e-tunnel", testDir: "e2e", testMatch: ["**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // The a11y and viewport gate (OME-1326, docs/qa/a11y-sweep.md): about 2 min in one worker, so CI gives it a job of its own.
-    { name: "e2e-a11y", testDir: "e2e", testMatch: "**/a11y-sweep.e2e.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e-a11y", testDir: "e2e", testMatch: "**/a11y-sweep.e2e.ts", grepInvert: WIDE_A11Y, workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    // The tablet and 1080p viewports of the sweep (OME-1798) run as a second job so each stays near the 3.5 min budget.
+    { name: "e2e-a11y-wide", testDir: "e2e", testMatch: "**/a11y-sweep.e2e.ts", grep: WIDE_A11Y, workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Opt-in real sign-off checks: YouTube (OME-91, docs/qa/m1b-real-youtube.md), Twitch/Vimeo/tunnel (OME-133, docs/qa/m2-real-sign-off.md).
     // Real network, headed, never in CI. `bun run e2e:real` runs it on a virtual display via e2e/support/headed.ts (OME-210, docs/qa/headed-on-xvfb.md).
     { name: "e2e-real", testDir: "e2e/real", testMatch: "**/*.real.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", headless: false, launchOptions: { args: [AUTOPLAY_DEFAULT] } } },
