@@ -28,7 +28,7 @@ import { chatIntent, createWalkGate, floorSitIntent, lieIntent, sitIntent, stepA
 import { doorAt, layoutOf } from "./furniture";
 import { createDoorChip } from "./door-chip";
 import { createPendingApplier, stashVia, takeVia } from "./pending-layout";
-import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Point, type Rect } from "./layout";
+import { PHONE_QUERY, PORTRAIT_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Point, type Rect } from "./layout";
 import { createRoomLayout } from "./room-layout";
 import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
@@ -746,7 +746,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const editorPanel = el("div", { className: "editor-panel" });
   // Set (k) phone watch layout (OME-596): TV full width, the room at 1× in a window you drag, chat right under it, no editor.
   const phone = globalThis.matchMedia(PHONE_QUERY);
-  const portrait = globalThis.matchMedia(`${PHONE_QUERY} and (orientation: portrait)`);
+  const portrait = globalThis.matchMedia(PORTRAIT_QUERY);
   // Desktop wide layout (OME-642): the room on the left, the chat and Up next in a full-height column on the right.
   const wide = globalThis.matchMedia(WIDE_QUERY);
   const short = globalThis.matchMedia(SHORT_QUERY);

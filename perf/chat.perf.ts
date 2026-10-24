@@ -99,8 +99,9 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
   try {
     const [observer, ...senders] = clients;
     if (observer === undefined) throw new Error("no observer");
-    // Tall enough that the stage and the log are on screen together, so both are painted.
-    await observer.page.setViewportSize({ width: 1280, height: 1600 });
+    // Tall enough that the stage and the log are on screen together, so both are painted. Landscape:
+    // a portrait screen gets the phone dock, where they are tabs (OME-1802).
+    await observer.page.setViewportSize({ width: 1600, height: 1280 });
     const log = observer.page.locator(site.chatLog);
     const lines = observer.page.locator(site.chatLogLine);
     const measure = async (p: FrameProvider, label: string): Promise<void> => {

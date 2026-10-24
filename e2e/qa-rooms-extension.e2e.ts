@@ -126,7 +126,11 @@ test("a private room open in a tab (invite link) is offered, and sharing into it
   await gotoFixture(target, "youtube-embed");
   const { page: p, select } = await openSettledPopup(() => openPopup(target), priv.id);
   // X1 / threat model §3.5: tab rooms come first, and the one with a share token is pre-selected.
-  expect((await optionValues(select))[0]).toBe(priv.id);
+  // Only rooms already playing the page's video (OME-1637, "· watching · Join") may sort ahead; other specs share the server.
+  const notWatching = await select.locator("option").evaluateAll((els) =>
+    els.flatMap((e) => (e instanceof HTMLOptionElement && !e.text.endsWith(" watching · Join") ? [e.value] : [])),
+  );
+  expect(notWatching[0]).toBe(priv.id);
   await expect(select).toHaveValue(priv.id);
   // The label of an unlisted room is its id: the popup has no title for it.
   await expect(select.locator(`option[value="${priv.id}"]`)).toHaveText(priv.id);

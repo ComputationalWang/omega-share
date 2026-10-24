@@ -102,6 +102,30 @@ test.describe("phone", () => {
   });
 });
 
+// OME-1806: an invite link opened on a phone held sideways or an iPad in landscape shows the way in without a scroll.
+for (const [width, height] of [[844, 390], [1024, 768]] as const) {
+  test.describe(`${String(width)}×${String(height)} touch`, () => {
+    test.use({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    for (const [path, label] of [["/", "Enter lobby"], [`/r/${DEFAULT_ROOM_ID}`, "Enter room"]] as const) {
+      test(`${path}: the nickname field and ${label} are in view on load`, async ({ page }) => {
+        await page.goto(`${URLS.web}${path}`);
+        const enter = page.locator(site.joinButton);
+        await expect(enter).toHaveText(label);
+        for (const l of [page.locator(site.nicknameInput), enter]) {
+          await expect(l).toBeInViewport({ ratio: 1 });
+          // In view and on top: the finger lands on it, not on something drawn over it.
+          expect(await l.evaluate((node) => {
+            const r = node.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return hit !== null && (hit === node || node.contains(hit));
+          })).toBe(true);
+        }
+        expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      });
+    }
+  });
+}
+
 // OME-1280: the avatar radiogroup moves its selection with the arrow keys (wrapping), Home and End, like a click.
 test("keyboard only: arrows, Home and End change the chosen avatar, and the profile saves it", async ({ page }) => {
   await page.goto(URLS.web);

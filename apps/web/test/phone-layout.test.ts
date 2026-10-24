@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT } from "@omega/shared";
 import { seatPoints } from "../src/furniture";
-import { PHONE_MAX_W, PHONE_QUERY, PHONE_ROOM_H, PHONE_ROOM_MIN_H, fullscreenLayout, portraitLayout, STAGE_H, STAGE_W, panTo, roomLayout, seatsHome, type Rect } from "../src/layout";
+import { PHONE_MAX_W, PHONE_QUERY, PORTRAIT_QUERY, PHONE_ROOM_H, PHONE_ROOM_MIN_H, fullscreenLayout, portraitLayout, STAGE_H, STAGE_W, panTo, roomLayout, seatsHome, type Rect } from "../src/layout";
 
 const SEATS = seatPoints(DEFAULT_LAYOUT);
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -14,7 +14,10 @@ const PHONE_WIDTHS = [320, 356, 360, 375, 390, 412, 430, 480, 540, 600];
 describe("phone breakpoint (set k: phone ≤ 600 px wide)", () => {
   test("the query is the design's breakpoint", () => {
     expect(PHONE_MAX_W).toBe(600);
-    expect(PHONE_QUERY).toBe("(max-width: 600px)");
+    expect(PHONE_QUERY).toBe("(max-width: 600px), (orientation: portrait)");
+  });
+  test("any portrait screen is the phone class (OME-1802, design OME-1799 §2 medium: the phone's dock at tablet size)", () => {
+    expect(PORTRAIT_QUERY).toBe("(orientation: portrait)");
   });
 });
 

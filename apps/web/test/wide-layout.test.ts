@@ -68,26 +68,54 @@ describe("wideLayout", () => {
   });
 
   // OME-1050: the board's expected layout has the room zoomed in, its floor wider than the TV (the floor is 640 stage px).
-  test("a 1280×720 window (left column ≈ 920×640) shows the room's floor at least as wide as the TV", () => {
-    const { scale, tv } = wideLayout(920, 640, "youtube");
+  // OME-1803: with a video loaded the TV is the hero (below); an empty room keeps this room-first split.
+  test("an empty room in a 1280×720 window (left column ≈ 920×640) shows the room's floor at least as wide as the TV", () => {
+    const { scale, tv } = wideLayout(920, 640, null);
     expect(scale).toBeGreaterThanOrEqual(0.65);
     expect(640 * scale).toBeGreaterThanOrEqual(tv.w);
   });
 
-  test("a 1920×1080 window (left column ≈ 1560×960) shows the room past 1×, wider than a TV still bigger than the stacked page's 560 px", () => {
-    const { scale, tv } = wideLayout(1560, 960, "youtube");
+  test("an empty room in a 1920×1080 window (left column ≈ 1560×960) shows the room past 1×, wider than a TV still bigger than the stacked page's 560 px", () => {
+    const { scale, tv } = wideLayout(1560, 960, null);
     expect(tv.w).toBeGreaterThan(560);
     expect(scale).toBeGreaterThan(1);
     expect(640 * scale).toBeGreaterThan(tv.w);
   });
 
-  test("a 2560×1440 window (left column ≈ 2200×1320) scales the room up past 1×", () => {
-    expect(wideLayout(2200, 1320, "youtube").scale).toBeGreaterThan(1.2);
+  test("an empty room in a 2560×1440 window (left column ≈ 2200×1320) scales the room up past 1×", () => {
+    expect(wideLayout(2200, 1320, null).scale).toBeGreaterThan(1.2);
   });
 
   test("`height` is the column's content height (the stage's foot)", () => {
     const l = wideLayout(920, 640, "youtube");
     expect(l.height).toBe(l.stage.y + l.stage.h);
+  });
+});
+
+// OME-1803 (design OME-1799 §2): on a big monitor the TV was a small island, 25–30 % of the window's width. With a video
+// loaded the TV is the hero: as large as leaves the room a band at least 240 px and 28 % of the column tall, and never
+// smaller than the room-first split gave it. Columns are each window's left column as measured in the page (OME-1803 audit).
+const HERO: readonly (readonly [number, number, number, number])[] = [
+  // [window width, column width, column height, chrome zoom]
+  [1440, 1096, 713, 1],
+  [1920, 1416, 828, 1.5],
+  [2560, 1896, 1118, 2],
+];
+
+describe("the TV as the hero (OME-1803)", () => {
+  test.each(HERO)("a %p px window: the TV is at least 45 %% of it and as wide as its shelf; the band keeps 240 px and 28 %% of the column", (vw, w, h, z) => {
+    for (const provider of ["youtube", "twitch"] as const) {
+      const l = wideLayout(w, h, provider, z);
+      expect(l.tv.w).toBeGreaterThanOrEqual(0.45 * vw);
+      expect(l.tv.w).toBeGreaterThanOrEqual(l.controls.w);
+      expect(h - l.stage.y).toBeGreaterThanOrEqual(Math.max(240, 0.28 * h) - 1);
+      for (const r of [l.tv, l.controls, l.stage]) expect(inside(r, w, h)).toBe(true);
+      expect(intersects(l.controls, l.stage)).toBe(false);
+    }
+  });
+
+  test.each(BOXES)("at %p×%p a video's TV is never smaller than the room-first split's", (w, h) => {
+    for (const z of [1, 1.5, 2]) expect(wideLayout(w, h, "youtube", z).tv.w).toBeGreaterThanOrEqual(wideLayout(w, h, null, z).tv.w);
   });
 });
 
