@@ -94,10 +94,20 @@ export function mountHome(opts: HomeOptions): Home {
     const radio = el("input", { type: "radio", name: "preset", value: p.id, checked: p.id === DEFAULT_PRESET }, `preset-${p.id}`);
     // Eager on purpose: this mounts on intent (main.ts), so the thumbnails are in before the directory shows.
     const img = el("img", { src: opts.thumbs[p.id], alt: "", width: PRESET_THUMB.w, height: PRESET_THUMB.h, decoding: "async" });
-    label.append(radio, img, el("span", { className: "preset-name", textContent: p.name }), el("span", { className: "preset-blurb", textContent: p.blurb }));
+    radio.setAttribute("aria-describedby", `preset-blurb-${p.id}`);
+    label.append(radio, img, el("span", { className: "preset-name", textContent: p.name }), el("span", { id: `preset-blurb-${p.id}`, className: "preset-blurb", textContent: p.blurb }));
     presetList.append(label);
   }
-  picker.append(presetList);
+  // The 4-column grid hides the card blurbs (style.css) and shows the picked one here, once (OME-1848, design OME-1847 §3).
+  const note = el("p", { className: "preset-note" });
+  note.setAttribute("aria-live", "polite");
+  const showNote = (): void => {
+    const checked = picker.querySelector("input[name=preset]:checked");
+    note.textContent = PRESETS.find((p) => checked instanceof HTMLInputElement && p.id === checked.value)?.blurb ?? "";
+  };
+  picker.addEventListener("change", showNote);
+  picker.append(presetList, note);
+  showNote();
   const savedSlot = el("div", { className: "saved-slot" });
   const defaultRadio = (): HTMLInputElement | null => {
     const r = picker.querySelector(`input[value="${DEFAULT_PRESET}"]`);
