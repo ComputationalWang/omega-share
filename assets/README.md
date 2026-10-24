@@ -24,6 +24,7 @@ assets/
   ui/popup/kit.css|png  # set o (OME-1041): the popup's own stylesheet + sprite cut; its 9-slices are ui/slices files
   ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required", "room not found" and "you were removed" vignettes, standalone 72×64 PNGs;
                         #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
+                        #   OME-1799 (lazy): curtain-pelmet|drape|hem|seam, repeat tiles for the empty TV (see below)
   ui/reactions.png|json # OME-1641 (lazy): 128×128 PNG-8, heart/laugh/wow/clap reaction glyphs (6 frames) + moments-strip minis
   ui/moments.css        # OME-1641 (lazy): moments strip, recap card, lights-down chrome
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
@@ -1625,3 +1626,13 @@ The door (OME-1424) adds **3 319 B (≈ 3.2 KB)** (261 457 → 264 776 of 307 20
 `furniture-v2.json` +203 gz, `edit.png` +283 / `edit.json` +44 gz for 2 thumbnails; eager `reference.css` +46 gz. **Size change:** the v2 sheet
 no longer fits 512×512 (the shelf packer runs ~70 px past the bottom with the doors' 8 tall frames), so it doubles to 512×1024, half empty,
 which leaves room for the rest of batch 5. GPU cost when loaded: 1 MB → 2 MB RGBA. A separate door sheet would need a new loader in the web app.
+
+## OME-1799: the empty-TV curtain (responsive proposal)
+
+With nothing playing, the TV was a black slab at every size. Four lazy repeat tiles in `ui/scenes/` draw the theatre's velvet
+curtain closed across the picture box, whatever its size: `curtain-pelmet.png` 16×13 (repeat-x, top: wood rail, a swag, its
+fringe, a tassel at each join), `curtain-drape.png` 8×8 (repeat both: the folds), `curtain-hem.png` 12×7 (repeat-x, bottom:
+fringe and stage boards), `curtain-seam.png` 3×6 (repeat-y, centred: one art pixel of dim glow between the drapes). Layer them top to
+bottom pelmet, hem, seam, drape, each sized at the page chrome's `--ui-px` (2 px; 4 px under the 2× chrome zoom), so they keep the
+shelf's and the keys' pixel size on any TV width. Every pixel is opaque; the TV bezel is the outline. 551 B in total, all lazy;
+eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are on [OME-1799](/OME/issues/OME-1799).
