@@ -13,7 +13,10 @@ p { margin: 0; }
 .pk-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(1 * var(--ui-px)); }
 /* The visually hidden radio is positioned against its own row. */
 .pk-embed { position: relative; }
-.pk-keys .ui-button { min-width: 0; }
+/* OME-1808: the keys wrap instead of clipping ("Create room & share" doesn't fit half the panel); no text under 12 px. */
+.pk-keys { display: flex; flex-wrap: wrap; }
+.pk-keys .ui-button { flex: 1 1 auto; }
+.pk-head .host, .pk-list legend, .pk-embed .meta, .ui-chip, .pk-room, .pk-foot { font-size: 12px; }
 /* WCAG 2.5.8 with a mouse too: the footer's text keys get a 24 px box, the text stays where it was. */
 .pk-link, .legal a { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; min-width: 24px; }
 /* A phone (Firefox for Android opens the popup as a full-screen sheet, 360-412 px): fill the sheet, 44 px touch targets.
