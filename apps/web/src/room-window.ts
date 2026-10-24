@@ -104,6 +104,20 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     pane.scrollLeft = 0;
   };
   pane.addEventListener("scroll", unscroll, { passive: true });
+  // Off the phone the clip is the one the browser scrolls to show something in it (find in page, a screen reader, a
+  // focus): in a band (OME-1811) that scroll becomes the view's pan, so what it showed stays where it is, and the clip is
+  // never left scrolled under the transform.
+  clip.addEventListener("scroll", () => {
+    const dx = clip.scrollLeft;
+    const dy = clip.scrollTop;
+    if (dx === 0 && dy === 0) return;
+    clip.scrollLeft = 0;
+    clip.scrollTop = 0;
+    if (desk === null) return;
+    const k = desk * deskView.zoom;
+    deskMoved = true;
+    applyDesk(desk, { zoom: deskView.zoom, pan: { x: deskView.pan.x + dx / k, y: deskView.pan.y + dy / k } });
+  }, { passive: true });
   // In the window, a seat the pane crops is inert: no finger or focus lands on a sliver of it (QA OME-1324 G3); the
   // rows it shows whole are enough to sit. A cropped name tag (and its hit pad) is only off to pointers: it stays in the
   // tab order, and its focus pans the window to show it whole, or an owner at 320 px couldn't reach a member's menu at
