@@ -270,6 +270,18 @@ describe("on a computer", () => {
     expect(stage.style.transform).toBe("translate(-30px, -150px) scale(1)");
   });
 
+  // OME-1811: the browser scrolls the clip to show something cropped (find in page, a screen reader): that's the pan.
+  test("in a band, a scroll of the clip becomes the view's pan, and the clip is left unscrolled", async () => {
+    const { win, clip, stage } = await setup();
+    win.desk(1, { w: 900, h: 300 });
+    clip.scrollTop = 40;
+    clip.scrollLeft = 10;
+    clip.dispatchEvent(new Event("scroll"));
+    expect(stage.style.transform).toBe("translate(-40px, -190px) scale(1)");
+    expect(clip.scrollTop).toBe(0);
+    expect(clip.scrollLeft).toBe(0);
+  });
+
   test("on the phone the wheel does nothing new", async () => {
     const { win, clip, zoom } = await setup();
     win.set(true, VIEW.w, VIEW.h);
