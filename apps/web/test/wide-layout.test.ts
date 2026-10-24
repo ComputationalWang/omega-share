@@ -2,9 +2,10 @@
 // shelf and the room on the left and the chat (with Up next) on the right, full height, so nothing you need while
 // watching is below the fold. The left column's geometry is `wideLayout`: it fits the TV, the shelf and the stage in
 // the column's box (width and height) and keeps ADR 0012's player minimum. OME-1050 (board): the room fills what the
-// shelf leaves, scaled up past 1× where the column has room, and is the larger part of the column at 16:9.
+// shelf leaves, and is the larger part of the column at 16:9. OME-1811 (design OME-1799 §2): only at an integer scale,
+// 1× or 2×, in a band it doesn't fill (or a window onto it), never at a fractional one.
 import { describe, expect, test } from "bun:test";
-import { CONTROL_BAR_H, ROOM_VIEW, WIDE_CHAT_W, WIDE_QUERY, chromeZoom, wideLayout, type Rect } from "../src/layout";
+import { CONTROL_BAR_H, ROOM_VIEW, WIDE_CHAT_W, WIDE_QUERY, chromeZoom, roomScale, wideLayout, type Rect } from "../src/layout";
 
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const inside = (r: Rect, w: number, h: number): boolean => r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h;
@@ -59,31 +60,14 @@ describe("wideLayout", () => {
     expect(controls.w).toBe(tv.w);
   });
 
-  test.each(BOXES)("at %p×%p the room's view keeps its shape, fills the column's width or what the shelf leaves of its height, and is centred", (w, h) => {
-    const { stage, scale } = wideLayout(w, h, "youtube");
-    expect(Math.max(stage.w / w, stage.h / (h - stage.y))).toBeGreaterThan(0.99);
-    expect(stage.w).toBeCloseTo(ROOM_VIEW.w * scale, 5);
-    expect(stage.h).toBeCloseTo(ROOM_VIEW.h * scale, 5);
-    expect(Math.abs(stage.x + stage.w / 2 - w / 2)).toBeLessThanOrEqual(1);
-  });
-
-  // OME-1050: the board's expected layout has the room zoomed in, its floor wider than the TV (the floor is 640 stage px).
-  // OME-1803: with a video loaded the TV is the hero (below); an empty room keeps this room-first split.
-  test("an empty room in a 1280×720 window (left column ≈ 920×640) shows the room's floor at least as wide as the TV", () => {
-    const { scale, tv } = wideLayout(920, 640, null);
-    expect(scale).toBeGreaterThanOrEqual(0.65);
-    expect(640 * scale).toBeGreaterThanOrEqual(tv.w);
-  });
-
-  test("an empty room in a 1920×1080 window (left column ≈ 1560×960) shows the room past 1×, wider than a TV still bigger than the stacked page's 560 px", () => {
-    const { scale, tv } = wideLayout(1560, 960, null);
-    expect(tv.w).toBeGreaterThan(560);
-    expect(scale).toBeGreaterThan(1);
-    expect(640 * scale).toBeGreaterThan(tv.w);
-  });
-
-  test("an empty room in a 2560×1440 window (left column ≈ 2200×1320) scales the room up past 1×", () => {
-    expect(wideLayout(2200, 1320, null).scale).toBeGreaterThan(1.2);
+  test.each(BOXES)("at %p×%p the room is at 1×, centred in the band the shelf leaves: whole if it fits, else a window onto it", (w, h) => {
+    for (const provider of [null, "youtube"] as const) {
+      const { stage, scale } = wideLayout(w, h, provider);
+      expect(scale).toBe(1);
+      expect(stage.w).toBe(Math.min(w, ROOM_VIEW.w));
+      expect(stage.h).toBe(Math.min(h - stage.y, ROOM_VIEW.h));
+      expect(Math.abs(stage.x + stage.w / 2 - w / 2)).toBeLessThanOrEqual(1);
+    }
   });
 
   test("`height` is the column's content height (the stage's foot)", () => {
@@ -151,5 +135,45 @@ describe("chrome zoom (OME-1667)", () => {
         expect(inside(l.controls, w, h)).toBe(true);
       }
     }
+  });
+});
+
+// OME-1811 (design OME-1799 §2, finding F2; OME-1809 item 3): the room was drawn at min(w/960, h/532), 0.87× at 2560 and
+// 1.17× at 1920, so its pixel rows doubled unevenly. It's 1× or 2× now (STYLE.md: integers only, nearest-neighbour): 2× from
+// a 2400×1300 window, and only where the band under the shelf holds 2 × 240 px, so the 2× room shows as many rows as 1×'s.
+// The rest of the band is the stage's void. The page chrome keeps its 1.5× step at 1920 (OME-1667, CEO on OME-1811).
+describe("integer room scale (OME-1811)", () => {
+  test("the scale picker: 1× up to 2399 px wide or 1299 px tall, 2× from 2400×1300", () => {
+    for (const [w, h, k] of [[1024, 768, 1], [1280, 800, 1], [1440, 900, 1], [1920, 1080, 1], [2399, 1440, 1], [2400, 1299, 1], [2400, 1300, 2], [2560, 1440, 2], [3840, 2160, 2]] as const) {
+      expect(roomScale(w, h)).toBe(k);
+    }
+  });
+
+  // [window width, window height, column width, column height]: each window's left column as measured in the page.
+  const VIEWPORTS: readonly (readonly [number, number, number, number])[] = [
+    [1280, 800, 936, 613],
+    [1920, 1080, 1416, 828],
+    [2560, 1440, 1896, 1118],
+  ];
+  test.each(VIEWPORTS)("at %p×%p (DPR 1 and 2) the room is drawn at a whole number of device px per art px, empty or with a video", (vw, vh, w, h) => {
+    for (const provider of [null, "youtube", "twitch"] as const) {
+      const l = wideLayout(w, h, provider, chromeZoom(vw, vh), roomScale(vw, vh));
+      expect([1, 2]).toContain(l.scale);
+      for (const dpr of [1, 2]) expect(Number.isInteger(l.scale * Math.min(2, dpr))).toBe(true);
+      expect(l.stage.w).toBe(Math.min(w, ROOM_VIEW.w * l.scale));
+      expect(l.stage.h).toBe(Math.min(h - l.stage.y, ROOM_VIEW.h * l.scale));
+      expect(Math.abs(l.stage.x + l.stage.w / 2 - w / 2)).toBeLessThanOrEqual(1);
+      expect(inside(l.stage, w, h)).toBe(true);
+      expect(l.stage.y).toBeGreaterThanOrEqual(l.controls.y + l.controls.h);
+    }
+  });
+
+  test("2× only where the band holds 2 × 240 px; otherwise 1×, never a fraction", () => {
+    // 2560×1440, empty room: the room-first split leaves a tall band.
+    expect(wideLayout(1896, 1118, null, 2, 2).scale).toBe(2);
+    // 2560×1440 with a video: the hero TV leaves a 313 px band, so the room stays at 1×.
+    expect(wideLayout(1896, 1118, "youtube", 2, 2).scale).toBe(1);
+    // A 1920 window never goes past 1×, however much room the column has.
+    expect(wideLayout(1416, 828, null, 1.5, 1).scale).toBe(1);
   });
 });

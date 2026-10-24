@@ -204,7 +204,9 @@ test("a member kicked while away cannot resume with the stored token", async ({ 
 
   await goAway(kit.page);
   await expect(owner.page.locator(`${site.peopleRow}.is-away`).filter({ hasText: "kit" })).toHaveCount(1);
-  await tag(owner.page, "kit").click();
+  // From the keyboard: at 1280×720 the room's band (OME-1811) crops kit's tag at the door, and focus pans it into view.
+  await tag(owner.page, "kit").focus();
+  await owner.page.keyboard.press("Enter");
   await owner.page.locator(`${site.modRemove} button`).click();
   await owner.page.locator(site.modConfirm).click();
   await expect(tag(owner.page, "kit")).toHaveCount(0);

@@ -110,6 +110,37 @@ for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440
   });
 }
 
+// OME-1811 (design OME-1799 §2, F2; OME-1809 item 3): the room was drawn at fractional scales (0.87× at 2560, 1.17× at
+// 1920), so its pixel rows doubled unevenly. On every large screen it's 1× or 2× now, nearest-neighbour, at DPR 1 and 2.
+for (const [name, w, h] of [["int1280", 1280, 800], ["int1920", 1920, 1080], ["int2560", 2560, 1440]] as const) {
+  for (const dpr of [1, 2]) {
+    test(`${String(w)}×${String(h)} DPR ${String(dpr)}: the room is drawn at a whole number of device px per art px, nearest-neighbour`, async ({ browser }) => {
+      const page = await one(browser, name, { ...DESKTOP(w, h), deviceScaleFactor: dpr });
+      const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
+      expect([1, 2]).toContain(k);
+      expect(Number.isInteger(k * dpr)).toBe(true);
+      await expect(page.locator("canvas.scene")).toHaveCSS("image-rendering", "pixelated");
+      // The band keeps the room on the page: in view, unscrolled.
+      await inView(page, page.locator(site.roomWindow));
+      expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(h);
+    });
+  }
+}
+
+// OME-1811 (design OME-1799 §3, OME-1809 item 4): no text in the room page under 12 px on a computer.
+test("1280×800 with a video: no visible text in the room page is under 12 px", async ({ browser, request }) => {
+  const room = testRoom("wide", "type1280");
+  await shareVideo(request, room.id);
+  const page = await one(browser, "type1280", DESKTOP(1280, 800));
+  await waitPlaying(clients);
+  const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
+    .filter((e) => [...e.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim() !== "") && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
+    .map((e) => ({ text: e.textContent.trim().slice(0, 30), cls: e.className, px: Number.parseFloat(getComputedStyle(e).fontSize) }))
+    // font-size 0 is a label's text hidden behind its art (the share chip's), not small text.
+    .filter((t) => t.px > 0 && t.px < 12));
+  expect(small).toEqual([]);
+});
+
 /** Every visible key in the room's chrome (not the stage's seats and tags, not the site footer), with its size. */
 const keys = (page: Page): Promise<{ name: string; w: number; h: number }[]> =>
   page.evaluate(() => [...document.querySelectorAll<HTMLElement>("main button, main summary, main [role=button]")]
