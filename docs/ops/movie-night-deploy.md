@@ -17,11 +17,11 @@ The batch ships many changes at once: relay batching (`batch` frame, per-connect
 **Kill switch** (as `admin@`; the unit reads `/etc/omega-share/env`, `EnvironmentFile=-` in `deploy/omega-share.service`):
 
 ```sh
-ssh $A admin@$SERVER_IP 'echo RELAY_BATCH_MS=0 | sudo tee -a /etc/omega-share/env >/dev/null && sudo systemctl restart omega-share'
+ssh $A admin@$SERVER_IP 'sudo mkdir -p /etc/omega-share && echo RELAY_BATCH_MS=0 | sudo tee -a /etc/omega-share/env >/dev/null && sudo systemctl restart omega-share'
 ssh $A admin@$SERVER_IP 'systemctl show omega-share -p NRestarts; curl -s http://127.0.0.1:9464/metrics | grep -c omega_relay_latency'   # expect the process to answer
 ```
 
-Undo by removing the line and restarting. Check the exact variable name and its default against the merged OME-1583 code (`grep -rn RELAY_BATCH_MS apps/server-rs/src`) before the deploy; if it differs, fix this page in the same PR as the deploy. A restart closes sockets with 1012 and clients reconnect into their seats, so the kill switch costs users about 1 s.
+Undo by removing the line and restarting (`/etc/omega-share/` does not exist on the box until the first use: the `mkdir -p` above creates it; OME-1649 found this). Check the exact variable name and its default against the merged OME-1583 code (`grep -rn RELAY_BATCH_MS apps/server-rs/src`) before the deploy; if it differs, fix this page in the same PR as the deploy. A restart closes sockets with 1012 and clients reconnect into their seats, so the kill switch costs users about 1 s.
 
 **Rollback** is the previous Rust release, not Bun: `ssh $A deploy@$SERVER_IP 'ls -1t /opt/omega-share/releases'` shows the last good `<sha>-rust`; flip `current` to it and `systemctl restart omega-share`, or re-run `env $D deploy/deploy.sh --server rust` from a checkout of that SHA. No migration may ride in this batch without a snapshot restore plan (switch-to-rust.md § 4, backup.md § Restore): check `git diff <live sha>..main -- apps/server-rs/migrations` first.
 
