@@ -1,7 +1,7 @@
 // Up next in the wide layout's side column (OME-1804, audit OME-1797, design OME-1799 §2). With a video on and one
 // queued, a queue row's controls never sit over its title or its sharer's name; from 1024×768 the heading, Play next
 // now and the count each keep one line; from 1280×800 the link field and the composer show their whole placeholder.
-import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { WATCH_URL } from "./support/network";
@@ -55,9 +55,9 @@ async function queued(browser: Browser, name: RoomName<"side-column">, options: 
   const room = owned === undefined ? undefined : ownedRoom(owned);
   clients = await joinRoom(browser, { roomUrl: room === undefined ? testRoom("side-column", name).url : `${URLS.web}/r/${room.id}`, count: 1,
     nicknamePrefix: `sc${name}${String(test.info().retry)}`, contextOptions: () => options,
-    setup: room === undefined ? undefined : async (context) => { await context.addInitScript(([origin, key, value]) => {
+    ...(room === undefined ? {} : { setup: async (context: BrowserContext) => { await context.addInitScript(([origin, key, value]) => {
       if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
-    }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [room.id]: { ownerToken: room.ownerToken, inviteKey: room.inviteKey } } })]); } });
+    }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [room.id]: { ownerToken: room.ownerToken, inviteKey: room.inviteKey } } })]); } }) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   const panel = page.locator(site.queuePanel);
@@ -128,7 +128,7 @@ for (const [name, w, h, extra, owned] of OWNER_VIEWPORTS) {
     const bottom = Math.min(p.y + p.height, h);
     for (const l of [...await panel.locator(".look > *").all(), page.locator(site.peopleRow).first()]) {
       const b = await box(l);
-      expect(b.y + b.height, `${await l.evaluate((e) => e.className)} shows whole`).toBeLessThanOrEqual(bottom + 0.5);
+      expect(b.y + b.height, `${await l.evaluate((e) => e.classList.value)} shows whole`).toBeLessThanOrEqual(bottom + 0.5);
     }
     expect(await panel.locator(".look > *").count()).toBeGreaterThanOrEqual(3);
     expect(await box(page.locator(site.tv))).toEqual(tv);
