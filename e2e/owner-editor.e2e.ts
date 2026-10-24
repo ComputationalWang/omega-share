@@ -63,14 +63,36 @@ const savedOf = async (page: Page): Promise<RoomLayout["furniture"]> =>
   v.parse(v.object({ furniture: v.array(v.object({ kind: v.string(), col: v.number(), row: v.number(), facing: v.string() })) }), await handle(page, "layout")).furniture as RoomLayout["furniture"];
 const builds = async (page: Page): Promise<number> => v.parse(v.number(), await handle(page, "builds"));
 
-/** Click floor cell (col, row) through the editor's hit layer (the stage is CSS-scaled from 960×600). */
+/**
+ * Click floor cell (col, row) through the editor's hit layer (the stage is CSS-scaled from 960×600). At 1× the room's band
+ * can crop the cell (OME-1811): the mouse drags the band to bring it to the middle first, as an owner would.
+ */
 async function clickCell(page: Page, col: number, row: number): Promise<void> {
   const hit = page.locator(site.editorHit);
+  const p = cellCenter(col, row);
+  const at = async (): Promise<{ x: number; y: number; scale: number }> => {
+    const box = await hit.boundingBox();
+    if (box === null) throw new Error("editor hit layer not laid out");
+    const scale = box.width / 960;
+    return { x: box.x + p.x * scale, y: box.y + p.y * scale, scale };
+  };
+  const band = await page.locator(site.roomWindow).boundingBox();
+  if (band === null) throw new Error("room window not laid out");
+  const a = await at();
+  const margin = 24;
+  if (a.x < band.x + margin || a.x > band.x + band.width - margin || a.y < band.y + margin || a.y > band.y + band.height - margin) {
+    const cx = band.x + band.width / 2;
+    const cy = band.y + band.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(2 * cx - a.x, 2 * cy - a.y, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(async () => (await at()).y).not.toBe(a.y);
+  }
+  const b = await at();
   const box = await hit.boundingBox();
   if (box === null) throw new Error("editor hit layer not laid out");
-  const p = cellCenter(col, row);
-  const scale = box.width / 960;
-  await hit.click({ position: { x: p.x * scale, y: p.y * scale } });
+  await hit.click({ position: { x: b.x - box.x, y: b.y - box.y } });
 }
 
 test("only the owner loads the editor; a guest sees the saved layout and the new title live, then the delete", async ({ browser }) => {

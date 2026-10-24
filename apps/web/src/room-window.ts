@@ -14,7 +14,7 @@
 // the fit, not the phone's stage scale. At an integer scale (OME-1811) the room can be bigger than its band: then the view
 // starts on the seats, a mouse drag looks around (both ways, the same once-a-frame transform), and Fit goes back.
 import { el } from "./controls/dom";
-import { PHONE_ROOM_MIN_H, ROOM_VIEW, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView, type DeskView, type Point } from "./layout";
+import { PHONE_ROOM_MIN_H, ROOM_VIEW, STAGE_H, STAGE_W, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView, type DeskView, type Point } from "./layout";
 
 /** A press that moves less than this is a tap (it sits); more is a drag (it pans, and its click is dropped). */
 const DRAG_SLOP = 8;
@@ -80,11 +80,14 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   /** Off the phone, whether the viewer moved the view (wheel, drag): until then it follows `home`, as the phone's does. */
   let deskMoved = false;
   const keys = el("div", { className: "room-zoom", hidden: true });
-  const applyDesk = (fit: number, v: DeskView): void => {
-    deskView = wheelView(fit, v, { x: 0, y: 0 }, v.zoom, deskBox);
+  const showDesk = (fit: number): void => {
     const k = fit * deskView.zoom;
     stage.style.transform = `translate(${String(-deskView.pan.x * k)}px, ${String(-deskView.pan.y * k)}px) scale(${String(k)})`;
     keys.hidden = deskView.zoom <= 1 && !deskMoved;
+  };
+  const applyDesk = (fit: number, v: DeskView): void => {
+    deskView = wheelView(fit, v, { x: 0, y: 0 }, v.zoom, deskBox);
+    showDesk(fit);
   };
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
@@ -114,9 +117,12 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     clip.scrollLeft = 0;
     clip.scrollTop = 0;
     if (desk === null) return;
+    // Kept to the stage, not ROOM_VIEW: the browser scrolled within the stage's box and measured what it showed there.
     const k = desk * deskView.zoom;
+    const keep = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), v));
     deskMoved = true;
-    applyDesk(desk, { zoom: deskView.zoom, pan: { x: deskView.pan.x + dx / k, y: deskView.pan.y + dy / k } });
+    deskView = { zoom: deskView.zoom, pan: { x: keep(deskView.pan.x + dx / k, STAGE_W - deskBox.w / k), y: keep(deskView.pan.y + dy / k, STAGE_H - deskBox.h / k) } };
+    showDesk(desk);
   }, { passive: true });
   // In the window, a seat the pane crops is inert: no finger or focus lands on a sliver of it (QA OME-1324 G3); the
   // rows it shows whole are enough to sit. A cropped name tag (and its hit pad) is only off to pointers: it stays in the
