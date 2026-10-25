@@ -247,6 +247,8 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * head or docked above the composer. reference.css fades it in (4 steps, never scaled: pixel art doesn't resample) and
  * skips that under reduced motion. */
 .emote-picker .ui-wheel { --ui-px: 2px; position: fixed; z-index: 30; }
+/* OME-1844: each 42 px key is 44 px to a finger; the hit areas overlap their neighbours by a pixel. */
+.ui-touch .ui-wheel-slot::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); translate: -50% -50%; }
 /* Dance (OME-1378), the 9th slot: the disc art has eight holes, so it hangs off the lower right, clear of exclaim. */
 .ui-wheel-slot:nth-child(9) { left: calc(68 * var(--ui-px)); top: calc(68 * var(--ui-px)); }
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
@@ -902,6 +904,8 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
   :root { --room-foot: 44px; --room-foot-text: 12px; }
   .ui-report .count { font-size: 12px; }
 }
+/* OME-1844: the playback bar's source chip at 12 px on a touch screen held upright too (the computer rule is below). */
+.ui-touch :is(.ui-plate, .ui-room .ui-plate) { font-size: var(--text-xs); }
 .ui-touch .help-pages a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 
 /* OME-1811 (design OME-1799 §2): a band smaller than the room at its integer scale is a window you drag to look around. */
