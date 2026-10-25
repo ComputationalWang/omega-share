@@ -3,6 +3,8 @@
 // night showed as a box), and full screen on a touch tablet: the picture and its bar centred as one group in black.
 // Round 2 (OME-1848, design OME-1847): the curtain caption scales with the TV, the room pieces have tray art, the 4-column
 // grid shows the picked blurb once, and the plain pages zoom 2× at the room page's 2× step.
+// Round 3 (OME-1845, audit OME-1840): the 12 px floor holds with a mouse on a phone-sized window too (the footer) and with
+// the emote wheel open (its key hint), and the phone's playback row fits its keys inside the screen.
 // POLISH_SHOTS=<dir> also saves each case's screenshot there (the PR's before/after pictures).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +13,7 @@ import type { BrowserContextOptions, Page } from "@playwright/test";
 import * as v from "valibot";
 import { shareVideo, waitPlaying } from "../perf/sync";
 import { showLayout } from "../perf/show-layout";
+import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
 import { PENDING, ROOT, available, URLS } from "./support/apps";
 import { expect, test, watchCsp } from "./support/csp";
 import { openDirectory } from "./support/directory";
@@ -98,6 +101,60 @@ for (const [name, w, h] of [["c1280", 1280, 800], ["c1920", 1920, 1080], ["c2560
     await waitPlaying(clients);
     expect(await smallText(page, "body")).toEqual([]);
     await shot(page, `2-room-${String(w)}x${String(h)}`);
+  });
+}
+
+for (const [name, w, h] of [["w320", 320, 640], ["w360", 360, 780], ["w1280", 1280, 800]] as const) {
+  test(`${String(w)}×${String(h)} mouse, video and emote wheel open: no visible text in the room page is under 12 px`, async ({ browser, request }) => {
+    const room = testRoom("rpolish", name);
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `po${name}`, contextOptions: () => DESKTOP(w, h) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await waitPlaying(clients);
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+    await page.keyboard.press("t");
+    await expect(page.getByRole("menu", { name: "Emotes" })).toBeVisible();
+    await shot(page, `8-wheel-${String(w)}x${String(h)}`);
+    expect(await smallText(page, "body")).toEqual([]);
+  });
+}
+
+// t320/t390 (QA OME-1870): a fake Twitch VOD shows the quality key, the widest row a real provider gets. Under 360 px
+// the mute key goes for it (the phone's own volume keys stay), else the seek bar is 17 px.
+for (const [name, w, h, options, twitch] of [["p320", 320, 640, DESKTOP(320, 640), false], ["p360", 360, 780, DESKTOP(360, 780), false], ["p390", 390, 844, TOUCH(390, 844), false],
+  ["t320", 320, 640, TOUCH(320, 640), true], ["t390", 390, 844, TOUCH(390, 844), true]] as const) {
+  test(`${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}${twitch ? ", Twitch" : ""}: the playback row's play, times, seek and full screen keys sit inside the screen, none covered`, async ({ browser, request }) => {
+    const room = testRoom("rpolish", name);
+    // Twitch's 300 px TV leaves a 640 px phone no room window, which joinRoom waits for: join first, then share.
+    if (!twitch) await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `po${name}`, contextOptions: () => options });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    if (twitch) {
+      await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
+      await waitProviderPlaying(clients, "twitch");
+      await expect(page.getByTestId("quality-key")).toBeVisible();
+    } else await waitPlaying(clients);
+    await shot(page, `9-row-${String(w)}x${String(h)}${twitch ? "-twitch" : ""}`);
+    const keys = ["play-toggle", "time-current", "time-duration", ...(twitch ? [...(w < 360 ? [] : ["mute-toggle"]), "quality-key"] : []), "fullscreen-toggle"].map((id) => page.getByTestId(id));
+    const boxes = await Promise.all([...keys, page.locator(".controls .ui-seek")].map(async (l) => {
+      const b = await l.boundingBox();
+      if (b === null) throw new Error("a playback key is not shown");
+      return b;
+    }));
+    for (const b of boxes) {
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(w);
+    }
+    // Nothing sits on another key: each one's centre hits itself (the full-screen key used to cover the duration).
+    for (const l of keys) {
+      expect(await l.evaluate((el) => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+    }
+    // The seek bar keeps a finger's width; the shelf has nothing scrolled out of sight that a finger must reach for.
+    const seek = boxes.at(-1);
+    expect(seek?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(await page.locator(".controls").evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
   });
 }
 

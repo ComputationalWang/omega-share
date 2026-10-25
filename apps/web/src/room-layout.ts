@@ -463,7 +463,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     wrap.scrollTop = 0;
     fsScrollWidth = fsScrollHeight = fsScrollTarget = -1;
     placeRowKeys(false);
-    controls.classList.toggle("scroll-transport", portraitOn);
+    controls.classList.remove("scroll-transport");
     controls.tabIndex = -1;
     controls.ariaLabel = "Playback controls";
     if (wide.matches) {
@@ -513,9 +513,6 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
       root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
-      controls.classList.add("scroll-transport");
-      controls.tabIndex = 0;
-      controls.ariaLabel = "Playback controls; scroll horizontally for more";
     }
     box(clip, l.stage);
     // room.css sizes the host's tag hit areas by it; the phone window keeps its own zoom.

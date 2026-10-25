@@ -835,6 +835,16 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
 .portrait-sheet .chat-log:focus-within .ui-fs-line.is-faded { background-color: #343766; }
 /* Scrolling uses the physical button box, so a focused shelf key brings its whole touch target into view. */
 .room-portrait .controls .ui-button.icon { flex: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
+/* OME-1845: the portrait shelf fits the screen instead of scrolling (a scrolled row hid the duration under the full-screen
+ * key): play, times, seek and full screen stay; the chips, the hop hint and the volume track go (the mute key and the
+ * device's own volume stay), the hint's words still read by a screen reader. */
+.room-portrait .controls :is(.ui-transport > .ui-chip, .ui-volume > .ui-chip, .ui-vol-track) { display: none; }
+.room-portrait .controls .ui-hint { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.room-portrait .controls > :is(.ui-volume, .fs-key, .quality-key) { margin-left: 0; }
+/* Under 360 px the source plate goes too (CI's wider readouts left the seek bar 36 px at 320); a screen reader keeps its name. */
+/* With Twitch's quality key there, the mute key goes too (the phone's own volume keys stay), else the seek bar is 17 px (QA OME-1870). */
+@container (max-width: 359px) { .room-portrait .controls:has(> .quality-key:not([hidden])) > .ui-volume { display: none; } }
+@container (max-width: 359px) { .room-portrait .controls .ui-plate { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; } }
 /* People shares the portrait height budget; its member rows scroll instead of displacing the dock. */
 .room-portrait > .people { flex: 0 1 auto; max-height: 35%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .room-portrait .people-row, .room-portrait .people-toggle { min-height: 44px; }
@@ -899,7 +909,13 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
 
 /* OME-1596: the room's one-line footer, 44 px on a touch screen so its links are keys (style.css); 12 px text there.
  * The report dialog's count and the help dialog's page links follow. */
-:root { --room-foot: 20px; --room-foot-text: 11px; }
+:root { --room-foot: 20px; --room-foot-text: 12px; }
+/* OME-1845: at 12 px a mouse window under 360 px can't fit the six links on one line (CI's fonts wrapped Feedback), so
+ * the footer has room for a second line there. */
+@media (pointer: fine) and (max-width: 359px) {
+  :root { --room-foot: 36px; }
+  body.room-is-portrait > .site-footer { line-height: 18px; }
+}
 @media (pointer: coarse) {
   :root { --room-foot: 44px; --room-foot-text: 12px; }
   .ui-report .count { font-size: 12px; }
@@ -922,3 +938,5 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
   /* The FULL pill: 12 px caps (about 9 px tall) on its old 9 px line, so the full queue's notice keeps its height. */
   .ui-pill-full, .ui-room .ui-pill-full { font-size: var(--text-xs); line-height: 9px; }
 }
+/* OME-1845: the wheel chip's key digit (9 px in reference.css) at 12 px; its 2× key face holds it. */
+.emote-picker .ui-kbd.is-small { font-size: var(--text-xs); }

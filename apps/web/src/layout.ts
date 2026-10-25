@@ -99,7 +99,8 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   if (phone) {
     const w = Math.max(min, width);
     const tv = { x: 0, y: TV_BEZEL, w, h: tvH(w) };
-    const controls = { x: 0, y: tv.y + tv.h + GAP, w, h: CONTROL_BAR_H };
+    // Twitch's TV can be wider than the screen (it scrolls sideways); the shelf stays on screen (QA OME-1870).
+    const controls = { x: 0, y: tv.y + tv.h + GAP, w: width, h: CONTROL_BAR_H };
     const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
     return { tv, controls, stage, scale: 1, height: stage.y + stage.h, compact: { tv: true, controls: true } };
   }
