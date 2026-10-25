@@ -64,6 +64,10 @@ describe("roomLayout, phone: ADR 0012 player minimum", () => {
     expect(tv.h).toBeGreaterThanOrEqual(300);
   });
 
+  test.each([320, 360, 390])("Twitch's shelf stays the %p px screen's width, not its wider TV's, so its keys are on screen (QA OME-1870)", (width) => {
+    expect(roomLayout(width, "twitch", true).controls).toMatchObject({ x: 0, w: width });
+  });
+
   test.each(PHONE_WIDTHS)("compact bezel and shelf, the shelf under the TV, the room under the shelf, nothing over the player at %p", (width) => {
     const l = roomLayout(width, null, true);
     expect(l.compact).toEqual({ tv: true, controls: true });
