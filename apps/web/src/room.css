@@ -906,6 +906,12 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
 /* OME-1596: the room's one-line footer, 44 px on a touch screen so its links are keys (style.css); 12 px text there.
  * The report dialog's count and the help dialog's page links follow. */
 :root { --room-foot: 20px; --room-foot-text: 12px; }
+/* OME-1845: at 12 px a mouse window under 360 px can't fit the six links on one line (CI's fonts wrapped Feedback), so
+ * the footer has room for a second line there. */
+@media (pointer: fine) and (max-width: 359px) {
+  :root { --room-foot: 36px; }
+  body.room-is-portrait > .site-footer { line-height: 18px; }
+}
 @media (pointer: coarse) {
   :root { --room-foot: 44px; --room-foot-text: 12px; }
   .ui-report .count { font-size: 12px; }
