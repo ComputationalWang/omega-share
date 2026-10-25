@@ -3,6 +3,7 @@
 // reader still hears them, and nothing on the shelf overlaps.
 import { expect, test } from "./support/csp";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { site } from "./support/selectors";
 import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
 
 let clients: Client[] = [];
@@ -51,5 +52,33 @@ for (const k of CASES) {
       return out;
     });
     expect(overlaps).toEqual([]);
+  });
+}
+
+// OME-1864: Twitch's TV is taller than the others (its minimum width) and its "Start Watching" hint takes a line above it,
+// so at 1280×720 the band under it is the shortest. The band looked at the audience's front row (OME-1843) and left the
+// seats behind the TV, where no click reaches them: the perf walk rows (perf/polish.perf.ts) hung on their seat clicks.
+for (const [name, key] of [["twseats", "twitchVod"], ["liveseats", "twitchLive"]] as const) {
+  test(`${key} at 1280×720: every seat shows whole in the room's band, and a click on one sits there`, async ({ browser, request }) => {
+    const c = providerCase(key);
+    const room = testRoom("provider-shelf", name);
+    await shareProvider(request, c.shareUrl, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `shelf-${name}`, contextOptions: () => ({ viewport: { width: 1280, height: 720 } }) });
+    await waitProviderPlaying(clients, c.provider);
+    const [a] = clients;
+    if (a === undefined) throw new Error("no client");
+    const band = await a.page.locator(site.roomWindow).boundingBox();
+    if (band === null) throw new Error("no band");
+    const seats = a.page.locator(site.seat);
+    await expect(seats).toHaveCount(8);
+    for (const seat of await seats.all()) {
+      const s = await seat.boundingBox();
+      if (s === null) throw new Error("no seat box");
+      expect(s.y, "seat top in the band").toBeGreaterThanOrEqual(band.y - 1);
+      expect(s.y + s.height, "seat foot in the band").toBeLessThanOrEqual(band.y + band.height + 1);
+    }
+    const back = a.page.locator(`${site.seat}[data-seat="0"]`);
+    await back.click({ timeout: 5000 });
+    await expect(back).toHaveClass(/\bmine\b/, { timeout: 15_000 });
   });
 }
