@@ -125,12 +125,13 @@ for (const [name, w, h, options, twitch] of [["p320", 320, 640, DESKTOP(320, 640
   ["t320", 320, 640, TOUCH(320, 640), true], ["t390", 390, 844, TOUCH(390, 844), true]] as const) {
   test(`${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}${twitch ? ", Twitch" : ""}: the playback row's play, times, seek and full screen keys sit inside the screen, none covered`, async ({ browser, request }) => {
     const room = testRoom("rpolish", name);
-    if (twitch) await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
-    else await shareVideo(request, room.id);
+    // Twitch's 300 px TV leaves a 640 px phone no room window, which joinRoom waits for: join first, then share.
+    if (!twitch) await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `po${name}`, contextOptions: () => options });
     const page = clients[0]?.page;
     if (page === undefined) throw new Error("no client");
     if (twitch) {
+      await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
       await waitProviderPlaying(clients, "twitch");
       await expect(page.getByTestId("quality-key")).toBeVisible();
     } else await waitPlaying(clients);
