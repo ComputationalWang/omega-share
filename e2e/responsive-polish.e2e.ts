@@ -120,7 +120,8 @@ for (const [name, w, h] of [["w320", 320, 640], ["w360", 360, 780], ["w1280", 12
   });
 }
 
-// t320/t390 (QA OME-1870): a fake Twitch VOD shows the quality key, the widest row a real provider gets.
+// t320/t390 (QA OME-1870): a fake Twitch VOD shows the quality key, the widest row a real provider gets. Under 360 px
+// the mute key goes for it (the phone's own volume keys stay), else the seek bar is 17 px.
 for (const [name, w, h, options, twitch] of [["p320", 320, 640, DESKTOP(320, 640), false], ["p360", 360, 780, DESKTOP(360, 780), false], ["p390", 390, 844, TOUCH(390, 844), false],
   ["t320", 320, 640, TOUCH(320, 640), true], ["t390", 390, 844, TOUCH(390, 844), true]] as const) {
   test(`${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}${twitch ? ", Twitch" : ""}: the playback row's play, times, seek and full screen keys sit inside the screen, none covered`, async ({ browser, request }) => {
@@ -136,7 +137,7 @@ for (const [name, w, h, options, twitch] of [["p320", 320, 640, DESKTOP(320, 640
       await expect(page.getByTestId("quality-key")).toBeVisible();
     } else await waitPlaying(clients);
     await shot(page, `9-row-${String(w)}x${String(h)}${twitch ? "-twitch" : ""}`);
-    const keys = ["play-toggle", "time-current", "time-duration", ...(twitch ? ["mute-toggle", "quality-key"] : []), "fullscreen-toggle"].map((id) => page.getByTestId(id));
+    const keys = ["play-toggle", "time-current", "time-duration", ...(twitch ? [...(w < 360 ? [] : ["mute-toggle"]), "quality-key"] : []), "fullscreen-toggle"].map((id) => page.getByTestId(id));
     const boxes = await Promise.all([...keys, page.locator(".controls .ui-seek")].map(async (l) => {
       const b = await l.boundingBox();
       if (b === null) throw new Error("a playback key is not shown");
