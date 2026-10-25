@@ -420,14 +420,20 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
 
 /**
  * Where the desktop band looks first (OME-1843): the whole audience, seats and standing spots, to their name tags' foot.
- * A band too short for that keeps the seats whole instead (OME-1864): Twitch's taller TV and its hint leave 1280×720 a
- * band where the audience's front row put the back seats behind the TV, out of every click's reach.
+ * A band too short for every name tag keeps the seats whole instead, where they fit (OME-1864): Twitch's taller TV and
+ * its hint leave 1280×720 a band where the audience's front row put the back seats behind the TV, out of every click's
+ * reach. Where the tags fit (the Theatre at 1280×800), or the seats don't either, it's OME-1843's home.
  */
 export function bandHome(seats: readonly Point[], standing: readonly Point[], h: number): Point {
   const audience = [...seats, ...standing];
-  const ys = audience.map((p) => p.y);
-  const fits = Math.max(...ys) + TAG_FOOT - (Math.min(...ys) - SEAT_HIT_H / 2) <= h;
-  return seatsHome(fits || seats.length === 0 ? audience : seats, h, TAG_FOOT);
+  const tagsFit = span(audience, TAG_OFFSET_Y) <= h;
+  return tagsFit || seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h ? seatsHome(audience, h, TAG_FOOT) : seatsHome(seats, h, TAG_FOOT);
+}
+
+/** The points' rows, from `top` under the highest (a seat's hit area, or its name tag) to the lowest's tag foot. */
+function span(points: readonly Point[], top: number): number {
+  const ys = points.map((p) => p.y);
+  return Math.max(...ys) + TAG_FOOT - (Math.min(...ys) + top);
 }
 
 interface Size { readonly w: number; readonly h: number }
