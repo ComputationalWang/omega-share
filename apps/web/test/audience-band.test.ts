@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, chromeZoom, roomScale, seatsHome, wheelView, wideLayout, type Point } from "../src/layout";
+import { ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, chromeZoom, roomScale, bandHome, seatsHome, wheelView, wideLayout, type Point } from "../src/layout";
 
 const cinema = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../../assets/presets/cinema.json", import.meta.url), "utf8")));
 /** Where members are: a seat, or a standing spot (stage.ts hands both to the room window). */
@@ -26,7 +26,7 @@ const VIEWPORTS: readonly (readonly [number, number, number, number])[] = [
 function bandView(w: number, h: number, vw: number, vh: number) {
   const l = wideLayout(w, h, "youtube", chromeZoom(vw, vh), roomScale(vw, vh));
   const k = l.scale;
-  const c = seatsHome(AUDIENCE, l.stage.h / k, TAG_FOOT);
+  const c = bandHome(seatPoints(cinema), standingPoints(cinema), l.stage.h / k);
   const view = wheelView(k, { zoom: 1, pan: { x: c.x - l.stage.w / (2 * k), y: c.y - l.stage.h / (2 * k) } }, { x: 0, y: 0 }, 1, l.stage);
   return { l, k, pan: view.pan, shown: { w: l.stage.w / k, h: l.stage.h / k } };
 }

@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, TAG_FOOT, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH } from "./room-window";
 
@@ -391,11 +391,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   placeChat();
 
-  /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843), until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, (h, band) => (band ? seatsHome(audience, h, TAG_FOOT) : seatsHome(seatPoints, h)), o.labelScale);
+  /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843; the seats' where it can't hold them all, OME-1864), until you drag it, sit, or focus something off-screen. */
+  const roomWindow = createRoomWindow(clip, stage, (h, band) => (band ? bandHome(seatPoints, standingPoints, h) : seatsHome(seatPoints, h)), o.labelScale);
   let seatPoints: readonly Point[] = [];
-  /** The seats and the standing spots: where members are. */
-  let audience: readonly Point[] = [];
+  /** The standing spots: with the seats, where members are. */
+  let standingPoints: readonly Point[] = [];
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -547,7 +547,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     dock,
     seats: (points, standing) => {
       seatPoints = points;
-      audience = [...points, ...standing];
+      standingPoints = standing;
       // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle.
       fit();
     },
