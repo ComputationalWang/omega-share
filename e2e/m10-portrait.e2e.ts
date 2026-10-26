@@ -17,12 +17,13 @@ test.afterEach(async () => {
   clients = [];
 });
 
-/** The sheet stops above the footer row (44 px on a touch screen, OME-1596): it covers no footer link. */
+/** The sheet reaches the screen's foot and no further: the footer's links are inside the Room sheet now (OME-1846). */
 async function clearOfFooter(sheet: Locator): Promise<void> {
-  const footer = await sheet.page().locator("body > .site-footer").boundingBox();
   const box = await sheet.boundingBox();
-  if (footer === null || box === null) throw new Error("sheet or footer not laid out");
-  expect(box.y + box.height, "sheet bottom vs footer top").toBeLessThanOrEqual(footer.y + 0.5);
+  const height = await sheet.page().evaluate(() => window.innerHeight);
+  if (box === null) throw new Error("sheet not laid out");
+  expect(box.y + box.height, "sheet bottom vs screen bottom").toBeLessThanOrEqual(height + 0.5);
+  await expect(sheet.page().locator("body > .site-footer")).toBeHidden();
 }
 
 async function visibleInViewport(target: Locator, height: number): Promise<void> {
