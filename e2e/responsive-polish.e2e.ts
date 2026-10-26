@@ -290,3 +290,32 @@ for (const [w, h, zoom] of [[1920, 1080, "1"], [2560, 1440, "2"], [2560, 1080, "
     await context.close();
   });
 }
+
+// Round 3 (OME-1846, audit OME-1840, design OME-1799 §2 medium): a portrait tablet's TV is capped at 720 px between gutters,
+// and the room window under it takes the height that saves (full bleed it was 1024×576 and left the window 421 px).
+test("1024×1366 touch: the TV is at most 720 px wide, centred, and the room window takes the height it saved", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("rpolish", "m1024").url, count: 1, nicknamePrefix: "pom", contextOptions: () => TOUCH(1024, 1366) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await shot(page, "10-medium-tv-1024x1366");
+  const tv = await page.locator(site.tv).boundingBox();
+  const room = await page.locator(site.roomWindow).boundingBox();
+  if (tv === null || room === null) throw new Error("TV or room window not laid out");
+  expect(tv.width).toBeLessThanOrEqual(720);
+  expect(Math.abs(tv.x - (1024 - tv.x - tv.width))).toBeLessThanOrEqual(1);
+  expect(room.height).toBeGreaterThanOrEqual(421 + 160);
+});
+
+// The footer's links live in the Room sheet on a phone or tablet held upright, not in a cramped line under the dock.
+test("390×844 touch: the footer links are in the Room sheet, not under the dock", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("rpolish", "foot390").url, count: 1, nicknamePrefix: "pof", contextOptions: () => TOUCH(390, 844) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expect(page.locator('[data-testid="source-link"]')).toBeHidden();
+  await page.getByTestId("portrait-settings").click();
+  const sheet = page.getByTestId("portrait-sheet");
+  for (const id of ["privacy-link", "terms-link", "source-link", "feedback-link"]) await expect(sheet.getByTestId(id)).toBeVisible();
+  await shot(page, "11-footer-in-room-sheet-390x844");
+  await page.getByTestId("portrait-sheet-close").click();
+  await expect(page.locator('[data-testid="source-link"]')).toBeHidden();
+});

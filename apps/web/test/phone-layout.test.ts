@@ -163,3 +163,22 @@ describe("where the window looks first (QA OME-1324 G3)", () => {
     expect(seatsHome([], 100)).toEqual({ x: STAGE_W / 2, y: STAGE_H / 2 });
   });
 });
+
+describe("roomLayout, medium (OME-1846, design OME-1799 §2: a portrait tablet's TV is the width minus 48 px gutters, max 720)", () => {
+  test.each([[768, 24, 720], [820, 50, 720], [1024, 152, 720], [700, 24, 652]])("at %p px the TV is centred at x %p, %p px wide, its shelf under it as wide", (width, x, w) => {
+    const l = roomLayout(width, "youtube", true);
+    expect(l.tv).toMatchObject({ x, w, h: Math.round((w * 9) / 16) });
+    expect(l.controls).toMatchObject({ x, w });
+  });
+
+  test("the room window keeps the full width and takes the height the TV gave up", () => {
+    const capped = portraitLayout(1024, 1366, null, false);
+    expect(capped.stage.w).toBe(1024);
+    expect(capped.stage.h).toBe(1366 - capped.stage.y);
+    expect(capped.stage.y).toBeLessThan(576);
+  });
+
+  test("Twitch still gets its 534 px minimum", () => {
+    expect(roomLayout(601, "twitch", true).tv.w).toBeGreaterThanOrEqual(534);
+  });
+});
