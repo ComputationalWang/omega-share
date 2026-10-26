@@ -171,9 +171,9 @@ describe("roomLayout, medium (OME-1846, design OME-1799 §2: a portrait tablet's
     expect(l.controls).toMatchObject({ x, w });
   });
 
-  test("the room window keeps the full width and takes the height the TV gave up", () => {
+  test("the room window keeps its width (the stage at 1×) and takes the height the TV gave up", () => {
     const capped = portraitLayout(1024, 1366, null, false);
-    expect(capped.stage.w).toBe(1024);
+    expect(capped.stage.w).toBe(Math.min(1024, STAGE_W));
     expect(capped.stage.h).toBe(1366 - capped.stage.y);
     expect(capped.stage.y).toBeLessThan(576);
   });

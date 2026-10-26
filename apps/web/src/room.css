@@ -765,10 +765,10 @@ body.room-is-portrait { height: 100dvh; overflow: hidden; }
 /* A downward swipe in the room must not pull-to-refresh it mid-video (OME-1240); pinch zoom is unaffected. */
 :root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
 body.room-is-portrait > main { max-width: none; padding: 0; }
-body.room-is-portrait > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: var(--room-foot); font-size: var(--room-foot-text); }
-/* One 20 px line, never two (OME-1597: at 360 px the version wrapped below the viewport); it stays on the landing. */
-body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta)) { display: none; }
-.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - var(--room-foot)); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
+/* The footer's links live in the Room sheet (OME-1846, design OME-1799 §2), not in a cramped line under the dock. */
+body.room-is-portrait > .site-footer { display: none; }
+.portrait-sheet-content > .site-footer { margin: 4px 0; padding: 0; text-align: left; }
+.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: var(--portrait-height, 100dvh); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
 /* The camera key (OME-1565) would wrap a long title off the portrait bar and push the room out; /snap still works. */
@@ -792,7 +792,7 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
 .room-portrait .portrait-keys { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; }
 .room-portrait .portrait-keys .ui-button { flex: 1; min-height: 44px; }
 .room-portrait > .portrait-stowed { display: none; }
-.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 var(--room-foot); margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px; overflow: hidden; }
+.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 0; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px max(8px, env(safe-area-inset-bottom)); overflow: hidden; }
 .portrait-sheet[open] { display: flex; flex-direction: column; }
 .portrait-sheet::backdrop { background: transparent; }
 .portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
@@ -814,7 +814,7 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
 .room-portrait.portrait-typing .stage-clip, .room-portrait.portrait-typing .controls { visibility: hidden; }
 .room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
 .room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
-.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top) - var(--room-foot)); }
+.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top)); }
 @media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
 
 .room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
@@ -907,19 +907,8 @@ body.room-is-portrait > .site-footer :is(.footer-meta, .sep:has(+ .footer-meta))
   .fs-chat-pill { transition: none; }
 }
 
-/* OME-1596: the room's one-line footer, 44 px on a touch screen so its links are keys (style.css); 12 px text there.
- * The report dialog's count and the help dialog's page links follow. */
-:root { --room-foot: 20px; --room-foot-text: 12px; }
-/* OME-1845: at 12 px a mouse window under 360 px can't fit the six links on one line (CI's fonts wrapped Feedback), so
- * the footer has room for a second line there. */
-@media (pointer: fine) and (max-width: 359px) {
-  :root { --room-foot: 36px; }
-  body.room-is-portrait > .site-footer { line-height: 18px; }
-}
-@media (pointer: coarse) {
-  :root { --room-foot: 44px; --room-foot-text: 12px; }
-  .ui-report .count { font-size: 12px; }
-}
+/* OME-1596: 12 px text on a touch screen for the report dialog's count too. */
+@media (pointer: coarse) { .ui-report .count { font-size: 12px; } }
 /* OME-1844: the playback bar's source chip at 12 px on a touch screen held upright too (the computer rule is below). */
 .ui-touch :is(.ui-plate, .ui-room .ui-plate) { font-size: var(--text-xs); }
 .ui-touch .help-pages a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }

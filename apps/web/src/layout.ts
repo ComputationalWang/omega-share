@@ -87,6 +87,9 @@ export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px), ${PORTRAIT_QU
 export const PHONE_ROOM_H = 270;
 /** The portrait room window is at least this tall (its row of zoom keys and a strip of room) or not shown (OME-1302). */
 export const PHONE_ROOM_MIN_H = 96;
+/** Medium's TV: the width minus 24 px a side, at most 720 (design OME-1799 §2). */
+const MEDIUM_TV_MAX_W = 720;
+const MEDIUM_GUTTER = 24;
 
 /**
  * `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger).
@@ -97,10 +100,12 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   const width = Math.floor(containerWidth);
   const min = minTvW(provider, width);
   if (phone) {
-    const w = Math.max(min, width);
-    const tv = { x: 0, y: TV_BEZEL, w, h: tvH(w) };
+    // Medium (a tablet held upright, OME-1846, design OME-1799 §2): the TV between gutters, at most MEDIUM_TV_MAX_W.
+    const w = Math.max(min, width > PHONE_MAX_W ? Math.min(MEDIUM_TV_MAX_W, width - 2 * MEDIUM_GUTTER) : width);
+    const x = Math.max(0, Math.floor((width - w) / 2));
+    const tv = { x, y: TV_BEZEL, w, h: tvH(w) };
     // Twitch's TV can be wider than the screen (it scrolls sideways); the shelf stays on screen (QA OME-1870).
-    const controls = { x: 0, y: tv.y + tv.h + GAP, w: width, h: CONTROL_BAR_H };
+    const controls = { x, y: tv.y + tv.h + GAP, w: Math.min(w, width), h: CONTROL_BAR_H };
     const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
     return { tv, controls, stage, scale: 1, height: stage.y + stage.h, compact: { tv: true, controls: true } };
   }

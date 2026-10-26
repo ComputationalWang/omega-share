@@ -177,7 +177,7 @@ export function createHelp(o: HelpOptions): Help {
     const links = el("p", { className: "help-pages" });
     // The footer's Source (AGPL §13) and Feedback, from the page's own links: a phone held sideways hides the footer (OME-1841).
     const footer = ["source-link", "feedback-link"].flatMap((id): (readonly [string, string])[] => {
-      const a = document.querySelector<HTMLAnchorElement>(`body > .site-footer [data-testid="${id}"]`);
+      const a = document.querySelector<HTMLAnchorElement>(`.site-footer [data-testid="${id}"]`);
       const href = a?.getAttribute("href");
       return a === null || href === null || href === undefined ? [] : [[href, a.textContent.trim()]];
     });

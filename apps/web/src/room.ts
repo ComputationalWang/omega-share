@@ -801,7 +801,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     side,
     ownerBar: editBar,
     editorPanel,
-    settings: [editBar, tvBox.personal, invite, cards.foot],
+    // The footer joins the Room sheet on a phone or tablet held upright (OME-1846); room.css hides it under the dock.
+    settings: [editBar, tvBox.personal, invite, cards.foot, ...document.querySelectorAll<HTMLElement>("body > .site-footer")],
     foot: cards.foot,
     phone,
     coarse,
