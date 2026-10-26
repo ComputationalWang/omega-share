@@ -767,7 +767,9 @@ body.room-is-portrait { height: 100dvh; overflow: hidden; }
 body.room-is-portrait > main { max-width: none; padding: 0; }
 /* The footer's links live in the Room sheet (OME-1846, design OME-1799 §2), not in a cramped line under the dock. */
 body.room-is-portrait > .site-footer { display: none; }
-.portrait-sheet-content > .site-footer { margin: 4px 0; padding: 0; text-align: left; }
+.portrait-sheet-content > .site-footer { margin: 4px 0; padding: 0; text-align: left; font-size: max(12px, 0.85rem); }
+/* The room is a touch surface even with a mouse (.ui-touch): each link a 44 px key, as on a touch screen (style.css). */
+.portrait-sheet-content > .site-footer a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; vertical-align: middle; }
 .room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: var(--portrait-height, 100dvh); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
