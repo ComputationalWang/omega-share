@@ -45,7 +45,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "f844" | "f740" | "w844" | "p844" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "f844" | "f740" | "w844" | "p844" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf" | "v844", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`, setup,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -321,3 +321,44 @@ test("844×390 touch: the footer gives the room its height; its pages, Source (A
   await expect(dialog).toBeVisible();
   for (const name of [/^Source/, /^Feedback/, /^Privacy/]) await expect(dialog.getByRole("link", { name })).toBeVisible();
 });
+
+// OME-1929 (responsive audit round 3): with a video, turned from portrait, the room window was 148 px from y 270, its foot
+// 28 px past the screen and the Fit key cut: the reaction bar under it took 34 px. Loaded sideways, the window was whole
+// (the bar came after the fit, under the fold). The phone window's height doesn't read the preset.
+for (const who of ["guest", "owner"] as const) {
+  test(`844×390 touch, a ${who} with a video: the room window and all three zoom keys are wholly on screen`, async ({ browser, request }) => {
+    let page: Page;
+    if (who === "guest") page = await open(browser, "v844", 844, 390);
+    else {
+      const { id, ownerToken, inviteKey } = ownedRoom("landvid");
+      clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}`, count: 1, nicknamePrefix: `landvid${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
+        contextOptions: () => ({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }),
+        setup: async (context) => { await context.addInitScript(([origin, key, value]) => {
+          if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+        }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })]); } });
+      const p = clients[0]?.page;
+      if (p === undefined) throw new Error("no client");
+      page = p;
+    }
+    const video = ["dQw4w9WgXcQ", "M7lc1UVf-VE", "aqz-KE-bpKQ"][test.info().retry] ?? "9bZkp7q19f0";
+    if (who === "guest") await shareProvider(request, `https://youtu.be/${video}`, testRoom("landscape-phone", "v844").id);
+    else {
+      await page.locator(site.queueUrl).fill(`https://youtu.be/${video}`);
+      await page.locator(site.queueAdd).click();
+    }
+    await expect(page.locator(site.sharedVideo)).toBeVisible();
+    const whole = async (): Promise<void> => {
+      await inside(page.locator(site.roomWindow), 0, 390, 0, 844);
+      for (const k of ["in", "out", "fit"]) await inside(page.locator(`[data-testid=room-zoom-${k}]`), 0, 390, 0, 844);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
+    };
+    await whole();
+    // Turned to portrait and back (the audit's path).
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(page.locator("#room-root")).toHaveClass(/room-wide/);
+    await whole();
+  });
+}
