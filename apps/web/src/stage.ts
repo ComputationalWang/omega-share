@@ -101,6 +101,8 @@ export interface Stage {
   petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
+  /** Bubbles keep inside stage x `x0`–`x1`: the phone's room window as it settled (OME-1945), or the whole stage. */
+  bubbleSides(x0: number, x1: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
@@ -643,6 +645,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     labelScale: (k) => {
       floats.scale(k);
+    },
+    bubbleSides: (x0, x1) => {
+      floats.sides(x0, x1);
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),

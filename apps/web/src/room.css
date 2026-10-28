@@ -554,6 +554,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
 .room-side .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 .room-side .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
+/* A 279 px column (844×390 t, OME-1945): the tiles' padding and gap give way, so both fit the frame in one row. */
+.room-side .mod-policy-tiles { gap: 4px; }
+.room-side .mod-policy-tile { padding-inline: 0; }
 /* 800 px tall or less (OME-1320): the policy's explanation is for screen readers only, so the chat log keeps three lines
  * beside a full Up next (at 1024×768 it had two). The tiles say who controls playback. */
 @media (max-height: 800px) {

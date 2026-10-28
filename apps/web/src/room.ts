@@ -787,6 +787,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     labelScale: (k) => {
       roomStage.labelScale(k);
     },
+    bubbleSides: (x0, x1) => {
+      roomStage.bubbleSides(x0, x1);
+    },
     tv: tvBox,
     moments: strip.root,
     log: chatLog,

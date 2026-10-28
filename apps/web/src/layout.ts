@@ -433,7 +433,13 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
 export function bandHome(seats: readonly Point[], standing: readonly Point[], h: number): Point {
   const audience = [...seats, ...standing];
   const tagsFit = span(audience, TAG_OFFSET_Y) <= h;
-  return tagsFit || seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h ? seatsHome(audience, h, TAG_FOOT) : seatsHome(seats, h, TAG_FOOT);
+  if (tagsFit || seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h) return seatsHome(audience, h, TAG_FOOT);
+  // The seats whole, and from there as near the audience's home as the band goes (OME-1945): centred on the seats, the
+  // Dank Dungeon's band cut the first standing spot's tag by 2 px.
+  const ys = seats.map((p) => p.y);
+  const lo = Math.max(...ys) + TAG_FOOT - h / 2;
+  const hi = Math.min(...ys) - SEAT_HIT_H / 2 + h / 2;
+  return { x: seatsHome(seats, h, TAG_FOOT).x, y: Math.max(lo, Math.min(hi, seatsHome(audience, h, TAG_FOOT).y)) };
 }
 
 /** A standing avatar's head above its point (walk/animator.ts EMOTE_LIFT.idle): the highest thing it shows. */
