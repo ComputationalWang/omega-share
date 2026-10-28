@@ -30,6 +30,7 @@ export const SPEC_ROOMS = {
   wide: ["w1280", "w1920", "w2560", "people1920", "people2560", "tw1920", "tw2560", "help2560", "phone", "keys", "fs", "scroll", "mo1920", "mo2560", "mophone", "hero1280", "hero1440", "hero1920", "hero2560", "int1280", "int1920", "int2560", "type1280", "aud1280", "aud1920", "aud2560"],
   "provider-shelf": ["vimeo", "live", "twseats", "liveseats"],
   "phone-perf": ["frames"],
+  "touch-home": ["j320", "j844", "aud1024", "aud768"],
   "theatre-perf": ["frames"],
   "heap-movie": ["main"],
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle", "peek"],

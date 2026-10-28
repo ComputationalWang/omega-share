@@ -436,6 +436,14 @@ export function bandHome(seats: readonly Point[], standing: readonly Point[], h:
   return tagsFit || seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h ? seatsHome(audience, h, TAG_FOOT) : seatsHome(seats, h, TAG_FOOT);
 }
 
+/** A standing avatar's head above its point (walk/animator.ts EMOTE_LIFT.idle): the highest thing it shows. */
+export const AVATAR_TOP = 60;
+
+/** The touch window's home (OME-1930). */
+export function touchHome(seats: readonly Point[], _standing: readonly Point[], _me: Point | null, view: Size): Point {
+  return seatsHome(seats, view.h);
+}
+
 /** The points' rows, from `top` under the highest (a seat's hit area, or its name tag) to the lowest's tag foot. */
 function span(points: readonly Point[], top: number): number {
   const ys = points.map((p) => p.y);
