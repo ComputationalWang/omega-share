@@ -487,7 +487,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         // column height, so every seat row shows whole beside the keys; the wrap grows to hold it and the column scrolls.
         if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
           const rw = Math.min(w, STAGE_W);
-          const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
+          // To the column's foot, not the wrap's: what plays under the wrap (the reaction bar) is reached by scrolling, as it
+          // is when it shows after the fit; fitted with it there, the window lost 34 px and took the keys' column (OME-1929).
+          const foot = root.clientHeight - (wrap.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop);
+          const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, Math.max(h, foot) - l.stage.y)) };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
           stage.style.setProperty("--stage-scale", "1");
