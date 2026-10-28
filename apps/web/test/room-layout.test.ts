@@ -118,7 +118,9 @@ describe("room layout", () => {
     short.people.hidden = false;
     await Promise.resolve();
     expect(short.people.nextElementSibling).toBe(short.ownerBar);
-    expect(short.ownerBar.nextElementSibling).toBe(short.foot);
+    // The editor follows its Done key, then Report room (OME-1927).
+    expect(short.ownerBar.nextElementSibling).toBe(short.editorPanel);
+    expect(short.editorPanel.nextElementSibling).toBe(short.foot);
     expect(short.foot.parentElement).toBe(short.side);
     const narrow = await setup({ wide: false, short: true });
     expect(narrow.ownerBar.nextElementSibling).toBe(narrow.editorPanel);

@@ -345,7 +345,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (!o.short.matches && !o.people.hidden) {
       if (o.people.lastElementChild !== o.ownerBar) o.people.append(o.ownerBar);
     } else if (o.people.nextElementSibling !== o.ownerBar) o.people.after(o.ownerBar);
-    if (o.short.matches && o.ownerBar.nextElementSibling !== o.foot) o.ownerBar.after(o.foot);
+    // Short, the editor follows its Done key (OME-1927): under the room it was off-screen, the floor filling the column.
+    if (o.short.matches && o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
+    if (o.short.matches && o.editorPanel.nextElementSibling !== o.foot) o.editorPanel.after(o.foot);
   };
   new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
@@ -375,6 +377,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     // Wide, the owner's bar ends the People tab (below, OME-1842): under the stage it cost the owner half the room
     // (OME-1301), above People it left People ~110 px. Short, Report room joins it (OME-1841). Full screen, under Up next.
     const sideTab = two && fs.mode() === "off";
+    if (o.editorPanel.parentElement === side && !(sideTab && o.short.matches)) wrap.after(o.editorPanel);
     if (two && !sideTab) queuePanel.root.after(o.ownerBar);
     else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);

@@ -611,7 +611,16 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
    * were clipped. */
   .room-side:has(> .people:not([hidden])) > :is(.queue-panel, .chat-log) { display: none; }
   /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
-  .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
+  body:not(.room-editing) .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
+  /* Editing, the column is the editor's sheet (OME-1927): Done and the editor scroll as one, the room keeps the left
+   * column for the taps that place a piece. */
+  .room-side > .editor-panel:empty { display: none; }
+  body.room-editing .room-side > :not(.edit-bar, .editor-panel) { display: none; }
+  body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+  .room-side > .editor-panel { flex: none; }
+  .room-side > .editor-panel :is(.ui-tabs, .ui-tray, .editor-mood-options) { flex-wrap: wrap; }
+  /* The tray scrolls in half the screen, so the piece's keys, Mood and Save are a short scroll away. */
+  .room-side > .editor-panel .ui-tray { max-height: 50dvh; overflow: hidden auto; }
   /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */
   .room-side:has(> .people:not([hidden])) { overflow-y: auto; overscroll-behavior: contain; }
   .room-side:has(> .people:not([hidden])) > .people { flex: none; overflow: visible; }
