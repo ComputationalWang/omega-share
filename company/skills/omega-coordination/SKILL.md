@@ -14,4 +14,5 @@ description: How Omega Share Studio agents coordinate work so parallel branches 
 7. **Subagents.** Max 4 per agent, 20 company-wide (hooks enforce this; if denied, wait or do the step yourself). Code-writing subagents must be `implementer` (own worktree, disjoint files). Paste a short summary of what each subagent did into your issue.
 8. **Decisions** that affect others → ADR in `docs/adr/NNNN-title.md`, linked from the issue.
 9. **Limits.** If you hit a usage limit mid-task, leave a comment `PAUSED: usage limit, resume at <time>` with your state. The next heartbeat resumes from it.
+   **Long jobs** (CI, e2e, the daily full suite, perf, soak, deploy): stay in the run until the job finishes, or end the run with a scheduled issue monitor (paperclip skill, *Monitors and Watchers*). Never end a run with a background job or "watcher" still going: the runtime kills it, marks the run failed and retries it for nothing (66 failed runs in the week to 2026-10-28, most of them the daily full suite).
 10. **Paperclip quirks.** Paperclip API refusing something (403/409/422, review stage, blockers, cards)? Read `paperclip-quirks.md` first.
