@@ -321,3 +321,25 @@ test("844×390 touch: the footer gives the room its height; its pages, Source (A
   await expect(dialog).toBeVisible();
   for (const name of [/^Source/, /^Feedback/, /^Privacy/]) await expect(dialog.getByRole("link", { name })).toBeVisible();
 });
+
+// OME-1928: in the 279 px chat column a row for someone else carries three keys, and the name got what was left (3 px of
+// "kitkatbar"). The keys wrap under the name instead, so the whole 9-letter name shows and every key stays 44×44.
+test("844×390 touch, People: another member's 9-letter name shows whole beside or above its 44×44 keys", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", "n844").url, count: 2, nicknamePrefix: "kitkatb",
+    contextOptions: () => ({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  expect(b.nickname).toHaveLength(9);
+  await a.page.locator(site.peopleKey).click();
+  const row = a.page.locator(site.peopleRow).filter({ hasText: b.nickname });
+  await expect(row.getByRole("button")).toHaveCount(3);
+  const name = row.locator(".people-name");
+  await expect(name).toBeVisible();
+  const fit = await name.evaluate((n) => ({ width: n.clientWidth, text: n.scrollWidth }));
+  expect(fit.width, "the name's box covers its text").toBeGreaterThanOrEqual(fit.text);
+  for (const k of await row.getByRole("button").all()) {
+    const k44 = await box(k);
+    expect(k44.width).toBeGreaterThanOrEqual(44);
+    expect(k44.height).toBeGreaterThanOrEqual(44);
+  }
+});
