@@ -107,11 +107,11 @@ describe("scene: DEFAULT_LAYOUT looks like today", () => {
     for (const s of scene.seats) expect(s.z).toBe(standDepth(s.at));
   });
 
-  test("standing spots are today's: the front of the room, filled in order", () => {
+  test("standing spots: the front of the room, each row from its middle out (OME-1930: who just joined stands in a phone's window with the seats), filled in order", () => {
     const spots = standingPoints(DEFAULT_LAYOUT);
     expect(spots).toHaveLength(MAX_ROOM_MEMBERS);
-    expect(spots.slice(0, 3)).toEqual([cellCenter(4, 9), cellCenter(5, 8), cellCenter(6, 7)]);
-    expect(spots[6]).toEqual(cellCenter(6, 9));
+    expect(spots.slice(0, 6)).toEqual([cellCenter(6, 7), cellCenter(7, 6), cellCenter(5, 8), cellCenter(8, 5), cellCenter(4, 9), cellCenter(9, 4)]);
+    expect(spots[6]).toEqual(cellCenter(7, 8));
   });
 });
 

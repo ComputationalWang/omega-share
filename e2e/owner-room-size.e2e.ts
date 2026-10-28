@@ -229,6 +229,59 @@ test("844×390 touch, owner and guest: .ui-touch, the whole room on screen, seat
   }
 });
 
+/** Scrolled to in its own scroll container, wholly on screen beside the room window, and the finger lands on it (QA OME-1305). */
+async function reachable(page: Page, l: Locator): Promise<void> {
+  await l.evaluate((node) => { node.scrollIntoView({ block: "nearest" }); });
+  // 0.95: a sub-pixel at the column's foot.
+  await expect(l).toBeInViewport({ ratio: 0.95 });
+  expect(await l.evaluate((node) => {
+    const r = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return hit !== null && (hit === node || node.contains(hit)) ? "reachable" : hit?.outerHTML.slice(0, 80) ?? "nothing";
+  }), String(l)).toBe("reachable");
+  expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(390);
+  // Not by scrolling the room away: a finger can't scroll a column the room window fills, and the floor takes the taps.
+  await expect(page.locator(site.roomWindow)).toBeInViewport({ ratio: 1 });
+}
+
+test("844×390 touch, the owner edits: the tray, the piece's keys, mood and Save are in reach, a tap places a piece, Save keeps it (OME-1927)", async ({ browser }) => {
+  const { host } = await ownerAndGuest(browser, "landedit", LAND, LAND);
+  await host.locator(site.peopleKey).tap();
+  await host.locator(site.editRoom).tap();
+  await expect(host.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
+  await expect(host.locator(site.editorTray)).toBeVisible();
+  for (const l of [site.editRoom, site.editorTray, `${site.editorMood}[data-mood="night"]`, site.editorSave]) await reachable(host, host.locator(l));
+  // The room window keeps its place beside the editor: a tap on it places the held piece.
+  const win = await host.locator(site.roomWindow).boundingBox();
+  if (win === null) throw new Error("no room window");
+  expect(win.width * win.height, "room window area").toBeGreaterThanOrEqual(300 * 200);
+  // Decor: the room already has every seat it may.
+  const decor = host.locator(site.editorTab).filter({ hasText: "Decor" });
+  await reachable(host, decor);
+  await decor.tap();
+  const slot = host.locator(`${site.editorSlot}[data-kind="popcorn"]`);
+  await reachable(host, slot);
+  const count = host.locator("[data-testid=editor-count]");
+  const before = await count.textContent();
+  await slot.tap();
+  // A tap on a free floor spot places it, and selects it: the first of a few spots across the window that's free.
+  const turn = host.locator(site.editorRotate);
+  for (const [fx, fy] of [[0.5, 0.5], [0.3, 0.5], [0.7, 0.5], [0.5, 0.25], [0.5, 0.75], [0.2, 0.5], [0.8, 0.5]] as const) {
+    if (await turn.isEnabled()) break;
+    await host.touchscreen.tap(win.x + win.width * fx, win.y + win.height * fy);
+  }
+  await expect(host.locator(site.editorRotate)).toBeEnabled();
+  await expect(count, "a piece placed, not one picked up").not.toHaveText(before ?? "");
+  for (const l of [site.editorRotate, site.editorRemove]) await reachable(host, host.locator(l));
+  await host.locator(site.editorRotate).tap();
+  const save = host.locator(site.editorSave);
+  await reachable(host, save);
+  await expect(save).toBeEnabled();
+  await save.tap();
+  await expect(host.locator(site.editorMessage)).toHaveText("Saved.");
+  expect(await targetSize(host)).toEqual([]);
+});
+
 test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag shows clipped, axe clean at rest, with the share sheet and the member menu", async ({ browser }) => {
   const { host, kit, kitTag } = await ownerAndGuest(browser, "roomnarr", NARROW, NARROW);
   await expect(host.locator(".ui-touch").first()).toBeAttached();

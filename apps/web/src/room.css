@@ -611,7 +611,16 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
    * were clipped. */
   .room-side:has(> .people:not([hidden])) > :is(.queue-panel, .chat-log) { display: none; }
   /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
-  .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
+  body:not(.room-editing) .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
+  /* Editing, the column is the editor's sheet (OME-1927): Done and the editor scroll as one, the room keeps the left
+   * column for the taps that place a piece. */
+  .room-side > .editor-panel:empty { display: none; }
+  body.room-editing .room-side > :not(.edit-bar, .editor-panel) { display: none; }
+  body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+  .room-side > .editor-panel { flex: none; }
+  .room-side > .editor-panel :is(.ui-tabs, .ui-tray, .editor-mood-options) { flex-wrap: wrap; }
+  /* The tray scrolls in half the screen, so the piece's keys, Mood and Save are a short scroll away. */
+  .room-side > .editor-panel .ui-tray { max-height: 50dvh; overflow: hidden auto; }
   /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */
   .room-side:has(> .people:not([hidden])) { overflow-y: auto; overscroll-behavior: contain; }
   .room-side:has(> .people:not([hidden])) > .people { flex: none; overflow: visible; }
@@ -702,12 +711,12 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .ui-touch .tint, .ui-touch .accessory { width: 44px; height: 44px; }
 .people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
 .people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
+.people-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
 .outfits { margin-bottom: 8px; }
 .outfits > summary { cursor: pointer; }
 .ui-touch .outfits > summary { display: flex; align-items: center; min-height: 44px; min-width: 44px; width: max-content; }
-.outfits .people-row { flex-wrap: wrap; }
-.people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The keys wrap under the name before it drops below ~10 characters (OME-1928: 3 px at 844×390). */
+.people-name { flex: 1 1 10ch; min-width: min(10ch, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-row.is-hidden .people-name { opacity: 0.6; }
 .people-hidden { flex: none; font-size: 11px; }
 .people-away { flex: none; font-size: 11px; }
@@ -850,6 +859,7 @@ body.room-is-portrait > .site-footer { display: none; }
 /* People shares the portrait height budget; its member rows scroll instead of displacing the dock. */
 .room-portrait > .people { flex: 0 1 auto; max-height: 35%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .room-portrait .people-row, .room-portrait .people-toggle { min-height: 44px; }
+.ui-touch .people-row > .ui-button { min-height: 44px; }
 /* Keep the list's close toggle and a complete wrapped chat line reachable while the keyboard is open. */
 .room-portrait.portrait-typing:has(> .people:not([hidden])) > .room-top,
 .room-portrait.portrait-typing > .room-top:focus-within { display: flex; }

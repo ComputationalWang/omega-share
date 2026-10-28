@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, seatsHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH } from "./room-window";
 
@@ -118,6 +118,8 @@ export interface RoomLayout {
   readonly seats: (points: readonly Point[], standing: readonly Point[]) => void;
   /** I sat down: the phone's window centres on my seat. */
   readonly centre: (p: Point) => void;
+  /** Where I stand (null: seated, or not in the room): the touch window keeps me in view (OME-1930). */
+  readonly me: (p: Point | null) => void;
   /** A line from someone else came in: counted while the strip is collapsed in full screen. */
   readonly missed: () => void;
 }
@@ -345,7 +347,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (!o.short.matches && !o.people.hidden) {
       if (o.people.lastElementChild !== o.ownerBar) o.people.append(o.ownerBar);
     } else if (o.people.nextElementSibling !== o.ownerBar) o.people.after(o.ownerBar);
-    if (o.short.matches && o.ownerBar.nextElementSibling !== o.foot) o.ownerBar.after(o.foot);
+    // Short, the editor follows its Done key (OME-1927): under the room it was off-screen, the floor filling the column.
+    if (o.short.matches && o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
+    if (o.short.matches && o.editorPanel.nextElementSibling !== o.foot) o.editorPanel.after(o.foot);
   };
   new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
@@ -375,6 +379,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     // Wide, the owner's bar ends the People tab (below, OME-1842): under the stage it cost the owner half the room
     // (OME-1301), above People it left People ~110 px. Short, Report room joins it (OME-1841). Full screen, under Up next.
     const sideTab = two && fs.mode() === "off";
+    if (o.editorPanel.parentElement === side && !(sideTab && o.short.matches)) wrap.after(o.editorPanel);
     if (two && !sideTab) queuePanel.root.after(o.ownerBar);
     else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
@@ -392,10 +397,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   placeChat();
 
   /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843; the seats' where it can't hold them all, OME-1864), until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, (h, band) => (band ? bandHome(seatPoints, standingPoints, h) : seatsHome(seatPoints, h)), o.labelScale);
+  const roomWindow = createRoomWindow(clip, stage, (w, h, band) => (band ? bandHome(seatPoints, standingPoints, h) : touchHome(seatPoints, me, { w, h })), o.labelScale);
   let seatPoints: readonly Point[] = [];
   /** The standing spots: with the seats, where members are. */
   let standingPoints: readonly Point[] = [];
+  let me: Point | null = null;
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -553,6 +559,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     },
     centre: (p) => {
       roomWindow.centre(p);
+    },
+    me: (p) => {
+      if (p?.x === me?.x && p?.y === me?.y) return;
+      me = p;
+      roomWindow.rehome();
     },
     missed: () => {
       if (displayedStripMode !== "band" || fs.mode() === "off") return;
