@@ -297,13 +297,6 @@ test("844×390 touch, the owner: the head row labels Copy, keeps the title whole
   await expect(heading).toHaveText("Up next");
   expect((await box(heading)).width).toBeGreaterThan(20);
   await inside(heading, 0, 390, 0, 844);
-  // Both playback tiles inside the setting's frame (OME-1945: Only me stuck 5 px past it in the 279 px column).
-  const past = await page.locator(site.controlPolicy).evaluate((panel) => {
-    const inner = panel.getBoundingClientRect().right - parseFloat(getComputedStyle(panel).borderRightWidth);
-    return [...panel.querySelectorAll("[data-testid=control-policy-option]")].map((t) => t.getBoundingClientRect().right - inner);
-  });
-  expect(past).toHaveLength(2);
-  for (const d of past) expect(d).toBeLessThanOrEqual(0);
 
   // People opens as the column's tab: the TV stays put; Up next is either whole or out of the way, never clipped.
   const tv = await box(page.locator(site.tv));

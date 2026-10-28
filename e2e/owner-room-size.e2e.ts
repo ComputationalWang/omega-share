@@ -251,6 +251,13 @@ test("844×390 touch, the owner edits: the tray, the piece's keys, mood and Save
   await expect(host.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
   await expect(host.locator(site.editorTray)).toBeVisible();
   for (const l of [site.editRoom, site.editorTray, `${site.editorMood}[data-mood="night"]`, site.editorSave]) await reachable(host, host.locator(l));
+  // Both playback tiles inside the setting's frame (OME-1945: Only me stuck 5 px past it in the 279 px column).
+  const past = await host.locator(site.controlPolicy).evaluate((panel) => {
+    const inner = panel.getBoundingClientRect().right - parseFloat(getComputedStyle(panel).borderRightWidth);
+    return [...panel.querySelectorAll("[data-testid=control-policy-option]")].map((t) => t.getBoundingClientRect().right - inner);
+  });
+  expect(past).toHaveLength(2);
+  for (const d of past) expect(d).toBeLessThanOrEqual(0);
   // The room window keeps its place beside the editor: a tap on it places the held piece.
   const win = await host.locator(site.roomWindow).boundingBox();
   if (win === null) throw new Error("no room window");
