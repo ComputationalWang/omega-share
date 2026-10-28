@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH } from "./room-window";
 
@@ -493,10 +493,13 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         // column height, so every seat row shows whole beside the keys; the wrap grows to hold it and the column scrolls.
         if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
           const rw = Math.min(w, STAGE_W);
-          // To the column's foot, not the wrap's: what plays under the wrap (the reaction bar) is reached by scrolling, as it
-          // is when it shows after the fit; fitted with it there, the window lost 34 px and took the keys' column (OME-1929).
+          // Where the wrap leaves too little (844×390, OME-1929), to the column's foot: what plays under the wrap (the
+          // reaction bar) is reached by scrolling, as it is when it shows after the fit; fitted with it there, the window
+          // lost 34 px and took the keys' column. Where the wrap holds the window, its foot: the reaction keys stay on screen
+          // under it (1024×768 t as owner, OME-1944).
           const foot = root.clientHeight - (wrap.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop);
-          const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, Math.max(h, foot) - l.stage.y)) };
+          const bottom = h - l.stage.y >= PHONE_ROOM_MIN_H ? h : Math.max(h, foot);
+          const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, bottom - l.stage.y)) };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
           stage.style.setProperty("--stage-scale", "1");
