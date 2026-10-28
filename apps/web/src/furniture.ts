@@ -3,7 +3,7 @@
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
-import { cellCenter, type Point } from "./layout";
+import { STAGE_W, cellCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { lieOffset } from "./walk/lie";
 import { cellOf } from "./walk/path";
@@ -132,7 +132,7 @@ export function seatTiles(layout: RoomLayout): Point[] {
   return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => cellCenter(c, r)) : []));
 }
 
-/** Rows (col + row) for people without a seat, front of the room first, filled in order. */
+/** Rows (col + row) for people without a seat, front of the room first, each from its middle out, filled in order. */
 const STANDING_SUMS = [13, 15, 17, 12, 14, 16, 18, 11, 10, 9, 8, 7];
 
 /** Spots for members without a seat: the front of the room, off solid pieces and seats. */
@@ -144,10 +144,13 @@ export function standingPoints(layout: RoomLayout): Point[] {
   }
   const spots: Point[] = [];
   for (const sum of STANDING_SUMS) {
+    const line: Point[] = [];
     for (let col = 0; col < FLOOR_CELLS; col++) {
       const row = sum - col;
-      if (row >= 0 && row < FLOOR_CELLS && !blocked.has(col * FLOOR_CELLS + row)) spots.push(cellCenter(col, row));
+      if (row >= 0 && row < FLOOR_CELLS && !blocked.has(col * FLOOR_CELLS + row)) line.push(cellCenter(col, row));
     }
+    // Middle out (OME-1930): who just joined stands in front of the TV, in a phone's window with the seats.
+    spots.push(...line.sort((a, b) => Math.abs(a.x - STAGE_W / 2) - Math.abs(b.x - STAGE_W / 2)));
   }
   return spots.slice(0, MAX_ROOM_MEMBERS);
 }

@@ -440,19 +440,21 @@ export function bandHome(seats: readonly Point[], standing: readonly Point[], h:
 export const AVATAR_TOP = 60;
 
 /**
- * The touch window's home (OME-1930), a `view` stage px: the band's (bandHome), moved as little as it takes to hold my
- * standing avatar whole, head to its widest name tag's foot, a pixel to spare. At 844×390 the window's 120 px hold the
- * front of the room or its seats, not both: the one who just joined sees themselves first. Seated, the window looks at
- * my seat (RoomLayout.centre).
+ * The touch window's home (OME-1930), a `view` stage px: the seats' (seatsHome) and, while I stand, me too, head to my
+ * widest name tag's foot: the middle of us all where the window holds it, else me (844×390's 120 px). The empty standing
+ * spots don't count: on a phone they pulled the seats out of the window (OME-1612). Seated, the window looks at my seat
+ * (RoomLayout.centre).
  */
-export function touchHome(seats: readonly Point[], standing: readonly Point[], me: Point | null, view: Size): Point {
-  const c = bandHome(seats, standing, view.h);
-  if (me === null) return c;
-  const keep = (v: number, lo: number, hi: number): number => (lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)));
-  return {
-    x: keep(c.x, me.x + TAG_MAX_W / 2 - view.w / 2, me.x - TAG_MAX_W / 2 + view.w / 2),
-    y: keep(c.y, me.y + TAG_FOOT + 1 - view.h / 2, me.y - AVATAR_TOP + view.h / 2),
-  };
+export function touchHome(seats: readonly Point[], me: Point | null, view: Size): Point {
+  if (me === null) return seatsHome(seats, view.h);
+  let x0 = me.x - TAG_MAX_W / 2, x1 = me.x + TAG_MAX_W / 2, y0 = me.y - AVATAR_TOP, y1 = me.y + TAG_FOOT;
+  for (const p of seats) {
+    x0 = Math.min(x0, p.x);
+    x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y - SEAT_HIT_H / 2);
+    y1 = Math.max(y1, p.y + SEAT_HIT_H / 2);
+  }
+  return { x: x1 - x0 <= view.w ? (x0 + x1) / 2 : me.x, y: y1 - y0 <= view.h ? (y0 + y1) / 2 : me.y + (TAG_FOOT - AVATAR_TOP) / 2 };
 }
 
 /** The points' rows, from `top` under the highest (a seat's hit area, or its name tag) to the lowest's tag foot. */
