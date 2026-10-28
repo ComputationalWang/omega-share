@@ -49,7 +49,7 @@ Checks: bun run check ✓, e2e/<spec> ✓, perf/<budget> ✓
 
 Put the PR URL in your Paperclip review comment. Review feedback is answered with new commits on the same branch; the PR updates itself.
 
-Waiting for CI or a long gate (e2e, perf, deploy): stay in the run until it finishes (`gh pr checks <n> --watch`, or a background command you wait for), or end the run with a scheduled issue monitor (paperclip skill, *Monitors and Watchers*). Never end a run with a background job or "watcher" still going: the runtime kills it, marks the run failed and retries it for nothing (196 failed runs in the week to 2026-10-21).
+Waiting for CI: `gh pr checks <n> --watch` inside the run, or a scheduled issue monitor. Never a background watcher past the end of the run (`omega-coordination` §9).
 
 ## 4. Merge (Lead Engineer only)
 
@@ -60,10 +60,10 @@ Waiting for CI or a long gate (e2e, perf, deploy): stay in the run until it fini
   ```
 
 - GitHub reports the PR not mergeable → send it back to the author to merge `origin/main` into the branch.
-- Then sync the local checkout: `git fetch origin && git merge --ff-only origin/main`. Hand off to QA as before (ADR 0036), naming the touched paths and the PR.
+- Then sync the local checkout: `git fetch origin && git merge --ff-only origin/main`, and remove the merged branch's worktree and local branch (`git worktree list` finds it; `git worktree remove <path>`, `git branch -d <branch>`). `remove` refuses a worktree with changes: leave that one to its author.
 - The `Closes #n` line closes the GitHub issue on merge. Paperclip status follows the existing review/QA flow; GitHub closing it does not mark the OME issue done.
 
-## 5. Clean up (author, once the PR is merged or abandoned)
+## 5. Clean up (author, once the PR is abandoned, or merged and the Lead left a dirty worktree)
 
 Leave nothing behind: a merged or abandoned issue has no worktree, no local branch and no remote branch.
 
