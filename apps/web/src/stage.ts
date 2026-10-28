@@ -92,6 +92,8 @@ export interface Stage {
   seat(i: number): Point | undefined;
   /** Where a member is drawn now, or was put by the last render. */
   anchor(id: MemberId): Point | undefined;
+  /** Where the last render put a member: where their walk in ends. */
+  spot(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
   cellOf(id: MemberId): FloorCell | null;
   /** The cats' cells now and a heart over the cat on one (OME-1669, room-view.ts). */
@@ -644,6 +646,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    spot: (id) => placedAt.get(id),
     catCells: () => view.catCells(),
     petCat: (cell) => {
       view.petCat(cell);

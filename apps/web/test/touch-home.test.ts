@@ -14,12 +14,13 @@ const preset = (file: string): RoomLayout => v.parse(RoomLayoutSchema, JSON.pars
 const PRESETS = readdirSync(DIR).filter((f) => f.endsWith(".json") && f !== "presets.json");
 const TAG_H = 20;
 
-// The touch room windows as measured (OME-1930, CSS px = stage px at 1×), without and with a video.
+// The touch room windows as measured (OME-1930, CSS px = stage px at 1×), without and with a video, less the zoom keys'
+// band (room-window.ts `set`: a 52 px column beside a window at least 148 px tall, else the 148 px keys row beside it).
 const WINDOWS: readonly (readonly [string, number, number])[] = [
-  ["320×640", 320, 225], ["320×640 video", 320, 191],
-  ["360×780", 360, 286], ["360×780 video", 360, 252],
-  ["844×390 t", 540, 120], ["844×390 t video", 540, 148],
-  ["1024×768 t", 672, 270], ["1024×768 t video", 672, 240],
+  ["320×640", 268, 225], ["320×640 video", 268, 191],
+  ["360×780", 308, 286], ["360×780 video", 308, 252],
+  ["844×390 t", 392, 120], ["844×390 t video", 488, 148],
+  ["1024×768 t", 620, 270], ["1024×768 t video", 620, 240],
 ];
 
 function view(l: RoomLayout, me: Point | null, w: number, h: number) {
@@ -45,7 +46,7 @@ describe("the touch window's home (OME-1930)", () => {
     });
   }
 
-  test.each([["1024×768 t", 672, 240], ["768×1024 t", 768, 294]] as const)("Theatre with a video at %s: the front row's four name tags are whole", (_, w, h) => {
+  test.each([["1024×768 t", 620, 240], ["768×1024 t", 716, 294]] as const)("Theatre with a video at %s: the front row's four name tags are whole", (_, w, h) => {
     const l = preset("cinema.json");
     const front = standingPoints(l).slice(0, 4);
     const pan = view(l, front[0] ?? null, w, h);
@@ -59,6 +60,6 @@ describe("the touch window's home (OME-1930)", () => {
 
   test("not standing (seated, or not in the room): the band's home", () => {
     const l = preset("cinema.json");
-    expect(touchHome(seatPoints(l), standingPoints(l), null, { w: 540, h: 120 })).toEqual(bandHome(seatPoints(l), standingPoints(l), 120));
+    expect(touchHome(seatPoints(l), standingPoints(l), null, { w: 392, h: 120 })).toEqual(bandHome(seatPoints(l), standingPoints(l), 120));
   });
 });

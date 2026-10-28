@@ -439,9 +439,20 @@ export function bandHome(seats: readonly Point[], standing: readonly Point[], h:
 /** A standing avatar's head above its point (walk/animator.ts EMOTE_LIFT.idle): the highest thing it shows. */
 export const AVATAR_TOP = 60;
 
-/** The touch window's home (OME-1930). */
-export function touchHome(seats: readonly Point[], _standing: readonly Point[], _me: Point | null, view: Size): Point {
-  return seatsHome(seats, view.h);
+/**
+ * The touch window's home (OME-1930), a `view` stage px: the band's (bandHome), moved as little as it takes to hold my
+ * standing avatar whole, head to its widest name tag's foot, a pixel to spare. At 844×390 the window's 120 px hold the
+ * front of the room or its seats, not both: the one who just joined sees themselves first. Seated, the window looks at
+ * my seat (RoomLayout.centre).
+ */
+export function touchHome(seats: readonly Point[], standing: readonly Point[], me: Point | null, view: Size): Point {
+  const c = bandHome(seats, standing, view.h);
+  if (me === null) return c;
+  const keep = (v: number, lo: number, hi: number): number => (lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)));
+  return {
+    x: keep(c.x, me.x + TAG_MAX_W / 2 - view.w / 2, me.x - TAG_MAX_W / 2 + view.w / 2),
+    y: keep(c.y, me.y + TAG_FOOT + 1 - view.h / 2, me.y - AVATAR_TOP + view.h / 2),
+  };
 }
 
 /** The points' rows, from `top` under the highest (a seat's hit area, or its name tag) to the lowest's tag foot. */

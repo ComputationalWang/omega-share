@@ -956,6 +956,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const p = roomStage.seat(mySeat);
       if (p !== undefined) layout.centre(p);
     }
+    // Standing (who just joined, OME-1930), the touch window keeps me in view; seated, it looked at my seat above.
+    layout.me(s.self === null || mySeat !== -1 ? null : (roomStage.spot(s.self) ?? null));
     if (title.textContent !== (s.title ?? "")) title.textContent = s.title ?? "";
     title.hidden = s.title === null;
     owner.render(s);
