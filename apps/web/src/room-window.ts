@@ -70,6 +70,8 @@ export interface RoomWindow {
   set(active: boolean, w: number, h: number): void;
   /** Look at `p` (stage px), clamped to the stage. */
   centre(p: Point): void;
+  /** The home moved (I stood somewhere new, OME-1930): a window that follows it looks again. */
+  rehome(): void;
   /**
    * Off the phone (OME-1490): the room at `scale` in a `box` (CSS px, default its whole ROOM_VIEW); the wheel zooms it
    * from there. A box smaller than the room (OME-1811's band) looks at the seats first, and a drag looks around.
@@ -79,7 +81,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
@@ -107,7 +109,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
     const k = fit * zoom;
-    const c = home(deskBox.h / k, true);
+    const c = home(deskBox.w / k, deskBox.h / k, true);
     return { zoom, pan: { x: c.x - deskBox.w / (2 * k), y: c.y - deskBox.h / (2 * k) } };
   };
   /** The band shows less than the whole room at the fit: a drag looks around it. */
@@ -184,7 +186,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
 
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
-    pan = panTo(view, looking ?? home(view.h / zoom, false), zoom);
+    pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
   };
   /** The window's centre now, stage px. */
@@ -468,6 +470,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       }
     },
     centre,
+    rehome() {
+      if (active && looking === null) apply();
+    },
     desk(fit, box = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }) {
       desk = fit;
       deskBox = box;
