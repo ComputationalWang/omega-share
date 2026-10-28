@@ -70,6 +70,42 @@ for (const [name, w, h] of [["aud1024", 1024, 768], ["aud768", 768, 1024]] as co
   });
 }
 
+// OME-1945 (responsive audit round 4): at 320×640 the window shows a slice of the stage, and a bubble kept only inside
+// the stage was cut by the window's edge (ada's, the leftmost). Once everyone stands, every tag and every bubble is
+// whole across the window (the last guest's tag 1.5 s in was its walk from the door, not where it ends). Across, the
+// 268 px window holds the seats and me (OME-1930), not every guest: a tag beside it may be out of the window.
+test("320×640 touch, Theatre with a video and 4 people: every name tag whole top to bottom once they stand, and every bubble whole across the window", async ({ browser, request }) => {
+  const room = testRoom("touch-home", "bub320");
+  await shareVideo(request, room.id);
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 4, nicknamePrefix: "thbub", setup: (context) => showLayout(context, presetFile("cinema")), contextOptions: () => TOUCH(320, 640) });
+  await waitPlaying(clients);
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  const window = page.locator(site.roomWindow);
+  await expect(page.locator(site.nicknameTag)).toHaveCount(4);
+  await expect(async () => {
+    const w = await box(window);
+    for (const tag of await page.locator(site.nicknameTag).all()) {
+      const t = await box(tag);
+      expect(t.y).toBeGreaterThanOrEqual(w.y);
+      expect(t.y + t.height).toBeLessThanOrEqual(w.y + w.height);
+    }
+  }).toPass({ timeout: 10_000 });
+  for (const [i, c] of clients.entries()) {
+    await c.page.locator(site.chatInput).fill(`hi from guest ${String(i)}, the row is full`);
+    await c.page.locator(site.chatInput).press("Enter");
+  }
+  await expect(page.locator(".ui-float.is-live")).toHaveCount(4);
+  await expect(async () => {
+    const w = await box(window);
+    for (const b of await page.locator(".ui-float.is-live").all()) {
+      const r = await box(b);
+      expect(r.x).toBeGreaterThanOrEqual(w.x);
+      expect(r.x + r.width).toBeLessThanOrEqual(w.x + w.width);
+    }
+  }).toPass({ timeout: 5_000 });
+});
+
 // OME-1944 (responsive audit round 4): as owner (title and owner bar over the TV) with a video at 1024×768 t, the window
 // was fitted to the column's foot (OME-1929's 844×390 fix) and grew to 270 px: the reaction keys under it were cut to
 // 10 px by the room column. The window keeps the wrap's height where that holds it; the keys stay whole and tappable.

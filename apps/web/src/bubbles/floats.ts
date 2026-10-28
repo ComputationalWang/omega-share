@@ -90,6 +90,8 @@ export interface Floats {
    * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
    */
   scale(k: number): void;
+  /** The phone's room window settled on stage x `x0`–`x1` (OME-1945): the boxes keep inside those sides, not the stage's. */
+  sides(x0: number, x1: number): void;
   /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
   typing(id: MemberId, on: boolean, at: Point): void;
 }
@@ -560,6 +562,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     },
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !s.typing && !ids.has(s.speaker)) free(s);
+    },
+    sides() {
+      // OME-1945: red stub.
     },
     scale(next) {
       if (next === k) return;
