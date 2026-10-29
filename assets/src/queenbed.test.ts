@@ -43,7 +43,7 @@ test("every bed colour and facing has a back frame wider than the twin's and a c
 });
 
 test("two sleepers lie side by side: an anchor each per facing, a cell apart across the bed", () => {
-  const an = LIE_ANCHORS.bed;
+  const an = LIE_ANCHORS["bed"];
   expect(an?.style).toBe("sleep");
   for (const d of DIRS) {
     const a = an?.dirs[d], b = an?.beside?.[d];
@@ -75,5 +75,5 @@ test("lying.json lists the sleep loop for every avatar in all four facings", () 
     expect(atlas.animations[`sleep/${a.id}/${d}`]?.length).toBe(BREATH_FRAMES);
     for (let n = 0; n < BREATH_FRAMES; n++) expect(atlas.frames[`sleep/${a.id}/${d}/${String(n)}`]).toBeDefined();
   }
-  expect(atlas.meta.omega.pieces.bed).toBeDefined();
+  expect(atlas.meta.omega.pieces["bed"]).toBeDefined();
 });

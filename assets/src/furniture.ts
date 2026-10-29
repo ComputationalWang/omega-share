@@ -1302,32 +1302,56 @@ function padImage(field: RampName, n = 0, s = 1, cv: Canvas = CANVAS): Uint8Arra
 
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670): a hotel suite after dark
 
-/** Twin bed: a plinth, a plum duvet folded back over cream sheets, a mustard throw at the foot, and a pile of pillows
- *  against a tufted headboard at the anchor end (the −x end, so it backs onto the left wall facing ne and the right wall facing nw). */
-function bed(k: Kit, c: RampName): void {
-  k.box(-7, 23, -6.5, 6.5, 0, 1.5, "charcoal");
-  k.box(-7.5, 23.5, -7, 7, 1.5, 4, "wood", { paint: (p, f) => (f !== "top" && p.z < 2.4 ? ["wood", 2] : null) });
-  k.box(-7, 23.5, -7, 7, 4, 6.5, "cream", { paint: (p, f) => (f !== "top" && p.z < 4.8 ? ["cream", 2] : null) });
-  // The duvet drapes over both long sides; its top edge is folded back, showing a cream sheet band.
-  const duvet: LPaint = (p, f) => (f === "top" ? (p.x < 3 ? ["cream", 0] : p.x < 4.5 ? [c, 0] : null) : p.z < 5 ? [c, 2] : null);
-  k.box(-1, 23.8, -7.4, 7.4, 3.6, SEAT_HEIGHT, c, { paint: duvet });
-  k.box(17, 21, -7.6, 7.6, 3, SEAT_HEIGHT + 0.4, "mustard", { paint: (p, f) => (f === "top" && Math.abs(p.x - 19) < 0.5 ? ["mustard", 2] : null) });
-  k.box(-7, -1, -7, 7, 6.5, SEAT_HEIGHT, "cream", { tones: { top: 0, sw: 1, se: 2 } });
+/** Queen bed (OME-1983), 2×2: a plinth, a plum duvet folded back over cream sheets, a mustard throw at the foot, two big pillows
+ *  and two cushions against a tufted headboard at the anchor end (the −x end, so it backs onto the left wall facing ne and the
+ *  right wall facing nw). Local y is the width: 0..16 facing ne/nw, −16..0 facing se/sw (the footprint's second row is on
+ *  the −y side there). `n` 2 and 3 draw only the duvet pulled up over sleeper 0 (the front, −y half, where the seats are) or 1. */
+function bed(k: Kit, c: RampName, n = 0): void {
+  const O = k.dir === "se" || k.dir === "sw" ? -16 : 0;
+  const Y0 = O - 7.5, Y1 = O + 23.5, MID = O + 8;
+  const halves = [O, O + 16];
+  const sleeper = halves[n - 2];
+  if (sleeper !== undefined) {
+    // The duvet over one sleeper: from the shoulders to the foot, over their half, the outer edge draping down the side.
+    const y0 = sleeper === O ? Y0 + 0.1 : MID, y1 = sleeper === O ? MID : Y1 - 0.1;
+    const lo = (y: number): boolean => (sleeper === O ? y < Y0 + 0.6 : y > Y1 - 0.6);
+    const quilt: LPaint = (p, f) => {
+      if (f === "top") return p.x < 3.2 ? ["cream", 0] : Math.abs(((p.x + 40) % 6) - 3) < 0.35 ? [c, 1] : null;
+      return lo(p.y) && p.z < 6 ? [c, 2] : null;
+    };
+    k.box(1.5, 23.9, y0, y1, 3.6, SEAT_HEIGHT + 1, c, { paint: quilt });
+    k.ell({ x: 11, y: sleeper, z: SEAT_HEIGHT + 1 }, { x: 9.5, y: 5.6, z: 5 }, [1.5, 21, y0, y1, SEAT_HEIGHT + 1, 40], c, {
+      paint: (p, f) => (f === "top" && p.x < 3.2 ? ["cream", 0] : null),
+    });
+    return;
+  }
+  k.box(-7, 23, Y0 + 0.5, Y1 - 0.5, 0, 1.5, "charcoal");
+  k.box(-7.5, 23.5, Y0, Y1, 1.5, 4, "wood", { paint: (p, f) => (f !== "top" && p.z < 2.4 ? ["wood", 2] : null) });
+  k.box(-7, 23.5, Y0, Y1, 4, 6.5, "cream", { paint: (p, f) => (f !== "top" && p.z < 4.8 ? ["cream", 2] : null) });
+  // The duvet drapes over both long sides; its top edge is folded back, showing a cream sheet band. A seam down the middle.
+  const duvet: LPaint = (p, f) => {
+    if (f !== "top") return p.z < 5 ? [c, 2] : null;
+    if (p.x < 3) return ["cream", 0];
+    if (p.x < 4.5) return [c, 0];
+    return Math.abs(p.y - MID) < 0.4 ? [c, 1] : null;
+  };
+  k.box(-1, 23.8, Y0 - 0.4, Y1 + 0.4, 3.6, SEAT_HEIGHT, c, { paint: duvet });
+  k.box(17, 21, Y0 - 0.6, Y1 + 0.6, 3, SEAT_HEIGHT + 0.4, "mustard", { paint: (p, f) => (f === "top" && Math.abs(p.x - 19) < 0.5 ? ["mustard", 2] : null) });
+  k.box(-7, -1, Y0, Y1, 6.5, SEAT_HEIGHT, "cream", { tones: { top: 0, sw: 1, se: 2 } });
   const tufts: LPaint = (p, f) => {
     if (f === "top") return [c, 0];
     return Math.abs(((p.y + 40) % 4) - 2) < 0.6 && Math.abs(((p.z - 10) % 4) - 2) < 0.6 ? [c, 2] : null;
   };
-  k.box(-8, -6.5, -7.5, 7.5, 1.5, 26, c, { paint: tufts });
-  k.box(-8, -6.5, -7.5, 7.5, 26, 27, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
-  // Pillows: two big cream ones against the headboard, then plum, mustard and teal cushions, and a little bolster.
+  k.box(-8, -6.5, Y0 - 0.5, Y1 + 0.5, 1.5, 26, c, { paint: tufts });
+  k.box(-8, -6.5, Y0 - 0.5, Y1 + 0.5, 26, 27, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
+  // Two big cream pillows, one per sleeper, then a plum and a mustard cushion in front of them and a teal bolster between.
   const pillow = (x: number, y: number, z: number, r: L3, ramp: RampName): void => {
-    k.ell({ x, y, z }, r, [-8, 24, -8, 8, 0, 40], ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.y - y) < 0.4 ? [ramp, 2] : null) });
+    k.ell({ x, y, z }, r, [-8, 24, Y0 - 1, Y1 + 1, 0, 40], ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.y - y) < 0.4 ? [ramp, 2] : null) });
   };
-  pillow(-4.4, -3.5, 13, { x: 2.2, y: 3.6, z: 5 }, "cream");
-  pillow(-4.4, 3.5, 13, { x: 2.2, y: 3.6, z: 5 }, "cream");
-  pillow(-2, -3.2, 11.6, { x: 1.8, y: 3, z: 3.6 }, c);
-  pillow(-2, 3.2, 11.6, { x: 1.8, y: 3, z: 3.6 }, "mustard");
-  pillow(-0.4, 0, 10.2, { x: 1.4, y: 2.4, z: 2.2 }, "teal");
+  for (const y of halves) pillow(-4.2, y, 12.6, { x: 2.4, y: 6, z: 4.6 }, "cream");
+  pillow(-1.6, O, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, c);
+  pillow(-1.6, O + 16, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, "mustard");
+  pillow(-0.6, MID, 9.8, { x: 1.4, y: 2.6, z: 2 }, "teal");
 }
 
 /** Whirlpool for two: a cream acrylic tub on a wood skirt, teal water that bubbles while someone is in it (frames 1–2),
@@ -1899,6 +1923,9 @@ export interface PieceMeta {
   walk?: { frames: number; ms: number };
   /** A raised seat (the theatre rows, OME-1639): draw its sitters this many px higher, per colour. Absent = 0. */
   seatLiftByColour?: Record<string, number>;
+  /** Sleepers side by side (the queen bed, OME-1983): `furniture/<id>/<colour>/cover/<dir>/<0..covers-1>`, the duvet pulled
+   *  over that sleeper, in `back`'s rect (same anchor). Draw it right after its sleeper (lying.json `pieces`). */
+  covers?: number;
 }
 
 export interface PieceDef {
@@ -1913,6 +1940,10 @@ export interface PieceDef {
   rows: number;
   /** Seat cells along local x (0 = anchor cell). */
   seats?: readonly number[];
+  /** The seats are on the front (−y) row of a 2-row piece, which is the footprint's last row facing se/sw (the queen bed). */
+  frontRow?: true;
+  /** Duvet frames pulled over each of this many sleepers: build gets n = 2.. for them (see PieceMeta `coverKey`). */
+  covers?: number;
   walkable?: boolean;
   /** "In use" loop: `frames` extra back frames (build gets n = 1..frames; n = 0 is the idle frame), each shown `ms`. */
   use?: { frames: number; ms: number };
@@ -1974,7 +2005,7 @@ export const PIECES: readonly PieceDef[] = [
   // Batch 12 (OME-1546), packed into the v4 sheet. Round, so one facing (the contract's `se`); the active frame is its one-frame "in use" loop.
   { id: "pad", label: "Teleport pad", kind: "fun", layer: "floor", colours: ["teal", "lilac"], dirs: ["se"], cols: 1, rows: 1, walkable: true, use: { frames: 1, ms: 1000 }, image: (_d, c, s, cv, n) => padImage(asRamp(c), n, s, cv) },
   // Dank Dungeon (OME-1670): its own lazy sheet, furniture-v6. The desk and the washbasin back onto a wall like the bookcase.
-  { id: "bed", label: "Twin bed", kind: "seat", colours: ["velvet"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], build: (k, c) => { bed(k, asRamp(c)); } },
+  { id: "bed", label: "Queen bed", kind: "seat", colours: ["velvet"], dirs: ALL, cols: 2, rows: 2, seats: [0, 1], frontRow: true, covers: 2, build: (k, c, n) => { bed(k, asRamp(c), n); } },
   { id: "whirlpool", label: "Whirlpool", kind: "seat", colours: ["teal"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], use: { frames: 2, ms: 200 }, build: (k, _c, n) => { whirlpool(k, n); } },
   { id: "mirror", label: "Wall mirror", kind: "wall", mount: "wall", layer: "wall", colours: ["brass", "silver"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { if (c === "silver") silverMirror(k); else wallMirror(k); } },
   { id: "minibar", label: "Minibar", kind: "fun", colours: ["wood", "fridge"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k, c) => { if (c === "fridge") barFridge(k); else minibar(k); } },
@@ -2068,7 +2099,12 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   }
   if (front.length === 0) {
     const idle = crop(`${base}/back`, full.img);
-    return [idle, ...useFrames(def, colour, dir, idle.rect)];
+    const covers = Array.from({ length: def.covers ?? 0 }, (_, s) => {
+      const kc = new Kit(dir);
+      def.build?.(kc, colour, 2 + s);
+      return crop(`furniture/${def.id}/${colour}/cover/${dir}/${String(s)}`, draw(kc.parts.map((p) => p.solid)).img, idle.rect);
+    });
+    return [idle, ...useFrames(def, colour, dir, idle.rect), ...covers];
   }
   const backImg = renderSolids(back, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
   const frontImg = new Uint8Array(CANVAS.w * CANVAS.h);
@@ -2111,6 +2147,8 @@ function useFrames(def: PieceDef, colour: string, dir: FurnDir, rect: { x0: numb
 }
 
 const swapsAxes = (d: FurnDir): boolean => d === "nw" || d === "se";
+/** Frames beside a facing's `back`/`front` layers: loops, alternates, the cat's frames, the queen bed's covers. */
+const EXTRA_FRAMES: ReadonlySet<string> = new Set(["use", "open", "cut", "walk", "sit", "bed", "cover"]);
 
 export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
   const frames: RoomFrame[] = [];
@@ -2121,7 +2159,8 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       for (const dir of def.dirs) {
         const fs = pieceFrames(def, colour, dir);
         frames.push(...fs);
-        layersByDir[dir] = fs.filter((f) => !/\/(use|open|cut|walk|sit|bed)\//.test(f.key)).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
+        // The 4th key segment names the frame (`furniture/<id>/<colour>/<dir|use|cover…>`): `/bed/` alone also matched the bed's own id.
+        layersByDir[dir] = fs.filter((f) => !EXTRA_FRAMES.has(f.key.split("/")[3] ?? "")).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
       }
     }
     const footprintByDir: PieceMeta["footprintByDir"] = {};
@@ -2132,7 +2171,8 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       footprintByDir[dir] = fp;
       const dc = Math.max(fp.cols - 1, 0) / 2, dr = Math.max(fp.rows - 1, 0) / 2;
       sortByDir[dir] = { x: (dc - dr) * 32, y: (dc + dr) * 16 };
-      if (def.seats) seatsByDir[dir] = def.seats.map((i) => (swapsAxes(dir) ? { col: 0, row: i, dir } : { col: i, row: 0, dir }));
+      const f = def.frontRow && (dir === "se" || dir === "sw") ? def.rows - 1 : 0;
+      if (def.seats) seatsByDir[dir] = def.seats.map((i) => (swapsAxes(dir) ? { col: f, row: i, dir } : { col: i, row: f, dir }));
     }
     const meta: PieceMeta = {
       id: def.id,
@@ -2152,6 +2192,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     if (def.use) meta.use = { ...def.use };
     if (def.open) meta.open = true;
     if (def.cut) meta.cut = true;
+    if (def.covers) meta.covers = def.covers;
     if (def.seatLift) meta.seatLiftByColour = { ...def.seatLift };
     if (def.walk) meta.walk = { frames: def.walk.frames, ms: def.walk.ms };
     pieces.push(meta);
@@ -2180,9 +2221,22 @@ export function buildThumbs(): RoomFrame[] {
   const out: RoomFrame[] = [];
   for (const def of PIECES) {
     const dir: FurnDir = def.dirs.includes("se") ? "se" : "ne";
-    for (const colour of def.colours) out.push(fitThumb(`thumb/${def.id}/${colour}`, cv, (s) => pieceImage(def, colour, dir, s, cv)));
+    for (const colour of def.colours) out.push(padThumb(fitThumb(`thumb/${def.id}/${colour}`, cv, (s) => pieceImage(def, colour, dir, s, cv))));
   }
   return out;
+}
+
+/** OME-1983: the queen bed's thumb keeps the twin's 43×34 rect (centred, transparent margin), so the edit sheet doesn't repack
+ *  and the eager `reference.css` stays byte-identical. */
+const THUMB_RECT: Readonly<Record<string, { w: number; h: number }>> = { "thumb/bed/velvet": { w: 43, h: 34 } };
+function padThumb(t: RoomFrame): RoomFrame {
+  const r = THUMB_RECT[t.key];
+  if (!r || (r.w === t.w && r.h === t.h)) return t;
+  if (t.w > r.w || t.h > r.h) throw new Error(`${t.key}: ${String(t.w)}×${String(t.h)} outgrew its kept rect`);
+  const dx = Math.floor((r.w - t.w) / 2), dy = Math.floor((r.h - t.h) / 2);
+  const img = new Uint8Array(r.w * r.h);
+  for (let y = 0; y < t.h; y++) img.set(t.img.subarray(y * t.w, (y + 1) * t.w), (y + dy) * r.w + dx);
+  return { ...t, w: r.w, h: r.h, img, ax: t.ax + dx, ay: t.ay + dy };
 }
 
 /** The largest scale ≤ ½ at which `at(s)` (drawn on `cv`) fits THUMB_BOX, cropped; anchor = its visual centre. */

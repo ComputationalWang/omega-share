@@ -71,7 +71,7 @@ import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
 import { ACCESSORIES, BARE } from "./accessories";
-import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, lieGrid, type LieStyle } from "./lying";
+import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, SLEEP_FLOOR, floorOf, lieGrid, type LieStyle } from "./lying";
 import { BEND_FLOOR, DUNGEON_CELL, DUNGEON_DIRS, THRUST_FLOOR, THRUST_FRAMES, THRUST_MS, THRUST_OFFSET, THRUST_SEQUENCE, bendGrid, thrustGrid } from "./dungeon";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
@@ -1475,6 +1475,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
         ...(pieces.some((p) => p.open === true) ? { openKey: "furniture/<id>/<colour>/open/<dir>" } : {}),
         ...(pieces.some((p) => p.cut === true) ? { cutKey: "furniture/<id>/<colour>/cut/<dir>" } : {}),
+        ...(pieces.some((p) => p.covers) ? { coverKey: "furniture/<id>/<colour>/cover/<dir>/<sleeper>" } : {}),
         // OME-1519: frame time in `pieces[].walk.ms`, the avatars' Basic walk clock (`avatars/motion.json` meta.omega.walk.frameMs).
         ...(pieces.some((p) => p.walk) ? { walkKey: "furniture/<id>/<colour>/walk/<dir>/<n>", sitKey: "furniture/<id>/<colour>/sit/<dir>", bedKey: "furniture/<id>/<colour>/bed/<dir>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
@@ -2132,7 +2133,7 @@ function showroomV6(): RoomPlan {
       { id: "whirlpool", colour: "teal", dir: "ne", col: 2, row: 7, sitters: ["pip", "kiki"], use: 1 },
       { id: "whirlpool", colour: "teal", dir: "nw", col: 7, row: 2, sitters: ["juno"] },
       { id: "desk", colour: "wood", dir: "sw", col: 3, row: 0 },
-      { id: "desk", colour: "wood", dir: "se", col: 0, row: 4 },
+      { id: "desk", colour: "wood", dir: "se", col: 0, row: 5 },
       { id: "minibar", colour: "wood", dir: "sw", col: 7, row: 0 },
       { id: "minibar", colour: "wood", dir: "se", col: 4, row: 5 },
       { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 7 },
@@ -2149,15 +2150,18 @@ function showroomV6(): RoomPlan {
 // ---------------------------------------------------------------- lying pose (OME-1687, lazy)
 
 const LYING_FILES = ["avatars/lying.png", "avatars/lying.json"];
-/** The facings each style ships in: `lie` for the sofas (all four), `curl` for the cat bed (the cat's two). */
-const LIE_STYLE_DIRS: Record<LieStyle, readonly Dir[]> = { lie: LIE_DIRS, curl: ["se", "sw"] };
+/** The facings each style ships in: `lie` for the sofas (all four), `curl` for the cat bed (the cat's two), `sleep` for the
+ *  queen bed (all four; nw is se's frame and ne is sw's, sharing a rect). */
+const LIE_STYLE_DIRS: Record<LieStyle, readonly Dir[]> = { lie: LIE_DIRS, curl: ["se", "sw"], sleep: LIE_DIRS };
+const SLEEP_ALIAS: Partial<Record<Dir, Dir>> = { nw: "se", ne: "sw" };
 
 /** `avatars/lying.png` + `.json` (the lying pose: breathing loop × facing × avatar, lazy), and its previews: every facing on the
  *  club sofa, the lounge couch and the cat bed for every avatar (`lying-pieces@2x.png`), the strip (`lying-strip@4x.png`) and
  *  a room with all three taken (`lying-room@1x/2x.png`). */
 function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   const { w: CW, h: CH } = LIE_CELL;
-  const cells = LIE_STYLES.flatMap((st) => LIE_STYLE_DIRS[st].flatMap((d) => Array.from({ length: BREATH_FRAMES }, (_, n) => ({ st, d, n }))));
+  const drawn = (st: LieStyle): readonly Dir[] => LIE_STYLE_DIRS[st].filter((d) => st !== "sleep" || !SLEEP_ALIAS[d]);
+  const cells = LIE_STYLES.flatMap((st) => drawn(st).flatMap((d) => Array.from({ length: BREATH_FRAMES }, (_, n) => ({ st, d, n }))));
   const sheetW = pow2(cells.length * CW), sheetH = pow2(AVATARS.length * CH);
   const sheet = new Uint8Array(sheetW * sheetH);
   const frames: Record<string, Frame> = {};
@@ -2169,18 +2173,28 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
       const img = render(lieGrid(a, d, st, n), a.roles);
       assertInside(key, img, CW, CH);
       blit(sheet, sheetW, img, CW, CH, c * CW, i * CH);
-      const ax = d === "sw" || d === "ne" ? CW - 1 - LIE_FLOOR.x : LIE_FLOOR.x;
+      const fl = floorOf(st);
+      const ax = d === "sw" || d === "ne" ? CW - 1 - fl.x : fl.x;
       frames[key] = {
         frame: { x: c * CW, y: i * CH, w: CW, h: CH },
         rotated: false,
         trimmed: false,
         spriteSourceSize: { x: 0, y: 0, w: CW, h: CH },
         sourceSize: { w: CW, h: CH },
-        anchor: { x: ax / CW, y: LIE_FLOOR.y / CH },
+        anchor: { x: ax / CW, y: fl.y / CH },
       };
-      all.set(key, { img, w: CW, h: CH, ax, ay: LIE_FLOOR.y });
+      all.set(key, { img, w: CW, h: CH, ax, ay: fl.y });
       if (n === 0) anims[`${st}/${a.id}/${d}`] = { frames: Array.from({ length: BREATH_FRAMES }, (_, m) => `${st}/${a.id}/${d}/${String(m)}`), ms: [...BREATH_MS], loop: true };
     });
+    for (const [d, src] of Object.entries(SLEEP_ALIAS)) {
+      for (let n = 0; n < BREATH_FRAMES; n++) {
+        const f = frames[`sleep/${a.id}/${src}/${String(n)}`], sp = all.get(`sleep/${a.id}/${src}/${String(n)}`);
+        if (!f || !sp) throw new Error(`no sleep frame ${a.id}/${src}`);
+        frames[`sleep/${a.id}/${d}/${String(n)}`] = f;
+        all.set(`sleep/${a.id}/${d}/${String(n)}`, sp);
+      }
+      anims[`sleep/${a.id}/${d}`] = { frames: Array.from({ length: BREATH_FRAMES }, (_, m) => `sleep/${a.id}/${d}/${String(m)}`), ms: [...BREATH_MS], loop: true };
+    }
   });
   registerKeys("lying", Object.keys(frames));
   writeFileSync(join(ROOT, "avatars", "lying.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
@@ -2200,6 +2214,7 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
         license: "CC-BY-SA-4.0",
         cell: LIE_CELL,
         floorPoint: LIE_FLOOR,
+        sleepFloorPoint: SLEEP_FLOOR,
         dirs: LIE_STYLE_DIRS,
         // Not listed in the eager hairs/tints tables (they stay frozen); the PLTE is the same, so their slots apply as is.
         swaps: "tints.json and hairs.json: same PLTE slots as avatars.png, apply them to this sheet for that avatar's frames",
@@ -2250,6 +2265,52 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
     });
   });
   writeFileSync(join(ROOT, "preview", "lying-pieces@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+
+  // OME-1983: the queen bed in each facing: empty, two sleepers side by side (each under their duvet), two sitters.
+  const bedM = meta("bed"), bedA = LIE_ANCHORS["bed"];
+  const pairs: [string, string][] = [["juno", "pip"], ["mo", "kiki"], ["kiki", "juno"], ["pip", "mo"]];
+  const sleepers = (dir: FurnDir, who: readonly [string, string], n: number, x: number, y: number): { key: string; x: number; y: number }[] => {
+    const offs = [bedA?.dirs[dir], bedA?.beside?.[dir]];
+    const order = [0, 1].sort((i, j) => (offs[i]?.y ?? 0) - (offs[j]?.y ?? 0));
+    return [
+      { key: `furniture/bed/velvet/${dir}/back`, x, y },
+      ...order.flatMap((i) => {
+        const o = offs[i];
+        if (!o) throw new Error(`no sleeper ${String(i)} anchor bed/${dir}`);
+        return [{ key: `sleep/${who[i] ?? ""}/${dir}/${String(n)}`, x: x + o.x, y: y + o.y }, { key: `furniture/bed/velvet/cover/${dir}/${String(i)}`, x, y }];
+      }),
+    ];
+  };
+  {
+    const dirs = ["ne", "nw", "se", "sw"] as const;
+    const BW = 170, BH = 120, W = BW * dirs.length + 20, H = BH * 3 + 20;
+    const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+    dirs.forEach((d, ci) => {
+      for (let ri = 0; ri < 3; ri++) {
+        const ax = 10 + ci * BW + 85, ay = 10 + ri * BH + 60;
+        for (let c = 0; c < 2; c++) for (let r = 0; r < 2; r++) drawSprite(img, W, H, all, `floor/${String((c + r) % 2)}`, ax + (c - r) * 32, ay + (c + r) * 16);
+        const pair = pairs[ci] ?? ["juno", "pip"];
+        const items = ri === 1 ? sleepers(d, pair, 0, ax, ay) : placePiece(bedM, "velvet", d, ax, ay, ri === 2 ? pair : []);
+        for (const it of items) drawSprite(img, W, H, all, it.key, it.x, it.y);
+      }
+    });
+    writeFileSync(join(ROOT, "preview", "queenbed@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+  }
+  // And in a room at 1× / 2×: juno and mo asleep in one, pip and kiki sitting up on the other to watch.
+  {
+    const at = cellAt(7, 0), sleep = sleepers("nw", ["juno", "mo"], 0, at.x, at.y);
+    const bedRoom = composeFurnitureRoom(pieces, all, {
+      placements: [
+        { id: "bed", colour: "velvet", dir: "ne", col: 0, row: 3, sitters: ["pip", "kiki"] },
+        { id: "desk", colour: "wood", dir: "sw", col: 4, row: 0 },
+        { id: "wingback", colour: "ginger", dir: "nw", col: 7, row: 5 },
+        { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+      ],
+      standing: [],
+    }, { top: (draw) => { for (const it of sleep) draw(it.key, it.x, it.y); } });
+    writeFileSync(join(ROOT, "preview", "queenbed-room@1x.png"), encodeIndexedPng(bedRoom.W, bedRoom.H, bedRoom.img, PALETTE));
+    writeFileSync(join(ROOT, "preview", "queenbed-room@2x.png"), encodeIndexedPng(bedRoom.W * 2, bedRoom.H * 2, upscale(bedRoom.img, bedRoom.W, bedRoom.H, 2), PALETTE));
+  }
 
   const strips = new Map<string, { img: Uint8Array; w: number; h: number }>();
   for (const [k, sp] of all) if (sp.w === CW && sp.h === CH) strips.set(k, { img: sp.img, w: sp.w, h: sp.h });
