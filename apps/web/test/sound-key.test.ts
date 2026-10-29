@@ -35,12 +35,14 @@ async function setup(s: SoundSetting | null) {
   let current = s;
   const key = createSoundKey(() => current);
   document.body.replaceChildren(key.root);
-  const q = <T extends Element>(id: string): T => {
-    const e = key.root.querySelector<T>(`[data-testid="${id}"]`);
-    if (e === null) throw new Error(`no ${id}`);
-    return e;
+  const toggle = key.root.querySelector("button");
+  const slider = key.root.querySelector("input");
+  if (toggle?.dataset["testid"] !== "sound-key" || slider?.dataset["testid"] !== "sound-key-volume") throw new Error("no sound key");
+  const load = (n: SoundSetting): void => {
+    current = n;
+    key.sync();
   };
-  return { key, toggle: q<HTMLButtonElement>("sound-key"), slider: q<HTMLInputElement>("sound-key-volume"), load: (n: SoundSetting) => { current = n; key.sync(); } };
+  return { key, toggle, slider, load };
 }
 
 describe("room sounds key (OME-1968)", () => {

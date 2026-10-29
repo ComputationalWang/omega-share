@@ -711,6 +711,14 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* Leave (OME-1967) holds the bar's left end, a 44 px target everywhere; the keys after it keep the right end. */
 /* Its 44 px overhangs the bar by 8 px a side so the bar, and the TV under it, keep their size (wide-layout.e2e.ts). */
 .room-top > .leave-key { min-width: 44px; min-height: 44px; margin: -8px auto -8px 0; }
+/* Room sounds (OME-1968): the mute key and its slider sit beside Leave and take its auto margin; 44 px targets, the same
+ * 8 px overhang so the bar keeps its height. The slider is native, so a finger and the arrow keys both work. */
+.room-top > .sound-key { display: flex; align-items: center; gap: 4px; margin-right: auto; }
+.room-top > .sound-key[hidden] { display: none; }
+.room-top > .leave-key:has(+ .sound-key:not([hidden])) { margin-right: 0; }
+.sound-key > .ui-button { min-width: 44px; min-height: 44px; margin-block: -8px; }
+.sound-key > input { width: 88px; height: 44px; margin-block: -8px; }
+.room-portrait .sound-key > input { width: 64px; }
 .people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
 .people[hidden] { display: none; }
 /* The stacked tablet page (OME-1805): a sheet over the page's foot, so the TV above stays where it is. */
