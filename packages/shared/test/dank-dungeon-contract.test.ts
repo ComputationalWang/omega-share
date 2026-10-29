@@ -10,7 +10,7 @@ describe("dank dungeon contract", () => {
 
   test("the six v6 kinds match the README table", () => {
     const spec = (k: string): unknown => (FURNITURE as Record<string, unknown>)[k];
-    expect(spec("bed")).toMatchObject({ layer: "object", cols: 2, rows: 1, seats: true, wallBacked: false, variants: 1 });
+    expect(spec("bed")).toMatchObject({ layer: "object", cols: 2, rows: 2, seats: true, wallBacked: false, variants: 1 });
     expect(spec("whirlpool")).toMatchObject({ layer: "object", cols: 2, rows: 1, seats: true, wallBacked: false });
     expect(spec("mirror")).toMatchObject({ layer: "wall", facings: ["se", "sw"], cols: 0, rows: 0 });
     expect(spec("minibar")).toMatchObject({ layer: "object", facings: ["se", "sw"], cols: 1, rows: 1, seats: false });
@@ -19,10 +19,21 @@ describe("dank dungeon contract", () => {
     for (const k of ["bed", "whirlpool"]) expect((spec(k) as { facings: string[] }).facings).toEqual(["ne", "nw", "se", "sw"]);
   });
 
-  test("a bed seats two on its footprint", () => {
-    const bed = { kind: "bed", col: 4, row: 0, facing: "nw" } as never;
-    expect(footprintCells(bed)).toEqual([[4, 0], [4, 1]]);
-    expect(layoutSeats({ furniture: [bed] })).toHaveLength(2);
+  // OME-1982: a queen bed, 2×2, and two sleepers side by side on its first row, whichever way it faces.
+  test("a bed covers 2×2 and seats two side by side in every facing", () => {
+    const bed = (facing: string) => ({ kind: "bed", col: 4, row: 0, facing }) as never;
+    for (const facing of ["ne", "nw", "se", "sw"]) expect(footprintCells(bed(facing))).toEqual([[4, 0], [4, 1], [5, 0], [5, 1]]);
+    for (const facing of ["ne", "sw"]) expect(layoutSeats({ furniture: [bed(facing)] })).toEqual([{ col: 4, row: 0, facing }, { col: 5, row: 0, facing }] as never);
+    for (const facing of ["nw", "se"]) expect(layoutSeats({ furniture: [bed(facing)] })).toEqual([{ col: 4, row: 0, facing }, { col: 4, row: 1, facing }] as never);
+  });
+
+  test("a bed must fit on the floor and may not overlap", () => {
+    const ok = (f: unknown[]) => v.safeParse(RoomLayoutSchema, { furniture: f }).success;
+    const chairs = [[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6]].map(([col, row]) => ({ kind: "armchair", col, row, facing: "ne" }));
+    const tv = { kind: "tv", col: 0, row: 0, facing: "se" };
+    expect(ok([tv, ...chairs, { kind: "bed", col: 7, row: 7, facing: "ne" }])).toBe(true);
+    expect(ok([tv, ...chairs, { kind: "bed", col: 8, row: 9, facing: "ne" }])).toBe(false);
+    expect(ok([tv, ...chairs, { kind: "bed", col: 4, row: 5, facing: "ne" }])).toBe(false);
   });
 
   test("the washbasin must stand on its wall", () => {

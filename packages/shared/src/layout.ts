@@ -105,7 +105,8 @@ export const FURNITURE = {
   aislelight: piece("floor", ["ne", "nw"], ONE),
   carpet: piece("floor", FIXED, { cols: 2, rows: 2 }),
   // Dank Dungeon (OME-1670 / OME-1672, `assets/furniture/furniture-v6.json`, lazy).
-  bed: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
+  /** A queen bed (OME-1982): 2×2, two sleepers side by side on its first row. */
+  bed: piece("object", FACINGS, { cols: 2, rows: 2 }, { seats: true }),
   whirlpool: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
   mirror: piece("wall", CAMERA, { cols: 0, rows: 0 }),
   minibar: piece("object", CAMERA, ONE),
@@ -217,11 +218,12 @@ export function canTeleport(layout: { readonly furniture: readonly Placed[] }, f
   return from !== undefined && (from.x !== cell.x || from.y !== cell.y) && isPad(from) && isPad(cell) && isStandable(layout, cell);
 }
 
-/** Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). */
+/** Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). A piece seats along its first row only (ADR 0057). */
 export function layoutSeats(layout: { readonly furniture: readonly Placed[] }): Seat[] {
   const seats: Seat[] = [];
   for (const f of layout.furniture) {
-    if (FURNITURE[f.kind].seats) for (const [col, row] of footprintCells(f)) seats.push({ col, row, facing: f.facing });
+    if (!FURNITURE[f.kind].seats) continue;
+    for (const [col, row] of footprintCells(f)) if (turned(f) ? col === f.col : row === f.row) seats.push({ col, row, facing: f.facing });
   }
   return seats;
 }

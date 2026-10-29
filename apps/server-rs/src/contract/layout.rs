@@ -265,7 +265,9 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bigscreen => Spec::new(Object, FIXED, 1, 1),
         Kind::Aislelight => Spec::new(Floor, ON_FLOOR, 1, 1),
         Kind::Carpet => Spec::new(Floor, FIXED, 2, 2),
-        Kind::Bed | Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
+        // A queen bed (OME-1982): 2×2, two sleepers side by side on its first row.
+        Kind::Bed => Spec::new(Object, ALL, 2, 2).seated(),
+        Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Minibar | Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
         Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
@@ -324,11 +326,19 @@ pub fn footprint_cells(f: &Furniture) -> Vec<(u32, u32)> {
         .collect()
 }
 
-/// Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021).
+/// Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). A piece seats
+/// along its first row only (ADR 0057).
 pub fn layout_seats(furniture: &[Furniture]) -> Vec<Seat> {
     let mut seats = Vec::new();
     for f in furniture.iter().filter(|f| spec(f.kind).seats) {
-        seats.extend(footprint_cells(f).into_iter().map(|(col, row)| Seat {
+        let first_row = |&(col, row): &(u32, u32)| {
+            if turned(f) {
+                col == u32::from(f.col)
+            } else {
+                row == u32::from(f.row)
+            }
+        };
+        seats.extend(footprint_cells(f).into_iter().filter(first_row).map(|(col, row)| Seat {
             col,
             row,
             facing: f.facing,
@@ -1134,6 +1144,22 @@ mod tests {
         assert_eq!(at(Kind::Sofa, Facing::Se), [(2, 3), (2, 4)]);
         assert!(footprint_cells(&Furniture::new(Kind::Frame, 2, 0, Facing::Sw)).is_empty());
         assert_eq!(footprint_cells(&Furniture::new(Kind::Rug, 1, 1, Facing::Se)).len(), 49);
+    }
+
+    // packages/shared/test/dank-dungeon-contract.test.ts (OME-1982): a queen bed, two sleepers side by side.
+    #[test]
+    fn a_bed_covers_2x2_and_seats_two_side_by_side_in_every_facing() {
+        for facing in FACINGS {
+            let bed = Furniture::new(Kind::Bed, 4, 0, facing);
+            assert_eq!(footprint_cells(&bed), [(4, 0), (4, 1), (5, 0), (5, 1)], "{facing:?}");
+            let next = if matches!(facing, Facing::Ne | Facing::Sw) {
+                (5, 0)
+            } else {
+                (4, 1)
+            };
+            let seats: Vec<_> = layout_seats(&[bed]).iter().map(|s| (s.col, s.row, s.facing)).collect();
+            assert_eq!(seats, [(4, 0, facing), (next.0, next.1, facing)], "{facing:?}");
+        }
     }
 
     // packages/shared/test/layout-contract.test.ts:291
