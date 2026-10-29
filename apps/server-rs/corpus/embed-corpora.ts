@@ -11,7 +11,6 @@ import {
   canonicalizeGenericEmbed,
   playbackCaps,
   type AnyEmbed,
-  type Embed,
 } from "@omega/shared";
 import { EmbedPolicy } from "../../server/src/embed-policy";
 import { rawEmbedCorpus } from "./embed-raw-corpus";

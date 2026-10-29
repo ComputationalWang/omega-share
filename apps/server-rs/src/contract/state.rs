@@ -431,13 +431,9 @@ pub fn queue_is_valid(queue: &[QueueItem]) -> bool {
     queue.len() <= QUEUE_MAX && queue.iter().map(|i| i.id.as_str()).collect::<HashSet<_>>().len() == queue.len()
 }
 
-/// `playbackMatchesEmbed`: playback exists only for a synced embed (`null` or absent otherwise).
+/// `playbackMatchesEmbed`: playback only alongside an embed, synced or generic (ADR 0057 §1).
 pub fn playback_matches_embed(embed: Option<&AnyEmbed>, playback: Option<&Option<PlaybackState>>) -> bool {
-    let has_playback = matches!(playback, Some(Some(_)));
-    match embed {
-        None => !has_playback,
-        Some(e) => e.is_synced() || !has_playback,
-    }
+    embed.is_some() || !matches!(playback, Some(Some(_)))
 }
 
 // ---- room state

@@ -43,6 +43,13 @@ static TWITCH_LIVE: PlaybackCaps = PlaybackCaps {
     rate: RateSupport::No,
 };
 
+/// ADR 0057 §1: `HTMLMediaElement` through the extension. A live generic stream is detected on the client only.
+static GENERIC: PlaybackCaps = PlaybackCaps {
+    seek: true,
+    live: false,
+    rate: RateSupport::Yes,
+};
+
 /// Static capabilities of an embed. Pure; returns shared static objects.
 pub fn playback_caps(embed: &Embed) -> &'static PlaybackCaps {
     match embed {
@@ -57,6 +64,6 @@ pub fn playback_caps(embed: &Embed) -> &'static PlaybackCaps {
 pub fn any_playback_caps(embed: &AnyEmbed) -> &'static PlaybackCaps {
     match embed {
         AnyEmbed::Synced(e) => playback_caps(e),
-        AnyEmbed::Generic(_) => &TWITCH_LIVE,
+        AnyEmbed::Generic(_) => &GENERIC,
     }
 }

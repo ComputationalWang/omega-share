@@ -8,7 +8,6 @@ import {
   DICE_MIN_SIDES,
   ERROR_MESSAGE_MAX_LENGTH,
   MAX_CLIENT_MESSAGE_BYTES,
-  MAX_EMBED_URL_LENGTH,
   MAX_SERVER_MESSAGE_BYTES,
   MAX_ROOM_MEMBERS,
   MAX_URL_LENGTH,
@@ -19,7 +18,7 @@ import {
   REACTIONS_MAX,
 } from "./constants";
 import { PollIdSchema, RoomIdSchema } from "./ids";
-import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
+import { AnyEmbedSchema, MAX_GENERIC_EMBED_URL_LENGTH, playbackMatchesEmbed } from "./generic-embed";
 import { MediaMsSchema, OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
@@ -221,13 +220,13 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
   /**
    * Desired room playback. Seek while playing = `{ playing: true, position }`.
-   * Needs `join`; `url` must equal the current synced `embed.url`, else `error: no_embed`
-   * (a generic embed is never synced, ADR 0024).
+   * Needs `join`; `url` must equal the current `embed.url`, synced or generic (ADR 0057 §1), else `error: no_embed`.
+   * Capped at the generic cap, the larger of the two.
    * For a live embed (`playbackCaps(embed).live`) the server ignores `position`.
    */
   v.strictObject({
     type: v.literal("control"),
-    url: v.pipe(v.string(), v.maxLength(MAX_EMBED_URL_LENGTH)),
+    url: v.pipe(v.string(), v.maxLength(MAX_GENERIC_EMBED_URL_LENGTH)),
     playing: v.boolean(),
     position: PositionSchema,
     /**
@@ -415,7 +414,7 @@ const SingleServerMessageSchema = v.variant("type", [
       /** The new current item's id (ADR 0031): every share and every advance gets one. Absent with a null embed, or from a pre-M6 server. */
       itemId: v.optional(QueueItemIdSchema),
     }),
-    v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
+    v.check((x) => playbackMatchesEmbed(x), "playback without an embed"),
     v.check((x) => x.itemId === undefined || x.embed !== null, "item id without an embed"),
   ),
   /**

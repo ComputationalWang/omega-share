@@ -125,9 +125,10 @@ export function canonicalizeAnyEmbed(input: string, opts: AnyEmbedOptions): AnyE
   return opts.generic ? canonicalizeGenericEmbed(input, opts) : null;
 }
 
-/** Wire rule: playback state exists only for a synced embed (null for a generic one). */
+/**
+ * Wire rule: playback state only alongside an embed, synced or generic (ADR 0057 §1). An embed with null
+ * playback still parses: a server from before ADR 0057 sends that for a generic embed.
+ */
 export function playbackMatchesEmbed(x: { readonly embed: AnyEmbed | null; readonly playback?: unknown }): boolean {
-  const playback = x.playback ?? null;
-  if (x.embed === null) return playback === null;
-  return isSyncedEmbed(x.embed) || playback === null;
+  return x.embed !== null || (x.playback ?? null) === null;
 }
