@@ -1422,7 +1422,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
 function paneMasks(frames: readonly RoomFrame[]): RoomFrame[] {
   const byKey = new Map(frames.map((f) => [f.key, f]));
   const amber = colorIndex("mustard", 1);
-  return [["glass", "solid"], ["panelglass", "panel"]].flatMap(([glass, solid]) => (["se", "sw"] as const).map((d) => {
+  return ([["glass", "solid"], ["panelglass", "panel"]] as const).flatMap(([glass, solid]) => (["se", "sw"] as const).map((d) => {
     const g = byKey.get(`furniture/partition/${glass}/${d}/back`), s = byKey.get(`furniture/partition/${solid}/${d}/back`);
     if (!g || !s) throw new Error(`partition ${glass}/${d}: no back frame to mask`);
     const img = new Uint8Array(g.w * g.h);
