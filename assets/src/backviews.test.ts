@@ -1,7 +1,7 @@
 // Back views (OME-1997) for the 180° view swap (OME-1961): from the north a viewer sees the far side of every one-sided
 // (CAMERA/FIXED) piece in the partitioned Dank Dungeon. They live on one lazy sheet, `furniture/furniture-back`, under the same
-// key scheme with the turned facing: se → nw, sw → ne. Symmetric pieces (the oval rug, the plants) need none: their front frame is
-// their back.
+// key scheme with the turned facing: se → nw, sw → ne. Pieces that look the same from behind (the oval rug, the plants, the coffee
+// table, the papered partitions) need none: their front frame is their back.
 import { expect, test } from "bun:test";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -14,8 +14,8 @@ const TURN: Record<string, string> = { se: "nw", sw: "ne" };
 
 test("covers the Dank Dungeon's one-sided pieces, the flat TV and the projector console included", () => {
   expect(Object.keys(BACK_VIEWS).sort()).toEqual([
-    "arclamp/brass", "coffeetable/wood", "desk/wood", "minibar/fridge", "minibar/wood", "partition/glass", "partition/panel",
-    "partition/panelglass", "partition/solid", "sauna/cedar", "soaktub/cedar", "tv/charcoal", "tv/flat", "washbasin/cream",
+    "arclamp/brass", "desk/wood", "minibar/fridge", "minibar/wood", "partition/panel", "partition/panelglass",
+    "sauna/cedar", "soaktub/cedar", "tv/charcoal", "tv/flat", "washbasin/cream",
   ]);
 });
 
