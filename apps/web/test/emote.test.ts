@@ -1,11 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { EMOTE_BURST, EMOTE_KINDS, EMOTE_REFILL_MS } from "@omega/shared";
-import { EMOTE_MARGIN_MS, PICKER_KINDS, createEmoteBucket, kindForKey } from "../src/emote/emotes";
+import { parseRecipes } from "../src/audio/recipes";
+import shipped from "../../../assets/sound/recipes.json";
+import { EMOTE_MARGIN_MS, EMOTE_SOUNDS, PICKER_KINDS, createEmoteBucket, kindForKey } from "../src/emote/emotes";
 
 // OME-415: the emote picker's order and shortcuts (set (i): 5 stickers, the groove, the wave, then OME-1121's cheer and
 // yawn; keys 1–8), and the
 // local bucket that mirrors the server's (C2: EMOTE_BURST at once, then one per EMOTE_REFILL_MS), a little slower,
 // so the key cools before the server would answer rate_limited (which would cool chat too).
+
+describe("sounds (OME-1969)", () => {
+  test("every emote has its own shipped recipe, and no two recipes are the same sound", () => {
+    const sounds = parseRecipes(shipped)?.sounds ?? {};
+    const names = EMOTE_KINDS.map((k) => EMOTE_SOUNDS[k]);
+    expect(new Set(names).size).toBe(EMOTE_KINDS.length);
+    for (const n of names) expect(sounds[n]).toBeDefined();
+    expect(new Set(names.map((n) => JSON.stringify(sounds[n]))).size).toBe(EMOTE_KINDS.length);
+  });
+});
 
 describe("picker", () => {
   test("is the five stickers in the atlas order, the wave, cheer and yawn, then dance: every EMOTE_KINDS once", () => {
