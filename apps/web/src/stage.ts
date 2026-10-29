@@ -9,7 +9,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6 } from "./furniture";
+import { cutaway, doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -314,6 +314,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let standCells = new Set<number>();
   let sitCells = new Set<number>();
   let inUseStale = true;
+  /** My avatar is behind the partition (OME-1960): it draws cut down, for me only. */
+  let cut = false;
   let drawnPlaying = false;
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
@@ -507,13 +509,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       teleporting.clear();
       standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
       sitCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [] : [cellAt(p.at)])));
+      const mine = placements.find((p) => p.id === s.self);
+      cut = cutaway(nextLayout, mine === undefined ? null : cellAt(mine.at), cut);
       inUseStale = true;
     }
     const playing = s.room?.playback?.playing === true;
     if (inUseStale || playing !== drawnPlaying) {
       inUseStale = false;
       drawnPlaying = playing;
-      view.setInUse(piecesInUse(nextLayout, standCells, playing, sitCells));
+      view.setInUse(piecesInUse(nextLayout, standCells, playing, sitCells, cut));
     }
     // A cat waits rather than walk into someone standing; the editor keeps it home. Cheap: it acts on a freeze change only.
     view.setCatRules(standCells, editing);

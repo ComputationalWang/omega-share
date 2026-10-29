@@ -151,18 +151,21 @@ export const PRESETS: readonly Preset[] = [
     name: "Dank Dungeon",
     blurb: "Twin beds, a whirlpool for two, lights down.",
     // A hotel suite after dark (OME-1670, assets/README.md § "Dank Dungeon"); `pairs` turns on /thrust and /bendover (OME-1671).
+    // Two rooms (OME-1960, the Designer's grid in assets/README.md § "Partition"): the bedroom behind a wall on row 4, glass
+    // where the beds line up, a doorway at (1, 4); the spa in front.
     layout: {
       mood: "night",
       pairs: true,
       furniture: [
         TV,
-        p("bed", 4, 0, "nw"), p("bed", 0, 3, "ne"),
-        p("wingback", 7, 2, "nw"), p("wingback", 7, 4, "nw"), p("coffeetable", 7, 3, "sw"),
+        ...[0, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => p("partition", c, 4, "sw", c >= 5 && c <= 8 ? 1 : 0)),
+        p("bed", 2, 0, "nw"), p("bed", 4, 0, "nw"),
+        p("desk", 7, 0, "sw"), p("minibar", 9, 0, "sw"), p("wingback", 8, 2, "nw"), p("neonsign", 0, 2, "se"),
         p("whirlpool", 2, 7, "ne"),
-        p("desk", 7, 0, "sw"), p("minibar", 9, 0, "sw"),
+        // The grid had (0, 6), but row 6 of the left wall is a fixture segment: a mirror can't hang there.
         p("washbasin", 0, 7, "se"), p("mirror", 0, 7, "se"),
-        p("neonsign", 0, 2, "se"), p("arclamp", 1, 5, "se"),
-        p("runner", 4, 4, "nw", 1), p("monstera", 9, 9, "sw", 1),
+        p("wingback", 7, 7, "nw"), p("coffeetable", 7, 6, "sw"),
+        p("arclamp", 1, 9, "se"), p("monstera", 9, 9, "sw", 1),
       ],
     },
   },

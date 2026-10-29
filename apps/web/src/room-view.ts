@@ -222,6 +222,12 @@ interface Loop extends FurnitureLoop {
   readonly textures: readonly Texture[];
 }
 
+/** A texture swap keeps the old anchor; a partition's cut stub (OME-1960) has its own. */
+function setLoopFrame(sprite: Sprite, t: Texture): void {
+  sprite.texture = t;
+  sprite.anchor.copyFrom(t.defaultAnchor ?? { x: 0, y: 0 });
+}
+
 /** Caches the static room shell as one texture, repainted on the next render (OME-1341). */
 export function bakeShell(layer: Container): void {
   if (layer.isCachedAsTexture) layer.updateCacheTexture();
@@ -614,7 +620,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const l = running[i];
       if (l === undefined) return;
       const t = frame < 0 ? l.idle : (l.textures[frame] ?? l.idle);
-      if (l.sprite.texture !== t) l.sprite.texture = t;
+      if (l.sprite.texture !== t) setLoopFrame(l.sprite, t);
     },
     render,
   });
@@ -1029,7 +1035,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const applyLoops = (): void => {
     const was = running.length;
     running = looping.filter((l) => inUse.has(l.piece));
-    for (const l of looping) if (!inUse.has(l.piece)) l.sprite.texture = l.idle;
+    for (const l of looping) if (!inUse.has(l.piece) && l.sprite.texture !== l.idle) setLoopFrame(l.sprite, l.idle);
     // Nothing looped and nothing does: no frame to ask for (a scene build in a room without loops costs no render).
     if (was > 0 || running.length > 0) animator.setLoops(running);
   };
