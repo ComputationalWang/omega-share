@@ -5,13 +5,22 @@ import furnitureJson from "../../../../assets/furniture/furniture.json";
 import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
 import furnitureV4Json from "../../../../assets/furniture/furniture-v4.json";
 import furnitureV5Json from "../../../../assets/furniture/furniture-v5.json";
-import { FurnitureManifestSchema } from "../furniture";
+import furnitureV7Json from "../../../../assets/furniture/furniture-v7.json";
+import { FurnitureManifestSchema, V7_COLOURS } from "../furniture";
 import { recolourIds } from "../recolours";
 
 /** Colour names per catalogue piece, set (g), v2, batch 6 and the theatre set (the kilim runner is atlas id `rug`); the room atlas pieces have none. */
-const COLOURS: ReadonlyMap<string, readonly string[]> = new Map(
+const COLOURS = new Map<string, readonly string[]>(
   [furnitureJson, furnitureV2Json, furnitureV4Json, furnitureV5Json].flatMap((json) => v.parse(FurnitureManifestSchema, json).meta.omega.pieces.map((p) => [p.id, p.colours] as const)),
 );
+// v7 (OME-1991): its own kinds, and the colours it adds right after an older sheet's (carpet's oval). The tray doesn't offer the
+// older kinds whose sheets (v6) aren't imported here (mirror, minibar, partition) or the tv (OME-1994), so those are skipped.
+for (const p of v.parse(FurnitureManifestSchema, furnitureV7Json).meta.omega.pieces) {
+  const first = V7_COLOURS[`${p.id}/${p.colours[0] ?? ""}`];
+  const have = COLOURS.get(p.id) ?? [];
+  if (first === undefined) COLOURS.set(p.id, p.colours);
+  else if (first === have.length && have.length > 0) COLOURS.set(p.id, [...have, ...p.colours]);
+}
 export const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;
   return kind === "runner" ? "rug" : kind;
