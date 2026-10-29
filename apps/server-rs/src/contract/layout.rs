@@ -1441,6 +1441,23 @@ mod tests {
         assert_eq!(piece_seats(&furniture, 4), None);
     }
 
+    // A 2×2 bed seats its first row only (OME-1982), a lounger its anchor (OME-1989): the ranges follow `layout_seats`.
+    #[test]
+    fn piece_seats_count_the_seats_not_the_footprint() {
+        let f = |kind, col, row, facing| Furniture::new(kind, col, row, facing);
+        let furniture = [
+            f(Kind::Bed, 4, 0, Facing::Nw),
+            f(Kind::Bed, 0, 3, Facing::Ne),
+            f(Kind::Lounger, 6, 6, Facing::Ne),
+            f(Kind::Armchair, 9, 9, Facing::Ne),
+        ];
+        assert_eq!(piece_seats(&furniture, 0), Some(0..2));
+        assert_eq!(piece_seats(&furniture, 1), Some(2..4));
+        assert_eq!(piece_seats(&furniture, 2), Some(4..5));
+        assert_eq!(piece_seats(&furniture, 3), Some(5..6));
+        assert_eq!(layout_seats(&furniture).len(), 6);
+    }
+
     // packages/shared/test/preset-contract.test.ts:5
     #[test]
     fn preset_ids() {
