@@ -1466,6 +1466,35 @@ edit.json and reference.css).
   `runner (4,4) nw` variant 1; `monstera (9,9) sw` variant 1.
 - 8 seats, all facing the TV corner: both beds (2 each), the tub (2), the two wingbacks. Nothing on wall segments 5, 6, 8; the middle diagonal stays clear.
 
+### Two-compartment rework: concept (OME-1956, not shipped)
+
+Board ask (OME-1664): split the room into a bedroom and a spa with an interior wall, a doorway and a glass panel; walking through the
+door swaps your view between "from the south" (bedroom up close) and "from the north" (spa up close). Concept renders, both palettes:
+`preview/dungeon2-south@1x.png` / `@2x`, `preview/dungeon2-north@1x.png` / `@2x`, plus `-night` versions (the room's `night` mood).
+Source: `src/dungeon2-concept.ts` (`bun assets/src/dungeon2-concept.ts`; writes only those previews).
+
+- **Plan:** interior wall on the row 4/5 line. Bedroom rows 5–9 (two beds headboard-to-glass, nightstand, desk with lamp, a bar
+  fridge on its own, a flat TV on the corner console, pink neon, an oval rug in front of the doorway, two wingbacks round a coffee table).
+  Spa rows 0–4 (sauna cabin in the corner, round cedar tub, whirlpool, recliner, two washbasins under a big mirror). Glass cols 3–8
+  (u 36–128, z 16–150): wide enough that both beds, feet included, show whole from the spa. Black frame, one pale stripe across the
+  pane's top-left corner (clear of the beds), leaning the same way in both views. Doorway col 1; the rug sits on its line of sight.
+- **North view = the same room turned 180°.** `Kit` takes `turned` (`src/furniture.ts`): the same 3D model spun about its anchor, so
+  every piece's far side is re-cast, not redrawn. Walls nearest the camera are not drawn in either view (Habbo-style cut-away); each view
+  draws its own two back walls. The far compartment is drawn only through the glass and the doorway, at full colour with its dark
+  carpet one tone lighter so the beds stand out; no haze (the frame and the stripe say "glass").
+- **Wood panelling:** pale oak (`floor` ramp) in the bedroom, smoked wood (`wood`) in the spa, a warm cove strip under the top, and the
+  old dungeon's purple wainscot under a wood rail so the room still belongs to the set. Floors: dark carpet with gold veins, slatted deck.
+- **Pieces that must read at 1×:** sauna in pale cedar (lighter than the wall) with a front window onto the bench, the glowing stone
+  heater and wisps of steam, and a glazed bronze door with a long handle; TV is a flat screen (dark bezel, navy screen lit low in teal, a
+  glint, a power light); the fridge is a cream bar fridge with freezer seam and handles; the mirror is a silver pane in a chunky brass
+  frame with the deck and the sauna faintly reflected and two sheen streaks.
+- **Night is a lighting pass, not a filter:** everything drops to the dark ramp, then light comes back from sources. Lamps throw a pool
+  onto bare floor (lit pixels also rise one tone, so a pool reads on the dark carpet); wall lights (neon, mirror) halo the wall; the cove
+  strip glows and washes down the walls; glass and doorway take a warm tint; glow, ember and neon colours light themselves; the TV
+  screen stays lit. Pools stop at furniture (a "covered" mask), so no disc paints across a piece. The renderer would do the same with a
+  light layer (additive sprites masked to floor and walls); the concept builds its own indexed palette for it.
+- All existing ramps, no palette change.
+
 ### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
 
 Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera
