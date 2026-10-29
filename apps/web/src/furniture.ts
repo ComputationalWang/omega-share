@@ -14,7 +14,7 @@ import { cellOf } from "./walk/path";
  */
 export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)} ${f.target ?? ""}`).join(";");
 /** What the stage redraws on: the layout key and the mood (the night pane mask, OME-1991). */
-export const sceneKey = (l: RoomLayout): string => layoutKey(l);
+export const sceneKey = (l: RoomLayout): string => `${layoutKey(l)}|${l.mood === "night" ? "night" : ""}`;
 /** The classic preset's layout key (OME-1186): its rooms get the holiday theme's decor. */
 const CLASSIC_KEY = layoutKey(DEFAULT_LAYOUT);
 
@@ -32,6 +32,10 @@ const RISER_LIFT: readonly number[] = [0, 10, 20];
 const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
 /** The reworked room's own pieces (assets/furniture/furniture-v7.json, its own lazy sheet, OME-1991); it also holds single colours of older kinds (`V7_COLOURS`). */
 const V7_KINDS: ReadonlySet<FurnitureKind> = new Set(["sauna", "soaktub", "lounger"]);
+/** The glass partitions (glass, panelglass): at night their pane gets v7's amber mask (assets/README.md "Night pane masks"). */
+const GLASS: ReadonlySet<number> = new Set([1, 3]);
+const PANE_ALPHA = 0.2;
+const glassAtNight = (l: RoomLayout, f: Furniture): boolean => l.mood === "night" && f.kind === "partition" && GLASS.has(f.variant ?? 0);
 /** The dungeon shell's interior wall row: carpet (bedroom) before it, deck (spa) after, and the left wall's `split` segment on it (assets/README.md "Shell skin"). */
 const DUNGEON_SPLIT = 4;
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
@@ -125,9 +129,9 @@ for (const [k, n] of Object.entries(V7_COLOURS)) {
   V7_FROM.set(id, Math.min(n, V7_FROM.get(id) ?? n));
 }
 
-/** True if the layout needs the v7 sheet: a v7 kind, an older kind at a v7 variant, or the dungeon shell skin. */
+/** True if the layout needs the v7 sheet: a v7 kind, an older kind at a v7 variant, the dungeon shell skin, or a glass partition at night (its pane). */
 export function usesV7(layout: RoomLayout): boolean {
-  return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || (f.variant ?? 0) >= (V7_FROM.get(f.kind) ?? Infinity));
+  return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || (f.variant ?? 0) >= (V7_FROM.get(f.kind) ?? Infinity) || glassAtNight(layout, f));
 }
 
 /** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
@@ -251,6 +255,8 @@ export interface FurnitureSprite {
   readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
   /** A piece that wanders (the cat, OME-1520): its furniture index, home cell, walk frames per drawn facing, sit frames, empty bed frame and walk frame time. */
   readonly walker?: CatWalker;
+  /** Drawn translucent (the night pane mask); absent is opaque. */
+  readonly alpha?: number;
 }
 
 export interface SceneSeat {
@@ -316,7 +322,11 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       const z = drawn === null ? standDepth(anchor) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar);
       lies.set(i, { style, dir: f.facing, at: { x: anchor.x + off.x, y: anchor.y + off.y }, anchor, z });
     }
-    if (drawn !== null) pushSprites(sprites, f, i, anchor, drawn);
+    if (drawn !== null) {
+      pushSprites(sprites, f, i, anchor, drawn);
+      // Same rect, anchor and depth as the back frame, pushed after it: the stable sort keeps it on top.
+      if (glassAtNight(layout, f)) sprites.push({ key: `furniture/partition/${drawn.colour}/pane/${f.facing}`, x: anchor.x, y: anchor.y, layer: FURNITURE[f.kind].layer, z: depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.back), alpha: PANE_ALPHA });
+    }
     // The flat tv (v7, variant 1) takes the console's place: same anchor, layer and depth, its own frame.
     else if (room !== null) pushRoomPiece(sprites, f, anchor, f.kind === "tv" && found !== undefined ? `furniture/tv/${found.colour}/${f.facing}/back` : "tv/0");
     if (!spec.seats) continue;

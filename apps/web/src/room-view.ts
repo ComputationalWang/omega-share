@@ -1058,7 +1058,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         for (const sheet of sheets) texture ??= sheet?.texture(f.key);
         if (texture === undefined) continue;
         planks ||= f.key.startsWith("floor/");
-        const s = new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z });
+        const s = new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z, alpha: f.alpha ?? 1 });
         furniture.push(s);
         let live = false;
         if (f.use !== undefined) {
