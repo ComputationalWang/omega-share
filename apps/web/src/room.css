@@ -706,6 +706,8 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* M9 W3 (OME-769): "Hide for me". The People key sits beside "?"; its list is in the flow under the room bar (never over
  * the picture). A hidden person's name tag and avatar are dimmed (the avatar by alpha, room-view.ts), set once per change. */
 .room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
+/* Leave (OME-1967) holds the bar's left end, a 44 px target everywhere; the keys after it keep the right end. */
+.room-top > .leave-key { min-width: 44px; min-height: 44px; margin-left: 0; margin-right: auto; }
 .people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
 .people[hidden] { display: none; }
 /* The stacked tablet page (OME-1805): a sheet over the page's foot, so the TV above stays where it is. */
