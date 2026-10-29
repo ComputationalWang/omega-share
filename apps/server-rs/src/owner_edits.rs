@@ -54,7 +54,14 @@ pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberI
         );
     }
     for member_id in dropped {
-        publish_msg(inner, &ServerMessage::Lay { member_id, piece: None });
+        publish_msg(
+            inner,
+            &ServerMessage::Lay {
+                member_id,
+                piece: None,
+                sleeper: None,
+            },
+        );
     }
 }
 

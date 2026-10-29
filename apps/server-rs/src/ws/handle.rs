@@ -498,6 +498,7 @@ fn handle(
                     &ServerMessage::Lay {
                         member_id: member.clone(),
                         piece,
+                        sleeper: None,
                     },
                 );
             }

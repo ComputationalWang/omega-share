@@ -19,12 +19,16 @@ describe("dank dungeon contract", () => {
     for (const k of ["bed", "whirlpool"]) expect((spec(k) as { facings: string[] }).facings).toEqual(["ne", "nw", "se", "sw"]);
   });
 
-  // OME-1982: a queen bed, 2×2, and two sleepers side by side on its first row, whichever way it faces.
-  test("a bed covers 2×2 and seats two side by side in every facing", () => {
+  // OME-1982: a queen bed, 2×2, and two sleepers side by side on its front row, whichever way it faces (OME-2008: the
+  // front row is the anchor row for ne/nw, the last row for se/sw, as the art's seatsByDir draws them).
+  test("a bed covers 2×2 and seats two side by side on its front row in every facing", () => {
     const bed = (facing: string) => ({ kind: "bed", col: 4, row: 0, facing }) as never;
     for (const facing of ["ne", "nw", "se", "sw"]) expect(footprintCells(bed(facing))).toEqual([[4, 0], [4, 1], [5, 0], [5, 1]]);
-    for (const facing of ["ne", "sw"]) expect(layoutSeats({ furniture: [bed(facing)] })).toEqual([{ col: 4, row: 0, facing }, { col: 5, row: 0, facing }] as never);
-    for (const facing of ["nw", "se"]) expect(layoutSeats({ furniture: [bed(facing)] })).toEqual([{ col: 4, row: 0, facing }, { col: 4, row: 1, facing }] as never);
+    const seats = (facing: string) => layoutSeats({ furniture: [bed(facing)] });
+    expect(seats("ne")).toEqual([{ col: 4, row: 0, facing: "ne" }, { col: 5, row: 0, facing: "ne" }]);
+    expect(seats("nw")).toEqual([{ col: 4, row: 0, facing: "nw" }, { col: 4, row: 1, facing: "nw" }]);
+    expect(seats("se")).toEqual([{ col: 5, row: 0, facing: "se" }, { col: 5, row: 1, facing: "se" }]);
+    expect(seats("sw")).toEqual([{ col: 4, row: 1, facing: "sw" }, { col: 5, row: 1, facing: "sw" }]);
   });
 
   test("a bed must fit on the floor and may not overlap", () => {

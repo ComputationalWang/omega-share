@@ -16,7 +16,8 @@ use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell, piece_seats, spec};
 use crate::contract::room::{
-    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, PieceIndex, RoomVisibility, SeatIndex, StandingSlot, Tint,
+    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, PieceIndex, RoomVisibility, SeatIndex, Sleeper,
+    StandingSlot, Tint,
 };
 use crate::contract::state::{
     Conga, MediaMs, Member, PairPose, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
@@ -835,6 +836,7 @@ impl Room {
             hair: None,
             floor_sit: None,
             lying: None,
+            sleeper: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
@@ -2759,6 +2761,65 @@ mod tests {
         r.lie(&a, piece(1));
         r.leave(&a, T0);
         assert_eq!(r.lie(&b, piece(1)), LieResult::Changed { left_seat: false });
+    }
+
+    /// `lie_layout` with a queen bed (piece 1, seats 0 and 1, sleepers 0 and 1) for the first sofa (OME-2008).
+    fn bed_room() -> (Room, MemberId, MemberId, MemberId) {
+        let mut r = room();
+        let mut v: serde_json::Value = serde_json::from_str(&json(&lie_layout())).unwrap();
+        v["furniture"][1] = serde_json::json!({"kind":"bed","col":1,"row":5,"facing":"ne"});
+        r.set_layout(RoomLayout::parse(v.to_string().as_bytes()).unwrap());
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        let c = join(&mut r, "m3", "cleo", None);
+        (r, a, b, c)
+    }
+    fn sleeper(r: &Room, m: &MemberId) -> Option<u8> {
+        r.member(m).unwrap().sleeper.map(Sleeper::get)
+    }
+
+    // OME-2008
+    #[test]
+    fn a_bed_takes_two_sleepers_each_on_a_stable_side() {
+        let (mut r, a, b, c) = bed_room();
+        assert_eq!(r.lie(&a, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!(r.lie(&b, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!((sleeper(&r, &a), sleeper(&r, &b)), (Some(0), Some(1)));
+        assert_eq!(r.lie(&c, piece(1)), LieResult::SeatTaken, "the bed is full");
+        assert_eq!(
+            json(&r.snapshot().members[1]),
+            r#"{"id":"m2","nickname":"bob","avatar":0,"standingSlot":1,"lying":1,"sleeper":1}"#
+        );
+        assert_eq!(r.lie(&b, piece(1)), LieResult::Unchanged, "already there, same side");
+        assert_eq!(r.lie(&a, None), LieResult::Changed { left_seat: false });
+        assert_eq!(sleeper(&r, &a), None);
+        assert_eq!(sleeper(&r, &b), Some(1), "no side swap when the other gets up");
+        assert_eq!(r.lie(&c, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!(sleeper(&r, &c), Some(0));
+        assert!(r.clear_lying(&c));
+        assert_eq!(sleeper(&r, &c), None);
+    }
+
+    #[test]
+    fn a_sleeper_holds_only_their_sides_seat() {
+        let (mut r, a, b, c) = bed_room();
+        r.lie(&a, piece(1));
+        assert_eq!(r.sit(&b, Some(seat(0))), SitResult::SeatTaken, "alice sleeps on side 0");
+        assert_eq!(r.sit(&b, Some(seat(1))), SitResult::Ok, "side 1 is free to sit on");
+        assert_eq!(r.lie(&c, piece(1)), LieResult::SeatTaken, "bob sits on side 1");
+        assert_eq!(
+            r.lie(&b, piece(1)),
+            LieResult::Changed { left_seat: true },
+            "bob lies down from his seat"
+        );
+        assert_eq!(sleeper(&r, &b), Some(1));
+    }
+
+    #[test]
+    fn a_sofa_lier_has_no_sleeper() {
+        let (mut r, a, _) = lie_room();
+        r.lie(&a, piece(1));
+        assert_eq!(sleeper(&r, &a), None);
     }
 
     #[test]

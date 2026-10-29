@@ -257,6 +257,7 @@ pub fn lay_null(inner: &mut RoomInner, member: &MemberId) {
             &ServerMessage::Lay {
                 member_id: member.clone(),
                 piece: None,
+                sleeper: None,
             },
         );
     }
