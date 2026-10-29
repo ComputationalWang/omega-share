@@ -10,6 +10,9 @@ export const EMOTE_LABELS: Readonly<Record<EmoteKind, string>> = { heart: "Heart
 /** The UI sprite class that shows `kind` in the picker and as its badge; dance has no art of its own (OME-1378), so it borrows the sound icon. */
 export const emoteIcon = (kind: EmoteKind): string => (kind === "dance" ? "ui-icon-sound" : `ui-emote-pick-${kind}`);
 
+/** The room sound each emote plays (OME-1969): its own recipe in assets/sound/recipes.json, so they're told apart by ear. */
+export const EMOTE_SOUNDS: Readonly<Record<EmoteKind, string>> = { heart: "emote.heart", laugh: "emote.laugh", question: "emote.question", exclaim: "emote.exclaim", clap: "emote.clap", wave: "emote.wave", cheer: "emote.cheer", yawn: "emote.yawn", dance: "emote.dance" };
+
 /** The emote a key (KeyboardEvent.key) picks, or null. */
 export function kindForKey(key: string): EmoteKind | null {
   if (key.length !== 1) return null;
