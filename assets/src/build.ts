@@ -43,8 +43,8 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
-import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
-import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
+import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, V7_COLOURS, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
@@ -1388,13 +1388,17 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     seen.add(f.key);
   }
   // Catalogue v2 and batch 6 are their own lazy sheets with the same schema, so rooms that only use v1 pieces don't download them.
-  const sheetOf = (id: string): string => (CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
-  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256], ["furniture-v6", 256]] as const) {
-    const ids = new Set(pieces.filter((p) => sheetOf(p.id) === name).map((p) => p.id));
-    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4" || name === "furniture-v5" || name === "furniture-v6");
+  const shell = buildPanelShell();
+  // OME-1977: v7 also takes single colours of older kinds (V7_COLOURS), so a sheet is picked per id and colour.
+  const sheetOf = (id: string, colour: string): string =>
+    CATALOGUE_V7.has(id) || V7_COLOURS.has(`${id}/${colour}`) ? "furniture-v7" : CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture";
+  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256], ["furniture-v6", 256], ["furniture-v7", 512]] as const) {
+    const mine = pieces.map((p) => ({ ...p, colours: p.colours.filter((c) => sheetOf(p.id, c) === name) })).filter((p) => p.colours.length > 0);
+    const sheetFrames = frames.filter((f) => { const [, id = "", colour = ""] = f.key.split("/"); return sheetOf(id, colour) === name; });
+    writeFurnitureAtlas(name, name === "furniture-v7" ? [...sheetFrames, ...shell] : sheetFrames, mine, maxW, name !== "furniture" && name !== "furniture-v2");
   }
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
-  for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
+  for (const f of [...roomFrames, ...frames, ...shell]) all.set(f.key, f);
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
   buildFurnitureSheet(pieces, all);
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
@@ -1806,6 +1810,8 @@ interface RoomPlan {
   rug?: boolean;
   /** False leaves the corner console out (a layout with the big screen instead, OME-1639). */
   tv?: boolean;
+  /** A skinned shell (OME-1977, the v7 panelling): frame keys per floor cell and wall segment instead of the default room's. */
+  shell?: { floor: (c: number, r: number) => string; l: (i: number) => string; r: (i: number) => string; corner: string; lEnd: string; rEnd: string };
 }
 
 function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: RoomPlan, hooks: RoomHooks = {}): void {
@@ -1843,16 +1849,17 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
     }
   };
   const floorKey = (key: string, c: number, r: number): string => (plan.rug === false && key.startsWith("rug/") ? `floor/${String((c * 3 + r) % 2)}` : key);
-  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(floorKey(key, c, r), cellAt(c, r).x, cellAt(c, r).y); }); });
+  const sh = plan.shell;
+  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(sh ? sh.floor(c, r) : floorKey(key, c, r), cellAt(c, r).x, cellAt(c, r).y); }); });
   // Edit mode lays the grid and markers on the floor (over rugs) before the walls and console stand on it.
   if (hooks.floor) { drawLayer("floor"); hooks.floor(draw); }
   for (let i = 0; i < 10; i++) {
-    draw(layout.walls.l[i] ?? "wall/l/plain", cellAt(0, i).x, cellAt(0, i).y);
-    draw(layout.walls.r[i] ?? "wall/r/plain", cellAt(i, 0).x, cellAt(i, 0).y);
+    draw(sh ? sh.l(i) : layout.walls.l[i] ?? "wall/l/plain", cellAt(0, i).x, cellAt(0, i).y);
+    draw(sh ? sh.r(i) : layout.walls.r[i] ?? "wall/r/plain", cellAt(i, 0).x, cellAt(i, 0).y);
   }
-  draw("wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
-  draw("wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
-  draw("wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
+  draw(sh?.corner ?? "wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
+  draw(sh?.lEnd ?? "wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
+  draw(sh?.rEnd ?? "wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
   if (plan.tv !== false) draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
   // Floor layer (rugs) and wall layer (frames) go with the static background; everything else is depth-sorted.
   if (!hooks.floor) drawLayer("floor");
@@ -1876,7 +1883,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
 
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
 
-const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "avatars/dungeon.png", "avatars/dungeon.json"];
+const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "furniture/furniture-v7.png", "furniture/furniture-v7.json", "avatars/dungeon.png", "avatars/dungeon.json"];
 const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
 
 /** The night mood (OME-1502, `apps/web/src/room.css`): rgb(36 48 110 / 0.5) multiplied over the room. Per colour, so a palette. */
@@ -1969,6 +1976,8 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
 
   buildFurnitureRoom(pieces, all, "furniture-v6-room", showroomV6());
   buildSeatContact(pieces, all, V6_SEATS, "furniture-v6-seats@2x.png");
+  buildFurnitureRoom(pieces, all, "furniture-v7-room", showroomV7());
+  buildSeatContact(pieces, all, ["soaktub", "lounger"], "furniture-v7-seats@2x.png");
   // The preset with a full house: every seat taken, plus juno bent over at (5,6) with mo behind her.
   const sit = new Map<string, string[]>([["bed:4,0", ["kiki", "pip"]], ["bed:0,3", ["mo", "juno"]], ["wingback:7,2", ["pip"]], ["wingback:7,4", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
   const placements: Placement[] = (PRESETS.find((x) => x.id === "dank-dungeon")?.layout.furniture ?? []).filter((f) => f.kind !== "tv").map((f) => {
@@ -1987,6 +1996,15 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   for (const [name, pal] of [["dungeon-room", PALETTE], ["dungeon-room-night", NIGHT_PALETTE]] as const) {
     writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, pal));
     writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), pal));
+  }
+  // OME-1977: the reworked room with every v7 piece, as everyone sees it and as a viewer in the bedroom sees it (cut).
+  for (const cut of [false, true]) {
+    const two = composeFurnitureRoom(pieces, all, dungeon2Plan(cut));
+    for (const [name, pal] of [["dungeon2-room", PALETTE], ["dungeon2-room-night", NIGHT_PALETTE]] as const) {
+      const file = `${name}${cut ? "-cut" : ""}`;
+      writeFileSync(join(ROOT, "preview", `${file}@1x.png`), encodeIndexedPng(two.W, two.H, two.img, pal));
+      writeFileSync(join(ROOT, "preview", `${file}@2x.png`), encodeIndexedPng(two.W * 2, two.H * 2, upscale(two.img, two.W, two.H, 2), pal));
+    }
   }
   // OME-1959: the two-compartment grid for the reworked preset, as everyone sees it and as a viewer in the bedroom sees it (cut).
   for (const cut of [false, true]) {
@@ -2028,6 +2046,78 @@ function partitionPlan(cut: boolean): RoomPlan {
     ],
     standing: [["pip/idle/se/0", 6, 2]],
     rug: false,
+  };
+}
+
+/** The reworked Dank Dungeon (OME-1977) on the OME-1959 grid, every piece from v7: panelled shell (oak bedroom behind, smoked spa
+ *  in front), the panelled interior wall with its glass and doorway, the flat TV, the bar fridge, the oval rug by the doorway; the
+ *  sauna, the cedar tub, the whirlpool, two loungers and the basins under two tall mirrors in the spa. */
+function dungeon2Plan(cut: boolean): RoomPlan {
+  const wall: Placement[] = Array.from({ length: 10 }, (_, c) => c)
+    .filter((c) => c !== PARTITION_DOOR)
+    .map((c) => ({ id: "partition", colour: PARTITION_GLASS.includes(c) ? "panelglass" : "panel", dir: "sw", col: c, row: PARTITION_ROW, cut }));
+  const side = (r: number): string => (r < PARTITION_ROW ? "oak" : r === PARTITION_ROW ? "split" : "smoke");
+  return {
+    placements: [
+      { id: "tv", colour: "flat", dir: "se", col: 0, row: 0 },
+      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 0, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0 },
+      { id: "desk", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "minibar", colour: "fridge", dir: "sw", col: 9, row: 0 },
+      { id: "wingback", colour: "ginger", dir: "nw", col: 8, row: 2 },
+      { id: "neonsign", colour: "pink", dir: "se", col: 0, row: 1 },
+      { id: "carpet", colour: "oval", dir: "se", col: 0, row: 2 },
+      ...wall,
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 5 },
+      { id: "mirror", colour: "silver", dir: "se", col: 0, row: 5 },
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 6 },
+      { id: "mirror", colour: "silver", dir: "se", col: 0, row: 6 },
+      { id: "sauna", colour: "cedar", dir: "se", col: 0, row: 8 },
+      { id: "soaktub", colour: "cedar", dir: "se", col: 3, row: 6, sitters: ["juno", ""] },
+      { id: "whirlpool", colour: "teal", dir: "ne", col: 6, row: 8, use: 0 },
+      { id: "lounger", colour: "teak", dir: "nw", col: 8, row: 5, sitters: ["", "mo"] },
+      { id: "lounger", colour: "teak", dir: "nw", col: 9, row: 5 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 9 },
+    ],
+    standing: [["pip/idle/se/0", 5, 2]],
+    rug: false,
+    tv: false,
+    shell: {
+      floor: (c, r) => `floor/${r < PARTITION_ROW ? "carpet" : r === PARTITION_ROW ? "split" : "deck"}/${String((c * 3 + r) % 2)}`,
+      l: (i) => `wall/l/${side(i)}`,
+      r: () => "wall/r/oak",
+      corner: "wall/corner/oak",
+      lEnd: "wall/l/end/smoke",
+      rEnd: "wall/r/end/oak",
+    },
+  };
+}
+
+/** Every v7 piece and colour in each facing it ships (the lounger in all four), seats taken and free, on the spa skin. */
+function showroomV7(): RoomPlan {
+  return {
+    placements: [
+      { id: "sauna", colour: "cedar", dir: "se", col: 0, row: 1 },
+      { id: "sauna", colour: "cedar", dir: "sw", col: 6, row: 0 },
+      { id: "mirror", colour: "silver", dir: "sw", col: 3, row: 0 },
+      { id: "mirror", colour: "silver", dir: "se", col: 0, row: 4 },
+      { id: "minibar", colour: "fridge", dir: "sw", col: 4, row: 0 },
+      { id: "minibar", colour: "fridge", dir: "se", col: 0, row: 5 },
+      { id: "soaktub", colour: "cedar", dir: "se", col: 3, row: 3, sitters: ["kiki", "pip"] },
+      { id: "lounger", colour: "teak", dir: "ne", col: 2, row: 7, sitters: ["juno", ""] },
+      { id: "lounger", colour: "teak", dir: "nw", col: 7, row: 3 },
+      { id: "lounger", colour: "teak", dir: "se", col: 9, row: 3, sitters: ["", "mo"] },
+      { id: "lounger", colour: "teak", dir: "sw", col: 6, row: 8 },
+      { id: "carpet", colour: "oval", dir: "se", col: 6, row: 5 },
+      { id: "tv", colour: "flat", dir: "se", col: 0, row: 0 },
+      { id: "partition", colour: "panel", dir: "se", col: 1, row: 7 },
+      { id: "partition", colour: "panelglass", dir: "se", col: 1, row: 8 },
+      { id: "partition", colour: "panel", dir: "se", col: 1, row: 9, cut: true },
+    ],
+    standing: [],
+    rug: false,
+    tv: false,
+    shell: { floor: (c, r) => `floor/${r < 3 ? "carpet" : "deck"}/${String((c * 3 + r) % 2)}`, l: () => "wall/l/smoke", r: () => "wall/r/oak", corner: "wall/corner/oak", lEnd: "wall/l/end/smoke", rEnd: "wall/r/end/oak" },
   };
 }
 

@@ -32,9 +32,9 @@ test("every v7 piece has its frames: back per facing, front where it seats someo
     if (p.cut) expect(v7.frames[`furniture/${p.id}/${c}/cut/${d}`]).toBeDefined();
   }
   const by = (id: string): Piece | undefined => v7.meta.omega.pieces.find((p) => p.id === id);
-  expect(by("soaktub")?.layersByDir.se).toEqual(["back", "front"]);
-  expect(by("soaktub")?.seatsByDir?.se?.length).toBe(2);
-  expect(by("lounger")?.seatsByDir?.ne?.length).toBe(2);
+  expect(by("soaktub")?.layersByDir["se"]).toEqual(["back", "front"]);
+  expect(by("soaktub")?.seatsByDir?.["se"]?.length).toBe(2);
+  expect(by("lounger")?.seatsByDir?.["ne"]?.length).toBe(2);
   expect(by("partition")?.cut).toBe(true);
 });
 
