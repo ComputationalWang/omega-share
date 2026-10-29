@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { coloursOf } from "../src/editor/colours";
-import { AWAITING_ART, TRAY_TABS, VARIANTS_AWAITING_ART } from "../src/editor/draft";
+import { AWAITING_ART, TRAY_TABS } from "../src/editor/draft";
 
-// The v7 pieces in the tray (OME-1991): sauna, soaktub and lounger, and the oval carpet; the flat tv waits for its swatch (OME-1994).
+// The v7 pieces in the tray (OME-1991): sauna, soaktub and lounger, the oval carpet, and the flat tv (swatch from OME-1994).
 
 const edit = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), await Bun.file(new URL("../../../assets/ui/edit.json", import.meta.url)).json()).frames;
 const tray = (): string[] => TRAY_TABS.flatMap((t) => [...t.kinds]);
@@ -17,8 +17,9 @@ describe("the tray offers the v7 pieces", () => {
     expect(AWAITING_ART.has("whirlpool")).toBe(true);
   });
 
-  test("only the tv's variants still wait for art", () => {
-    expect([...VARIANTS_AWAITING_ART]).toEqual(["tv"]);
+  test("the tv offers the console and the flat screen, each with its swatch and thumb", () => {
+    expect(coloursOf("tv")).toEqual(["charcoal", "flat"]);
+    for (const c of coloursOf("tv")) expect([edit[`swatch/${c}`], edit[`thumb/tv/${c}`]]).not.toContain(undefined);
   });
 
   test("their colours and the oval carpet come from v7", () => {

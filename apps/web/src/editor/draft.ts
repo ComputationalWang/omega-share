@@ -179,8 +179,6 @@ export interface TrayTab {
 
 // shortcut: the Dank Dungeon v6 kinds but the queen bed (OME-1984) are not in the tray yet; the preset places them, the owner can't add more. Wire the tray when asked.
 export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
-// shortcut: the flat tv (variant 1, v7) has no `swatch/flat` yet (OME-1994); the tray offers the tv's variant 0 only until it does.
-export const VARIANTS_AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["tv"]);
 const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => !AWAITING_ART.has(k) && pick(k));
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */

@@ -5,7 +5,7 @@ import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "
 import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
-import { standDepth, type CatWalker, type Scene } from "./furniture";
+import { standDepth, type CatWalker, type FurnitureSprite, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
 import { oneShotFrame, type AvatarEmote } from "./walk/motion";
@@ -221,6 +221,11 @@ interface Loop extends FurnitureLoop {
   readonly piece: number;
   readonly idle: Texture;
   readonly textures: readonly Texture[];
+}
+
+/** A scene sprite; the live copy and the baked copy are both built here, so they draw alike (OME-2002). */
+export function sceneSprite(texture: Texture, f: FurnitureSprite): Sprite {
+  return new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z, alpha: f.alpha ?? 1 });
 }
 
 /** Caches the static room shell as one texture, repainted on the next render (OME-1341). */
@@ -1059,7 +1064,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         for (const sheet of sheets) texture ??= sheet?.texture(f.key);
         if (texture === undefined) continue;
         planks ||= f.key.startsWith("floor/");
-        const s = new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z });
+        const s = sceneSprite(texture, f);
         furniture.push(s);
         let live = false;
         if (f.use !== undefined) {
@@ -1086,7 +1091,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         pieceSprites.push(s);
         pieceLoops.push(live);
         // A loop's frames change: it has no baked copy.
-        if (!live) baked.addChild(new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z }));
+        if (!live) baked.addChild(sceneSprite(texture, f));
       }
       if (clocks.length > 0) {
         clockSteps = handSteps(new Date());

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Container, Sprite, Ticker } from "pixi.js";
-import { bakeShell, quietSystemTicker } from "../src/room-view";
+import { Container, Sprite, Texture, Ticker } from "pixi.js";
+import { bakeShell, quietSystemTicker, sceneSprite } from "../src/room-view";
 
 // OME-185: the room renders on demand, but Pixi's SchedulerSystem (texture GC timers) and EventsTicker sit on
 // Ticker.system, which auto-starts a requestAnimationFrame loop that ran every frame for nothing (trace: ~0.06 ms/frame).
@@ -73,5 +73,21 @@ describe("bakeShell", () => {
     shell.addChild(new Sprite());
     bakeShell(shell);
     expect(shell.renderGroup.textureNeedsUpdate).toBe(true);
+  });
+});
+
+// OME-2002: the night pane drew opaque because the baked copy of a static object dropped the scene's alpha.
+describe("sceneSprite", () => {
+  const solid = { key: "furniture/partition/amber/pane/se", x: 10, y: 20, layer: "object", z: 3 } as const;
+  const pane = { ...solid, alpha: 0.2 };
+
+  test("keeps the scene's alpha, so a baked copy draws the pane translucent", () => {
+    const s = sceneSprite(Texture.WHITE, pane);
+    expect(s.alpha).toBe(0.2);
+    expect([s.label, s.x, s.y, s.zIndex]).toEqual([pane.key, 10, 20, 3]);
+  });
+
+  test("a sprite without alpha is opaque", () => {
+    expect(sceneSprite(Texture.WHITE, solid).alpha).toBe(1);
   });
 });
