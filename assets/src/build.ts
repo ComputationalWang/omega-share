@@ -1388,7 +1388,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     seen.add(f.key);
   }
   // Catalogue v2 and batch 6 are their own lazy sheets with the same schema, so rooms that only use v1 pieces don't download them.
-  const shell = buildPanelShell();
+  const shell = [...buildPanelShell(), ...paneMasks(frames)];
   // OME-1977: v7 also takes single colours of older kinds (V7_COLOURS), so a sheet is picked per id and colour.
   const sheetOf = (id: string, colour: string): string =>
     CATALOGUE_V7.has(id) || V7_COLOURS.has(`${id}/${colour}`) ? "furniture-v7" : CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture";
@@ -1414,6 +1414,25 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildDungeon(pieces, all);
   buildLying(pieces, all);
   return { frames, pieces, all };
+}
+
+/** Night pane masks (OME-1994), for the v7 sheet: `furniture/partition/<glass|panelglass>/pane/<dir>`, an opaque amber fill of the
+ *  pixels the matching solid wall covers and the glass one leaves open, on the glass `<dir>/back` frame's rect and anchor. The
+ *  renderer lays it over the pane at about 20% alpha in the `night` mood. */
+function paneMasks(frames: readonly RoomFrame[]): RoomFrame[] {
+  const byKey = new Map(frames.map((f) => [f.key, f]));
+  const amber = colorIndex("mustard", 1);
+  return ([["glass", "solid"], ["panelglass", "panel"]] as const).flatMap(([glass, solid]) => (["se", "sw"] as const).map((d) => {
+    const g = byKey.get(`furniture/partition/${glass}/${d}/back`), s = byKey.get(`furniture/partition/${solid}/${d}/back`);
+    if (!g || !s) throw new Error(`partition ${glass}/${d}: no back frame to mask`);
+    const img = new Uint8Array(g.w * g.h);
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+      const sx = x - g.ax + s.ax, sy = y - g.ay + s.ay;
+      const wall = sx >= 0 && sy >= 0 && sx < s.w && sy < s.h && (s.img[sy * s.w + sx] ?? 0) !== 0;
+      if (wall && (g.img[y * g.w + x] ?? 0) === 0) img[y * g.w + x] = amber;
+    }
+    return { ...g, key: `furniture/partition/${glass}/pane/${d}`, img };
+  }));
 }
 
 /** `furniture/<name>.png` + `.json` (PixiJS v8 atlas, `meta.omega.pieces`) and its `preview/<name>-atlas@2x.png`. */
