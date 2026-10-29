@@ -53,7 +53,7 @@ describe("lie", () => {
     }
     rejects(ServerMessageSchema, { type: "lay", memberId: "m1", piece: 32 });
     // OME-2008: a sleeper on a `sleep` piece names their side; absent means 0.
-    for (const sleeper of [0, 1]) {
+    for (const sleeper of [0, 1] as const) {
       const msg = { type: "lay", memberId: "m1", piece: 3, sleeper } as const;
       expect(parseServerMessage(JSON.stringify(msg))).toEqual(msg);
     }

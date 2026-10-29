@@ -136,9 +136,9 @@ describe("lying down (OME-1691)", () => {
     const BED = SOFA;
     const { a, b, owner } = await setup(layout.furniture.map((f, i) => (i === BED ? { kind: "bed" as const, col: 7, row: 7, facing: "se" as const } : f)));
     a.client.send({ type: "lie", piece: BED });
-    expect(await b.client.next("lay")).toEqual({ type: "lay", memberId: a.snapshot.self, piece: BED, sleeper: 0 });
+    for (const c of clients) expect(await c.next("lay")).toEqual({ type: "lay", memberId: a.snapshot.self, piece: BED, sleeper: 0 });
     b.client.send({ type: "lie", piece: BED });
-    expect(await a.client.next("lay")).toEqual({ type: "lay", memberId: b.snapshot.self, piece: BED, sleeper: 1 });
+    for (const c of clients) expect(await c.next("lay")).toEqual({ type: "lay", memberId: b.snapshot.self, piece: BED, sleeper: 1 });
     owner.client.send({ type: "lie", piece: BED });
     expect((await owner.client.next("error")).code).toBe("seat_taken");
     for (const seat of [6, 7]) {
@@ -146,7 +146,7 @@ describe("lying down (OME-1691)", () => {
       expect((await owner.client.next("error")).code).toBe("seat_taken");
     }
     a.client.send({ type: "lie", piece: null });
-    expect(await b.client.next("lay")).toEqual({ type: "lay", memberId: a.snapshot.self, piece: null });
+    for (const c of clients) expect(await c.next("lay")).toEqual({ type: "lay", memberId: a.snapshot.self, piece: null });
     const late = await join("late");
     expect(late.snapshot.room.members.find((m) => m.id === b.snapshot.self)).toMatchObject({ lying: BED, sleeper: 1 });
     owner.client.send({ type: "sit", seat: 6 });

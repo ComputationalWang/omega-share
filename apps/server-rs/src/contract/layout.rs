@@ -289,8 +289,8 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bigscreen => Spec::new(Object, FIXED, 1, 1),
         Kind::Aislelight => Spec::new(Floor, ON_FLOOR, 1, 1),
         Kind::Carpet => Spec::new(Floor, FIXED, 2, 2).variants(2),
-        // A queen bed (OME-1982): 2×2, two sleepers side by side on its first row.
-        Kind::Bed => Spec::new(Object, ALL, 2, 2).seated(),
+        // A queen bed (OME-1982): 2×2, two sleepers side by side on its front row (ADR 0057, OME-2008).
+        Kind::Bed => Spec::new(Object, ALL, 2, 2).seated().lie(LieStyle::Sleep),
         Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Minibar => Spec::new(Object, CAMERA, 1, 1).variants(2),
@@ -356,19 +356,25 @@ pub fn footprint_cells(f: &Furniture) -> Vec<(u32, u32)> {
         .collect()
 }
 
-/// The seat cells of one piece: its first row (ADR 0057), at most `seat_cells` of it from the anchor.
+/// The seat cells of one piece: its first row (ADR 0057), at most `seat_cells` of it from the anchor. A `sleep` piece
+/// seats along its front row instead, where the art lays its sleepers: the last row for se/sw (OME-2008).
 fn seat_cells(f: &Furniture) -> impl Iterator<Item = (u32, u32)> + '_ {
     let s = spec(f.kind);
-    let first_row = move |&(col, row): &(u32, u32)| {
+    let back = if s.lie == Some(LieStyle::Sleep) && matches!(f.facing, Facing::Se | Facing::Sw) {
+        u32::from(s.rows).saturating_sub(1)
+    } else {
+        0
+    };
+    let seat_row = move |&(col, row): &(u32, u32)| {
         if turned(f) {
-            col == u32::from(f.col)
+            col == u32::from(f.col) + back
         } else {
-            row == u32::from(f.row)
+            row == u32::from(f.row) + back
         }
     };
     footprint_cells(f)
         .into_iter()
-        .filter(first_row)
+        .filter(seat_row)
         .take(if s.seats { s.seat_cells } else { 0 })
 }
 

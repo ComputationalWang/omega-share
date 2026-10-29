@@ -14,7 +14,7 @@ use crate::contract::constants::{
 };
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
-use crate::contract::layout::{RoomLayout, default_layout, door_cell, piece_seats, spec};
+use crate::contract::layout::{LieStyle, RoomLayout, default_layout, door_cell, piece_seats, spec};
 use crate::contract::room::{
     Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, PieceIndex, RoomVisibility, SeatIndex, Sleeper,
     StandingSlot, Tint,
@@ -564,8 +564,8 @@ impl Room {
             };
         };
         let idx = usize::from(piece.get());
-        let lie_ok = self.layout.furniture().get(idx).is_some_and(|f| spec(f.kind).lie.is_some());
-        let Some(seats) = piece_seats(self.layout.furniture(), idx).filter(|_| lie_ok) else {
+        let style = self.layout.furniture().get(idx).and_then(|f| spec(f.kind).lie);
+        let Some((style, seats)) = style.zip(piece_seats(self.layout.furniture(), idx)) else {
             return LieResult::BadCell;
         };
         if self
@@ -576,36 +576,60 @@ impl Room {
         {
             return LieResult::Unchanged;
         }
-        let lain_on = self.lying_by_others(slot).any(|p| p == piece);
-        let seat_held = seats
-            .into_iter()
-            .any(|i| self.seats.get(i).copied().flatten().is_some_and(|o| o != slot));
-        if lain_on || seat_held {
-            return LieResult::SeatTaken;
-        }
+        let held = |i: &usize| self.seats.get(*i).copied().flatten().is_some_and(|o| o != slot);
+        let sleeper = if style == LieStyle::Sleep {
+            // The lowest side whose seat is free (or theirs) and nobody sleeps on (OME-2008).
+            let side = seats
+                .clone()
+                .enumerate()
+                .filter(|(_, i)| !held(i))
+                .filter_map(|(n, _)| u64::try_from(n).ok().and_then(Sleeper::new))
+                .find(|&side| {
+                    !self
+                        .lying_by_others(slot)
+                        .any(|m| m.lying == Some(piece) && m.sleeper == Some(side))
+                });
+            let Some(side) = side else {
+                return LieResult::SeatTaken;
+            };
+            Some(side)
+        } else {
+            if self.lying_by_others(slot).any(|m| m.lying == Some(piece)) || seats.clone().any(|i| held(&i)) {
+                return LieResult::SeatTaken;
+            }
+            None
+        };
         let left_seat = self.seats.contains(&Some(slot));
         self.free(slot);
         if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
             rec.member.cell = None;
             rec.member.floor_sit = None;
             rec.member.lying = Some(piece);
+            rec.member.sleeper = sleeper;
         }
         self.prune_conga();
         LieResult::Changed { left_seat }
     }
 
-    /// The pieces everyone but `slot` lies on.
-    fn lying_by_others(&self, slot: Slot) -> impl Iterator<Item = PieceIndex> + '_ {
+    /// Everyone but `slot` who lies on a piece.
+    fn lying_by_others(&self, slot: Slot) -> impl Iterator<Item = &Member> + '_ {
         self.order
             .iter()
             .filter(move |&&s| s != slot)
-            .filter_map(|&s| self.slots.get(usize::from(s))?.as_ref()?.member.lying)
+            .filter_map(|&s| self.slots.get(usize::from(s))?.as_ref())
+            .map(|r| &r.member)
+            .filter(|m| m.lying.is_some())
     }
 
-    /// Whether someone but `slot` lies on the piece that gives seat `seat`.
+    /// Whether someone but `slot` lies on the piece that gives seat `seat`: on any of its seats, or a sleeper on theirs.
     fn seat_lain_on(&self, seat: usize, slot: Slot) -> bool {
-        self.lying_by_others(slot)
-            .any(|p| piece_seats(self.layout.furniture(), usize::from(p.get())).is_some_and(|r| r.contains(&seat)))
+        self.lying_by_others(slot).any(|m| {
+            let seats = m.lying.and_then(|p| piece_seats(self.layout.furniture(), usize::from(p.get())));
+            seats.is_some_and(|mut r| match m.sleeper {
+                Some(side) => r.nth(usize::from(side.get())) == Some(seat),
+                None => r.contains(&seat),
+            })
+        })
     }
 
     /// Gets `member` up from a piece; false if they were not lying (OME-1691).
@@ -613,6 +637,7 @@ impl Room {
         let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
             return false;
         };
+        rec.member.sleeper = None;
         rec.member.lying.take().is_some()
     }
 
@@ -627,6 +652,7 @@ impl Room {
             let at = usize::from(p.get());
             if old.furniture().get(at) != self.layout.furniture().get(at) {
                 rec.member.lying = None;
+                rec.member.sleeper = None;
                 up.push(rec.member.id.clone());
             }
         }
