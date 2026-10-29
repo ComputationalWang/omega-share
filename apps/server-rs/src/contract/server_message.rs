@@ -497,7 +497,7 @@ mod tests {
         refused(&snap(&room("").replace("youtube.com/embed", "evil.example/embed")));
         refused(&snap(&room("").replace(r#","embed":"#, r#","embed2":"#))); // embed is required
         refused(&snap(&room("").replace(r#""id":"lobby""#, r#""id":"../etc""#)));
-        // ADR 0024: a synced embed's playback is a state, a generic embed's is null
+        // ADR 0057 §1: synced or generic, an embed may carry playback; only no embed means no playback
         let generic = r#"{"provider":"generic","host":"player.example.com","url":"https://player.example.com/embed/42"}"#;
         let playback = r#"{"playing":true,"position":0,"rate":1,"at":1,"rev":1,"action":"load","by":null}"#;
         let base = |embed: &str, p: &str, extra: &str| {
@@ -508,7 +508,7 @@ mod tests {
         };
         assert!(parse_server_message(&snap(&base(YT, playback, ""))).is_some());
         assert!(parse_server_message(&snap(&base(generic, "null", ""))).is_some());
-        refused(&snap(&base(generic, playback, "")));
+        assert!(parse_server_message(&snap(&base(generic, playback, ""))).is_some());
         refused(&snap(&base("null", playback, "")));
         refused(&snap(&base("null", "null", r#","itemId":"i1""#)));
         let queued = format!(r#","itemId":"q1","queue":[{{"id":"q1","embed":{YT},"by":null}}]"#);

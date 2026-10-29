@@ -903,8 +903,9 @@ mod tests {
     #[test]
     fn urls_are_capped_in_utf16_units() {
         let control = |u: String| json!({"type":"control","url":u,"playing":true,"position":0});
-        assert!(parse(&control("😀".repeat(64))).is_some());
-        assert!(parse(&control("😀".repeat(65))).is_none());
+        // MAX_GENERIC_EMBED_URL_LENGTH (ADR 0057 §1)
+        assert!(parse(&control("😀".repeat(512))).is_some());
+        assert!(parse(&control("😀".repeat(513))).is_none());
         assert!(parse(&json!({"type":"queue-add","url":"a".repeat(2048)})).is_some());
         assert!(parse(&json!({"type":"queue-add","url":"a".repeat(2049)})).is_none());
     }

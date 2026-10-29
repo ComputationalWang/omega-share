@@ -22,6 +22,12 @@ describe("playbackCaps", () => {
     });
   }
 
+  test("generic: seekable, rate settable, never live on the server (ADR 0057 §1)", () => {
+    const caps = playbackCaps({ provider: "generic", host: "kwik.cx", url: "https://kwik.cx/e/ockxKpNdX2Kh" });
+    expect(caps).toEqual({ seek: true, live: false, rate: "yes" });
+    expect(Object.isFrozen(caps)).toBe(true);
+  });
+
   test("returns a shared frozen object (no allocation per call)", () => {
     const a = playbackCaps(embed("https://youtu.be/dQw4w9WgXcQ"));
     const b = playbackCaps(embed("https://youtu.be/aaaaaaaaaaa"));

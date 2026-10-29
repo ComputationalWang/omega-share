@@ -1,7 +1,7 @@
 //! Ports of `packages/shared/test/{embed,embed-providers,generic-embed,capabilities}.test.ts`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "tests")]
 
-use omega_server::contract::capabilities::{PlaybackCaps, RateSupport, playback_caps};
+use omega_server::contract::capabilities::{PlaybackCaps, RateSupport, any_playback_caps, playback_caps};
 use omega_server::contract::constants::{MAX_EMBED_URL_LENGTH, MAX_URL_LENGTH};
 use omega_server::contract::embed::{Embed, canonicalize_embed, is_synced_provider_host};
 use omega_server::contract::generic_embed::{
@@ -437,6 +437,39 @@ fn playback_caps_table() {
     let a = playback_caps(&canonicalize_embed("https://youtu.be/dQw4w9WgXcQ").unwrap());
     let b = playback_caps(&canonicalize_embed("https://youtu.be/aaaaaaaaaaa").unwrap());
     assert!(std::ptr::eq(a, b));
+}
+
+// packages/shared/test/capabilities.test.ts: generic (ADR 0057 §1)
+#[test]
+fn generic_playback_caps() {
+    let e = canonicalize_any_embed(
+        "https://kwik.cx/e/ockxKpNdX2Kh",
+        AnyEmbedOptions {
+            own_hosts: &[],
+            generic: true,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        *any_playback_caps(&e),
+        PlaybackCaps {
+            seek: true,
+            live: false,
+            rate: RateSupport::Yes
+        }
+    );
+    let yt = canonicalize_any_embed(
+        "https://youtu.be/dQw4w9WgXcQ",
+        AnyEmbedOptions {
+            own_hosts: &[],
+            generic: true,
+        },
+    )
+    .unwrap();
+    assert!(std::ptr::eq(
+        any_playback_caps(&yt),
+        playback_caps(&canonicalize_embed("https://youtu.be/dQw4w9WgXcQ").unwrap())
+    ));
 }
 
 // ---------------------------------------------------------------------------------- generic

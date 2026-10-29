@@ -4,7 +4,7 @@ import {
   ClientMessageSchema,
   ERROR_CODES,
   MAX_CLIENT_MESSAGE_BYTES,
-  MAX_EMBED_URL_LENGTH,
+  MAX_GENERIC_EMBED_URL_LENGTH,
   MAX_POSITION_S,
   MAX_SERVER_MESSAGE_BYTES,
   PING_ID_MAX,
@@ -110,7 +110,8 @@ describe("ClientMessageSchema: ping and control", () => {
       { type: "control", url: EMBED.url, playing: false, position: 43_200 },
       { type: "control", url: "https://player.twitch.tv/?channel=some_streamer", playing: true, position: 0 },
       { type: "control", url: "https://player.vimeo.com/video/76979871?h=abc123def4", playing: false, position: 3 },
-      { type: "control", url: "u".repeat(MAX_EMBED_URL_LENGTH), playing: true, position: 0 },
+      // A generic embed's url (ADR 0057 §1); the server still compares it with the current embed.
+      { type: "control", url: "u".repeat(MAX_GENERIC_EMBED_URL_LENGTH), playing: true, position: 0 },
     ],
     [
       ["ping without id", { type: "ping" }],
@@ -122,7 +123,7 @@ describe("ClientMessageSchema: ping and control", () => {
       ["control NaN position", { type: "control", url: EMBED.url, playing: true, position: Number.NaN }],
       ["control negative position", { type: "control", url: EMBED.url, playing: true, position: -1 }],
       ["control position above MAX_POSITION_S", { type: "control", url: EMBED.url, playing: true, position: 43_201 }],
-      ["control url over MAX_EMBED_URL_LENGTH", { type: "control", url: "u".repeat(MAX_EMBED_URL_LENGTH + 1), playing: true, position: 0 }],
+      ["control url over MAX_GENERIC_EMBED_URL_LENGTH", { type: "control", url: "u".repeat(MAX_GENERIC_EMBED_URL_LENGTH + 1), playing: true, position: 0 }],
       ["control url not a string", { type: "control", url: 1, playing: true, position: 0 }],
       ["control with the old videoId key", { type: "control", videoId: VIDEO_ID, playing: true, position: 0 }],
       ["control with videoId and url", { type: "control", videoId: VIDEO_ID, url: EMBED.url, playing: true, position: 0 }],
@@ -138,7 +139,7 @@ describe("ClientMessageSchema: ping and control", () => {
   });
 
   test("a worst-case control frame stays under the client frame cap", () => {
-    const frame = JSON.stringify({ type: "control", url: "\u2028".repeat(MAX_EMBED_URL_LENGTH), playing: false, position: 43_199.999_999_999_99 });
+    const frame = JSON.stringify({ type: "control", url: "\u2028".repeat(MAX_GENERIC_EMBED_URL_LENGTH), playing: false, position: 43_199.999_999_999_99 });
     expect(utf8(frame)).toBeLessThan(MAX_CLIENT_MESSAGE_BYTES);
     expect(parseClientMessage(frame)?.type).toBe("control");
   });

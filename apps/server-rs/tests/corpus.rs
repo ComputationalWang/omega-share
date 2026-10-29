@@ -5,7 +5,7 @@
 use omega_server::app::{TitleBlocker, block_key};
 use omega_server::backup::snapshot_name;
 use omega_server::cli;
-use omega_server::contract::capabilities::playback_caps;
+use omega_server::contract::capabilities::any_playback_caps;
 use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
 use omega_server::contract::embed::{Embed, canonicalize_embed};
@@ -658,8 +658,8 @@ fn any_embed_raw_agrees() {
 
 #[test]
 fn playback_caps_agree() {
-    agree(load::<Embed, String>(include_str!("../corpus/out/playback-caps.json")), |e| {
-        to_json(playback_caps(e))
+    agree(load::<AnyEmbed, String>(include_str!("../corpus/out/playback-caps.json")), |e| {
+        to_json(any_playback_caps(e))
     });
 }
 
