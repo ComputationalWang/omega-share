@@ -23,10 +23,10 @@ const VIEWPORTS: readonly (readonly [number, number, number, number])[] = [
 ];
 
 /** The band's view as the room window opens it: centred on the audience's home, kept on the room (room-window.ts deskHome). */
-function bandView(w: number, h: number, vw: number, vh: number) {
+function bandView(w: number, h: number, vw: number, vh: number, room = cinema) {
   const l = wideLayout(w, h, "youtube", chromeZoom(vw, vh), roomScale(vw, vh));
   const k = l.scale;
-  const c = bandHome(seatPoints(cinema), standingPoints(cinema), l.stage.h / k);
+  const c = bandHome(seatPoints(room), standingPoints(room), l.stage.h / k);
   const view = wheelView(k, { zoom: 1, pan: { x: c.x - l.stage.w / (2 * k), y: c.y - l.stage.h / (2 * k) } }, { x: 0, y: 0 }, 1, l.stage);
   return { l, k, pan: view.pan, shown: { w: l.stage.w / k, h: l.stage.h / k } };
 }
@@ -65,6 +65,23 @@ describe("where the band looks (seatsHome)", () => {
   test("a band too short for everyone keeps the front row's name tags whole, a pixel to spare", () => {
     const front = Math.max(...AUDIENCE.map((p) => p.y));
     for (const h of [120, 200, 240]) expect(seatsHome(AUDIENCE, h, TAG_FOOT).y + h / 2).toBe(front + TAG_OFFSET_Y + TAG_H + 1);
+  });
+});
+
+// OME-1945 (responsive audit round 4): the Dank Dungeon's audience is taller than its band (1280×800 to 1920×1080), so
+// the band keeps the seats whole (OME-1864) — centred on them, it cut the tag of whoever stood at the first standing
+// spot by 2 px at the band's foot. The seats stay whole, and the band shows as much of the audience below them as it holds.
+const dungeon = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")));
+
+describe("the Dank Dungeon's band (OME-1945)", () => {
+  test.each(VIEWPORTS)("%p×%p, a %p×%p column: every seat's name tag whole, and the first standing spot's (who joins first stands there)", (vw, vh, w, h) => {
+    const { pan, shown } = bandView(w, h, vw, vh, dungeon);
+    const first = standingPoints(dungeon)[0];
+    if (first === undefined) throw new Error("no standing spot");
+    for (const p of [...seatPoints(dungeon), first]) {
+      expect(p.y + TAG_OFFSET_Y).toBeGreaterThanOrEqual(pan.y);
+      expect(p.y + TAG_OFFSET_Y + TAG_H).toBeLessThanOrEqual(pan.y + shown.h);
+    }
   });
 });
 

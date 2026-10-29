@@ -243,6 +243,22 @@ test("clamped at the stage edge the box stays inside and the tail leans to the s
   expect(r.classList.contains("tail-se")).toBe(true);
 });
 
+// OME-1945: the phone's room window shows a slice of the stage; a bubble kept only inside the stage's sides was cut by
+// the window's edge (ada's at 320×640). The window hands its sides over once it settles, and the boxes keep inside them.
+test("sides: the boxes keep inside the window's sides once it settles, and back inside the stage's when it lets go", async () => {
+  const { floats, frame, bubbleOf } = await setup();
+  floats.say(say("a", "ada", 384, 444));
+  frame();
+  expect(bubbleOf("ada").style.left).toBe(`${String(-W / 2)}px`);
+  floats.sides(338, 606);
+  expect(bubbleOf("ada").style.left).toBe("-42px"); // box at 338 + 4
+  floats.say(say("b", "kit", 600, 500));
+  frame();
+  expect(bubbleOf("kit").style.left).toBe("-98px"); // box at 606 - 4 - 100
+  floats.sides(0, 960);
+  expect(bubbleOf("ada").style.left).toBe(`${String(-W / 2)}px`);
+});
+
 test("a message lives FLOAT_LIFE_MS, then its node goes back to the pool", async () => {
   const { floats, frame, advance, shown, texts, FLOAT_LIFE_MS } = await setup();
   floats.say(say("a", "bye", 480));

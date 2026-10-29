@@ -554,6 +554,11 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
 .room-side .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 .room-side .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
+/* A 279 px column (844×390 t, 1024×768, OME-1945): the tiles' remotes give way (the heading keeps one), so both words fit one
+ * row in any font; a second row would cost the chat log its lines. Should a font still not fit, Only me wraps, never past the frame. */
+.room-side .mod-policy-tiles { flex-wrap: wrap; gap: 4px; }
+.room-side .mod-policy-tile { flex: 1 1 auto; padding-inline: 0; }
+.room-side .mod-policy-tile > .ui-sprite { display: none; }
 /* 800 px tall or less (OME-1320): the policy's explanation is for screen readers only, so the chat log keeps three lines
  * beside a full Up next (at 1024×768 it had two). The tiles say who controls playback. */
 @media (max-height: 800px) {

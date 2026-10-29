@@ -43,6 +43,8 @@ export interface RoomLayoutOptions {
   readonly stage: HTMLElement;
   /** The phone window's label scale changed (OME-1184): the bubbles are shown that much bigger (Stage.labelScale). */
   readonly labelScale?: (k: number) => void;
+  /** The phone window settled on stage x `x0`–`x1` (OME-1945): the bubbles keep inside it (Stage.bubbleSides). */
+  readonly bubbleSides?: (x0: number, x1: number) => void;
   /** The TV and its shelf (room-tv.ts). */
   readonly tv: {
     readonly tv: HTMLElement;
@@ -397,7 +399,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   placeChat();
 
   /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843; the seats' where it can't hold them all, OME-1864), until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, (w, h, band) => (band ? bandHome(seatPoints, standingPoints, h) : touchHome(seatPoints, me, { w, h })), o.labelScale);
+  const roomWindow = createRoomWindow(clip, stage, (w, h, band) => (band ? bandHome(seatPoints, standingPoints, h) : touchHome(seatPoints, me, { w, h })), o.labelScale, o.bubbleSides);
   let seatPoints: readonly Point[] = [];
   /** The standing spots: with the seats, where members are. */
   let standingPoints: readonly Point[] = [];

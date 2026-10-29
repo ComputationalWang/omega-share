@@ -90,6 +90,8 @@ export interface Floats {
    * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
    */
   scale(k: number): void;
+  /** The phone's room window settled on stage x `x0`–`x1` (OME-1945): the boxes keep inside those sides, not the stage's. */
+  sides(x0: number, x1: number): void;
   /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
   typing(id: MemberId, on: boolean, at: Point): void;
 }
@@ -215,6 +217,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   let clock: unknown = null;
   /** Bubbles show k× their measured size (OME-1184, `scale`); pushes and dx are stage px. */
   let k = 1;
+  /** The sides the boxes keep inside (stage px): the stage's, or the phone window's once it settles (OME-1945). */
+  let sideL = 0;
+  let sideR = STAGE_W;
 
   /** Back to the pool; `hide` false when the node is reused at once (it stays shown: one attribute write fewer). */
   const free = (s: Slot, hide = true): void => {
@@ -309,12 +314,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   };
 
   /**
-   * Keep the box inside the stage's sides; the tail leans when the speaker is past a straight tail's reach. `dx` is in
+   * Keep the box inside the stage's sides (the phone window's, once it settles: `sides`); the tail leans when the speaker is past a straight tail's reach. `dx` is in
    * stage px; the box's own styles are in its px (shown `k`× inside the motion wrapper).
    */
   const placeBox = (s: Slot): void => {
     const w = s.w * k;
-    const left = Math.round(Math.max(MARGIN, Math.min(STAGE_W - MARGIN - w, s.ax - w / 2)));
+    const left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
     s.dx = left - Math.round(s.ax);
     const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
     s.p.style.left = px(s.dx / k);
@@ -560,6 +565,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     },
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !s.typing && !ids.has(s.speaker)) free(s);
+    },
+    sides(x0, x1) {
+      if (x0 === sideL && x1 === sideR) return;
+      sideL = x0;
+      sideR = x1;
+      for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
+      resolve();
     },
     scale(next) {
       if (next === k) return;
