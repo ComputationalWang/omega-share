@@ -1558,6 +1558,12 @@ Previews:
 - `preview/furniture-v7-seats@2x.png` and `preview/furniture-v7-atlas@2x.png`.
 - Tray thumbnails and swatches: `ui/edit.png`, `thumb/<id>/<colour>` and `swatch/<colour>`.
 
+**Night pane masks** (OME-1994): `furniture/partition/<glass|panelglass>/pane/<se|sw>`, in v7 for both glass colours (v6 stays
+byte-identical). Each is an opaque amber fill (`mustard` 1) of exactly the pane pixels the glass `<dir>/back` frame leaves
+transparent. It has that frame's rect and anchor, so draw it at the same spot over the back frame, at about 20% alpha, in the
+`night` mood only. The frosted stripe, sill and header aren't in the mask. The tray chip for `tv` variant 1 is `swatch/flat`: a
+charcoal bezel round a dark screen with one glint, on its stand.
+
 ### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
 
 Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera
