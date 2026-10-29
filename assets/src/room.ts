@@ -122,7 +122,7 @@ const RIGHT_VARIANTS: readonly WallVariant[] = ["plain", "poster0", "poster1", "
  * Paint a wall face at position s along the wall (−8..8 within the segment) and height z.
  * `lit` is the right wall (faces SW, catches the top-left light); the left wall faces SE (shade).
  */
-function wallPaint(variant: WallVariant, s: number, z: number, lit: boolean): Paint {
+export function wallPaint(variant: WallVariant, s: number, z: number, lit: boolean): Paint {
   const t = (hiTone: Tone, loTone: Tone): Tone => (lit ? hiTone : loTone);
   // Continuous coordinate across a two-segment decoration (window, poster), 0 at the seam.
   const w = variant.endsWith("0") ? s - 8 : variant.endsWith("1") ? s + 8 : s;

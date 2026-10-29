@@ -38,7 +38,7 @@ assets/
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   furniture/furniture-v5.png  # theatre set v2 (OME-1639, lazy-load): 256×1024 indexed PNG-8, raised rows, curtain, big screen, aisle lights, carpet
   furniture/furniture-v5.json # theatre set v2: v4's schema + `seatLiftByColour`
-  furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×256 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin (v4 schema)
+  furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×1024 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin, partition (v4 schema + cutKey)
   avatars/dungeon.png|json  # Dank Dungeon (OME-1670, lazy): 256×512 PNG-8, the bendover / thrust emote poses, 48×64 cells
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
@@ -1396,6 +1396,7 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
 | `minibar` | Minibar | object, floor | `se sw` | `wood` | 1×1 |
 | `desk` | Writing desk | object, floor, wall-backable | `se sw` | `wood` | 1×1 |
 | `washbasin` | Washbasin | object, floor, wall-backed | `se sw` | `cream` | 1×1 |
+| `partition` | Interior wall (OME-1959), with a `cut` stub | object, floor | `se sw` (axis) | `solid`, `glass` (= layout variant 0, 1) | 1×1 |
 
 - **Bed:** low platform bed, plum duvet folded back over cream sheets, a mustard throw at the foot, and five pillows against a tufted
   headboard at the **anchor end** (local −x). So facing `ne` at `(0, r)` the headboard is on the left wall, facing `nw` at `(c, 0)` on the right
@@ -1414,6 +1415,45 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
   or against a wall. **Washbasin:** backs onto its cell's wall like the bookcase (row 0 for `sw`, col 0 for `se`).
 - Previews: `preview/furniture-v6-room@1x.png` / `@2x` (every piece, both facings, seats taken and free), `preview/furniture-v6-seats@2x.png`,
   `preview/furniture-v6-atlas@2x.png`. Tray thumbnails are in `ui/edit.png` (`thumb/<id>/<colour>`), like every catalogue piece.
+
+### Partition: interior wall, glass, cut-down stubs (OME-1959)
+
+For the two-compartment rework (spike OME-1957, phase A; contract kind `partition` from OME-1958). Source: `partition()` in
+`src/furniture.ts`. Previews: `preview/partition-room@1x.png` / `@2x` (what everyone sees), `preview/partition-room-cut@1x.png` / `@2x`
+(what a viewer whose avatar is in the bedroom sees), and `-night` versions of both under the room's night mood.
+
+- **Facing picks the axis**, like the curtain: `sw` runs along a row (cells (c, r) side by side), `se` along a col. The wall is one room
+  wall thick (4 px) through the middle of its cell, so a row of them reads as part of the shell.
+- **`solid` (variant 0):** the room's own wall, painted by `wallPaint("plain")` from `src/room.ts`: wainscot with panel insets,
+  lozenge paper, crown. Full `WALL_H` (212 px), so it hides the compartment behind it, like the real walls.
+- **`glass` (variant 1):** a wainscot sill at mattress height (24 px) and a papered header from 150 px, each with a black frame. Open in
+  between, with **one frosted stripe** at 110–114 px (above a standing avatar's head and the beds behind). It lines up from cell to
+  cell, so a run of glass cells shows a single band through the whole window, not one stripe per pane. The pane itself is transparent
+  pixels, so whatever stands behind it shows through as it is (no tint needed from the renderer).
+- **Seamless runs:** a cell has no plum outline on its trailing end (local x = −8, the side the previous cell in the run is drawn on) and
+  none round the stripe (`keepOutline` on the piece def). So a row has no seams; the one cost is a missing outline on the trailing edge
+  of the cell right after a doorway gap, which nobody will see at 1×.
+- **Cut stubs** (`furniture/partition/<solid|glass>/cut/<se|sw>`, `meta.omega.cutKey`, piece `cut: true`): the same wall sawn off at 16 px
+  (`PARTITION_STUB`), so an avatar one row behind shows from the knees up. Solid: plain wainscot with a wood top. Glass: the sill with its
+  black cap, so the window still reads. **Unlike a door's open frame, a stub has its own tight rect and anchor** (the same floor point),
+  so draw it as its own sprite at the cell instead of swapping the texture into the tall one.
+- **Doorway:** a plain gap in the row (OME-1958 dropped the doorframe variant). The wall ends show their wainscot end faces.
+
+**The reworked preset's grid** (for OME-1960; `partitionPlan()` in `src/build.ts`, constants `PARTITION_ROW` / `PARTITION_GLASS` /
+`PARTITION_DOOR`). The bedroom is the far compartment, so from the one camera of phase A the beds are what you see through the glass,
+as the board described it:
+
+| | cells |
+|---|---|
+| Partition | row 4, facing `sw`: `solid` at cols 0, 2, 3, 4, 9; `glass` at cols 5–8; **doorway gap at (1, 4)** |
+| Bedroom (rows 0–3, behind the wall) | `bed (2,0) nw`, `bed (4,0) nw` (headboards on the back wall; both line up with the glass); `desk (7,0) sw`, `minibar (9,0) sw`; `wingback (8,2) nw`; `neonsign (0,2) se`; the TV corner console (0,0) |
+| Spa (rows 5–9, in front) | `whirlpool (2,7) ne`; `washbasin (0,6) se` under `mirror (0,6) se`; `wingback (7,7) nw` + `coffeetable (7,6) sw`; `arclamp (1,9) se`; `monstera (9,9) sw` |
+
+Notes for the hookup: the glass has to sit at cols 5–8 because a far cell (c, r) shows above partition cell (c − r + 4, 4); move the
+beds and the glass together. The TV console stays in the bedroom corner and is mostly hidden from the spa side, which is fine
+because the video is page chrome (ADR 0012). The spa has no sauna cabin yet (a later piece, OME-1956's list). Cost: +2 722 B
+(furniture-v6.png +2 106, its JSON +269 gz, `ui/edit.png` +220 for the tray thumbnail, two swatches `solid` / `glass` +127 gz in
+edit.json and reference.css).
 
 ### The preset (draft for OME-1672)
 
@@ -1524,7 +1564,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 352 244 B** after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 376 550 B** after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

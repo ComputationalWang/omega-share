@@ -8,7 +8,7 @@ import { SEAT_HEIGHT } from "./avatars";
 import { WALK_FRAMES, WALK_FRAME_MS } from "./motion";
 import { addOutline, box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
-import type { RoomFrame } from "./room";
+import { WALL_H, wallPaint, type RoomFrame } from "./room";
 import { blank, mirror, render as renderRoles, stamp, type Grid, type RoleMap } from "./sprite";
 
 export type FurnDir = "ne" | "nw" | "se" | "sw";
@@ -1510,6 +1510,45 @@ function theatreRow(k: Kit, colour: string): void {
   }
 }
 
+/** Partition stub height (OME-1959): low enough that an avatar one row behind shows from the knees up. */
+export const PARTITION_STUB = 16;
+const PARTITION_BAND = [110, 114] as const;
+/** A partition cell's outline (OME-1959): none on its trailing end (local x = −8, the side the previous cell in the run is drawn
+ *  on), so a row joins like one wall; none round the glass band, so it reads as a frosted stripe, not a rail. */
+function partitionOutline(dir: FurnDir, colour: string, x: number, y: number): boolean {
+  // Screen x = 2(u − v), y = u + v − z. Along the trailing end plane: s = how far across the wall's thickness, z = height.
+  const s = dir === "sw" ? -8 - x / 2 : x / 2 - 8;
+  const z = -8 + s - y;
+  if (s >= -2.5 && z >= -3 && z <= WALL_H + 2) return false;
+  const zMid = (dir === "sw" ? x / 2 : -x / 2) - y; // height on the wall's mid plane
+  return !(colour === "glass" && zMid > PARTITION_BAND[0] - 2.5 && zMid < PARTITION_BAND[1] + 2.5);
+}
+/** Interior wall cell (OME-1959): the room's own wall (wainscot, lozenge paper, crown), one wall thick through the cell's middle, so
+ *  a row of them reads as part of the shell. `glass`: a wainscot sill at mattress height and a header, each with a black frame, open
+ *  in between except one frosted stripe, which lines up from cell to cell into a single band through the whole window. `cut` (n = 1):
+ *  the low stub for a viewer whose avatar is behind the wall, sawn off flat; the glass one keeps its black sill cap. */
+function partition(k: Kit, glass: boolean, cut: boolean): void {
+  const T = 2, SILL = 24, HEAD = 150, lit = k.dir === "sw";
+  const wall: LPaint = (p, f) => (f === "top" ? ["wall", 0] : f === "front" ? wallPaint("plain", p.x, p.z, lit) : wallPaint("plain", p.y, p.z, !lit));
+  // The wainscot without its panel inset, which a sill or a stub would cut in half.
+  const wood: LPaint = (p, f) => (f === "top" ? ["wood", 0] : p.z < 5 ? ["wood", 2] : ["wood", (f === "front") === lit ? 1 : 2]);
+  const frame = (z0: number, z1: number): void => { k.box(-8, 8, -T - 0.5, T + 0.5, z0, z1, "charcoal", { tones: { top: 1, sw: 2, se: 2 } }); };
+  if (cut) {
+    k.box(-8, 8, -T, T, 0, glass ? PARTITION_STUB - 2 : PARTITION_STUB, "wood", { paint: wood });
+    if (glass) frame(PARTITION_STUB - 2, PARTITION_STUB);
+    return;
+  }
+  if (!glass) {
+    k.box(-8, 8, -T, T, 0, WALL_H, "wall", { paint: wall });
+    return;
+  }
+  k.box(-8, 8, -T, T, 0, SILL, "wood", { paint: wood });
+  frame(SILL, SILL + 2);
+  k.box(-8, 8, -0.5, 0.5, PARTITION_BAND[0], PARTITION_BAND[1], "glow", { tones: { top: 0, sw: 0, se: 1 } });
+  frame(HEAD - 2, HEAD);
+  k.box(-8, 8, -T, T, HEAD, WALL_H, "wall", { paint: wall });
+}
+
 /** Stage curtain for a wall segment: deep velvet folds from a gold-fringed pelmet to the floor, cinched by a brass tie-back
  *  and flaring out below it. One kind: facing se it hangs on the left wall, sw on the right, so a pair frames the screen. */
 function curtain(k: Kit): void {
@@ -1637,6 +1676,9 @@ export interface PieceMeta {
   use?: { frames: number; ms: number };
   /** Has an "open" frame, drawn in place of `back` (same rect, so same anchor): `furniture/<id>/<colour>/open/<dir>`. */
   open?: true;
+  /** Has a cut-down stub (OME-1959), drawn in place of `back` while the viewer's avatar is behind it: `furniture/<id>/<colour>/cut/<dir>`.
+   *  Its own tight rect and anchor (the same floor point), so draw it as its own sprite at the piece's cell. */
+  cut?: true;
   /** The piece walks off on its own (the cat): `furniture/<id>/<colour>/walk/<dir>/<0..frames-1>`, each shown `ms` (the avatars'
    *  walk clock), rests in `furniture/<id>/<colour>/sit/<dir>` (both anchored on the feet's centre) and leaves
    *  `furniture/<id>/<colour>/bed/<dir>` behind (the empty cushion, `back`'s rect and anchor). */
@@ -1662,6 +1704,10 @@ export interface PieceDef {
   use?: { frames: number; ms: number };
   /** Has an "open" frame: build gets n = 1 for it. */
   open?: true;
+  /** Has a cut-down stub: build gets n = 1 for it. */
+  cut?: true;
+  /** Keep only the plum outline pixels this says yes to (anchor-relative px), so a run of cells joins without seams. */
+  keepOutline?: (dir: FurnDir, colour: string, x: number, y: number) => boolean;
   build?: (k: Kit, colour: string, n: number) => void;
   /** `n`: the use frame (1..use.frames), as for `build`; 0 = idle. */
   image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas, n?: number) => Uint8Array;
@@ -1720,6 +1766,8 @@ export const PIECES: readonly PieceDef[] = [
   { id: "minibar", label: "Minibar", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { minibar(k); } },
   { id: "desk", label: "Writing desk", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { desk(k); } },
   { id: "washbasin", label: "Washbasin", kind: "fun", colours: ["cream"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { washbasin(k); } },
+  // Interior wall (OME-1959), packed into v6 with the room it was made for. Facing picks the axis like the curtain: sw runs along a row, se along a col.
+  { id: "partition", label: "Interior wall", kind: "wall", colours: ["solid", "glass"], dirs: ["se", "sw"], cols: 1, rows: 1, cut: true, keepOutline: partitionOutline, build: (k, c, n) => { partition(k, c === "glass", n === 1); } },
   // Theatre set v2 (OME-1639): its own lazy sheet, furniture-v5. A row's colour is its riser height (THEATRE_LIFT).
   { id: "theatrerow", label: "Theatre row", kind: "seat", colours: ["floor", "step", "high"], dirs: ["ne", "nw"], cols: 2, rows: 1, seats: [0, 1], seatLift: THEATRE_LIFT, build: (k, c) => { theatreRow(k, c); } },
   { id: "curtain", label: "Stage curtain", kind: "wall", mount: "wall", layer: "wall", colours: ["velvet"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { curtain(k); } },
@@ -1733,7 +1781,7 @@ export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench
 /** Batch 6 (OME-1437): a third lazy atlas, `furniture/furniture-v4.json`, same schema. */
 export const CATALOGUE_V4: ReadonlySet<string> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace", "pad"]);
 /** Dank Dungeon (OME-1670): `furniture/furniture-v6.json`, same schema, loaded only by rooms that use one of these. */
-export const CATALOGUE_V6: ReadonlySet<string> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin"]);
+export const CATALOGUE_V6: ReadonlySet<string> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
 /** Theatre set v2 (OME-1639): a fourth lazy atlas, `furniture/furniture-v5.json`, same schema plus `seatLiftByColour`. */
 export const CATALOGUE_V5: ReadonlySet<string> = new Set(["theatrerow", "curtain", "bigscreen", "aislelight", "carpet"]);
 
@@ -1771,15 +1819,28 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);
   const all = [...back, ...front];
-  const full = renderSolids(all, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all");
-  if (front.length === 0 && def.open) {
+  const keep = def.keepOutline;
+  const draw = (solids: readonly Solid[]): ReturnType<typeof renderSolids> => {
+    const r = renderSolids(solids, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, keep ? "none" : "all");
+    if (keep) {
+      const lined = r.img.slice();
+      addOutline(lined, CANVAS.w, CANVAS.h);
+      lined.forEach((v, i) => { if (v !== r.img[i] && keep(dir, colour, (i % CANVAS.w) - CANVAS.ax, Math.floor(i / CANVAS.w) - CANVAS.ay)) r.img[i] = v; });
+    }
+    return r;
+  };
+  const full = draw(all);
+  const alt = def.open ? "open" : def.cut ? "cut" : null;
+  if (front.length === 0 && alt) {
     // Closed and open share one rect (the union), so one anchor: swap the texture in place.
     const ko = new Kit(dir);
     def.build?.(ko, colour, 1);
-    const openImg = renderSolids(ko.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+    const openImg = draw(ko.parts.map((p) => p.solid)).img;
+    // A stub is a fraction of the wall's height, so it gets its own tight rect (and anchor); the web places it, not swaps it.
+    if (alt === "cut") return [crop(`${base}/back`, full.img), crop(`furniture/${def.id}/${colour}/cut/${dir}`, openImg)];
     const both = full.img.map((v, i) => v || (openImg[i] ?? 0));
     const { rect } = crop(`${base}/both`, both);
-    return [crop(`${base}/back`, full.img, rect), crop(`furniture/${def.id}/${colour}/open/${dir}`, openImg, rect)];
+    return [crop(`${base}/back`, full.img, rect), crop(`furniture/${def.id}/${colour}/${alt}/${dir}`, openImg, rect)];
   }
   if (front.length === 0) {
     const idle = crop(`${base}/back`, full.img);
@@ -1836,7 +1897,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       for (const dir of def.dirs) {
         const fs = pieceFrames(def, colour, dir);
         frames.push(...fs);
-        layersByDir[dir] = fs.filter((f) => !/\/(use|open|walk|sit|bed)\//.test(f.key)).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
+        layersByDir[dir] = fs.filter((f) => !/\/(use|open|cut|walk|sit|bed)\//.test(f.key)).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
       }
     }
     const footprintByDir: PieceMeta["footprintByDir"] = {};
@@ -1866,6 +1927,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     if (def.seats) meta.seatsByDir = seatsByDir;
     if (def.use) meta.use = { ...def.use };
     if (def.open) meta.open = true;
+    if (def.cut) meta.cut = true;
     if (def.seatLift) meta.seatLiftByColour = { ...def.seatLift };
     if (def.walk) meta.walk = { frames: def.walk.frames, ms: def.walk.ms };
     pieces.push(meta);

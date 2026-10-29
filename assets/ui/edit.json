@@ -768,7 +768,7 @@
     "y": 0.5
    }
   },
-  "swatch/high": {
+  "swatch/glass": {
    "frame": {
     "x": 123,
     "y": 805,
@@ -792,7 +792,7 @@
     "y": 0.5
    }
   },
-  "swatch/lilac": {
+  "swatch/high": {
    "frame": {
     "x": 224,
     "y": 805,
@@ -816,7 +816,7 @@
     "y": 0.5
    }
   },
-  "swatch/meadow": {
+  "swatch/lilac": {
    "frame": {
     "x": 235,
     "y": 805,
@@ -840,7 +840,7 @@
     "y": 0.5
    }
   },
-  "swatch/mustard": {
+  "swatch/meadow": {
    "frame": {
     "x": 246,
     "y": 805,
@@ -864,7 +864,7 @@
     "y": 0.5
    }
   },
-  "swatch/navy": {
+  "swatch/mustard": {
    "frame": {
     "x": 183,
     "y": 806,
@@ -888,7 +888,7 @@
     "y": 0.5
    }
   },
-  "swatch/olive": {
+  "swatch/navy": {
    "frame": {
     "x": 194,
     "y": 806,
@@ -912,7 +912,7 @@
     "y": 0.5
    }
   },
-  "swatch/painted": {
+  "swatch/olive": {
    "frame": {
     "x": 205,
     "y": 806,
@@ -936,7 +936,7 @@
     "y": 0.5
    }
   },
-  "swatch/party": {
+  "swatch/painted": {
    "frame": {
     "x": 60,
     "y": 807,
@@ -960,7 +960,7 @@
     "y": 0.5
    }
   },
-  "swatch/peach": {
+  "swatch/party": {
    "frame": {
     "x": 71,
     "y": 807,
@@ -984,9 +984,33 @@
     "y": 0.5
    }
   },
-  "swatch/pink": {
+  "swatch/peach": {
    "frame": {
     "x": 82,
+    "y": 807,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/pink": {
+   "frame": {
+    "x": 93,
     "y": 807,
     "w": 10,
     "h": 10
@@ -1034,30 +1058,6 @@
   },
   "swatch/rust": {
    "frame": {
-    "x": 93,
-    "y": 807,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/step": {
-   "frame": {
     "x": 134,
     "y": 807,
     "w": 10,
@@ -1080,7 +1080,7 @@
     "y": 0.5
    }
   },
-  "swatch/sunset": {
+  "swatch/solid": {
    "frame": {
     "x": 145,
     "y": 807,
@@ -1104,7 +1104,7 @@
     "y": 0.5
    }
   },
-  "swatch/teal": {
+  "swatch/step": {
    "frame": {
     "x": 156,
     "y": 807,
@@ -1128,7 +1128,7 @@
     "y": 0.5
    }
   },
-  "swatch/tide": {
+  "swatch/sunset": {
    "frame": {
     "x": 167,
     "y": 807,
@@ -1152,7 +1152,7 @@
     "y": 0.5
    }
   },
-  "swatch/velvet": {
+  "swatch/teal": {
    "frame": {
     "x": 0,
     "y": 808,
@@ -1176,7 +1176,7 @@
     "y": 0.5
    }
   },
-  "swatch/warm": {
+  "swatch/tide": {
    "frame": {
     "x": 11,
     "y": 808,
@@ -1200,10 +1200,58 @@
     "y": 0.5
    }
   },
-  "swatch/wood": {
+  "swatch/velvet": {
    "frame": {
     "x": 22,
     "y": 808,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/warm": {
+   "frame": {
+    "x": 33,
+    "y": 816,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/wood": {
+   "frame": {
+    "x": 44,
+    "y": 816,
     "w": 10,
     "h": 10
    },
@@ -1683,7 +1731,7 @@
   "thumb/curtain/velvet": {
    "frame": {
     "x": 237,
-    "y": 121,
+    "y": 160,
     "w": 10,
     "h": 37
    },
@@ -2182,6 +2230,54 @@
    "anchor": {
     "x": 0.5,
     "y": 0.46153846153846156
+   }
+  },
+  "thumb/partition/glass": {
+   "frame": {
+    "x": 237,
+    "y": 121,
+    "w": 8,
+    "h": 38
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 8,
+    "h": 38
+   },
+   "sourceSize": {
+    "w": 8,
+    "h": 38
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "thumb/partition/solid": {
+   "frame": {
+    "x": 246,
+    "y": 121,
+    "w": 8,
+    "h": 38
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 8,
+    "h": 38
+   },
+   "sourceSize": {
+    "w": 8,
+    "h": 38
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
    }
   },
   "thumb/piano/charcoal": {
