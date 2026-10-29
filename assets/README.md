@@ -1564,6 +1564,46 @@ transparent. It has that frame's rect and anchor, so draw it at the same spot ov
 `night` mood only. The frosted stripe, sill and header aren't in the mask. The tray chip for `tv` variant 1 is `swatch/flat`: a
 charcoal bezel round a dark screen with one glint, on its stand.
 
+### Back views for the 180° view swap (`furniture/furniture-back.png` + `.json`, lazy, OME-1997)
+
+For OME-1961: a viewer in the bedroom sees the room from the north, every cell `(c, r)` at `(9 − c, 9 − r)`. Facings turn
+`se → nw`, `sw → ne` (and back). Pieces with all four facings already have their art. The one-sided (CAMERA/FIXED) pieces of the
+Dank Dungeon get their far side here, rendered from the same 3D models turned 180°. **Preload this sheet with a layout that has a
+partition**, so the swap never waits on a fetch. It's 10.9 KB PNG + 1.2 KB JSON gz; the art total is 409 473 B of 409 600.
+
+**Keys:** the usual `furniture/<id>/<colour>/<nw|ne>/<back|front>`. Every frame is anchored on the **footprint's min corner**,
+like every other frame, and its footprint is the source facing's (`footprintByDir[se]` for `nw`). So a piece at `(c, r)` with
+footprint `cols × rows` draws at `(9 − c − (cols − 1), 9 − r − (rows − 1))`. Layers and seats carry over: the cedar tub's `nw`
+has `back` + `front`; a seat `(col, row)` becomes `(cols − 1 − col, rows − 1 − row)` facing `TURN[dir]`.
+
+| `<id>/<colour>` | turned frames | what you see from behind |
+|---|---|---|
+| `tv/charcoal` (variant 0, the room's projector console) | `nw` | the console's two hardboard back panels meeting at the near corner, on its plinth on the floor; a cable hatch, vent slots, a blank label, cables dropping to the floor; the projector's back (vent grille, power socket) under its two reels |
+| `tv/flat` (variant 1) | `nw` | the same console; the flat TV's matte back with a raised housing, vents, ports and the stand's neck, its cables over the lip and into the hatch |
+| `desk/wood`, `minibar/wood`, `washbasin/cream`, `arclamp/brass` | `nw ne` | the models' plain backs (the arc lamp's arm swings the other way) |
+| `minibar/fridge` | `nw ne` | a black condenser coil on its back |
+| `sauna/cedar` | `nw ne` | the boarded back and side, a louvred vent under the roof trim |
+| `soaktub/cedar` | `nw` (+ `front`) | the tub turned round, its bucket and ladle on the far side |
+| `partition/panel`, `partition/panelglass` | `nw ne` | the bedroom side, in the bedroom's **oak** (the spa side stays smoked) |
+
+**No back view (draw the source facing's own frame):** pieces that look the same from behind: `carpet/oval`, `monstera`, `plant`,
+`coffeetable`, the papered `partition/solid` and `partition/glass` (same paper both sides), `rug`. The same fallback covers any
+other one-sided piece someone places in a partitioned room, until it gets a back view. **Wall pieces** (mirror, neon sign, frames)
+hang on the left/right walls, which are the near walls from the north and aren't drawn, so they go with them. The silver mirror's
+north look is its existing `se`/`sw` frame (a cool blue-grey pane in a thin brass frame), whenever a wall that holds it is a back wall.
+
+**North shell skin** (same sheet; rects and anchors as the room atlas's): from the north the spa walls are at the back.
+- `wall/l/split/north` (smoked behind the midline, oak in front), `floor/split/north/{0,1}` (deck behind, carpet in front).
+- `wall/corner/smoke`, `wall/l/end/oak`, `wall/r/end/smoke`.
+- With the partition on row `p` (north row `9 − p`): the left wall (the old right wall, `col 9`) is `smoke` before the partition
+  row, `split/north` on it and `oak` after; the right wall (the old south wall) is all `smoke`; floors `deck`, `split/north`, `carpet`.
+
+Previews: `preview/dungeon2-room-north@1x.png` / `@2x` and `-night` (`dungeon2North` in `src/build.ts`), and
+`preview/furniture-back-atlas@2x.png`.
+
+**Known (not in this sheet):** the shipped v7 `sauna/cedar/se` and `soaktub/cedar/se` frames are drawn one cell toward −u of their
+contract footprint (the sauna overhangs the west wall line in `dungeon2-room`). The back views are placed on the contract footprint.
+
 ### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
 
 Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera

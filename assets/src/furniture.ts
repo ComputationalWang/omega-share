@@ -8,7 +8,7 @@ import { SEAT_HEIGHT } from "./avatars";
 import { WALK_FRAMES, WALK_FRAME_MS } from "./motion";
 import { addOutline, box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
-import { WALL_H, panelPaint, tvSolids, wallPaint, type RoomFrame } from "./room";
+import { WALL_H, buildNorthShell, drawReel, panelPaint, tvSolids, wallPaint, type RoomFrame } from "./room";
 import { blank, mirror, render as renderRoles, stamp, type Grid, type RoleMap } from "./sprite";
 
 export type FurnDir = "ne" | "nw" | "se" | "sw";
@@ -1511,7 +1511,9 @@ function sauna(k: Kit): void {
         }
         if (s > 2 && s < 10 && z > 97 && z < 106 && hash(Math.floor(s * 2) + 3, Math.floor(z)) % 4 === 0) return ["cream", 0]; // steam
       }
-      const s = f === "right" ? p.y : p.x;
+      // OME-1997: on its back (seen from the north) a louvred vent up under the roof trim.
+      if (f === "back" && Math.abs(p.x - 8) < 5 && p.z > 92 && p.z < 104) return Math.abs(p.x - 8) > 4.2 || p.z < 92.8 || p.z > 103.2 ? ["charcoal", 1] : Math.floor(p.z) % 3 === 0 ? ["charcoal", 2] : ["floor", 1];
+      const s = f === "right" || f === "left" ? p.y : p.x;
       return boards(s) ? ["floor", 2] : null;
     },
   });
@@ -1603,6 +1605,8 @@ function barFridge(k: Kit): void {
     paint: (p, f) => {
       if (f === "top") return ["cream", 0];
       if (p.z < 2.5) return ["charcoal", 2];
+      // OME-1997: the condenser coil on its back, a black zigzag between two rails.
+      if (f === "back") return Math.abs(p.x) < 4.2 && p.z > 5 && p.z < 28 && (Math.abs(p.x) > 3.4 || Math.floor(p.z) % 3 === 0) ? ["charcoal", 2] : null;
       if (f !== "front") return null;
       if (Math.abs(p.z - 23) < 0.5 || Math.abs(p.x) > 5.4) return ["cream", 2];
       if (Math.abs(p.x - 4) < 0.6 && ((p.z > 8 && p.z < 21) || (p.z > 24.5 && p.z < 30))) return ["charcoal", 2];
@@ -1657,6 +1661,121 @@ function flatTvImage(s = 1, cv: Canvas = CANVAS): Uint8Array {
   };
   const solids = [...tvSolids().slice(0, -1), box(4, 7, 4, 7, 20, Z0, "charcoal"), box(2, 9, 2, 9, 20, 21, "charcoal", { tones: { top: 1, sw: 2, se: 2 } }), screen];
   return renderSolids(solids, cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
+}
+
+// ---------------------------------------------------------------- back views (OME-1997): the 180° view swap, lazy sheet furniture-back
+
+/** The facing a piece shows when the room is seen from the other side: the same model turned 180°. */
+export const TURN: Record<FurnDir, FurnDir> = { se: "nw", sw: "ne", ne: "sw", nw: "se" };
+
+/** One-sided (CAMERA/FIXED) pieces of the Dank Dungeon that get a back view, by `<id>/<colour>`, with the facings they ship. Symmetric
+ *  ones (the oval rug, the plants, the coffee table, the papered partitions) need none: from behind they look as from the front. */
+export const BACK_VIEWS: Readonly<Record<string, readonly FurnDir[]>> = {
+  "tv/charcoal": ["se"], "tv/flat": ["se"],
+  "desk/wood": ["se", "sw"], "minibar/wood": ["se", "sw"], "minibar/fridge": ["se", "sw"],
+  "arclamp/brass": ["se", "sw"], "washbasin/cream": ["se", "sw"],
+  "sauna/cedar": ["se", "sw"], "soaktub/cedar": ["se"],
+  "partition/panel": ["se", "sw"], "partition/panelglass": ["se", "sw"],
+};
+
+/** The corner console and its screen from behind, turned 180° about cell (0,0) (judge's note, OME-1977): the console stands on its
+ *  plinth on the floor, its two hardboard back panels meeting at the near corner, with a cable hatch, vent slots and the cables
+ *  hanging down them. On top, the flat TV's matte back (a raised housing with vents and ports, the stand's neck in front of it) or the
+ *  projector's back (a vent grille, a power socket, its two reels). No rails, no glow. */
+function tvBackImage(flat: boolean, s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const pl = (u: number, v: number, d: number): { n: Vec3; d: number } => ({ n: { u, v, z: 0 }, d });
+  const zs = (z0: number, z1: number): { n: Vec3; d: number }[] => [{ n: { u: 0, v: 0, z: 1 }, d: z1 }, { n: { u: 0, v: 0, z: -1 }, d: -z0 }];
+  // The console's back panels: u = 8 (the "se" face) and v = 8 ("sw"); `a` runs from the near corner outward.
+  const console_: Solid = {
+    ramp: "wood",
+    planes: [pl(1, 0, 8), pl(0, 1, 8), pl(-1, -1, 24), ...zs(0, 20)],
+    paint: (p, f) => {
+      if (f === "top") return ["wood", 1];
+      const a = f === "se" ? 8 - p.v : 8 - p.u, z = p.z;
+      if (z < 2) return ["charcoal", 2]; // plinth on the floor
+      if (z >= 18) return ["wood", 0]; // top lip
+      if (a > 37.5 || a < 0.8) return ["wood", 1]; // the side boards' edges
+      if (f === "se" && a > 5 && a < 13 && z > 10 && z < 16) return a < 5.8 || a > 12.2 || z < 10.8 || z > 15.2 ? ["charcoal", 1] : ["charcoal", 2]; // cable hatch
+      if (f === "sw" && a > 9 && a < 23 && z > 7 && z < 14) return Math.floor(z) % 2 === 0 ? ["charcoal", 2] : ["wood", 2]; // vent slots
+      if (f === "sw" && a > 27 && a < 31 && z > 5 && z < 9) return ["cream", 1]; // a blank label
+      if ((Math.abs(a - 2.5) < 0.6 || Math.abs(a - 35.5) < 0.6) && (Math.abs(z - 4) < 0.6 || Math.abs(z - 15.5) < 0.6)) return ["wood", 0]; // screws
+      return ["wood", 2]; // hardboard
+    },
+  };
+  // Cables: from the screen down over the lip into the hatch, and a bundle from the hatch down to the floor.
+  const cables = [
+    box(-4, 8.6, -6, -5.2, 20, 20.8, "charcoal", { tones: { top: 0, sw: 1, se: 1 } }),
+    box(8, 8.6, -6, -5.2, 13, 20.8, "charcoal", { tones: { top: 0, sw: 1, se: 0 } }),
+    box(8, 8.6, -9.5, -8.7, 0, 12, "charcoal", { tones: { top: 0, sw: 1, se: 0 } }),
+    box(8, 8.6, -11, -10.2, 0, 12, "navy", { tones: { top: 0, sw: 1, se: 1 } }),
+  ];
+  // The knick-knacks, turned with the console.
+  const things = [box(-16, -12, 2, 6, 20, 26, "rust"), box(-15.5, -12.5, 2.5, 5.5, 26, 32, "olive"), ...[0, 1, 2].map((i) => box(0, 6, -14, -8, 20 + i * 2, 22 + i * 2, i === 1 ? "teal" : "charcoal", { tones: { top: 0, sw: 1, se: 2 } }))];
+  let top: Solid[];
+  if (flat) {
+    const Z0 = 27, Z1 = 55, HW = 15;
+    const back: Solid = {
+      ramp: "charcoal",
+      planes: [pl(-1, -1, 15), pl(1, 1, -12), pl(1, -1, HW), pl(-1, 1, HW), ...zs(Z0, Z1)],
+      paint: (p, f) => {
+        if (f === "top") return ["charcoal", 1];
+        const x = 2 * (p.u - p.v), z = p.z;
+        if (Math.abs(x) > 2 * HW - 1.5 || z < Z0 + 1 || z > Z1 - 1) return ["charcoal", 2]; // rim
+        if (z > Z1 - 7 && z < Z1 - 3 && Math.abs(x) < 18 && Math.floor(x + 40) % 3 === 0) return ["charcoal", 2]; // vents
+        if (x > 15 && x < 22 && z > Z0 + 3 && z < Z0 + 7) return ["cream", 2]; // a blank label
+        return ["charcoal", 1];
+      },
+    };
+    const housing: Solid = {
+      ramp: "charcoal",
+      planes: [pl(-1, -1, 12), pl(1, 1, -10), pl(1, -1, 8), pl(-1, 1, 8), ...zs(Z0 + 4, Z0 + 19)],
+      paint: (p, f) => {
+        if (f === "top") return ["charcoal", 0];
+        const x = 2 * (p.u - p.v);
+        if (p.z < Z0 + 8 && p.z > Z0 + 5.5 && Math.abs(x + 6) < 6 && Math.floor(x + 40) % 4 < 2) return ["mustard", 0]; // ports
+        return Math.abs(x) > 14.5 ? ["charcoal", 2] : ["charcoal", 1];
+      },
+    };
+    top = [back, housing, box(-7, -4, -7, -4, 20, Z0 + 6, "charcoal", { tones: { top: 0, sw: 1, se: 2 } }), box(-9, -2, -9, -2, 20, 21, "charcoal", { tones: { top: 1, sw: 2, se: 2 } })];
+  } else {
+    const projector: Solid = {
+      ramp: "cream",
+      planes: [pl(-1, -1, 18), pl(1, 1, -8), pl(1, -1, 7), pl(-1, 1, 7), ...zs(20, 34)],
+      paint: (p, f) => {
+        if (f === "top") return ["cream", 0];
+        const x = 2 * (p.u - p.v), z = p.z;
+        if (p.u + p.v < -8.4) return null; // its sides
+        if (Math.abs(x) < 8 && z > 26 && z < 32) return Math.floor(z) % 2 === 0 ? ["cream", 2] : ["cream", 1]; // vent grille
+        if (x > -11 && x < -6 && z > 21.5 && z < 24.5) return ["charcoal", 2]; // power socket
+        return z < 21.5 ? ["cream", 2] : null;
+      },
+    };
+    top = [projector, box(-5, -4.2, -5, -4.2, 20, 23, "charcoal")];
+  }
+  const r = renderSolids([console_, ...cables, ...things, ...top], cv.w, cv.h, cv.ax, cv.ay, "all", s);
+  if (!flat) {
+    // The reels on the projector, as on the front view, turned with it (mirrored across and 26 rows up).
+    drawReel(r.img, cv, 6, -53);
+    drawReel(r.img, cv, -6, -54);
+    addOutline(r.img, cv.w, cv.h);
+  }
+  return r.img;
+}
+
+/** Back views (OME-1997) for the furniture-back sheet: `furniture/<id>/<colour>/<nw|ne>/<back|front>` for every BACK_VIEWS piece,
+ *  anchored on the turned footprint's min corner like any other frame, plus the north view's shell skin. */
+export function buildBackViews(): RoomFrame[] {
+  const out: RoomFrame[] = [];
+  for (const [key, dirs] of Object.entries(BACK_VIEWS)) {
+    const [id = "", colour = ""] = key.split("/");
+    for (const dir of dirs) {
+      if (id === "tv") { out.push(crop(`furniture/${key}/${TURN[dir]}/back`, tvBackImage(colour === "flat"))); continue; }
+      const def = PIECES.find((d) => d.id === id);
+      if (!def) throw new Error(`no piece ${id}`);
+      out.push(...pieceFrames(def, colour, dir, true));
+    }
+  }
+  return [...out, ...buildNorthShell()];
 }
 
 // ---------------------------------------------------------------- theatre set v2 (OME-1639): its own lazy sheet, furniture-v5
@@ -1741,11 +1860,13 @@ function partition(k: Kit, colour: string, cut: boolean): void {
   const T = 2, SILL = 24, HEAD = 150, lit = k.dir === "sw";
   const glass = colour === "glass" || colour === "panelglass";
   // OME-1977: `panel` / `panelglass` wear the spa's smoked panelling (the side the camera sees) instead of the room's paper.
-  const paint = colour.startsWith("panel") ? (s: number, z: number, l: boolean): Paint => panelPaint("smoke", s, z, l) : (s: number, z: number, l: boolean): Paint => wallPaint("plain", s, z, l);
+  // OME-1997: its back (the bedroom side, seen from the north) wears the bedroom's oak.
+  const paint: (s: number, z: number, l: boolean, back: boolean) => Paint = colour.startsWith("panel") ? (s, z, l, back) => panelPaint(back ? "oak" : "smoke", s, z, l) : (s, z, l) => wallPaint("plain", s, z, l);
   const band = colour === "panelglass" ? PANEL_BAND : PARTITION_BAND;
-  const wall: LPaint = (p, f) => (f === "top" ? ["wall", 0] : f === "front" ? paint(p.x, p.z, lit) : paint(p.y, p.z, !lit));
+  const face = (f: LFace): boolean => f === "front" || f === "back";
+  const wall: LPaint = (p, f) => (f === "top" ? ["wall", 0] : face(f) ? paint(p.x, p.z, lit, f === "back") : paint(p.y, p.z, !lit, false));
   // The wainscot without its panel inset, which a sill or a stub would cut in half.
-  const wood: LPaint = (p, f) => (f === "top" ? ["wood", 0] : p.z < 5 ? ["wood", 2] : ["wood", (f === "front") === lit ? 1 : 2]);
+  const wood: LPaint = (p, f) => (f === "top" ? ["wood", 0] : p.z < 5 ? ["wood", 2] : ["wood", face(f) === lit ? 1 : 2]);
   const frame = (z0: number, z1: number): void => { k.box(-8, 8, -T - 0.5, T + 0.5, z0, z1, "charcoal", { tones: { top: 1, sw: 2, se: 2 } }); };
   if (cut) {
     k.box(-8, 8, -T, T, 0, glass ? PARTITION_STUB - 2 : PARTITION_STUB, "wood", { paint: wood });
@@ -2032,20 +2153,26 @@ function crop(key: string, img: Uint8Array, box0?: { x0: number; y0: number; w: 
 }
 
 /** Back (+ front, for seats) layers of one piece facing `dir`. Both layers share one crop rect, so one anchor. */
-export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
-  const base = `furniture/${def.id}/${colour}/${dir}`;
-  if (def.image) {
+export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir, turned = false): RoomFrame[] {
+  const base = `furniture/${def.id}/${colour}/${turned ? TURN[dir] : dir}`;
+  if (def.image && !turned) {
     const back = crop(`${base}/back`, def.image(dir, colour));
     return [back, ...useFrames(def, colour, dir, back.rect), ...(def.walk?.draw(dir, colour, back.rect) ?? [])];
   }
-  const k = new Kit(dir);
+  const k = new Kit(dir, turned);
   def.build?.(k, colour, 0);
+  // Turned, the model spins about its anchor cell: move it so its centre sits on the footprint's centre and the anchor is the
+  // footprint's min corner, as the contract places it (footprintCells).
+  const fp = swapsAxes(dir) ? { c: def.rows, r: def.cols } : { c: def.cols, r: def.rows };
+  const mid = k.world(8 * (def.cols - 1), 8 * (def.rows - 1));
+  const du = turned ? 8 * (fp.c - 1) - mid.u : 0, dv = turned ? 8 * (fp.r - 1) - mid.v : 0;
+  const AX = CANVAS.ax + 2 * (du - dv), AY = CANVAS.ay + du + dv;
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);
   const all = [...back, ...front];
   const keep = def.keepOutline;
   const draw = (solids: readonly Solid[]): ReturnType<typeof renderSolids> => {
-    const r = renderSolids(solids, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, keep ? "none" : "all");
+    const r = renderSolids(solids, CANVAS.w, CANVAS.h, AX, AY, keep ? "none" : "all");
     if (keep) {
       const lined = r.img.slice();
       addOutline(lined, CANVAS.w, CANVAS.h);
@@ -2054,7 +2181,7 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
     return r;
   };
   const full = draw(all);
-  const alt = def.open ? "open" : def.cut ? "cut" : null;
+  const alt = turned ? null : def.open ? "open" : def.cut ? "cut" : null;
   if (front.length === 0 && alt) {
     // Closed and open share one rect (the union), so one anchor: swap the texture in place.
     const ko = new Kit(dir);
@@ -2068,9 +2195,9 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   }
   if (front.length === 0) {
     const idle = crop(`${base}/back`, full.img);
-    return [idle, ...useFrames(def, colour, dir, idle.rect)];
+    return turned ? [idle] : [idle, ...useFrames(def, colour, dir, idle.rect)];
   }
-  const backImg = renderSolids(back, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+  const backImg = renderSolids(back, CANVAS.w, CANVAS.h, AX, AY, "all").img;
   const frontImg = new Uint8Array(CANVAS.w * CANVAS.h);
   const isFront = (i: number): boolean => (full.ids[i] ?? -1) >= back.length;
   for (let y = 0; y < CANVAS.h; y++) {
@@ -2087,7 +2214,7 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   for (let i = 0; i < both.length; i++) both[i] = (backImg[i] ?? 0) || (frontImg[i] ?? 0);
   const { rect } = crop(`${base}/both`, both);
   // A seat's use loop replaces only its back layer (the front stays put), so its frames are the back parts alone.
-  return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect), ...useFrames(def, colour, dir, rect, true)];
+  return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect), ...(turned ? [] : useFrames(def, colour, dir, rect, true))];
 }
 
 function kitImage(def: PieceDef, colour: string, dir: FurnDir, n: number, backOnly = false): Uint8Array {
