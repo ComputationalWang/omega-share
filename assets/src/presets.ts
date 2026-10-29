@@ -159,12 +159,14 @@ export const PRESETS: readonly Preset[] = [
       furniture: [
         TV,
         ...[0, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => p("partition", c, 4, "sw", c >= 5 && c <= 8 ? 1 : 0)),
-        p("bed", 2, 0, "nw"), p("bed", 4, 0, "nw"),
+        // The grid had (2, 0): one row too far back for a phone window (OME-1930) to hold every seat with me. Still behind the glass.
+        p("bed", 3, 0, "nw"), p("bed", 4, 0, "nw"),
         p("desk", 7, 0, "sw"), p("minibar", 9, 0, "sw"), p("wingback", 8, 2, "nw"), p("neonsign", 0, 2, "se"),
         p("whirlpool", 2, 7, "ne"),
         // The grid had (0, 6), but row 6 of the left wall is a fixture segment: a mirror can't hang there.
         p("washbasin", 0, 7, "se"), p("mirror", 0, 7, "se"),
-        p("wingback", 7, 7, "nw"), p("coffeetable", 7, 6, "sw"),
+        // One col left of the grid's (7, 7): the seats' spread has to fit the audience band (OME-1945).
+        p("wingback", 6, 7, "nw"), p("coffeetable", 6, 6, "sw"),
         p("arclamp", 1, 9, "se"), p("monstera", 9, 9, "sw", 1),
       ],
     },

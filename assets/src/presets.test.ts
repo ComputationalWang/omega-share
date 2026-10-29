@@ -67,7 +67,7 @@ describe("room presets", () => {
     const walls = f.filter((x) => x.kind === "partition");
     expect(walls.every((w) => w.row === 4 && w.facing === "sw")).toBe(true);
     expect(walls.map((w) => [w.col, w.variant ?? 0]).sort((a, b) => (a[0] ?? 0) - (b[0] ?? 0))).toEqual([[0, 0], [2, 0], [3, 0], [4, 0], [5, 1], [6, 1], [7, 1], [8, 1], [9, 0]]);
-    expect(f.filter((x) => x.kind === "bed").map((b) => [b.col, b.row, b.facing])).toEqual([[2, 0, "nw"], [4, 0, "nw"]]);
+    expect(f.filter((x) => x.kind === "bed").map((b) => [b.col, b.row, b.facing])).toEqual([[3, 0, "nw"], [4, 0, "nw"]]);
     for (const k of ["whirlpool", "washbasin", "mirror"]) expect(f.find((x) => x.kind === k)?.row).toBeGreaterThan(4);
   });
 
