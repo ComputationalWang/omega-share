@@ -1466,6 +1466,98 @@ edit.json and reference.css).
   `runner (4,4) nw` variant 1; `monstera (9,9) sw` variant 1.
 - 8 seats, all facing the TV corner: both beds (2 each), the tub (2), the two wingbacks. Nothing on wall segments 5, 6, 8; the middle diagonal stays clear.
 
+### Two-compartment rework: concept (OME-1956, not shipped)
+
+Board ask (OME-1664): split the room into a bedroom and a spa with an interior wall, a doorway and a glass panel; walking through the
+door swaps your view between "from the south" (bedroom up close) and "from the north" (spa up close). Concept renders, both palettes:
+`preview/dungeon2-south@1x.png` / `@2x`, `preview/dungeon2-north@1x.png` / `@2x`, plus `-night` versions (the room's `night` mood).
+Source: `src/dungeon2-concept.ts` (`bun assets/src/dungeon2-concept.ts`; writes only those previews).
+
+- **Plan:** interior wall on the row 4/5 line. Bedroom rows 5–9 (two beds headboard-to-glass, nightstand, desk with lamp, a bar
+  fridge on its own, a flat TV on the corner console, pink neon, an oval rug in front of the doorway, two wingbacks round a coffee table).
+  Spa rows 0–4 (sauna cabin in the corner, round cedar tub, whirlpool, recliner, two washbasins under a big mirror). Glass cols 3–8
+  (u 36–128, z 16–150): wide enough that both beds, feet included, show whole from the spa. Black frame, one pale stripe across the
+  pane's top-left corner (clear of the beds), leaning the same way in both views. Doorway col 1; the rug sits on its line of sight.
+- **North view = the same room turned 180°.** `Kit` takes `turned` (`src/furniture.ts`): the same 3D model spun about its anchor, so
+  every piece's far side is re-cast, not redrawn. Walls nearest the camera are not drawn in either view (Habbo-style cut-away); each view
+  draws its own two back walls. The far compartment is drawn only through the glass and the doorway, at full colour with its dark
+  carpet one tone lighter so the beds stand out; no haze (the frame and the stripe say "glass").
+- **Wood panelling:** pale oak (`floor` ramp) in the bedroom, smoked wood (`wood`) in the spa, a warm cove strip under the top, and the
+  old dungeon's purple wainscot under a wood rail so the room still belongs to the set. Floors: dark carpet with gold veins, slatted deck.
+- **Pieces that must read at 1×:** sauna in pale cedar (lighter than the wall) with a front window onto the bench, the glowing stone
+  heater and wisps of steam, and a glazed bronze door with a long handle; TV is a flat screen (dark bezel, navy screen lit low in teal, a
+  glint, a power light); the fridge is a cream bar fridge with freezer seam and handles; the mirror is a silver pane in a chunky brass
+  frame with the deck and the sauna faintly reflected and two sheen streaks.
+- **Night is a lighting pass, not a filter:** everything drops to the dark ramp, then light comes back from sources. Lamps throw a pool
+  onto bare floor (lit pixels also rise one tone, so a pool reads on the dark carpet); wall lights (neon, mirror) halo the wall; the cove
+  strip glows and washes down the walls; glass and doorway take a warm tint; glow, ember and neon colours light themselves; the TV
+  screen stays lit. Pools stop at furniture (a "covered" mask), so no disc paints across a piece. The renderer would do the same with a
+  light layer (additive sprites masked to floor and walls); the concept builds its own indexed palette for it.
+- All existing ramps, no palette change.
+
+### Furniture v7: the reworked room's asset set (`furniture/furniture-v7.png` + `.json`, 512×1024, lazy, OME-1977)
+
+The shippable pieces for the two-compartment room. They follow the OME-1959 grid: the bedroom is behind the row-4 interior wall,
+the spa is in front. The sheet uses the v4 schema. The PNG is 15.5 KB and the JSON is 1.9 KB gzipped, inside ADR 0056's ≈21 KB.
+Load the sheet only when a layout uses one of these pieces. Nothing reads it until the hookup adds the kinds to `FURNITURE`; the
+atlas shape and turned frames are with the Lead on OME-1978.
+
+v7 also holds **single colours of older kinds** (`V7_COLOURS` in `src/furniture.ts`). The older sheets keep their own frames,
+byte-identical. v7's `meta.omega.pieces` lists only the new colours, so look a frame up by key across the loaded sheets.
+
+| id | colour | label | layer / mount | facings | footprint |
+|---|---|---|---|---|---|
+| `sauna` | `cedar` | Sauna cabin | object, floor, backs onto a wall | `se sw` | 2×2 |
+| `soaktub` | `cedar` | Cedar soaking tub (seat, front layer) | object, floor | `se` (round) | 2×2, 2 seats |
+| `lounger` | `teak` | Spa lounger (seat) | object, floor | `ne nw se sw` | 2×1, 2 seats |
+| `tv` | `flat` | Flat TV on the corner console (variant 1 of `tv`) | object, cell (0,0) | `se` | 1×1 |
+| `mirror` | `silver` | Tall mirror (variant 1) | wall | `se sw` | wall |
+| `minibar` | `fridge` | Bar fridge (variant 1) | object, floor | `se sw` | 1×1 |
+| `carpet` | `oval` | Oval velvet rug (variant 1) | floor | `se` | 2×2 |
+| `partition` | `panel`, `panelglass` | Panelled interior wall, solid and glass (variants 2, 3) | object | `se sw` | 1×1, with cut stubs |
+
+The judge's five notes from OME-1956, and where each is fixed:
+- **Mirror:** a thin brass frame round a cool blue-grey pane (`glow`, lighter at the top), one soft diagonal sheen and a faint head
+  and shoulders reflected in it. There's no beige. It fills one wall segment, so hang two side by side over a pair of basins.
+- **Sauna at 1×:** the door faces into the room (local front). It is glazed and lit, with light spilling from under it onto the
+  floor, a curl of steam over it and a thermometer beside it. The side has a window onto a **two-tier slatted bench**, drawn dark
+  against the glow so it reads as a silhouette, and a **stone-topped heater**: an iron box, grey stones with embers between them,
+  and steam pixels rising.
+- **Glass stripe:** `panelglass` moves the stripe up to z 133–135, 2 units thin, just under the header. It is clear of the beds,
+  the tub and anyone standing behind the pane. The `glass` variant (OME-1959) is unchanged. The warm night tint is a renderer
+  question (the pane is transparent pixels); see OME-1978.
+- **Bedroom carpet:** `floor/carpet/*` uses a taupe tweed (`charcoal` 0 flecked with `wood` 2) instead of the concept's
+  `charcoal` 1. That's one step lighter and warmer. Its gold veins run in short stretches, not a full lattice.
+- **Lounger:** the north view's "treadmill" is now a spa lounger: a teak frame on four legs, a thick cream mattress with a raised
+  back, a rolled teal towel at the head and a folded one at the foot. The wall's night dither is a 2-row wash under the cove strip.
+
+**Shell skin** (in the same sheet). The rects and anchors are exactly those of the room atlas frames named in brackets, so the
+renderer only swaps keys:
+- Walls: `wall/l/{oak,smoke,split}` [`wall/l/plain`] and `wall/r/{oak,smoke}` [`wall/r/plain`]. `split` is the left-wall segment
+  the interior wall meets: oak behind its midline, smoked in front.
+- Corner and ends: `wall/corner/oak` [`wall/corner`], `wall/l/end/smoke` [`wall/l/end`], `wall/r/end/oak` [`wall/r/end`].
+- Floors: `floor/{carpet,deck,split}/{0,1}` [`floor/0`]. `split` is carpet behind the partition's midline and deck in front. The
+  tiles repeat every 16 units, so any tile joins any other.
+
+The panelling (`panelPaint` in `src/room.ts`) is the concept's, unchanged: a dark skirting, the old dungeon's purple wainscot
+under a wood rail, boards with a seam every 16, and a warm cove strip under the crown. Oak (the `floor` ramp) is the bedroom and
+smoked wood (`wood`) is the spa.
+
+The grid in the preview (`dungeon2Plan` in `src/build.ts`) is OME-1959's partition row, with `panel` cells, `panelglass` at
+cols 5–8 and the doorway at col 1. The other pieces:
+- Bedroom: `tv/flat (0,0)`, beds `(2,0)` and `(4,0) nw`, `desk (7,0) sw`, `minibar/fridge (9,0) sw`, `wingback (8,2) nw`,
+  `neonsign (0,1) se`, `carpet/oval (0,2)` in front of the doorway.
+- Spa: basins under `mirror/silver` at `(0,5)` and `(0,6) se`, `sauna (0,8) se`, `soaktub (3,6) se`, `whirlpool (6,8) ne`,
+  `lounger (8,5)` and `(9,5) nw`, `monstera (9,9) sw`.
+- Shell: `floor/carpet` on rows 0–3, `floor/split` on row 4 and `floor/deck` on rows 5–9. On the left wall, `oak` on rows 0–3,
+  `split` on row 4 and `smoke` on rows 5–9. The right wall is all `oak`.
+
+Previews:
+- `preview/dungeon2-room@1x.png` / `@2x`, `-night` (the `night` mood) and `-cut` (a viewer in the bedroom).
+- `preview/furniture-v7-room@1x.png` / `@2x`: every piece in each facing, seats taken and free.
+- `preview/furniture-v7-seats@2x.png` and `preview/furniture-v7-atlas@2x.png`.
+- Tray thumbnails and swatches: `ui/edit.png`, `thumb/<id>/<colour>` and `swatch/<colour>`.
+
 ### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
 
 Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera

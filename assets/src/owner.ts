@@ -553,6 +553,8 @@ const SWATCH_RAMP: Record<string, RampName> = {
   velvet: "velvet", navy: "navy", cream: "cream", olive: "olive", ginger: "ginger", blush: "blush",
   wood: "wood", brass: "mustard", rust: "rust", teal: "teal", painted: "teal", lilac: "lilac",
   mustard: "mustard", pink: "pink", charcoal: "charcoal",
+  // Dank Dungeon rework (OME-1977): the new colours of the mirror, minibar, carpet and partition.
+  silver: "glow", fridge: "cream", oval: "velvet", panel: "wood", panelglass: "glow",
 };
 const SWATCH_ART: Record<string, readonly string[]> = {
   // Dusk mountains: night sky, a mustard sun, lilac peaks.
@@ -609,7 +611,7 @@ function swatchRing(): UiFrame {
 }
 
 /** Every catalogue colour, in tray order. */
-export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach", "floor", "step", "high", "solid", "glass"] as const;
+export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach", "floor", "step", "high", "solid", "glass", "silver", "fridge", "oval", "panel", "panelglass"] as const;
 
 /** Footprints the catalogue uses (`footprintByDir`), each marker state. */
 const FOOTPRINT_SIZES: readonly (readonly [number, number])[] = [[1, 1], [2, 1], [1, 2], [3, 2], [2, 3]];
