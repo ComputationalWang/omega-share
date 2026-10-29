@@ -354,39 +354,44 @@ pub fn footprint_cells(f: &Furniture) -> Vec<(u32, u32)> {
         .collect()
 }
 
-/// Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). A piece seats
-/// along its first row only (ADR 0057).
+/// The seat cells of one piece: its first row (ADR 0057), at most `seat_cells` of it from the anchor.
+fn seat_cells(f: &Furniture) -> impl Iterator<Item = (u32, u32)> + '_ {
+    let s = spec(f.kind);
+    let first_row = move |&(col, row): &(u32, u32)| {
+        if turned(f) {
+            col == u32::from(f.col)
+        } else {
+            row == u32::from(f.row)
+        }
+    };
+    footprint_cells(f)
+        .into_iter()
+        .filter(first_row)
+        .take(if s.seats { s.seat_cells } else { 0 })
+}
+
+/// Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021).
 pub fn layout_seats(furniture: &[Furniture]) -> Vec<Seat> {
-    let mut seats = Vec::new();
-    for f in furniture.iter().filter(|f| spec(f.kind).seats) {
-        let first_row = |&(col, row): &(u32, u32)| {
-            if turned(f) {
-                col == u32::from(f.col)
-            } else {
-                row == u32::from(f.row)
-            }
-        };
-        seats.extend(
-            footprint_cells(f)
-                .into_iter()
-                .filter(first_row)
-                .take(spec(f.kind).seat_cells)
-                .map(|(col, row)| Seat {
-                    col,
-                    row,
-                    facing: f.facing,
-                }),
-        );
-    }
-    seats
+    furniture
+        .iter()
+        .flat_map(|f| {
+            seat_cells(f).map(|(col, row)| Seat {
+                col,
+                row,
+                facing: f.facing,
+            })
+        })
+        .collect()
 }
 
 /// The seat indices piece `piece` gives (OME-1691): empty for a piece without seats, `None` past the last piece.
 pub fn piece_seats(furniture: &[Furniture], piece: usize) -> Option<std::ops::Range<usize>> {
     let f = furniture.get(piece)?;
-    let cells = |f: &Furniture| if spec(f.kind).seats { footprint_cells(f).len() } else { 0 };
-    let before = furniture.iter().take(piece).fold(0usize, |n, f| n.saturating_add(cells(f)));
-    Some(before..before.saturating_add(cells(f)))
+    let before = furniture
+        .iter()
+        .take(piece)
+        .fold(0usize, |n, f| n.saturating_add(seat_cells(f).count()));
+    Some(before..before.saturating_add(seat_cells(f).count()))
 }
 
 /// Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se.
