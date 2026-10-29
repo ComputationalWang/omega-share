@@ -1,6 +1,6 @@
 # ADR 0057 — Extension-synced generic embeds (kwik first)
 
-**Status:** proposed (2026-10-29) · question [OME-1962](/OME/issues/OME-1962) · spike and draft [OME-1963](/OME/issues/OME-1963) · amends ADR 0024 §3 and §7 ("a generic embed never carries playback state") and ADR 0047 §5 (bridge) and §4 (store copy) · **needs the board before any implementation, because it reverses the ADR 0024 invariant**
+**Status:** accepted (2026-10-29, board approval [bf06bc10](/OME/approvals/bf06bc10-7e1e-40ca-911d-f7863e8d7bff)) · question [OME-1962](/OME/issues/OME-1962) · spike and draft [OME-1963](/OME/issues/OME-1963) · amends ADR 0024 §3 and §7 ("a generic embed never carries playback state") and ADR 0047 §5 (bridge) and §4 (store copy)
 
 ## Context
 
@@ -28,7 +28,7 @@ Our extension can do the same, with no new permissions. A viewer who unlocked a 
 
 **Verdict:** a content script in the unlocked frame can read and drive kwik's video reliably. kwik is the easy case: one `<video>`, no in-frame ads and no third-party frames.
 
-## Decision (proposed)
+## Decision
 
 ### 1. Contract: playback for every generic embed
 
