@@ -609,6 +609,8 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   .room-side > .room-top { flex-wrap: wrap; align-items: center; gap: 4px; }
   .room-side > .room-top > .room-title { order: -1; flex: 1 1 100%; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
   .room-side > .room-top > .invite { display: contents; }
+  /* Leave takes the camera key's place in the column's one head row (OME-1967); /snap still works, as in portrait. */
+  .room-side > .room-top > .snap-key { display: none; }
   .room-side > .room-top .invite-note { order: 1; flex: 1 1 100%; margin: 0; font-size: 12px; }
   .room-side > .room-top > .invite > input { display: none; }
   .room-side > .room-top > .invite > label { font-size: 12px; white-space: nowrap; }
@@ -707,7 +709,8 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
  * the picture). A hidden person's name tag and avatar are dimmed (the avatar by alpha, room-view.ts), set once per change. */
 .room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
 /* Leave (OME-1967) holds the bar's left end, a 44 px target everywhere; the keys after it keep the right end. */
-.room-top > .leave-key { min-width: 44px; min-height: 44px; margin-left: 0; margin-right: auto; }
+/* Its 44 px overhangs the bar by 8 px a side so the bar, and the TV under it, keep their size (wide-layout.e2e.ts). */
+.room-top > .leave-key { min-width: 44px; min-height: 44px; margin: -8px auto -8px 0; }
 .people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
 .people[hidden] { display: none; }
 /* The stacked tablet page (OME-1805): a sheet over the page's foot, so the TV above stays where it is. */
