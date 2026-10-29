@@ -21,6 +21,8 @@ for (const p of v.parse(FurnitureManifestSchema, furnitureV7Json).meta.omega.pie
   if (first === undefined) COLOURS.set(p.id, p.colours);
   else if (first === have.length && have.length > 0) COLOURS.set(p.id, [...have, ...p.colours]);
 }
+// The queen bed (OME-1984), the one v6 kind in the tray: its colours inline rather than v6's whole JSON in the editor chunk (pinned by queen-bed.test.ts).
+COLOURS.set("bed", ["velvet"]);
 export const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;
   return kind === "runner" ? "rug" : kind;

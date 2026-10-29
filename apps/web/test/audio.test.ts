@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { FLOOR_CELLS, type MemberId } from "@omega/shared";
+import { EMOTE_KINDS, FLOOR_CELLS, type MemberId } from "@omega/shared";
 import { createSound, SOUND_MUTED_KEY, SOUND_VOLUME_KEY, type AudioCtx, type Sound, type SoundOptions } from "../src/audio/engine";
 import { floorKinds } from "../src/audio/floor";
 import { parseRecipes, type Recipes } from "../src/audio/recipes";
@@ -395,7 +395,7 @@ describe("the recipes", () => {
   test("the Designer's recipes (assets/sound/recipes.json) parse and have every sound the room plays", () => {
     const r = parseRecipes(shipped);
     expect(r).not.toBeNull();
-    const names = ["step.wood", "step.carpet", "step.tile", "chair.sit", "chair.stand", "door", "ui.tick", "ui.toggle", "ui.error", "pop", "tone.warm", "tone.cool", "tone.night", "swell"];
+    const names = ["step.wood", "step.carpet", "step.tile", "chair.sit", "chair.stand", "door", "ui.tick", "ui.toggle", "ui.error", ...EMOTE_KINDS.map((k) => `emote.${k}`), "tone.warm", "tone.cool", "tone.night", "swell"];
     expect(Object.keys(r?.sounds ?? {}).sort()).toEqual(names.sort());
     for (const n of names) expect(r?.sounds[n]?.loop === true).toBe(n.startsWith("tone."));
   });

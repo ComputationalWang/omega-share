@@ -26,6 +26,7 @@ import { resolveTheme } from "./theme/periods";
 import { ambienceFor, type Ambience } from "./theme/ambience";
 import { livePieces, type LivePieces } from "./live-pieces";
 import { clockFace, handSteps, minuteTicks, type HandSteps } from "./wall-clock";
+import { EMOTE_SOUNDS } from "./emote/emotes";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
@@ -1263,7 +1264,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       animator.conga(ids);
     },
     emote(id, kind) {
-      opts.sound?.play("pop");
+      // Petting the cat (reach) goes out to everyone else as a wave, so it sounds like one here too.
+      opts.sound?.play(EMOTE_SOUNDS[kind === "reach" ? "wave" : kind]);
       animator.emote(id, kind);
     },
     setDimmed(id, on) {
