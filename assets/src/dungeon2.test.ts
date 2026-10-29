@@ -3,6 +3,8 @@
 import { expect, test } from "bun:test";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { inflateSync } from "node:zlib";
+import { colorIndex } from "./palette";
 
 const ROOT = join(import.meta.dir, "..");
 interface F { frame: { x: number; y: number; w: number; h: number }; anchor: { x: number; y: number } }
@@ -56,4 +58,49 @@ test("the shell skin has the room atlas's rects and anchors, so the renderer swa
 
 test("v7 stays inside its lazy budget (ADR 0056: ≈21 KB)", () => {
   expect(statSync(join(ROOT, "furniture", "furniture-v7.png")).size).toBeLessThanOrEqual(21 * 1024);
+});
+
+// Our encoder writes one IDAT with filter 0 on every row, so decoding is inflate + drop the filter bytes (as in watching.test.ts).
+function indexed(file: string): (sheetX: number, sheetY: number) => number {
+  const png = readFileSync(join(ROOT, file));
+  const w = png.readUInt32BE(16), h = png.readUInt32BE(20);
+  let o = 8, idat = Buffer.alloc(0);
+  while (o < png.length) {
+    const len = png.readUInt32BE(o), type = png.toString("latin1", o + 4, o + 8);
+    if (type === "IDAT") idat = Buffer.concat([idat, png.subarray(o + 8, o + 8 + len)]);
+    o += 12 + len;
+  }
+  const raw = inflateSync(idat), data = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) data.set(raw.subarray(y * (w + 1) + 1, (y + 1) * (w + 1)), y * w);
+  return (x, y) => data[y * w + x] ?? 0;
+}
+
+test("night pane masks (OME-1994): an opaque amber fill of exactly the see-through pane, on the glass back frame's rect and anchor", () => {
+  const v7 = atlas("furniture/furniture-v7.json"), v6 = atlas("furniture/furniture-v6.json");
+  const px7 = indexed("furniture/furniture-v7.png"), px6 = indexed("furniture/furniture-v6.png");
+  const amber = colorIndex("mustard", 1);
+  for (const [colour, back, solid, pxBack] of [["glass", v6, v6, px6], ["panelglass", v7, v7, px7]] as const) for (const d of ["se", "sw"]) {
+    const m = v7.frames[`furniture/partition/${colour}/pane/${d}`], b = back.frames[`furniture/partition/${colour}/${d}/back`];
+    const s = solid.frames[`furniture/partition/${colour === "glass" ? "solid" : "panel"}/${d}/back`];
+    if (!m || !b || !s) throw new Error(`${colour}/${d}: missing frame`);
+    expect([m.frame.w, m.frame.h, m.anchor.x, m.anchor.y]).toEqual([b.frame.w, b.frame.h, b.anchor.x, b.anchor.y]);
+    let filled = 0;
+    for (let y = 0; y < m.frame.h; y++) for (let x = 0; x < m.frame.w; x++) {
+      const v = px7(m.frame.x + x, m.frame.y + y);
+      const behind = pxBack(b.frame.x + x, b.frame.y + y);
+      // The same pixel in the solid wall, lined up on the anchor: the pane is what the solid wall fills and the glass leaves open.
+      const sx = x - Math.round(b.anchor.x * b.frame.w) + Math.round(s.anchor.x * s.frame.w);
+      const sy = y - Math.round(b.anchor.y * b.frame.h) + Math.round(s.anchor.y * s.frame.h);
+      const wall = sx >= 0 && sy >= 0 && sx < s.frame.w && sy < s.frame.h ? (colour === "glass" ? px6 : px7)(s.frame.x + sx, s.frame.y + sy) : 0;
+      expect(v === 0 || v === amber, `${colour}/${d} (${String(x)},${String(y)})`).toBe(true);
+      expect(v === amber, `${colour}/${d} (${String(x)},${String(y)})`).toBe(behind === 0 && wall !== 0);
+      if (v === amber) filled++;
+    }
+    expect(filled).toBeGreaterThan(1000);
+  }
+});
+
+test("the flat TV has its tray swatch (OME-1994)", () => {
+  expect(atlas("ui/edit.json").frames["swatch/flat"]).toBeDefined();
+  expect(readFileSync(join(ROOT, "ui", "reference.css"), "utf8")).toContain(".ui-swatch-flat {");
 });
