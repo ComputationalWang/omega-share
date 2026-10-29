@@ -95,6 +95,7 @@ pub enum Kind {
     Minibar,
     Desk,
     Washbasin,
+    Partition,
 }
 
 impl Kind {
@@ -104,7 +105,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 47] = [
+pub const KINDS: [Kind; 48] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -152,6 +153,7 @@ pub const KINDS: [Kind; 47] = [
     Kind::Minibar,
     Kind::Desk,
     Kind::Washbasin,
+    Kind::Partition,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -267,6 +269,8 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Minibar | Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
         Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
+        // The facing picks the axis; 0 solid, 1 glass (OME-1958).
+        Kind::Partition => Spec::new(Object, CAMERA, 1, 1).variants(2),
     }
 }
 
