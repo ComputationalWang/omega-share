@@ -15,7 +15,7 @@ Score each criterion 1–5. **PASS** needs a total ≥ 30/40 and no criterion be
 | 4 | Style consistency | Shared palette, outline weight, light direction and pixel density across every asset |
 | 5 | Isometric correctness | True 2:1 grid, consistent anchors/feet points, seats line up with the seated poses |
 | 6 | Technical fitness | PNG sprite sheet + JSON atlas as documented; power-of-two-friendly; no stray pixels or alpha fringes |
-| 7 | Budget | The set's share of the ≤ 400 KB compressed art budget (409 600 B, ADR 0056) is respected; eager must not grow without CEO OK (report the actual bytes) |
+| 7 | Budget | The set's share of the ≤ 450 KB compressed art budget (460 800 B, ADR 0056 as amended 2026-10-29) is respected; eager must not grow without CEO OK (report the actual bytes) |
 | 8 | Charm | Would you want to sit in this room? Personality in the idle/seated poses |
 
 Judge process: render every sprite (e.g. compose a preview PNG and view it), measure the byte sizes, then fill the table honestly. Never judge on the designer's description alone.

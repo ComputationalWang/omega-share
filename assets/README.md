@@ -38,7 +38,7 @@ assets/
   furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   furniture/furniture-v5.png  # theatre set v2 (OME-1639, lazy-load): 256×1024 indexed PNG-8, raised rows, curtain, big screen, aisle lights, carpet
   furniture/furniture-v5.json # theatre set v2: v4's schema + `seatLiftByColour`
-  furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×1024 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin, partition (v4 schema + cutKey)
+  furniture/furniture-v6.png|json  # Dank Dungeon (OME-1670, lazy): 256×2048 PNG-8, bed, whirlpool, mirror, minibar, desk, washbasin, partition (v4 schema + cutKey)
   avatars/dungeon.png|json  # Dank Dungeon (OME-1670, lazy): 256×512 PNG-8, the bendover / thrust emote poses, 48×64 cells
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
@@ -1390,7 +1390,7 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
 
 | id | label | layer / mount | facings | colours | footprint |
 |---|---|---|---|---|---|
-| `bed` | Twin bed (seat, no front layer) | object, floor | `ne nw se sw` | `velvet` (duvet, headboard, a plum pillow) | 2×1, 2 seats |
+| `bed` | Queen bed (seat, no front layer, a `cover` per sleeper; OME-1983) | object, floor | `ne nw se sw` | `velvet` (duvet, headboard, two pillows) | 2×2, 2 seats, 2 sleepers |
 | `whirlpool` | Whirlpool (seat, front layer) | object, floor | `ne nw se sw` | `teal` | 2×1, 2 seats |
 | `mirror` | Wall mirror | wall | `se sw` | `brass` | wall |
 | `minibar` | Minibar | object, floor | `se sw` | `wood` | 1×1 |
@@ -1454,6 +1454,39 @@ beds and the glass together. The TV console stays in the bedroom corner and is m
 because the video is page chrome (ADR 0012). The spa has no sauna cabin yet (a later piece, OME-1956's list). Cost: +2 722 B
 (furniture-v6.png +2 106, its JSON +269 gz, `ui/edit.png` +220 for the tray thumbnail, two swatches `solid` / `glass` +127 gz in
 edit.json and reference.css).
+
+### Queen bed (OME-1983)
+
+Board direction (OME-1977): beds are queens, not singles. The `bed` is now **2×2** (contract: OME-1982), in every colour (`velvet`, the only
+one) and facing. Same look as the twin, twice as wide: a plum duvet folded back over cream sheets with a seam down the middle, a mustard throw
+at the foot, **two big cream pillows** (one per sleeper), a plum and a mustard cushion and a teal bolster against the tufted headboard at the
+anchor end (local −x). Previews: `preview/queenbed@2x.png` (each facing: empty, two sleepers, two sitters) and `preview/queenbed-room@1x.png` / `@2x`.
+
+- **Footprint:** the anchor cell is the footprint's min corner, as for every piece (`sortByDir` (0, 16) in all four facings). In local
+  coordinates the bed spans x −8..24 (the length) and y 0..16 facing `ne`/`nw` but −16..0 facing `se`/`sw` (`toWorld` flips y there).
+- **Seats** (`seatsByDir`, 2): side by side on the bed's **front half** (−y, the half the bed faces), like the twin's: `ne` (0,0) (1,0),
+  `nw` (0,0) (0,1), `se` (1,0) (1,1), `sw` (0,1) (1,1) as `{col, row}` from the anchor. Sitters face the piece's way, drawn as on any seat.
+- **Sleepers** (two, side by side along the length, heads on the pillows): the `sleep` pose in `avatars/lying.json`
+  (`sleep/<avatar>/<dir>/<0|1>`, all four facings; nw is se's frame and ne is sw's, sharing a rect). Each shows the face, eyes shut; the body is
+  under the duvet. Where to draw them: `lying.json` `meta.omega.sleepers.bed` (not `pieces`, which the web pins to the contract's `lie`/`curl` kinds; move it there with the wiring, OME-1984): `dirs` is sleeper 0 (on the seats' half), `beside` sleeper 1,
+  screen px from the bed's anchor to the frame's floor point (`sleepFloorPoint` (13, 30) in the cell, mirrored for sw/ne; each frame's `anchor` holds it).
+
+  | sleeper | ne | nw | se | sw |
+  |---|---|---|---|---|
+  | 0 (`dirs`) | (16, 1) | (−16, 1) | (16, 17) | (−16, 17) |
+  | 1 (`beside`) | (−16, 17) | (16, 17) | (−16, 1) | (16, 1) |
+
+- **Covers:** `furniture/bed/<colour>/cover/<dir>/<sleeper>` (`meta.omega.coverKey`): the duvet pulled up over that sleeper's half, a soft
+  mound from the shoulders to the foot. Same rect and anchor as `…/<dir>/back`, so draw it at the bed's anchor. **Draw order** at the bed's sort
+  point: `back`, then per sleeper, the one with the smaller screen y first: its `sleep` frame, then its `cover`. An empty half has no cover.
+- The empty bed looks the same whether or not someone sits on it; only sleepers pull a cover up.
+- `layersByDir` for the bed is now `["back"]` in every facing. Before, the frame filter matched the id `bed` itself and listed no layers.
+- **Bytes** (`bun assets/src/build.ts`): +6 234 B (396 504 → 402 738 of 409 600), all lazy: `furniture-v6.png` +3 109 (12 475 → 15 584,
+  the sheet grows to 256×2048), its JSON +148 gz, `lying.png` +2 427 (6 457 → 8 884) and its JSON +553 gz (lying total 10 732 of its 12 KB),
+  `ui/edit` −29 (the tray thumb keeps the twin's 43×34 rect, so the sheet doesn't repack and the eager `reference.css` is byte-identical).
+  `presets/thumbs/dank-dungeon.png` +26 (it draws the new bed). Every other frame in v6, lying and edit is pixel-identical.
+- Not mine to change: the Dank Dungeon preset still places two 2×1 beds (`bed (4,0) nw`, `bed (0,3) ne`) and says "Twin beds". OME-1982
+  moves them to the 2×2 footprint.
 
 ### The preset (draft for OME-1672)
 
@@ -1639,6 +1672,7 @@ so hair, clothes, shading and outline are the avatar's own (fully clothed): the 
 side, front to the camera, **eyes shut**), the torso and legs shear onto the 2:1 axis the seats run along, and the head stays a
 rigid block lying flat on the armrest. Previews: `preview/lying.html` (every facing on each piece, a room at 1×/2×, the strip).
 
+- **Queen bed (OME-1983):** `sleep/<avatar>/<ne|nw|se|sw>/<0|1>`, head up on the pillows, under a duvet; see *Queen bed* above.
 - **Keys:** `lie/<avatar>/<se|sw|ne|nw>/<0|1>` (the sofas, the same four facings as `sit`; se/sw show the face, ne/nw the back
   over the backrest, like a sitter from behind) and `curl/<avatar>/<se|sw>/<0|1>` (the cat bed, its two facings; the shins tuck in
   so the body fits the cushion). **Animations:** `lie/<avatar>/<dir>` and `curl/<avatar>/<dir>`: a 2-frame breath, frame 1 lifts the
@@ -1704,7 +1738,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 409 600 B (400 KB) since ADR 0056** (300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 376 550 B** after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 376 550 B** after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

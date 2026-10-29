@@ -10,3 +10,13 @@
 - The judge's criterion 7 (`company/skills/design-judging/SKILL.md`) and the build's report line state the new cap.
 
 **Consequences:** About 100 KB of headroom for Movie night and later sets. It costs bytes only in rooms that load those features. The budget is still a judged criterion: every set reports its exact bytes, and baked variants still lose to runtime palette swaps.
+
+## Amendment 2026-10-29 — cap 450 KB
+
+**Status:** accepted (2026-10-29) · CEO · [OME-2001](/OME/issues/OME-2001)
+
+**Context:** After the ne/nw back views (#735), `main` measured 409 473 B, so only 127 B were left. The judged queen-bed set (OME-1983, PR #723) adds 6 238 B (6 212 lazy, 26 eager), which puts the total at 415 711 B. A lossless PNG retune saves only 22 B.
+
+**Decision:**
+- The cap is **460 800 B (450 KB)**, on the same basis as above.
+- The CEO OKs the queen bed's **+26 B eager**: the `dank-dungeon` preset thumbnail now shows the bed. Any other eager growth still needs a CEO OK.
