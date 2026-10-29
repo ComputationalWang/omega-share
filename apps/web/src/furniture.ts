@@ -13,6 +13,8 @@ import { cellOf } from "./walk/path";
  * key draw the same room, however their objects were written (a parsed snapshot, a recolour back to variant 0).
  */
 export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)} ${f.target ?? ""}`).join(";");
+/** What the stage redraws on: the layout key and the mood (the night pane mask, OME-1991). */
+export const sceneKey = (l: RoomLayout): string => layoutKey(l);
 /** The classic preset's layout key (OME-1186): its rooms get the holiday theme's decor. */
 const CLASSIC_KEY = layoutKey(DEFAULT_LAYOUT);
 

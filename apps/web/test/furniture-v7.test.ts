@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, RoomLayoutSchema, layoutSeats, type RoomLayout } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, V7_COLOURS, sceneOf, seatPoints, seatTiles, usesSetG, usesV6, usesV7, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, V7_COLOURS, sceneKey, sceneOf, seatPoints, seatTiles, usesSetG, usesV6, usesV7, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { pieceSeats } from "../src/walk/lie";
 
@@ -150,5 +150,37 @@ describe("seats follow layoutSeats", () => {
     expect(sceneOf(dungeon, [manifest, v5, v6, v7], room).seats.map((s) => s.at)).toEqual(cells);
     const total = dungeon.furniture.reduce((n, _f, i) => n + pieceSeats(dungeon, i)[1] - pieceSeats(dungeon, i)[0], 0);
     expect(total).toBe(seats.length);
+  });
+});
+
+describe("the night pane mask (OME-1994 art)", () => {
+  const panes = (l: RoomLayout): Scene["sprites"] => sceneOf(l, [v6, v7]).sprites.filter((s) => s.key.includes("/pane/"));
+  const wall = (variant: number, mood?: RoomLayout["mood"]): RoomLayout => ({ ...one({ kind: "partition", col: 1, row: 4, facing: "sw", variant }), ...(mood === undefined ? {} : { mood }) });
+
+  test("glass partitions (variants 1 and 3) get their pane at ~20% alpha over the back frame, at night only", () => {
+    for (const [variant, colour] of [[1, "glass"], [3, "panelglass"]] as const) {
+      const [pane, ...rest] = panes(wall(variant, "night"));
+      expect(rest).toEqual([]);
+      const back = sceneOf(wall(variant, "night"), [v6, v7]).sprites.find((s) => s.key === `furniture/partition/${colour}/sw/back`);
+      expect(pane).toMatchObject({ key: `furniture/partition/${colour}/pane/sw`, alpha: 0.2, x: back?.x, y: back?.y, z: back?.z, layer: back?.layer });
+      expect(panes(wall(variant))).toEqual([]);
+      expect(panes(wall(variant, "warm"))).toEqual([]);
+    }
+  });
+
+  test("solid partitions (variants 0 and 2) have no pane", () => {
+    expect(panes(wall(0, "night"))).toEqual([]);
+    expect(panes(wall(2, "night"))).toEqual([]);
+  });
+
+  test("a night room with a glass partition loads v7 for the pane", () => {
+    expect(usesV7(wall(1, "night"))).toBe(true);
+    expect(usesV7(wall(1))).toBe(false);
+    expect(usesV7(wall(0, "night"))).toBe(false);
+  });
+
+  test("the scene key changes with the mood, so the stage redraws", () => {
+    expect(sceneKey(wall(1, "night"))).not.toBe(sceneKey(wall(1)));
+    expect(sceneKey(wall(1, "none"))).toBe(sceneKey(wall(1)));
   });
 });
