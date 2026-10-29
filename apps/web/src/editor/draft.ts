@@ -178,7 +178,7 @@ export interface TrayTab {
 }
 
 // shortcut: the six Dank Dungeon kinds (furniture-v6) are not in the tray yet; the preset places them, the owner can't add more. Wire the tray when asked.
-export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin"]);
+export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
 const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => !AWAITING_ART.has(k) && pick(k));
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */

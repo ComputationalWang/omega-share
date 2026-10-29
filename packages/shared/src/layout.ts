@@ -111,6 +111,8 @@ export const FURNITURE = {
   minibar: piece("object", CAMERA, ONE),
   desk: piece("object", CAMERA, ONE),
   washbasin: piece("object", CAMERA, ONE, { wallBacked: true }),
+  /** An interior wall cell (OME-1958): the facing picks its axis (like `curtain`); 0 solid, 1 glass. A doorway is a gap in the row. */
+  partition: piece("object", CAMERA, ONE, { variants: 2 }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;

@@ -45,5 +45,6 @@
 {"input":"mirror","ok":true,"output":{"lie":null}},
 {"input":"minibar","ok":true,"output":{"lie":null}},
 {"input":"desk","ok":true,"output":{"lie":null}},
-{"input":"washbasin","ok":true,"output":{"lie":null}}
+{"input":"washbasin","ok":true,"output":{"lie":null}},
+{"input":"partition","ok":true,"output":{"lie":null}}
 ]

@@ -95,6 +95,7 @@ pub enum Kind {
     Minibar,
     Desk,
     Washbasin,
+    Partition,
 }
 
 impl Kind {
@@ -104,7 +105,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 47] = [
+pub const KINDS: [Kind; 48] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -152,6 +153,7 @@ pub const KINDS: [Kind; 47] = [
     Kind::Minibar,
     Kind::Desk,
     Kind::Washbasin,
+    Kind::Partition,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -267,6 +269,8 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Minibar | Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
         Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
+        // The facing picks the axis; 0 solid, 1 glass (OME-1958).
+        Kind::Partition => Spec::new(Object, CAMERA, 1, 1).variants(2),
     }
 }
 
@@ -769,6 +773,26 @@ mod tests {
             assert!(piece_accepts(&last), "{kind} variant {}", n - 1);
             assert!(!piece_accepts(&over), "{kind} variant {n}");
         }
+    }
+
+    // packages/shared/test/partition-contract.test.ts (OME-1958)
+    #[test]
+    fn a_partition_is_a_solid_one_cell_axis_piece_in_solid_or_glass() {
+        let cell = |x: u64, y: u64| FloorCell::new(x, y).unwrap();
+        for facing in ["se", "sw"] {
+            for variant in [0, 1] {
+                let l = parse(&base(vec![pv("partition", 5, 4, facing, variant)]));
+                assert!(!l.standable(cell(5, 4)), "{facing} {variant} blocks its cell");
+                for (x, y) in [(5, 3), (5, 5), (4, 4)] {
+                    assert!(l.standable(cell(x, y)), "{facing} {variant} leaves ({x}, {y}) free");
+                }
+            }
+            assert!(!piece_accepts(&pv("partition", 5, 4, facing, 2)), "no doorframe variant");
+        }
+        for facing in ["ne", "nw"] {
+            assert!(!piece_accepts(&p("partition", 5, 4, facing)), "{facing} is not an axis");
+        }
+        assert!(parse(&base(vec![p("partition", 5, 4, "sw")])).seats().len() == 8, "not a seat");
     }
 
     // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
