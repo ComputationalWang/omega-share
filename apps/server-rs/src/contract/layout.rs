@@ -1136,6 +1136,22 @@ mod tests {
         assert_eq!(footprint_cells(&Furniture::new(Kind::Rug, 1, 1, Facing::Se)).len(), 49);
     }
 
+    // packages/shared/test/dank-dungeon-contract.test.ts (OME-1982): a queen bed, two sleepers side by side.
+    #[test]
+    fn a_bed_covers_2x2_and_seats_two_side_by_side_in_every_facing() {
+        for facing in FACINGS {
+            let bed = Furniture::new(Kind::Bed, 4, 0, facing);
+            assert_eq!(footprint_cells(&bed), [(4, 0), (4, 1), (5, 0), (5, 1)], "{facing:?}");
+            let next = if matches!(facing, Facing::Ne | Facing::Sw) {
+                (5, 0)
+            } else {
+                (4, 1)
+            };
+            let seats: Vec<_> = layout_seats(&[bed]).iter().map(|s| (s.col, s.row, s.facing)).collect();
+            assert_eq!(seats, [(4, 0, facing), (next.0, next.1, facing)], "{facing:?}");
+        }
+    }
+
     // packages/shared/test/layout-contract.test.ts:291
     #[test]
     fn the_armchair_faces_every_way_and_seats_one() {
