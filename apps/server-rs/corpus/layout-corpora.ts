@@ -199,8 +199,11 @@ const theatre = (): unknown[] => {
 const pairs = (): unknown[] =>
   [true, false, "true", 1, 0, null, [], {}].flatMap((pairs) => [{ ...(base() as object), pairs }, { ...DEFAULT_LAYOUT, pairs }, { ...DEFAULT_LAYOUT, mood: "night", pairs }]);
 
+/** The shell skin (OME-1989): optional, only "dungeon"; absent stays absent. */
+const shells = (): unknown[] =>
+  ["dungeon", "Dungeon", "default", "", " dungeon", null, 0, true, [], {}].flatMap((shell) => [{ ...(base() as object), shell }, { ...DEFAULT_LAYOUT, mood: "night", pairs: true, shell }]);
 
-const inputs = (): unknown[] => [...theatre(), ...shapes(), ...doors(), ...moods(), ...pairs(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+const inputs = (): unknown[] => [...theatre(), ...shapes(), ...doors(), ...moods(), ...pairs(), ...shells(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));

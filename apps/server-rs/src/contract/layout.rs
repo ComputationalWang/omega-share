@@ -1222,6 +1222,54 @@ mod tests {
         assert!(!piece_accepts(&pv("bed", 3, 3, "nw", 1)));
     }
 
+    // packages/shared/test/dank-dungeon-contract.test.ts (OME-1989): the v7 kinds and variants.
+    #[test]
+    fn the_v7_kinds_take_their_facings_walls_and_seats() {
+        for (kind, facing) in [("sauna", "se"), ("sauna", "sw"), ("soaktub", "se"), ("lounger", "ne"), ("lounger", "nw"), ("lounger", "se"), ("lounger", "sw")] {
+            let (col, row) = if kind == "sauna" { if facing == "sw" { (3, 0) } else { (0, 3) } } else { (3, 3) };
+            assert!(piece_accepts(&p(kind, col, row, facing)), "{kind} {facing}");
+        }
+        assert!(!piece_accepts(&p("sauna", 3, 3, "sw")), "the sauna backs onto a wall");
+        for (kind, facing) in [("sauna", "ne"), ("soaktub", "sw"), ("soaktub", "ne")] {
+            assert!(!piece_accepts(&p(kind, 3, 0, facing)), "{kind} {facing}");
+        }
+        let seats = |piece: Value, n: usize| {
+            let mut f = vec![tv(), piece];
+            f.extend(chairs().into_iter().take(n));
+            parse(&layout(f)).seats().iter().map(|s| (s.col, s.row)).collect::<Vec<_>>()
+        };
+        assert_eq!(seats(p("soaktub", 8, 8, "se"), 6)[..2], [(8, 8), (8, 9)]);
+        for facing in ["ne", "nw", "se", "sw"] {
+            assert_eq!(seats(p("lounger", 8, 8, facing), 7)[..1], [(8, 8)], "{facing}");
+        }
+        for (kind, n, col, row, facing) in [("mirror", 2, 0, 2, "se"), ("minibar", 2, 3, 3, "sw"), ("tv", 2, 9, 9, "se"), ("carpet", 2, 8, 8, "se"), ("partition", 4, 3, 3, "se")] {
+            let doc = |v: u8| {
+                let mut l = base(vec![pv(kind, col, row, facing, v)]);
+                if kind == "tv" {
+                    l["furniture"].as_array_mut().unwrap().remove(0);
+                }
+                RoomLayout::parse(l.to_string().as_bytes()).is_ok()
+            };
+            assert!(doc(n - 1), "{kind} {}", n - 1);
+            assert!(!doc(n), "{kind} {n}");
+        }
+    }
+
+    // packages/shared/test/dank-dungeon-contract.test.ts (OME-1989): the shell skin.
+    #[test]
+    fn shell_is_an_optional_dungeon_kept_as_sent() {
+        assert!(!parse(&base(vec![])).to_json().contains("shell"), "absent stays absent");
+        let mut v = base(vec![]);
+        v["shell"] = json!("dungeon");
+        assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_ok());
+        assert!(parse(&v).to_json().ends_with(r#","shell":"dungeon"}"#));
+        for bad in [json!("Dungeon"), json!("default"), json!(""), json!(1), json!(null)] {
+            v["shell"] = bad;
+            assert!(RoomLayout::parse(v.to_string().as_bytes()).is_err());
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_err());
+        }
+    }
+
     #[test]
     fn every_kind_has_a_spec_and_a_distinct_serialised_name() {
         let names: HashSet<String> = KINDS.iter().map(|k| serde_json::to_string(k).unwrap()).collect();
