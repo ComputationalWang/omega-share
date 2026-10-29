@@ -508,13 +508,13 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* People open is the column's People tab (OME-1805): it has the log's height but three lines (OME-1842: with the log
  * gone only the field said there was a chat); Up next folds to its head, the invite steps aside (Copy is back with
  * People closed) and the owner's bar ends the tab (room-layout.ts), so People shows its look and first person at 1024×768. */
-.room-side:has(> .people:not([hidden])) { gap: 4px; }
-.room-side:has(> .people:not([hidden])) > .poll-card { display: none; }
-.room-side:has(> .people:not([hidden])) > .chat-log { flex: none; height: 76px; }
-.room-side:has(> .people:not([hidden])) > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form, .queue-next) { display: none; }
-.room-side:has(> .people:not([hidden])) > .invite { display: none; }
+.room-side.people-open { gap: 4px; }
+.room-side.people-open > .poll-card { display: none; }
+.room-side.people-open > .chat-log { flex: none; height: 76px; }
+.room-side.people-open > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form, .queue-next) { display: none; }
+.room-side.people-open > .invite { display: none; }
 /* 800 px tall or less, Up next's head steps aside too (as on a short screen): with CI's wider font it cut the first person. */
-@media (max-height: 800px) { .room-side:has(> .people:not([hidden])) > .queue-panel { display: none; } }
+@media (max-height: 800px) { .room-side.people-open > .queue-panel { display: none; } }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
 /* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
  * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
@@ -542,9 +542,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* An open poll (QA OME-1460): beside the owner's invite row and bar at 1280×720 it pushed Close poll and the composer
  * below the fold. Up next gives way first (down to its head, its content scrolling), then the card, its options
  * scrolling between its question and Close; the log keeps three lines. */
-@media (min-height: 501px) { .room-side:has(> .poll-card:not([hidden])) > .queue-panel { flex: 0 9 auto; min-height: 64px; } }
-.room-side:has(> .poll-card:not([hidden])) > .poll-card { flex: 0 1 auto; min-height: 0; }
-.room-side:has(> .poll-card:not([hidden])) > .chat-log { min-height: 60px; }
+@media (min-height: 501px) { .room-side.poll-open > .queue-panel { flex: 0 9 auto; min-height: 64px; } }
+.room-side.poll-open > .poll-card { flex: 0 1 auto; min-height: 0; }
+.room-side.poll-open > .chat-log { min-height: 60px; }
 .room-side > .poll-card > .poll-options { min-height: 0; overflow-y: auto; }
 /* An on-screen keyboard is up (room-layout.ts, OME-1297): the invite and Up next step aside unless you're typing in them. */
 .room-side.is-typing > :is(.invite, .queue-panel):not(:focus-within) { display: none; }
@@ -577,8 +577,8 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
    * title line and a poll squeezed it until Add was clipped). */
   .ui-touch .room-side > .queue-panel { min-height: 112px; }
   /* An open poll has the room instead (as on a tall screen, QA OME-1460): Up next gives way to its head, count included. */
-  .room-side:has(> .poll-card:not([hidden])) > .queue-panel { min-height: 0; }
-  .room-side:has(> .poll-card:not([hidden])) > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form) { display: none; }
+  .room-side.poll-open > .queue-panel { min-height: 0; }
+  .room-side.poll-open > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form) { display: none; }
   .room-side .queue-panel > * { flex: none; }
   /* The head is one row: its glyph goes, "Up next" stays beside the count (OME-1841: "0 / 20" alone named nothing). */
   .room-side { gap: 4px; }
@@ -616,9 +616,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   .room-side > .room-top > .invite > label { font-size: 12px; white-space: nowrap; }
   /* People open is the column's tab (OME-1841): Up next steps aside too, or People squeezed it until its field and Add
    * were clipped. */
-  .room-side:has(> .people:not([hidden])) > :is(.queue-panel, .chat-log) { display: none; }
+  .room-side.people-open > :is(.queue-panel, .chat-log) { display: none; }
   /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
-  body:not(.room-editing) .room-side:not(:has(> .people:not([hidden]))) > :is(.edit-bar, .room-foot) { display: none; }
+  body:not(.room-editing) .room-side:not(.people-open) > :is(.edit-bar, .room-foot) { display: none; }
   /* Editing, the column is the editor's sheet (OME-1927): Done and the editor scroll as one, the room keeps the left
    * column for the taps that place a piece. */
   .room-side > .editor-panel:empty { display: none; }
@@ -629,9 +629,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   /* The tray scrolls in half the screen, so the piece's keys, Mood and Save are a short scroll away. */
   .room-side > .editor-panel .ui-tray { max-height: 50dvh; overflow: hidden auto; }
   /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */
-  .room-side:has(> .people:not([hidden])) { overflow-y: auto; overscroll-behavior: contain; }
-  .room-side:has(> .people:not([hidden])) > .people { flex: none; overflow: visible; }
-  .room-side:has(> .people:not([hidden])) > .chat { position: sticky; bottom: 0; z-index: 1; margin-top: auto; background: var(--bg); box-shadow: 0 12px 0 var(--bg), 0 -4px 0 var(--bg); }
+  .room-side.people-open { overflow-y: auto; overscroll-behavior: contain; }
+  .room-side.people-open > .people { flex: none; overflow: visible; }
+  .room-side.people-open > .chat { position: sticky; bottom: 0; z-index: 1; margin-top: auto; background: var(--bg); box-shadow: 0 12px 0 var(--bg), 0 -4px 0 var(--bg); }
   .room-side.is-typing > .room-top:not(:focus-within) { display: none; }
   /* CI's wider fonts (DejaVu) need ~133 px for 15 characters: every px of the row goes to the field. */
   .room-side .chat { gap: 2px; }
