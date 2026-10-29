@@ -718,7 +718,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 .room-top > .leave-key:has(+ .sound-key:not([hidden])) { margin-right: 0; }
 .sound-key > .ui-button { min-width: 44px; min-height: 44px; margin-block: -8px; }
 .sound-key > input { width: 88px; height: 44px; margin-block: -8px; }
-.room-portrait .sound-key > input { width: 64px; }
+/* A phone's bar and the side column's head row have no 92 px to spare (a 320 px bar overflowed, the column's row wrapped
+ * and squeezed Up next): the mute key only; the slider is in Help's settings there. */
+:is(.room-portrait, .room-side) .sound-key > input { display: none; }
 .people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
 .people[hidden] { display: none; }
 /* The stacked tablet page (OME-1805): a sheet over the page's foot, so the TV above stays where it is. */
