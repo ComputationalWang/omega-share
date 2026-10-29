@@ -4,6 +4,7 @@ import { standDepth } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { EMOTE_LIFT, createAnimator } from "../src/walk/animator";
 import { DIRS, parseMotion } from "../src/walk/motion";
+import { THRUST_BACK } from "../src/walk/pair";
 import { walkGrid } from "../src/walk/path";
 import { createWalks, type Pose, type WalkTarget, type Walks } from "../src/walk/walks";
 
@@ -581,10 +582,11 @@ describe("emotes", () => {
 
   // OME-1672: the dank-dungeon pair. The thruster's frame is anchored on the bender's floor point and drawn there, just behind.
   describe("pair", () => {
-    function standing() {
+    // The bender at (5, 9) faces the TV's ne, so their front is se; at (9, 5) it is nw, so sw.
+    function standing(bender: [number, number] = [5, 9]) {
       const s = setup();
       s.anim.setFrames(frames);
-      s.walks.place([standAt("a", 4, 9), standAt("b", 5, 9)], 0);
+      s.walks.place([standAt("a", bender[0] - 1, bender[1]), standAt("b", ...bender)], 0);
       s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
       s.frame(0);
       s.timers.length = 0;
@@ -592,7 +594,7 @@ describe("emotes", () => {
       return s;
     }
 
-    test("the bender plays bendover/<avatar>/<front dir>/0, the thruster thrust/<avatar>/<dir>/<n> at the bender's spot, just behind", () => {
+    test("the bender plays bendover/<avatar>/<front dir>/0, the thruster thrust/<avatar>/<dir>/<n> just behind the bender", () => {
       const s = standing();
       s.at(1000);
       s.anim.pair(id("a"), id("b"));
@@ -601,10 +603,23 @@ describe("emotes", () => {
       const thruster = s.draws.filter((d) => d.id === "a").at(-1);
       expect(bender?.frame).toMatch(/^bendover\/kiki\/(se|sw)\/0$/);
       expect(thruster?.frame).toMatch(/^thrust\/juno\/(se|sw)\/[012]$/);
-      expect(thruster?.pose.x).toBe(bender?.pose.x);
-      expect(thruster?.pose.y).toBe(bender?.pose.y);
       expect(thruster?.pose.z).toBe((bender?.pose.z ?? 0) - 0.5);
     });
+
+    // OME-1970: the thruster stands THRUST_BACK further back, away from the way the bender faces.
+    for (const [dir, at, dx] of [["se", [5, 9], -THRUST_BACK.x], ["sw", [9, 5], THRUST_BACK.x]] as const) {
+      test(`facing ${dir}, the thruster is drawn ${String(dx)}, -${String(THRUST_BACK.y)} px from the bender's spot`, () => {
+        const s = standing([at[0], at[1]]);
+        s.at(1000);
+        s.anim.pair(id("a"), id("b"));
+        run(s, 1000, 2000);
+        const bender = s.draws.filter((d) => d.id === "b").at(-1);
+        const thruster = s.draws.filter((d) => d.id === "a").at(-1);
+        expect(bender?.frame).toBe(`bendover/kiki/${dir}/0`);
+        expect(thruster?.pose.x).toBe((bender?.pose.x ?? 0) + dx);
+        expect(thruster?.pose.y).toBe((bender?.pose.y ?? 0) - THRUST_BACK.y);
+      });
+    }
 
     test("the thrust loops 0 1 2 1 on 110 ms frames", () => {
       const s = standing();
