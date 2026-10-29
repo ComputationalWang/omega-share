@@ -1426,6 +1426,23 @@ a rect). Load it only when a layout uses one of these. Like v4, nothing reads it
   `runner (4,4) nw` variant 1; `monstera (9,9) sw` variant 1.
 - 8 seats, all facing the TV corner: both beds (2 each), the tub (2), the two wingbacks. Nothing on wall segments 5, 6, 8; the middle diagonal stays clear.
 
+### Two-compartment rework: concept (OME-1956, not shipped)
+
+Board ask (OME-1664): split the room into a bedroom and a spa with an interior wall, a doorway and a glass panel; walking through the
+door swaps your view between "from the south" (bedroom up close) and "from the north" (spa up close). Concept renders, both palettes:
+`preview/dungeon2-south@1x.png` / `@2x`, `preview/dungeon2-north@1x.png` / `@2x`, plus `-night` versions (the room's `night` mood).
+Source: `src/dungeon2-concept.ts` (`bun assets/src/dungeon2-concept.ts`; writes only those previews).
+
+- **Plan:** interior wall on the row 4/5 line. Bedroom rows 5–9 (two beds headboard-to-glass, nightstand, desk + minibar, TV corner
+  console, pink neon, two wingbacks round a coffee table). Spa rows 0–4 (sauna cabin in the corner, round cedar tub, whirlpool, recliner,
+  two washbasins under a big brass mirror). Glass cols 4–7, sill at mattress height (z 24–150), black frame, one pale diagonal stripe
+  that leans the same way in both views. Doorway col 1.
+- **North view = the same room turned 180°.** `Kit` takes `turned` (`src/furniture.ts`): the same 3D model spun about its anchor, so
+  every piece's far side is re-cast, not redrawn. Walls nearest the camera are not drawn in either view (Habbo-style cut-away); each view
+  draws its own two back walls. The far compartment is drawn only through the glass (one tone darker, a sparse haze) and the doorway.
+- **Wood panelling:** pale oak (`floor` ramp) in the bedroom, smoked wood (`wood`) in the spa, a warm cove light under the top. Floors:
+  dark carpet with gold veins, slatted cedar deck. All existing ramps, no palette change.
+
 ### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
 
 Room-only meme emote, slapstick and fully clothed: **`bendover`**, bent 90° at the waist, hands on knees, grinning back at the camera

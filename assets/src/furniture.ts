@@ -14,7 +14,7 @@ import { blank, mirror, render as renderRoles, stamp, type Grid, type RoleMap } 
 export type FurnDir = "ne" | "nw" | "se" | "sw";
 type Paint = readonly [RampName, Tone];
 /** A face in the piece's own frame. "front" is the side a sitter faces out of. */
-type LFace = "top" | "front" | "back" | "right" | "other";
+type LFace = "top" | "front" | "back" | "right" | "left" | "other";
 interface L3 {
   x: number;
   y: number;
@@ -32,28 +32,33 @@ const toWorld = (d: FurnDir, x: number, y: number): { u: number; v: number } =>
   d === "ne" ? { u: x, v: y } : d === "nw" ? { u: y, v: x } : d === "se" ? { u: -y, v: x } : { u: x, v: -y };
 const toLocal = (d: FurnDir, u: number, v: number): { x: number; y: number } =>
   d === "ne" ? { x: u, y: v } : d === "nw" ? { x: v, y: u } : d === "se" ? { x: v, y: -u } : { x: u, y: -v };
-/** Which local face the two camera-facing world faces are, per facing. */
-const FACE: Record<FurnDir, { sw: LFace; se: LFace }> = {
-  ne: { sw: "back", se: "right" },
-  nw: { sw: "right", se: "back" },
-  se: { sw: "right", se: "front" },
-  sw: { sw: "front", se: "right" },
-};
+/** Local face with outward normal (x, y): +x right, -x left (never camera-facing unless turned), +y back, -y front. */
+const faceOf = (x: number, y: number): LFace => (x > 0 ? "right" : x < 0 ? "left" : y > 0 ? "back" : "front");
 
-/** Collects solids for one facing of one piece, written in local coordinates. */
-class Kit {
+/** Collects solids for one facing of one piece, written in local coordinates. `turned` spins the piece 180° about its
+ *  anchor: the same model seen from the other side of the room (the Dank Dungeon north view, OME-1956). */
+export class Kit {
   readonly parts: { solid: Solid; front: boolean }[] = [];
-  constructor(readonly dir: FurnDir) {}
+  private readonly k: number;
+  constructor(readonly dir: FurnDir, turned = false) {
+    this.k = turned ? -1 : 1;
+  }
+
+  world(x: number, y: number): { u: number; v: number } {
+    const p = toWorld(this.dir, x, y);
+    return { u: this.k * p.u, v: this.k * p.v };
+  }
 
   private extra(o: PartOpts): Omit<Solid, "planes" | "ramp"> {
-    const d = this.dir;
+    const d = this.dir, k = this.k;
     const paint = o.paint;
     const out: Omit<Solid, "planes" | "ramp"> = {};
     if (o.tones) out.tones = o.tones;
     if (paint) {
       out.paint = (p: Vec3, f: Facing) => {
-        const l = toLocal(d, p.u, p.v);
-        const lf: LFace = f === "top" ? "top" : f === "sw" ? FACE[d].sw : f === "se" ? FACE[d].se : "other";
+        const l = toLocal(d, k * p.u, k * p.v);
+        const n = f === "sw" ? toLocal(d, 0, k) : f === "se" ? toLocal(d, k, 0) : null;
+        const lf: LFace = f === "top" ? "top" : n ? faceOf(n.x, n.y) : "other";
         return paint({ x: l.x, y: l.y, z: p.z }, lf);
       };
     }
@@ -61,7 +66,7 @@ class Kit {
   }
 
   private worldBox(x0: number, x1: number, y0: number, y1: number): [number, number, number, number] {
-    const a = toWorld(this.dir, x0, y0), b = toWorld(this.dir, x1, y1);
+    const a = this.world(x0, y0), b = this.world(x1, y1);
     return [Math.min(a.u, b.u), Math.max(a.u, b.u), Math.min(a.v, b.v), Math.max(a.v, b.v)];
   }
 
@@ -73,7 +78,7 @@ class Kit {
   /** Ellipsoid (rz = Infinity: vertical cylinder) at (cx, cy, cz), clipped to the local box [x0,x1]×[y0,y1]×[z0,z1]. */
   ell(c: L3, r: L3, clip: readonly [number, number, number, number, number, number], ramp: RampName, o: PartOpts = {}): void {
     const [u0, u1, v0, v1] = this.worldBox(clip[0], clip[1], clip[2], clip[3]);
-    const wc = toWorld(this.dir, c.x, c.y);
+    const wc = this.world(c.x, c.y);
     const swap = this.dir === "nw" || this.dir === "se";
     const solid = box(u0, u1, v0, v1, clip[4], clip[5], ramp, this.extra(o));
     solid.quad = { c: { u: wc.u, v: wc.v, z: c.z }, r: { u: swap ? r.y : r.x, v: swap ? r.x : r.y, z: r.z } };
@@ -1330,10 +1335,10 @@ function bed(k: Kit, c: RampName): void {
  *  sitter is in the tub up to the waist. */
 function whirlpool(k: Kit, n = 0): void {
   const X0 = -7.5, X1 = 23.5, Y0 = -7.5, Y1 = 7.5, RIM = 13, WATER = 11.6, T = 1.6;
-  const seats = [toWorld(k.dir, 0, 0), toWorld(k.dir, 16, 0)];
+  const seats = [k.world(0, 0), k.world(16, 0)];
   // In front of the nearest sitter: further toward the camera (u + v) than the sitter's own spot.
   const near = (x: number, y: number): boolean => {
-    const w = toWorld(k.dir, x, y);
+    const w = k.world(x, y);
     const s = seats.reduce((a, b) => (Math.hypot(w.u - b.u, w.v - b.v) < Math.hypot(w.u - a.u, w.v - a.v) ? b : a));
     return w.u - s.u + (w.v - s.v) > 1;
   };
