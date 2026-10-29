@@ -554,9 +554,10 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
 .room-side .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 .room-side .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
-/* A 279 px column (844×390 t, OME-1945): the tiles share the row and wrap rather than pass the frame (font widths vary). */
-.room-side .mod-policy-tiles { gap: 4px; }
-.room-side .mod-policy-tile { flex: 1 1 0; min-width: 0; padding-inline: 0; }
+/* A 279 px column (844×390 t, OME-1945): the tiles share a row when the font lets them, else Only me drops below; never past
+ * the frame. (min-width: 0 can't do it: the grid's auto track still grows to the tiles' min-content.) */
+.room-side .mod-policy-tiles { flex-wrap: wrap; gap: 4px; }
+.room-side .mod-policy-tile { flex: 1 1 auto; padding-inline: 0; }
 /* 800 px tall or less (OME-1320): the policy's explanation is for screen readers only, so the chat log keeps three lines
  * beside a full Up next (at 1024×768 it had two). The tiles say who controls playback. */
 @media (max-height: 800px) {
