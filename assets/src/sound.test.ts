@@ -5,15 +5,16 @@ import { join } from "node:path";
 // The sound palette (OME-1642): WebAudio recipes as data in the OME-1638 engine's format (v1, apps/web/src/audio/FORMAT.md).
 const ASSETS = join(import.meta.dir, "..");
 const FILE = join(ASSETS, "sound", "recipes.json");
-const NAMES = ["step.wood", "step.carpet", "step.tile", "chair.sit", "chair.stand", "door", "ui.tick", "ui.toggle", "ui.error", "pop", "tone.warm", "tone.cool", "tone.night", "swell"];
+const NAMES = ["step.wood", "step.carpet", "step.tile", "chair.sit", "chair.stand", "door", "ui.tick", "ui.toggle", "ui.error", ...["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn", "dance"].map((k) => `emote.${k}`), "tone.warm", "tone.cool", "tone.night", "swell"];
 const PEAK = 10 ** (-12 / 20); // -12 dBFS at master volume 1
 
 type Layer = Record<string, unknown> & { gain?: number; env: Record<string, number>; filter?: Record<string, unknown> };
 interface Recipe { gain: number; loop?: boolean; layers: Layer[] }
 const recipes = (): Record<string, Recipe> => (JSON.parse(readFileSync(FILE, "utf8")) as { sounds: Record<string, Recipe> }).sounds;
 
-test("the recipe file is at most 4 KB", () => {
-  expect(statSync(FILE).size).toBeLessThanOrEqual(4096);
+// 6 KB since OME-1969's nine emote sounds (was 4 KB); it rides the lazy sound chunk, about 1 KB gzipped.
+test("the recipe file is at most 6 KB", () => {
+  expect(statSync(FILE).size).toBeLessThanOrEqual(6144);
 });
 
 test("it holds exactly the names the engine plays, in format v1", () => {

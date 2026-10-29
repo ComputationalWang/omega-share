@@ -26,5 +26,5 @@ Every sound is synthesized with WebAudio from data. No audio files. The engine i
 - `loop: true` (room tones only): layers attack and hold at `s` (default 1) until the engine stops it, then release.
 
 Names the engine plays: `step.wood`, `step.carpet`, `step.tile`, `chair.sit`, `chair.stand`, `door`, `ui.tick`,
-`ui.toggle`, `ui.error`, `pop`, `tone.warm`, `tone.cool`, `tone.night` (no tone for mood `none`), `swell`. A missing name
+`ui.toggle`, `ui.error`, `emote.<kind>` (one per emote, OME-1969), `tone.warm`, `tone.cool`, `tone.night` (no tone for mood `none`), `swell`. A missing name
 is silent. Unknown fields are rejected, so a typo shows up in the engine's test, not as silence.
