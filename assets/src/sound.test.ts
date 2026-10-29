@@ -46,9 +46,24 @@ test("only room tones loop", () => {
   expect(loops.sort()).toEqual(["tone.cool", "tone.night", "tone.warm"]);
 });
 
-// A conservative bound: every layer at its peak at once. The audition page's meter (sound-meter.ts) measures the real peak.
+// A conservative bound: every layer that can sound at the same moment at its peak at once (a layer sounds from `delay` to
+// the end of its envelope; a loop never ends). The audition page's meter (sound-meter.ts) measures the real peak.
+const span = (l: Layer, loop: boolean): [number, number] => {
+  const { delay = 0, a = 0, d = 0, hold = 0, r = 0 } = l.env;
+  return [delay, loop ? Infinity : delay + a + d + hold + r];
+};
+const boundPeak = (r: Recipe): number => {
+  const spans = r.layers.map((l) => ({ g: l.gain ?? 1, s: span(l, r.loop === true) }));
+  return r.gain * Math.max(...spans.map(({ s: [t] }) => spans.filter(({ s: [a, b] }) => a <= t && t < b).reduce((sum, x) => sum + x.g, 0)));
+};
+test("the peak bound only adds layers that overlap in time", () => {
+  const env = { a: 0.01, d: 0.04 };
+  expect(boundPeak({ gain: 0.2, layers: [{ env }, { env: { ...env, delay: 0.1 } }] })).toBeCloseTo(0.2);
+  expect(boundPeak({ gain: 0.2, layers: [{ env }, { env: { ...env, delay: 0.02 }, gain: 0.5 }] })).toBeCloseTo(0.3);
+  expect(boundPeak({ gain: 0.2, loop: true, layers: [{ env }, { env: { ...env, delay: 0.1 } }] })).toBeCloseTo(0.4);
+});
 test("no sound can peak above -12 dBFS at full volume", () => {
-  const over = Object.entries(recipes()).filter(([, r]) => r.gain * r.layers.reduce((s, l) => s + (l.gain ?? 1), 0) > PEAK).map(([n]) => n);
+  const over = Object.entries(recipes()).filter(([, r]) => boundPeak(r) > PEAK).map(([n]) => n);
   expect(over).toEqual([]);
 });
 
