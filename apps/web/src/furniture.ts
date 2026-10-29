@@ -110,6 +110,14 @@ export function usesV6(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V6_KINDS.has(f.kind));
 }
 
+/** v7's colours of older kinds (and the tv), `"<id>/<colour>"` → variant; the older sheets keep the lower variants (pinned to furniture-v7.json by a test). */
+export const V7_COLOURS: Readonly<Record<string, number>> = {};
+
+/** True if the layout needs the v7 sheet. */
+export function usesV7(_layout: RoomLayout): boolean {
+  return false;
+}
+
 /** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
 export function usesV5(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V5_KINDS.has(f.kind));
