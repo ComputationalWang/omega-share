@@ -354,6 +354,14 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (o.short.matches && o.editorPanel.nextElementSibling !== o.foot) o.editorPanel.after(o.foot);
   };
   new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
+  // Classes, not .room-side:has(): that re-styled the column on every chat line put in its log (OME-1985).
+  const markSide = (): void => {
+    side.classList.toggle("people-open", o.people.parentElement === side && !o.people.hidden);
+    side.classList.toggle("poll-open", o.poll.parentElement === side && !o.poll.hidden);
+  };
+  const sideWatch = new MutationObserver(markSide);
+  sideWatch.observe(side, { childList: true });
+  for (const e of [o.people, o.poll]) sideWatch.observe(e, { attributes: true, attributeFilter: ["hidden"] });
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
     dock.close();
