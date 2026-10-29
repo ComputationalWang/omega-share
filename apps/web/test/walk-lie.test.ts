@@ -27,7 +27,10 @@ describe("lie keys", () => {
         expect(lie).toEqual([`lie/${id}/${dir}/0`, `lie/${id}/${dir}/1`]);
         if (dir === "ne" || dir === "nw") expect(curl).toBeUndefined();
         else expect(curl).toEqual([`curl/${id}/${dir}/0`, `curl/${id}/${dir}/1`]);
-        for (const k of [...(lie ?? []), ...(curl ?? [])]) expect(sheet.frames[k]).toBeDefined();
+        // The bed's sleepers (OME-2008): every facing.
+        const sleep = lieKeys("sleep", avatar, dir);
+        expect(sleep).toEqual([`sleep/${id}/${dir}/0`, `sleep/${id}/${dir}/1`]);
+        for (const k of [...(lie ?? []), ...(curl ?? []), ...(sleep ?? [])]) expect(sheet.frames[k]).toBeDefined();
       }
     }
   });
@@ -39,6 +42,7 @@ describe("lie keys", () => {
   test("only the lying sheet's frames are lie frames", () => {
     expect(isLieFrame("lie/juno/se/0")).toBe(true);
     expect(isLieFrame("curl/pip/sw/1")).toBe(true);
+    expect(isLieFrame("sleep/mo/ne/0")).toBe(true);
     for (const k of ["juno/sit/se", "walk/juno/se/0", "thrust/juno/se/0", "bendover/mo/sw/0", "wave/kiki/idle/se/0", "emote/heart/0"]) expect(isLieFrame(k)).toBe(false);
   });
 });
