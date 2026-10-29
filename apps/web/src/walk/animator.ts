@@ -9,7 +9,7 @@
 import type { LieStyle, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
 import { LIE_MS, lieKeys } from "./lie";
-import { PAIR_MS, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
+import { PAIR_MS, THRUST_BACK, THRUST_FRAME_MS, THRUST_SEQUENCE, frontIndex, pairKeys } from "./pair";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
@@ -183,12 +183,15 @@ export function createAnimator(o: AnimatorOptions): Animator {
           if (pose.walking || pose.sitting || t >= PAIR_MS || !o.walks.sample(pair.other, now, partner) || partner.walking || partner.sitting) play.pair = null;
           else {
             const bender = pair.bender ? pose : partner;
-            const keys = pairKeys(a.avatar, frontIndex(bender.dir));
+            const front = frontIndex(bender.dir);
+            const keys = pairKeys(a.avatar, front);
             if (keys !== undefined) {
               if (pair.bender) frame = keys.bend;
               else {
                 frame = keys.thrust[THRUST_SEQUENCE[Math.floor(t / THRUST_FRAME_MS) % THRUST_SEQUENCE.length] ?? 0] ?? frame;
-                // Anchored on the bender's floor point, drawn there, just behind them.
+                // Anchored on the bender's floor point, a little back from it (OME-1970), drawn just behind them.
+                partner.x += front === 0 ? -THRUST_BACK.x : THRUST_BACK.x;
+                partner.y -= THRUST_BACK.y;
                 partner.z -= 0.5;
                 drawn = partner;
               }
