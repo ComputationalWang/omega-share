@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, cutaway, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { cellOf } from "../src/walk/path";
 
@@ -11,6 +11,7 @@ const manifest = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../
 const v2 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v2.json", import.meta.url)).json());
 const v4 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v4.json", import.meta.url)).json());
 const v5 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v5.json", import.meta.url)).json());
+const v6 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v6.json", import.meta.url)).json());
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
 /** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
 const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
@@ -662,5 +663,54 @@ describe("furniture v6 (Dank Dungeon)", () => {
     expect(usesSetG(only)).toBe(false);
     expect(usesV2(only)).toBe(false);
     expect(usesV4(only)).toBe(false);
+  });
+});
+
+// OME-1960: an interior wall draws from the v6 sheet; a viewer behind it sees every wall cut down to its stub (a one-frame
+// "in use" swap, like a door's, set on a walk event, never per frame).
+describe("partitions (OME-1960)", () => {
+  const wall = (col: number, row: number, facing: "se" | "sw", variant: number): RoomLayout["furniture"][number] => ({ kind: "partition", col, row, facing, variant });
+  const tv: RoomLayout["furniture"][number] = { kind: "tv", col: 0, row: 0, facing: "se" };
+  const row: RoomLayout = { furniture: [tv, wall(0, 4, "sw", 0), wall(2, 4, "sw", 0), wall(5, 4, "sw", 1)] };
+  const col: RoomLayout = { furniture: [tv, wall(6, 0, "se", 1), wall(6, 2, "se", 0)] };
+
+  test("a partition loads the v6 sheet", () => {
+    expect(usesV6({ furniture: [wall(0, 4, "sw", 0)] })).toBe(true);
+    expect(usesSetG({ furniture: [wall(0, 4, "sw", 0)] })).toBe(false);
+  });
+
+  test("sceneOf: solid or glass back frame on its cell, with a one-frame cut loop to its stub", () => {
+    const scene = sceneOf(row, [v6]);
+    const glass = sprite(scene, "furniture/partition/glass/sw/back");
+    expect(glass.layer).toBe("object");
+    expect({ x: glass.x, y: glass.y }).toEqual(cellCenter(5, 4));
+    expect(glass.use).toEqual({ piece: 3, frames: ["furniture/partition/glass/cut/sw"], ms: expect.any(Number) as number });
+    expect(sprite(scene, "furniture/partition/solid/sw/back").use?.frames).toEqual(["furniture/partition/solid/cut/sw"]);
+    for (const s of scene.sprites) for (const k of [s.key, ...(s.use?.frames ?? [])]) expect(v6.frames[k]).toBeDefined();
+  });
+
+  test("cutaway: behind a row of walls (a smaller row) cuts them, in front doesn't, the doorway row keeps the last state", () => {
+    expect(cutaway(row, cellOf(3, 2), false)).toBe(true);
+    expect(cutaway(row, cellOf(3, 7), true)).toBe(false);
+    expect(cutaway(row, cellOf(1, 4), true)).toBe(true);
+    expect(cutaway(row, cellOf(1, 4), false)).toBe(false);
+  });
+
+  test("cutaway: a column of walls (facing se) cuts for a viewer at a smaller col", () => {
+    expect(cutaway(col, cellOf(3, 5), false)).toBe(true);
+    expect(cutaway(col, cellOf(8, 1), true)).toBe(false);
+    expect(cutaway(col, cellOf(6, 1), true)).toBe(true);
+  });
+
+  test("cutaway: no partition never cuts; no avatar of mine keeps the last state", () => {
+    expect(cutaway(DEFAULT_LAYOUT, cellOf(0, 0), true)).toBe(false);
+    expect(cutaway(row, null, true)).toBe(true);
+    expect(cutaway(row, null, false)).toBe(false);
+  });
+
+  test("piecesInUse: cut puts every partition in use, and nothing else", () => {
+    const cells = new Set([cellOf(1, 5)]);
+    expect(piecesInUse(row, cells, false, new Set(), true)).toEqual(new Set([1, 2, 3]));
+    expect(piecesInUse(row, cells, false, new Set(), false)).toEqual(new Set());
   });
 });

@@ -173,7 +173,7 @@ const NOBODY: ReadonlySet<number> = new Set();
  * footprint cell's; a wall piece's front is the floor cell under it), someone sits in a seated piece, or a video plays.
  * `standing` and `seated` hold walk cells (`cellOf`). Worked out when someone moves or the layout changes, never per frame.
  */
-export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean, seated: ReadonlySet<number> = NOBODY): Set<number> {
+export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean, seated: ReadonlySet<number> = NOBODY, _cut = false): Set<number> {
   const out = new Set<number>();
   layout.furniture.forEach((f, i) => {
     if (playing && PLAYING_KINDS.has(f.kind)) out.add(i);
@@ -193,6 +193,11 @@ export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, p
     }
   });
   return out;
+}
+
+/** Stub (OME-1960 red). */
+export function cutaway(_layout: RoomLayout, _self: number | null, was: boolean): boolean {
+  return was;
 }
 
 /** The room a door leads to (OME-1425), if `(col, row)` is the cell in front of one of the layout's doors. */
