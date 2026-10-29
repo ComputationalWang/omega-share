@@ -41,6 +41,13 @@ describe("walkGrid", () => {
     expect(g[at(3, 3)]).toBe(0); // rug
     expect(g[at(9, 9)]).toBe(0);
   });
+
+  test.each([["se"], ["sw"]] as const)("a partition facing %s blocks its cell, solid or glass, and leaves both sides free (OME-1958)", (facing) => {
+    for (const variant of [0, 1]) {
+      const g = walkGrid({ ...DEFAULT_LAYOUT, furniture: [...DEFAULT_LAYOUT.furniture, { kind: "partition", col: 5, row: 4, facing, variant }] });
+      expect([g[at(5, 4)], g[at(5, 3)], g[at(5, 5)], g[at(4, 4)]]).toEqual([1, 0, 0, 0]);
+    }
+  });
 });
 
 describe("findPath", () => {
