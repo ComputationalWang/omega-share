@@ -2,8 +2,8 @@
  "frames": {
   "floor/split/north/0": {
    "frame": {
-    "x": 159,
-    "y": 322,
+    "x": 212,
+    "y": 326,
     "w": 64,
     "h": 32
    },
@@ -26,8 +26,8 @@
   },
   "floor/split/north/1": {
    "frame": {
-    "x": 224,
-    "y": 322,
+    "x": 277,
+    "y": 326,
     "w": 64,
     "h": 32
    },
@@ -51,7 +51,7 @@
   "furniture/arclamp/brass/ne/back": {
    "frame": {
     "x": 414,
-    "y": 181,
+    "y": 242,
     "w": 43,
     "h": 60
    },
@@ -75,7 +75,7 @@
   "furniture/arclamp/brass/nw/back": {
    "frame": {
     "x": 458,
-    "y": 181,
+    "y": 242,
     "w": 43,
     "h": 60
    },
@@ -98,8 +98,8 @@
   },
   "furniture/desk/wood/ne/back": {
    "frame": {
-    "x": 459,
-    "y": 242,
+    "x": 324,
+    "y": 270,
     "w": 48,
     "h": 46
    },
@@ -122,8 +122,8 @@
   },
   "furniture/desk/wood/nw/back": {
    "frame": {
-    "x": 459,
-    "y": 289,
+    "x": 163,
+    "y": 295,
     "w": 48,
     "h": 46
    },
@@ -146,8 +146,8 @@
   },
   "furniture/minibar/fridge/ne/back": {
    "frame": {
-    "x": 163,
-    "y": 234,
+    "x": 234,
+    "y": 270,
     "w": 44,
     "h": 55
    },
@@ -170,8 +170,8 @@
   },
   "furniture/minibar/fridge/nw/back": {
    "frame": {
-    "x": 414,
-    "y": 242,
+    "x": 279,
+    "y": 270,
     "w": 44,
     "h": 55
    },
@@ -194,7 +194,7 @@
   },
   "furniture/minibar/wood/ne/back": {
    "frame": {
-    "x": 55,
+    "x": 0,
     "y": 312,
     "w": 51,
     "h": 43
@@ -218,7 +218,7 @@
   },
   "furniture/minibar/wood/nw/back": {
    "frame": {
-    "x": 107,
+    "x": 52,
     "y": 312,
     "w": 51,
     "h": 43
@@ -386,50 +386,50 @@
   },
   "furniture/soaktub/cedar/nw/back": {
    "frame": {
-    "x": 208,
-    "y": 270,
-    "w": 97,
-    "h": 51
+    "x": 414,
+    "y": 181,
+    "w": 70,
+    "h": 60
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 97,
-    "h": 51
+    "w": 70,
+    "h": 60
    },
    "sourceSize": {
-    "w": 97,
-    "h": 51
+    "w": 70,
+    "h": 60
    },
    "anchor": {
-    "x": 0.44329896907216493,
-    "y": 0.4117647058823529
+    "x": 0.38571428571428573,
+    "y": 0.36666666666666664
    }
   },
   "furniture/soaktub/cedar/nw/front": {
    "frame": {
-    "x": 306,
-    "y": 270,
-    "w": 97,
-    "h": 51
+    "x": 163,
+    "y": 234,
+    "w": 70,
+    "h": 60
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 97,
-    "h": 51
+    "w": 70,
+    "h": 60
    },
    "sourceSize": {
-    "w": 97,
-    "h": 51
+    "w": 70,
+    "h": 60
    },
    "anchor": {
-    "x": 0.44329896907216493,
-    "y": 0.4117647058823529
+    "x": 0.38571428571428573,
+    "y": 0.36666666666666664
    }
   },
   "furniture/tv/charcoal/nw/back": {
@@ -482,8 +482,8 @@
   },
   "furniture/washbasin/cream/ne/back": {
    "frame": {
-    "x": 404,
-    "y": 298,
+    "x": 373,
+    "y": 303,
     "w": 54,
     "h": 45
    },
@@ -506,8 +506,8 @@
   },
   "furniture/washbasin/cream/nw/back": {
    "frame": {
-    "x": 0,
-    "y": 312,
+    "x": 428,
+    "y": 303,
     "w": 54,
     "h": 45
    },

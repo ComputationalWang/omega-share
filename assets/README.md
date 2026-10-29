@@ -1622,8 +1622,8 @@ has `back` + `front`; a seat `(col, row)` becomes `(cols − 1 − col, rows −
 **No back view (draw the source facing's own frame):** pieces that look the same from behind: `carpet/oval`, `monstera`, `plant`,
 `coffeetable`, the papered `partition/solid` and `partition/glass` (same paper both sides), `rug`. The same fallback covers any
 other one-sided piece someone places in a partitioned room, until it gets a back view. **Wall pieces** (mirror, neon sign, frames)
-hang on the left/right walls, which are the near walls from the north and aren't drawn, so they go with them. The silver mirror's
-north look is its existing `se`/`sw` frame (a cool blue-grey pane in a thin brass frame), whenever a wall that holds it is a back wall.
+hang on the left/right walls, which are the near walls from the north and aren't drawn, so they go with them: the silver mirror
+has no north look (where it does show, from the south, it is the shipped cool blue-grey pane in a thin brass frame).
 
 **North shell skin** (same sheet; rects and anchors as the room atlas's): from the north the spa walls are at the back.
 - `wall/l/split/north` (smoked behind the midline, oak in front), `floor/split/north/{0,1}` (deck behind, carpet in front).
@@ -1634,8 +1634,10 @@ north look is its existing `se`/`sw` frame (a cool blue-grey pane in a thin bras
 Previews: `preview/dungeon2-room-north@1x.png` / `@2x` and `-night` (`dungeon2North` in `src/build.ts`), and
 `preview/furniture-back-atlas@2x.png`.
 
-**Known (not in this sheet):** the shipped v7 `sauna/cedar/se` and `soaktub/cedar/se` frames are drawn one cell toward −u of their
-contract footprint (the sauna overhangs the west wall line in `dungeon2-room`). The back views are placed on the contract footprint.
+**Anchors (OME-1999):** every frame of the 2×2 `sauna` and `soaktub`, front (`se`/`sw`, v7) and back (`nw`/`ne`), stands on its
+contract footprint: the anchor cell's centre, the footprint growing toward +col/+row (`footprintCells`). The soaking tub leans
+toward its two seats (the footprint's back row, col 0 facing `se`) so both sitters are in the water; its bucket is on the near corner.
+`src/dungeon2.test.ts` pins this on the shipped sheets.
 
 ### Emote poses (`avatars/dungeon.png` + `.json`, 256×512, lazy)
 

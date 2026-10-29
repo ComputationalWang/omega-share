@@ -1548,9 +1548,10 @@ function sauna(k: Kit): void {
 /** Round cedar soaking tub for two, 2×2: staves with two dark hoops, the water up to the rim, a little bucket and ladle. The
  *  rim and water in front of each sitter are the `front` layer, as for the whirlpool, so a sitter is in it to the chest. */
 function soakTub(k: Kit): void {
-  // Centred between the two seats (local y 0), so both sitters are well inside the water; the bucket stands behind it.
-  const CX = 8, CY = 4, R = 12, WATER = 15;
-  const seats = [k.world(0, 0), k.world(16, 0)];
+  // The sitters are the footprint's back row (local y 16, the contract's seat cells); the tub leans toward them, back edge on the
+  // footprint's, so both are well inside the water. The bucket stands on the free near corner.
+  const CX = 8, CY = 12, R = 12, WATER = 15, BX = 20, BY = -3.5;
+  const seats = [k.world(0, 16), k.world(16, 16)];
   // In front of a sitter (toward the camera) and in their screen column (u − v within a body's width): that's what hides them.
   const near = (x: number, y: number): boolean => {
     const w = k.world(x, y);
@@ -1582,9 +1583,9 @@ function soakTub(k: Kit): void {
     });
   }
   // Bucket and ladle on the floor beside it (outside the circle, on the near-right corner of the footprint).
-  k.ell({ x: 19.5, y: 19.5, z: 0 }, { x: 2.6, y: 2.6, z: Infinity }, [-99, 99, -99, 99, 0, 6], "floor", { paint: (p, f) => (f === "top" ? ["teal", 0] : Math.abs(p.z - 3) < 0.7 ? ["charcoal", 1] : null) });
-  k.box(19.2, 19.8, 19, 20, 5, 11, "wood");
-  k.box(18.6, 20.4, 18.4, 20.6, 10.4, 11.4, "wood", { tones: { top: 0 } });
+  k.ell({ x: BX, y: BY, z: 0 }, { x: 2.6, y: 2.6, z: Infinity }, [-99, 99, -99, 99, 0, 6], "floor", { paint: (p, f) => (f === "top" ? ["teal", 0] : Math.abs(p.z - 3) < 0.7 ? ["charcoal", 1] : null) });
+  k.box(BX - 0.3, BX + 0.3, BY - 0.5, BY + 0.5, 5, 11, "wood");
+  k.box(BX - 0.9, BX + 0.9, BY - 1.1, BY + 1.1, 10.4, 11.4, "wood", { tones: { top: 0 } });
 }
 
 /** Spa lounger, 2×1: a teak frame on four legs, a thick cream mattress with a raised back at the head (local −x), a rolled teal
@@ -2192,11 +2193,13 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir, turned 
   }
   const k = new Kit(dir, turned);
   def.build?.(k, colour, 0);
-  // Turned, the model spins about its anchor cell: move it so its centre sits on the footprint's centre and the anchor is the
-  // footprint's min corner, as the contract places it (footprintCells).
+  // Move the model so its centre sits on the footprint's centre and the anchor is the footprint's min corner, as the contract
+  // places it (footprintCells). Turned, it spins about its anchor cell; facing se/sw, local +y runs toward −u/−v, so a piece two
+  // cells deep would otherwise stand a cell off its footprint (OME-1999). One-deep and wall pieces already sit right.
   const fp = swapsAxes(dir) ? { c: def.rows, r: def.cols } : { c: def.cols, r: def.rows };
   const mid = k.world(8 * (def.cols - 1), 8 * (def.rows - 1));
-  const du = turned ? 8 * (fp.c - 1) - mid.u : 0, dv = turned ? 8 * (fp.r - 1) - mid.v : 0;
+  const centre = turned || def.rows > 1;
+  const du = centre ? 8 * (fp.c - 1) - mid.u : 0, dv = centre ? 8 * (fp.r - 1) - mid.v : 0;
   const AX = CANVAS.ax + 2 * (du - dv), AY = CANVAS.ay + du + dv;
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);

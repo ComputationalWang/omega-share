@@ -104,3 +104,24 @@ test("the flat TV has its tray swatch (OME-1994)", () => {
   expect(atlas("ui/edit.json").frames["swatch/flat"]).toBeDefined();
   expect(readFileSync(join(ROOT, "ui", "reference.css"), "utf8")).toContain(".ui-swatch-flat {");
 });
+
+test("the sauna and the soaking tub stand on their contract footprint (2×2 from the anchor cell toward +col/+row), back views and fronts alike (OME-1999)", () => {
+  // Anchor = the anchor cell's centre; the footprint's cells span u, v ∈ [−8, 24], screen x = 2(u − v), y = u + v. Floor pieces
+  // only rise from it, so nothing drawn may stick out past its sides or below its two near edges (1 px for the outline, 5 more for
+  // the light the sauna spills under its door onto the next cell).
+  const sheets = ["furniture-v7", "furniture-back"].map((n) => ({ a: atlas(`furniture/${n}.json`), px: indexed(`furniture/${n}.png`) }));
+  let checked = 0;
+  for (const { a, px } of sheets) for (const [key, f] of Object.entries(a.frames)) {
+    if (!/^furniture\/(sauna|soaktub)\/cedar\/(se|sw|ne|nw)\//.test(key)) continue;
+    const { x: fx, y: fy, w, h } = f.frame, ax = f.anchor.x * w, ay = f.anchor.y * h;
+    let worst = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!px(fx + x, fy + y)) continue;
+      const sx = x + 0.5 - ax, sy = y + 0.5 - ay;
+      worst = Math.max(worst, Math.abs(sx) - 64, sy - (48 - Math.abs(sx) / 2));
+    }
+    expect(worst, key).toBeLessThanOrEqual(6);
+    checked++;
+  }
+  expect(checked).toBe(8);
+});
