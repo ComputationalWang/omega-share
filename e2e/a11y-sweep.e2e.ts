@@ -251,9 +251,10 @@ VIEWPORTS.forEach((vp, i) => {
       const skipped: string[] = [];
       await page.goto(testRoom("a11y-sweep", ROOMS[i] ?? "w1280").url);
       await enter(page, `sweep${String(i)}`);
-      // The camera key (OME-1565) is in the room bar but the portrait one (/snap there), so "guest rest" audits it.
-      const portrait = await page.locator(".room-portrait").count();
-      await expect(page.locator(site.snapKey)).toBeVisible({ visible: portrait === 0 });
+      // The camera key (OME-1565) is in the room bar but the portrait one and the short column's head, where Leave has
+      // its place (OME-1967; /snap there), so "guest rest" audits it.
+      const noSnap = await page.locator(".room-portrait, .room-side > .room-top").count();
+      await expect(page.locator(site.snapKey)).toBeVisible({ visible: noSnap === 0 });
       // A first visit: the tour's first chip (OME-1587) is up during "guest rest", so the audit covers it.
       await expect(page.locator(site.firstHint)).toBeVisible();
       await audit(page, vp.name, "guest rest");
