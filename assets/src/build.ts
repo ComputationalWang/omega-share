@@ -43,7 +43,7 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
-import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, V7_COLOURS, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -1397,8 +1397,11 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     const sheetFrames = frames.filter((f) => { const [, id = "", colour = ""] = f.key.split("/"); return sheetOf(id, colour) === name; });
     writeFurnitureAtlas(name, name === "furniture-v7" ? [...sheetFrames, ...shell] : sheetFrames, mine, maxW, name !== "furniture" && name !== "furniture-v2");
   }
+  // OME-1997: the back views for the 180° view swap, a lazy sheet of their own (preloaded with a partitioned layout).
+  const backs = buildBackViews();
+  writeFurnitureAtlas("furniture-back", backs, [], 512, true);
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
-  for (const f of [...roomFrames, ...frames, ...shell]) all.set(f.key, f);
+  for (const f of [...roomFrames, ...frames, ...shell, ...backs]) all.set(f.key, f);
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
   buildFurnitureSheet(pieces, all);
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
@@ -1902,7 +1905,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
 
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
 
-const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "furniture/furniture-v7.png", "furniture/furniture-v7.json", "avatars/dungeon.png", "avatars/dungeon.json"];
+const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "furniture/furniture-v7.png", "furniture/furniture-v7.json", "furniture/furniture-back.png", "furniture/furniture-back.json", "avatars/dungeon.png", "avatars/dungeon.json"];
 const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
 
 /** The night mood (OME-1502, `apps/web/src/room.css`): rgb(36 48 110 / 0.5) multiplied over the room. Per colour, so a palette. */
@@ -2025,6 +2028,13 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
       writeFileSync(join(ROOT, "preview", `${file}@2x.png`), encodeIndexedPng(two.W * 2, two.H * 2, upscale(two.img, two.W, two.H, 2), pal));
     }
   }
+  // OME-1997: the same room from the north, as a viewer in the bedroom sees it after the 180° view swap.
+  const north = dungeon2North(pieces, all);
+  const nr = composeFurnitureRoom(north.pieces, all, north.plan);
+  for (const [name, pal] of [["dungeon2-room-north", PALETTE], ["dungeon2-room-north-night", NIGHT_PALETTE]] as const) {
+    writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(nr.W, nr.H, nr.img, pal));
+    writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(nr.W * 2, nr.H * 2, upscale(nr.img, nr.W, nr.H, 2), pal));
+  }
   // OME-1959: the two-compartment grid for the reworked preset, as everyone sees it and as a viewer in the bedroom sees it (cut).
   for (const cut of [false, true]) {
     const two = composeFurnitureRoom(pieces, all, partitionPlan(cut));
@@ -2108,6 +2118,51 @@ function dungeon2Plan(cut: boolean): RoomPlan {
       corner: "wall/corner/oak",
       lEnd: "wall/l/end/smoke",
       rEnd: "wall/r/end/oak",
+    },
+  };
+}
+
+/** The reworked Dank Dungeon seen from the north (OME-1997, the 180° view swap): cell (c, r) → (9 − c, 9 − r) anchored on the turned
+ *  footprint's min corner, every facing turned (one-sided pieces from furniture-back), wall pieces gone with the near walls they hang
+ *  on, the spa's walls at the back. A symmetric piece with no back view (the oval rug, the monstera) keeps its own frame. `pieces` gains the turned facings' layers, sort points and seats, as the web would derive them. */
+function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces: PieceMeta[]; plan: RoomPlan } {
+  const turnedMeta = pieces.map((m): PieceMeta => {
+    const out: PieceMeta = { ...m, layersByDir: { ...m.layersByDir }, footprintByDir: { ...m.footprintByDir }, sortByDir: { ...m.sortByDir } };
+    if (m.seatsByDir) out.seatsByDir = { ...m.seatsByDir };
+    for (const d of m.dirs) {
+      if (m.dirs.includes(TURN[d])) continue;
+      const t = TURN[d], fp = m.footprintByDir[d] ?? { cols: 1, rows: 1 };
+      out.layersByDir[t] = m.layersByDir[d] ?? ["back"];
+      out.footprintByDir[t] = fp;
+      out.sortByDir[t] = m.sortByDir[d] ?? { x: 0, y: 0 };
+      const seats = m.seatsByDir?.[d];
+      if (seats && out.seatsByDir) out.seatsByDir[t] = seats.map((q) => ({ col: fp.cols - 1 - q.col, row: fp.rows - 1 - q.row, dir: TURN[q.dir] }));
+    }
+    return out;
+  });
+  const meta = (id: string): PieceMeta | undefined => turnedMeta.find((m) => m.id === id);
+  const south = dungeon2Plan(false);
+  const placements = south.placements.filter((p) => meta(p.id)?.mount !== "wall").map((p): Placement => {
+    const fp = meta(p.id)?.footprintByDir[p.dir] ?? { cols: 1, rows: 1 };
+    const dir = all.has(`furniture/${p.id}/${p.colour}/${TURN[p.dir]}/back`) ? TURN[p.dir] : p.dir;
+    return { ...p, dir, col: 9 - p.col - Math.max(fp.cols - 1, 0), row: 9 - p.row - Math.max(fp.rows - 1, 0) };
+  });
+  const back = 9 - PARTITION_ROW;
+  return {
+    pieces: turnedMeta,
+    plan: {
+      placements,
+      standing: [["pip/idle/nw/0", 4, 7]],
+      rug: false,
+      tv: false,
+      shell: {
+        floor: (c, r) => `floor/${r < back ? "deck" : r === back ? "split/north" : "carpet"}/${String((c * 3 + r) % 2)}`,
+        l: (i) => (i < back ? "wall/l/smoke" : i === back ? "wall/l/split/north" : "wall/l/oak"),
+        r: () => "wall/r/smoke",
+        corner: "wall/corner/smoke",
+        lEnd: "wall/l/end/oak",
+        rEnd: "wall/r/end/smoke",
+      },
     },
   };
 }
