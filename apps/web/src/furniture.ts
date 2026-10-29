@@ -2,7 +2,7 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { STAGE_W, cellCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { lieOffset } from "./walk/lie";
@@ -27,7 +27,11 @@ const V5_KINDS: ReadonlySet<FurnitureKind> = new Set(["theatrerow", "curtain", "
 /** A theatre row's riser by variant, px a sitter is drawn higher (furniture-v5.json `seatLiftByColour`, pinned by a test). */
 const RISER_LIFT: readonly number[] = [0, 10, 20];
 /** The Dank Dungeon's pieces (assets/furniture/furniture-v6.json, its own lazy sheet, OME-1672). */
-const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin"]);
+const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
+/** The reworked room's own pieces (assets/furniture/furniture-v7.json, its own lazy sheet, OME-1991); it also holds single colours of older kinds (`V7_COLOURS`). */
+const V7_KINDS: ReadonlySet<FurnitureKind> = new Set(["sauna", "soaktub", "lounger"]);
+/** The dungeon shell's interior wall row: carpet (bedroom) before it, deck (spa) after, and the left wall's `split` segment on it (assets/README.md "Shell skin"). */
+const DUNGEON_SPLIT = 4;
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
 const atlasId = (kind: FurnitureKind): string => (kind === "runner" ? "rug" : kind);
 
@@ -92,7 +96,7 @@ export function layoutOf(room: RoomState | null): RoomLayout {
 
 /** True if the layout holds a set (g) piece, i.e. the furniture atlas must load. */
 export function usesSetG(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind) && !V5_KINDS.has(f.kind) && !V6_KINDS.has(f.kind));
+  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind) && !V5_KINDS.has(f.kind) && !V6_KINDS.has(f.kind) && !V7_KINDS.has(f.kind));
 }
 
 /** True if the layout holds a catalogue v2 piece, i.e. the v2 sheet must load. */
@@ -110,6 +114,20 @@ export function usesV6(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V6_KINDS.has(f.kind));
 }
 
+/** v7's colours of older kinds (and the tv), `"<id>/<colour>"` → variant; the older sheets keep the lower variants (pinned to furniture-v7.json by a test). */
+export const V7_COLOURS: Readonly<Record<string, number>> = { "mirror/silver": 1, "minibar/fridge": 1, "carpet/oval": 1, "tv/flat": 1, "partition/panel": 2, "partition/panelglass": 3 };
+/** Each older kind's first v7 variant. */
+const V7_FROM = new Map<string, number>();
+for (const [k, n] of Object.entries(V7_COLOURS)) {
+  const id = k.slice(0, k.indexOf("/"));
+  V7_FROM.set(id, Math.min(n, V7_FROM.get(id) ?? n));
+}
+
+/** True if the layout needs the v7 sheet: a v7 kind, an older kind at a v7 variant, or the dungeon shell skin. */
+export function usesV7(layout: RoomLayout): boolean {
+  return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || (f.variant ?? 0) >= (V7_FROM.get(f.kind) ?? Infinity));
+}
+
 /** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
 export function usesV5(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V5_KINDS.has(f.kind));
@@ -122,14 +140,17 @@ function seatAt(f: Furniture, col: number, row: number): Point {
   return lift === 0 ? p : { x: p.x, y: p.y - lift };
 }
 
+/** The cells of `f` that seat someone: layoutSeats' (a piece seats along its first row only, ADR 0057), so seat i is one cell everywhere. */
+export const seatCells = (f: Furniture): [number, number][] => layoutSeats({ furniture: [f] }).map((s) => [s.col, s.row]);
+
 /** Seat i's floor point (ADR 0021: the i-th seat cell across seat pieces, in furniture order). */
 export function seatPoints(layout: RoomLayout): Point[] {
-  return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => seatAt(f, c, r)) : []));
+  return layout.furniture.flatMap((f) => seatCells(f).map(([c, r]) => seatAt(f, c, r)));
 }
 
 /** Seat i's floor tile, without the riser lift: where its key sits, so a riser's key doesn't cover the row in front. */
 export function seatTiles(layout: RoomLayout): Point[] {
-  return layout.furniture.flatMap((f) => (FURNITURE[f.kind].seats ? footprintCells(f).map(([c, r]) => cellCenter(c, r)) : []));
+  return layout.furniture.flatMap((f) => seatCells(f).map(([c, r]) => cellCenter(c, r)));
 }
 
 /** Rows (col + row) for people without a seat, front of the room first, each from its middle out, filled in order. */
@@ -257,6 +278,11 @@ export interface Scene {
 }
 
 type Piece = FurnitureManifest["meta"]["omega"]["pieces"][number];
+/** A piece and the colour (name) one variant of it draws. */
+interface Colour {
+  readonly piece: Piece;
+  readonly colour: string;
+}
 
 /**
  * What to draw for `layout`, from the catalogue manifests loaded so far (set (g), v2: same schema, ids don't collide).
@@ -265,18 +291,23 @@ type Piece = FurnitureManifest["meta"]["omega"]["pieces"][number];
  * layout change, never per frame.
  */
 export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null): Scene {
-  const pieces = new Map<string, Piece>(manifests.flatMap((m) => m.meta.omega.pieces.map((p) => [p.id, p] as const)));
+  // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's colours of older kinds (V7_COLOURS).
+  const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour }] as const))));
   const layers = manifests[0]?.meta.omega.layers;
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
   const lies = new Map<number, LieSpot>();
-  if (room !== null) pushShell(sprites, layout, room);
+  // The dungeon shell skin needs v7's frames; a layout that asks for it before they load keeps today's shell.
+  if (room !== null) pushShell(sprites, layout, room, layout.shell === "dungeon" && manifests.some((m) => m.frames["floor/deck/0"] !== undefined));
   for (const [i, f] of layout.furniture.entries()) {
     const spec = FURNITURE[f.kind];
-    const piece = ROOM_KINDS.has(f.kind) ? undefined : pieces.get(atlasId(f.kind));
+    const id = atlasId(f.kind);
+    // A variant its sheets lack (not loaded yet, or a recolour, which draws its source's frames) falls back to the piece's first colour; the tv has none, only its console.
+    const found = pieces.get(`${id}/${String(f.variant ?? 0)}`) ?? (f.kind === "tv" ? undefined : pieces.get(`${id}/0`));
+    const piece = ROOM_KINDS.has(f.kind) ? undefined : found?.piece;
     const anchor = cellCenter(f.col, f.row);
     const sort = piece?.sortByDir[f.facing];
-    const drawn = piece !== undefined && sort !== undefined && layers !== undefined ? { piece, sort, layers } : null;
+    const drawn = piece !== undefined && found !== undefined && sort !== undefined && layers !== undefined ? { piece, colour: found.colour, sort, layers } : null;
     const style = spec.lie;
     const off = style === undefined ? undefined : lieOffset(f.kind, f.facing);
     if (style !== undefined && off !== undefined) {
@@ -284,9 +315,10 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       lies.set(i, { style, dir: f.facing, at: { x: anchor.x + off.x, y: anchor.y + off.y }, anchor, z });
     }
     if (drawn !== null) pushSprites(sprites, f, i, anchor, drawn);
-    else if (room !== null) pushRoomPiece(sprites, f, anchor);
+    // The flat tv (v7, variant 1) takes the console's place: same anchor, layer and depth, its own frame.
+    else if (room !== null) pushRoomPiece(sprites, f, anchor, f.kind === "tv" && found !== undefined ? `furniture/tv/${found.colour}/${f.facing}/back` : "tv/0");
     if (!spec.seats) continue;
-    for (const [c, r] of footprintCells(f)) {
+    for (const [c, r] of seatCells(f)) {
       const at = seatAt(f, c, r);
       // Cells further from the anchor are nearer the camera (+col and +row both step down the screen).
       const near = c - f.col + (r - f.row);
@@ -302,12 +334,12 @@ function pushSprites(
   f: Furniture,
   index: number,
   anchor: Point,
-  { piece, sort, layers }: { readonly piece: Piece; readonly sort: { readonly x: number; readonly y: number }; readonly layers: FurnitureManifest["meta"]["omega"]["layers"] },
+  { piece, colour, sort, layers }: { readonly piece: Piece; readonly colour: string; readonly sort: { readonly x: number; readonly y: number }; readonly layers: FurnitureManifest["meta"]["omega"]["layers"] },
 ): void {
   const variant = f.variant ?? 0;
   // A new colour (OME-1463) draws its source colour's frames from that sheet's recoloured copy.
   const recolour = recolourOf(f.kind, variant);
-  const prefix = recolour?.frames ?? `furniture/${piece.id}/${piece.colours[variant] ?? piece.colours[0] ?? ""}/`;
+  const prefix = recolour?.frames ?? `furniture/${piece.id}/${colour}/`;
   const frame = (rest: string): string => (recolour === undefined ? prefix + rest : recolourKey(f.kind, variant, prefix + rest));
   const layer = FURNITURE[f.kind].layer;
   for (const part of piece.layersByDir[f.facing] ?? []) {
@@ -347,7 +379,7 @@ function rugPart(dc: number, dr: number, last: number): string {
  * open ends (assets/README.md "Room atlas"). A wall that carries a catalogue wall piece (print, shelf, garland) is all
  * plain segments: they hang on plain, and garlands on neighbouring segments join into one string.
  */
-function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifest): void {
+function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifest, skin: boolean): void {
   const suggested = room.meta.omega.layout;
   const rugs = layout.furniture.filter((f) => f.kind === "rug");
   const rugSize = FURNITURE.rug.cols;
@@ -357,17 +389,21 @@ function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifes
       const plank = suggested.floor[row]?.[col] ?? "";
       const part = rug === undefined ? "" : `rug/${rugPart(col - rug.col, row - rug.row, rugSize - 1)}`;
       const recoloured = rug !== undefined && recolourOf("rug", rug.variant ?? 0) !== undefined;
-      const key = rug === undefined ? (plank.startsWith("floor/") ? plank : "floor/0") : recoloured ? recolourKey("rug", rug.variant ?? 0, part) : part;
+      const base = skin ? `floor/${row < DUNGEON_SPLIT ? "carpet" : row === DUNGEON_SPLIT ? "split" : "deck"}/${String((col + row) % 2)}` : plank.startsWith("floor/") ? plank : "floor/0";
+      const key = rug === undefined ? base : recoloured ? recolourKey("rug", rug.variant ?? 0, part) : part;
       out.push(shellSprite(key, col, row, "floor"));
     }
   }
   const printL = layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "se");
   const printR = layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "sw");
   for (let i = 0; i < FLOOR_CELLS; i++) {
-    out.push(shellSprite(printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain"), 0, i, "wall"));
-    out.push(shellSprite(printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
+    // The skin's segments carry wall pieces as they are, so no plain swap.
+    const l = skin ? `wall/l/${i < DUNGEON_SPLIT ? "oak" : i === DUNGEON_SPLIT ? "split" : "smoke"}` : printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain");
+    out.push(shellSprite(l, 0, i, "wall"));
+    out.push(shellSprite(skin ? "wall/r/oak" : printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
   }
-  out.push(shellSprite("wall/corner", 0, 0, "wall"), shellSprite("wall/l/end", 0, FLOOR_CELLS - 1, "wall"), shellSprite("wall/r/end", FLOOR_CELLS - 1, 0, "wall"));
+  const ends = skin ? ["wall/corner/oak", "wall/l/end/smoke", "wall/r/end/oak"] : ["wall/corner", "wall/l/end", "wall/r/end"];
+  out.push(shellSprite(ends[0] ?? "", 0, 0, "wall"), shellSprite(ends[1] ?? "", 0, FLOOR_CELLS - 1, "wall"), shellSprite(ends[2] ?? "", FLOOR_CELLS - 1, 0, "wall"));
 }
 
 function shellSprite(key: string, col: number, row: number, layer: "floor" | "wall"): FurnitureSprite {
@@ -376,14 +412,14 @@ function shellSprite(key: string, col: number, row: number, layer: "floor" | "wa
 }
 
 /** A room-atlas piece on its cell: armchairs back and front around the sitter, the console with the walls, props sorted. */
-function pushRoomPiece(out: FurnitureSprite[], f: Furniture, a: Point): void {
+function pushRoomPiece(out: FurnitureSprite[], f: Furniture, a: Point, tvKey: string): void {
   const at = (key: string, layer: FurnitureSprite["layer"], z: number): void => {
     out.push({ key, x: a.x, y: a.y, layer, z: depth(a.x, a.y, z) });
   };
   if (f.kind === "armchair") {
     at(`armchair/${f.facing}/back`, "object", BACK_LAYER);
     at(`armchair/${f.facing}/front`, "object", FRONT_LAYER);
-  } else if (f.kind === "tv") at("tv/0", "wall", BACK_LAYER);
+  } else if (f.kind === "tv") at(tvKey, "wall", BACK_LAYER);
   else if (f.kind === "lamp" || f.kind === "plant") {
     const variant = f.variant ?? 0;
     const key = `${f.kind}/0`;

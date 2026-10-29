@@ -696,7 +696,7 @@
     "y": 0.5
    }
   },
-  "swatch/floor": {
+  "swatch/flat": {
    "frame": {
     "x": 75,
     "y": 834,
@@ -720,7 +720,7 @@
     "y": 0.5
    }
   },
-  "swatch/fridge": {
+  "swatch/floor": {
    "frame": {
     "x": 86,
     "y": 834,
@@ -744,7 +744,7 @@
     "y": 0.5
    }
   },
-  "swatch/frost": {
+  "swatch/fridge": {
    "frame": {
     "x": 109,
     "y": 834,
@@ -768,7 +768,7 @@
     "y": 0.5
    }
   },
-  "swatch/ginger": {
+  "swatch/frost": {
    "frame": {
     "x": 120,
     "y": 834,
@@ -792,7 +792,7 @@
     "y": 0.5
    }
   },
-  "swatch/glass": {
+  "swatch/ginger": {
    "frame": {
     "x": 131,
     "y": 834,
@@ -816,7 +816,7 @@
     "y": 0.5
    }
   },
-  "swatch/high": {
+  "swatch/glass": {
    "frame": {
     "x": 142,
     "y": 834,
@@ -840,7 +840,7 @@
     "y": 0.5
    }
   },
-  "swatch/lilac": {
+  "swatch/high": {
    "frame": {
     "x": 180,
     "y": 834,
@@ -864,7 +864,7 @@
     "y": 0.5
    }
   },
-  "swatch/meadow": {
+  "swatch/lilac": {
    "frame": {
     "x": 11,
     "y": 835,
@@ -888,7 +888,7 @@
     "y": 0.5
    }
   },
-  "swatch/mustard": {
+  "swatch/meadow": {
    "frame": {
     "x": 22,
     "y": 835,
@@ -912,7 +912,7 @@
     "y": 0.5
    }
   },
-  "swatch/navy": {
+  "swatch/mustard": {
    "frame": {
     "x": 33,
     "y": 835,
@@ -936,7 +936,7 @@
     "y": 0.5
    }
   },
-  "swatch/olive": {
+  "swatch/navy": {
    "frame": {
     "x": 44,
     "y": 835,
@@ -960,7 +960,7 @@
     "y": 0.5
    }
   },
-  "swatch/oval": {
+  "swatch/olive": {
    "frame": {
     "x": 153,
     "y": 835,
@@ -984,7 +984,7 @@
     "y": 0.5
    }
   },
-  "swatch/painted": {
+  "swatch/oval": {
    "frame": {
     "x": 164,
     "y": 835,
@@ -1008,7 +1008,7 @@
     "y": 0.5
    }
   },
-  "swatch/panel": {
+  "swatch/painted": {
    "frame": {
     "x": 97,
     "y": 842,
@@ -1032,7 +1032,7 @@
     "y": 0.5
    }
   },
-  "swatch/panelglass": {
+  "swatch/panel": {
    "frame": {
     "x": 220,
     "y": 844,
@@ -1056,7 +1056,7 @@
     "y": 0.5
    }
   },
-  "swatch/party": {
+  "swatch/panelglass": {
    "frame": {
     "x": 231,
     "y": 844,
@@ -1080,7 +1080,7 @@
     "y": 0.5
    }
   },
-  "swatch/peach": {
+  "swatch/party": {
    "frame": {
     "x": 242,
     "y": 844,
@@ -1104,9 +1104,33 @@
     "y": 0.5
    }
   },
-  "swatch/pink": {
+  "swatch/peach": {
    "frame": {
     "x": 0,
+    "y": 845,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/pink": {
+   "frame": {
+    "x": 55,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1154,7 +1178,7 @@
   },
   "swatch/rust": {
    "frame": {
-    "x": 55,
+    "x": 66,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1178,7 +1202,7 @@
   },
   "swatch/silver": {
    "frame": {
-    "x": 66,
+    "x": 77,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1202,7 +1226,7 @@
   },
   "swatch/solid": {
    "frame": {
-    "x": 77,
+    "x": 108,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1226,7 +1250,7 @@
   },
   "swatch/step": {
    "frame": {
-    "x": 108,
+    "x": 119,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1250,7 +1274,7 @@
   },
   "swatch/sunset": {
    "frame": {
-    "x": 119,
+    "x": 130,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1274,7 +1298,7 @@
   },
   "swatch/teal": {
    "frame": {
-    "x": 130,
+    "x": 141,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1298,7 +1322,7 @@
   },
   "swatch/tide": {
    "frame": {
-    "x": 141,
+    "x": 175,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1322,7 +1346,7 @@
   },
   "swatch/velvet": {
    "frame": {
-    "x": 175,
+    "x": 186,
     "y": 845,
     "w": 10,
     "h": 10
@@ -1346,8 +1370,8 @@
   },
   "swatch/warm": {
    "frame": {
-    "x": 186,
-    "y": 845,
+    "x": 11,
+    "y": 846,
     "w": 10,
     "h": 10
    },
@@ -1370,7 +1394,7 @@
   },
   "swatch/wood": {
    "frame": {
-    "x": 11,
+    "x": 22,
     "y": 846,
     "w": 10,
     "h": 10

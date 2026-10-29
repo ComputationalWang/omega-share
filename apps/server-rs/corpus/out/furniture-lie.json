@@ -45,5 +45,9 @@
 {"input":"mirror","ok":true,"output":{"lie":null}},
 {"input":"minibar","ok":true,"output":{"lie":null}},
 {"input":"desk","ok":true,"output":{"lie":null}},
-{"input":"washbasin","ok":true,"output":{"lie":null}}
+{"input":"washbasin","ok":true,"output":{"lie":null}},
+{"input":"partition","ok":true,"output":{"lie":null}},
+{"input":"sauna","ok":true,"output":{"lie":null}},
+{"input":"soaktub","ok":true,"output":{"lie":null}},
+{"input":"lounger","ok":true,"output":{"lie":"lie"}}
 ]

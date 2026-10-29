@@ -60,6 +60,8 @@ describe("room presets", () => {
     expect(dd?.layout.mood).toBe("night");
     expect(dd?.layout.pairs).toBe(true);
     expect(PRESETS.filter((p) => p.layout.pairs === true).map((p) => p.id)).toEqual(["dank-dungeon"]);
+    // OME-1989: the dungeon shell skin, on this preset only.
+    expect(PRESETS.filter((p) => p.layout.shell !== undefined).map((p) => [p.id, p.layout.shell])).toEqual([["dank-dungeon", "dungeon"]]);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 40 KB together, no strays", () => {

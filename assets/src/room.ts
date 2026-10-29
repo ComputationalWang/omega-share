@@ -480,26 +480,28 @@ export function tvSolids(): Solid[] {
   return [console_, pot, leaf1, ...tapes, projector];
 }
 
+/** A film reel stood on edge, drawn flat facing the camera, centred (cx, cy) from the canvas anchor. */
+export function drawReel(img: Uint8Array, cv: { w: number; ax: number; ay: number }, cx: number, cy: number): void {
+  for (let dy = -6; dy <= 6; dy++) {
+    for (let dx = -6; dx <= 6; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (d > 5.6) continue;
+      let paint: Paint = d > 4.6 ? (dx + dy < 0 ? ["charcoal", 0] : ["charcoal", 2]) : ["charcoal", 1];
+      if (d < 1.5) paint = ["cream", 0];
+      for (const a of [0, 2.094, 4.189]) {
+        if (Math.hypot(dx - 2.8 * Math.cos(a - 1.57), dy - 2.8 * Math.sin(a - 1.57)) < 1.3) paint = ["charcoal", 2];
+      }
+      img[(cv.ay + cy + dy) * cv.w + cv.ax + cx + dx] = colorIndex(paint[0], paint[1]);
+    }
+  }
+}
+
 function tvFrame(): RoomFrame {
   const r = renderSolids(tvSolids(), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay + 0, "all");
   const img = r.img;
   // Two film reels standing on the projector (drawn flat, facing the camera), then outline them.
-  const reel = (cx: number, cy: number): void => {
-    for (let dy = -6; dy <= 6; dy++) {
-      for (let dx = -6; dx <= 6; dx++) {
-        const d = Math.hypot(dx, dy);
-        if (d > 5.6) continue;
-        let paint: Paint = d > 4.6 ? (dx + dy < 0 ? ["charcoal", 0] : ["charcoal", 2]) : ["charcoal", 1];
-        if (d < 1.5) paint = ["cream", 0];
-        for (const a of [0, 2.094, 4.189]) {
-          if (Math.hypot(dx - 2.8 * Math.cos(a - 1.57), dy - 2.8 * Math.sin(a - 1.57)) < 1.3) paint = ["charcoal", 2];
-        }
-        img[(CANVAS.ay + cy + dy) * CANVAS.w + CANVAS.ax + cx + dx] = colorIndex(paint[0], paint[1]);
-      }
-    }
-  };
-  reel(-6, -27);
-  reel(6, -28);
+  drawReel(img, CANVAS, -6, -27);
+  drawReel(img, CANVAS, 6, -28);
   // Specular glint on the lens: a 3 px bar and a 1 px tail, pixel-placed so it stays crisp at 1×.
   for (const [gx, gy] of [[-9, -11], [-8, -11], [-7, -11], [-10, -10]] as const) {
     img[(CANVAS.ay + gy) * CANVAS.w + CANVAS.ax + gx] = colorIndex("glow", 0);
@@ -713,19 +715,35 @@ function deckTile(variant: number): (u: number, v: number) => Paint {
 /** The reworked dungeon's shell, same rects and anchors as the room atlas's: panelled walls (`oak` bedroom, `smoke` spa, `split`
  *  for the left-wall segment the interior wall meets, oak behind it), the corner and the two ends, carpet and deck floor tiles
  *  (`split`: carpet behind the interior wall's middle, deck in front). */
+const panelLeft = (key: string, skin: (v: number) => PanelSkin): RoomFrame =>
+  solidsFrame(key, [box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? [skin(p.v) === "oak" ? "floor" : "wood", 0] : f === "se" ? panelPaint(skin(p.v), p.v, p.z, false) : null) })], "top");
+const panelRight = (skin: PanelSkin): RoomFrame =>
+  solidsFrame(`wall/r/${skin}`, [box(-8, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", { skip: ["se", "other"], paint: (p, f) => (f === "top" ? [skin === "oak" ? "floor" : "wood", 0] : f === "sw" ? panelPaint(skin, p.u, p.z, true) : null) })], "top");
+const panelFloors = (name: string, paint: (n: number) => (u: number, v: number) => Paint): RoomFrame[] => [0, 1].map((n) => floorTile(`floor/${name}/${String(n)}`, paint(n)));
+const panelTop = (skin: PanelSkin): RampName => (skin === "oak" ? "floor" : "wood");
+const panelCorner = (skin: PanelSkin): RoomFrame =>
+  solidsFrame(`wall/corner/${skin}`, [box(-8 - WALL_T, -8, -8 - WALL_T, -8, 0, WALL_H, panelTop(skin), { paint: (_p, f) => (f === "top" ? [panelTop(skin), 0] : null) })], "top");
+const panelLeftEnd = (skin: PanelSkin): RoomFrame =>
+  solidsFrame(`wall/l/end/${skin}`, [box(-8 - WALL_T, -8, 7, 8, 0, WALL_H, panelTop(skin), { skip: ["se", "other"], paint: (p, f) => (f === "top" ? [panelTop(skin), 0] : p.z < 4 ? ["charcoal", 2] : [panelTop(skin), 1]) })], "all", (x) => x < -32);
+const panelRightEnd = (skin: PanelSkin): RoomFrame =>
+  solidsFrame(`wall/r/end/${skin}`, [box(7, 8, -8 - WALL_T, -8, 0, WALL_H, panelTop(skin), { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? [panelTop(skin), 0] : p.z < 4 ? ["charcoal", 2] : [panelTop(skin), 2]) })], "all", (x) => x >= 32);
+
 export function buildPanelShell(): RoomFrame[] {
-  const left = (key: string, skin: (v: number) => PanelSkin): RoomFrame =>
-    solidsFrame(key, [box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? [skin(p.v) === "oak" ? "floor" : "wood", 0] : f === "se" ? panelPaint(skin(p.v), p.v, p.z, false) : null) })], "top");
-  const right = (skin: PanelSkin): RoomFrame =>
-    solidsFrame(`wall/r/${skin}`, [box(-8, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", { skip: ["se", "other"], paint: (p, f) => (f === "top" ? [skin === "oak" ? "floor" : "wood", 0] : f === "sw" ? panelPaint(skin, p.u, p.z, true) : null) })], "top");
-  const floors = (name: string, paint: (n: number) => (u: number, v: number) => Paint): RoomFrame[] => [0, 1].map((n) => floorTile(`floor/${name}/${String(n)}`, paint(n)));
   return [
-    left("wall/l/oak", () => "oak"), left("wall/l/smoke", () => "smoke"), left("wall/l/split", (v) => (v < 0 ? "oak" : "smoke")),
-    right("oak"), right("smoke"),
-    solidsFrame("wall/corner/oak", [box(-8 - WALL_T, -8, -8 - WALL_T, -8, 0, WALL_H, "floor", { paint: (_p, f) => (f === "top" ? ["floor", 0] : null) })], "top"),
-    solidsFrame("wall/l/end/smoke", [box(-8 - WALL_T, -8, 7, 8, 0, WALL_H, "wood", { skip: ["se", "other"], paint: (p, f) => (f === "top" ? ["wood", 0] : p.z < 4 ? ["charcoal", 2] : ["wood", 1]) })], "all", (x) => x < -32),
-    solidsFrame("wall/r/end/oak", [box(7, 8, -8 - WALL_T, -8, 0, WALL_H, "floor", { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? ["floor", 0] : p.z < 4 ? ["charcoal", 2] : ["floor", 2]) })], "all", (x) => x >= 32),
-    ...floors("carpet", carpetTile), ...floors("deck", deckTile),
-    ...floors("split", (n) => { const c = carpetTile(n), d = deckTile(n); return (u, v) => (v < 0 ? c(u, v) : d(u, v)); }),
+    panelLeft("wall/l/oak", () => "oak"), panelLeft("wall/l/smoke", () => "smoke"), panelLeft("wall/l/split", (v) => (v < 0 ? "oak" : "smoke")),
+    panelRight("oak"), panelRight("smoke"),
+    panelCorner("oak"), panelLeftEnd("smoke"), panelRightEnd("oak"),
+    ...panelFloors("carpet", carpetTile), ...panelFloors("deck", deckTile),
+    ...panelFloors("split", (n) => { const c = carpetTile(n), d = deckTile(n); return (u, v) => (v < 0 ? c(u, v) : d(u, v)); }),
+  ];
+}
+
+/** The panelled shell as a viewer in the bedroom sees it (OME-1997, the 180° view swap): the spa's walls are at the back now and the
+ *  bedroom's end at the near corner, so the split wall and floor swap halves and the corner and ends wear the other skin. */
+export function buildNorthShell(): RoomFrame[] {
+  return [
+    panelLeft("wall/l/split/north", (v) => (v < 0 ? "smoke" : "oak")),
+    panelCorner("smoke"), panelLeftEnd("oak"), panelRightEnd("smoke"),
+    ...panelFloors("split/north", (n) => { const c = carpetTile(n), d = deckTile(n); return (u, v) => (v < 0 ? d(u, v) : c(u, v)); }),
   ];
 }
