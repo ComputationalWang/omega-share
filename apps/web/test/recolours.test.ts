@@ -4,7 +4,7 @@ import { FURNITURE, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import { FurnitureManifestSchema, RoomManifestSchema, sceneOf, type Scene } from "../src/furniture";
 import { recolourOf, recolourSource, recoloursIn } from "../src/recolours";
 import { coloursOf } from "../src/editor/colours";
-import { TRAY_TABS } from "../src/editor/draft";
+import { TRAY_TABS, VARIANTS_AWAITING_ART } from "../src/editor/draft";
 import { cellCenter } from "../src/layout";
 
 // The 2 extra colours of six pieces (OME-1463, art OME-1462: assets/furniture/recolours.json, a runtime PLTE swap).
@@ -120,7 +120,7 @@ describe("the editor offers every variant", () => {
 
   test("every kind the tray offers with variants has one swatch per variant; the recoloured kinds' are frames of the edit kit", () => {
     for (const kind of TRAY_TABS.flatMap((t) => t.kinds)) {
-      if (FURNITURE[kind].variants > 1) expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
+      if (FURNITURE[kind].variants > 1 && !VARIANTS_AWAITING_ART.has(kind)) expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
     }
     for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner", "frame", "garland", "pad", "lamp", "plant", "arclamp", "monstera", "bookshelf", "wallshelf"] as const) {
       for (const c of coloursOf(kind)) expect(edit[`swatch/${c}`]).toBeDefined();

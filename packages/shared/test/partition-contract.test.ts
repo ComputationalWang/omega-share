@@ -8,15 +8,16 @@ const at = (facing: "se" | "sw", variant = 0) => ({ kind: "partition" as const, 
 const room = (facing: "se" | "sw", variant = 0) => ({ ...DEFAULT_LAYOUT, furniture: [...DEFAULT_LAYOUT.furniture, at(facing, variant)] });
 
 describe("partition", () => {
-  test("an object-layer 1×1 piece, se/sw only, two variants, no seats", () => {
-    expect(FURNITURE.partition).toMatchObject({ layer: "object", facings: ["se", "sw"], cols: 1, rows: 1, seats: false, variants: 2, wallBacked: false });
+  test("an object-layer 1×1 piece, se/sw only, four variants (OME-1989), no seats", () => {
+    expect(FURNITURE.partition).toMatchObject({ layer: "object", facings: ["se", "sw"], cols: 1, rows: 1, seats: false, variants: 4, wallBacked: false });
     expect(footprintCells(at("sw"))).toEqual([[5, 4]]);
   });
 
-  test.each([["se"], ["sw"]] as const)("facing %s it parses, solid and glass; no doorframe, no ne/nw", (facing) => {
+  test.each([["se"], ["sw"]] as const)("facing %s it parses, solid and glass in two looks; no doorframe, no ne/nw", (facing) => {
     expect(v.safeParse(FurnitureSchema, at(facing, 0)).success).toBe(true);
     expect(v.safeParse(FurnitureSchema, at(facing, 1)).success).toBe(true);
-    expect(v.safeParse(FurnitureSchema, at(facing, 2)).success).toBe(false);
+    expect(v.safeParse(FurnitureSchema, at(facing, 3)).success).toBe(true);
+    expect(v.safeParse(FurnitureSchema, at(facing, 4)).success).toBe(false);
     expect(v.safeParse(FurnitureSchema, { ...at(facing), facing: facing === "se" ? "ne" : "nw" }).success).toBe(false);
   });
 

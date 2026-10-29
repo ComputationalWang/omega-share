@@ -111,6 +111,9 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   desk: "Writing desk",
   washbasin: "Washbasin",
   partition: "Interior wall",
+  sauna: "Sauna",
+  soaktub: "Soaking tub",
+  lounger: "Lounger",
 };
 
 const DELETED = "Room deleted.";

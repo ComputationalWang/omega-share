@@ -154,6 +154,7 @@ export const PRESETS: readonly Preset[] = [
     layout: {
       mood: "night",
       pairs: true,
+      shell: "dungeon",
       furniture: [
         TV,
         p("bed", 4, 0, "nw"), p("bed", 0, 3, "ne"),

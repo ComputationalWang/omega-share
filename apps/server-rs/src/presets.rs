@@ -103,6 +103,13 @@ mod tests {
         let presets = Presets::load().unwrap();
         for id in ROOM_PRESET_IDS {
             assert_eq!(presets.preset_layout(id).pairs(), id.as_str() == "dank-dungeon", "{}", id.as_str());
+            // OME-1989: and only it wears the dungeon shell.
+            assert_eq!(
+                presets.preset_layout(id).to_json().contains(r#""shell":"dungeon""#),
+                id.as_str() == "dank-dungeon",
+                "{}",
+                id.as_str()
+            );
         }
         let l = presets.preset_layout(ROOM_PRESET_IDS[7]);
         assert!(l.to_json().contains(r#""mood":"night""#));
