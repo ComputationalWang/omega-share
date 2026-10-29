@@ -36,6 +36,13 @@ pub enum Mood {
     Night,
 }
 
+/// `RoomShellSchema` (OME-1989): the room's wall and floor skin. Absent means today's walls and floor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Shell {
+    Dungeon,
+}
+
 pub const FACINGS: [Facing; 4] = [Facing::Ne, Facing::Nw, Facing::Se, Facing::Sw];
 const CAMERA: &[Facing] = &[Facing::Se, Facing::Sw];
 /// One sprite, so one canonical facing.
@@ -96,6 +103,10 @@ pub enum Kind {
     Desk,
     Washbasin,
     Partition,
+    // Dank Dungeon v7 (OME-1989).
+    Sauna,
+    Soaktub,
+    Lounger,
 }
 
 impl Kind {
@@ -105,7 +116,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 48] = [
+pub const KINDS: [Kind; 51] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -154,6 +165,9 @@ pub const KINDS: [Kind; 48] = [
     Kind::Desk,
     Kind::Washbasin,
     Kind::Partition,
+    Kind::Sauna,
+    Kind::Soaktub,
+    Kind::Lounger,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -184,6 +198,8 @@ pub struct Spec {
     pub rows: u8,
     /// Every footprint cell is a seat facing the piece's way.
     pub seats: bool,
+    /// `seatCells`: seats only this many cells of its first row, from the anchor (`usize::MAX`: the whole row).
+    pub seat_cells: usize,
     /// Colour or artwork variants; variant 0 is the default.
     pub variants: u32,
     /// Facing sw it stands on row 0 (right wall), facing se on col 0 (left wall).
@@ -200,6 +216,7 @@ impl Spec {
             cols,
             rows,
             seats: false,
+            seat_cells: usize::MAX,
             variants: 1,
             wall_backed: false,
             lie: None,
@@ -211,6 +228,10 @@ impl Spec {
     }
     const fn seated(mut self) -> Self {
         self.seats = true;
+        self
+    }
+    const fn seat_cells(mut self, n: usize) -> Self {
+        self.seat_cells = n;
         self
     }
     const fn variants(mut self, n: u32) -> Self {
@@ -229,7 +250,8 @@ pub const fn spec(kind: Kind) -> Spec {
     use Layer::{Floor, Object, Wall};
     match kind {
         Kind::Armchair => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Tv => Spec::new(Object, FIXED, 1, 1),
+        // Variant 1 (OME-1989) keeps variant 0's screen rect and anchor.
+        Kind::Tv => Spec::new(Object, FIXED, 1, 1).variants(2),
         Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1).variants(3),
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7).variants(3),
         Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4).lie(LieStyle::Lie),
@@ -264,15 +286,21 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Curtain => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Bigscreen => Spec::new(Object, FIXED, 1, 1),
         Kind::Aislelight => Spec::new(Floor, ON_FLOOR, 1, 1),
-        Kind::Carpet => Spec::new(Floor, FIXED, 2, 2),
+        Kind::Carpet => Spec::new(Floor, FIXED, 2, 2).variants(2),
         // A queen bed (OME-1982): 2×2, two sleepers side by side on its first row.
         Kind::Bed => Spec::new(Object, ALL, 2, 2).seated(),
         Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
-        Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0),
-        Kind::Minibar | Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
+        Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0).variants(2),
+        Kind::Minibar => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
         Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
-        // The facing picks the axis; 0 solid, 1 glass (OME-1958).
-        Kind::Partition => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        // The facing picks the axis; 0 and 2 solid, 1 and 3 glass (OME-1958, OME-1989).
+        Kind::Partition => Spec::new(Object, CAMERA, 1, 1).variants(4),
+        Kind::Sauna => Spec::new(Object, CAMERA, 2, 2).backed(),
+        // Two bathers on its first row.
+        Kind::Soaktub => Spec::new(Object, FIXED, 2, 2).seated(),
+        // One seat at its anchor.
+        Kind::Lounger => Spec::new(Object, ALL, 2, 1).seated().seat_cells(1).lie(LieStyle::Lie),
     }
 }
 
@@ -338,11 +366,17 @@ pub fn layout_seats(furniture: &[Furniture]) -> Vec<Seat> {
                 row == u32::from(f.row)
             }
         };
-        seats.extend(footprint_cells(f).into_iter().filter(first_row).map(|(col, row)| Seat {
-            col,
-            row,
-            facing: f.facing,
-        }));
+        seats.extend(
+            footprint_cells(f)
+                .into_iter()
+                .filter(first_row)
+                .take(spec(f.kind).seat_cells)
+                .map(|(col, row)| Seat {
+                    col,
+                    row,
+                    facing: f.facing,
+                }),
+        );
     }
     seats
 }
@@ -479,11 +513,13 @@ macro_rules! wire {
             mood: Option<Mood>,
             #[serde(default, deserialize_with = "present")]
             pairs: Option<bool>,
+            #[serde(default, deserialize_with = "present")]
+            shell: Option<Shell>,
         }
 
         impl From<$layout> for RoomLayout {
             fn from(w: $layout) -> Self {
-                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood, pairs: w.pairs }
+                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood, pairs: w.pairs, shell: w.shell }
             }
         }
     };
@@ -544,6 +580,9 @@ pub struct RoomLayout {
     /// The `/thrust` + `/bendover` pair is on (OME-1671). As sent, like `mood`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pairs: Option<bool>,
+    /// The wall and floor skin (OME-1989). As sent, like `mood`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shell: Option<Shell>,
 }
 
 impl RoomLayout {
@@ -646,6 +685,7 @@ pub fn default_layout() -> RoomLayout {
         furniture,
         mood: None,
         pairs: None,
+        shell: None,
     }
 }
 
@@ -790,14 +830,14 @@ mod tests {
     fn a_partition_is_a_solid_one_cell_axis_piece_in_solid_or_glass() {
         let cell = |x: u64, y: u64| FloorCell::new(x, y).unwrap();
         for facing in ["se", "sw"] {
-            for variant in [0, 1] {
+            for variant in [0, 1, 2, 3] {
                 let l = parse(&base(vec![pv("partition", 5, 4, facing, variant)]));
                 assert!(!l.standable(cell(5, 4)), "{facing} {variant} blocks its cell");
                 for (x, y) in [(5, 3), (5, 5), (4, 4)] {
                     assert!(l.standable(cell(x, y)), "{facing} {variant} leaves ({x}, {y}) free");
                 }
             }
-            assert!(!piece_accepts(&pv("partition", 5, 4, facing, 2)), "no doorframe variant");
+            assert!(!piece_accepts(&pv("partition", 5, 4, facing, 4)), "no doorframe variant");
         }
         for facing in ["ne", "nw"] {
             assert!(!piece_accepts(&p("partition", 5, 4, facing)), "{facing} is not an axis");
@@ -1225,8 +1265,20 @@ mod tests {
     // packages/shared/test/dank-dungeon-contract.test.ts (OME-1989): the v7 kinds and variants.
     #[test]
     fn the_v7_kinds_take_their_facings_walls_and_seats() {
-        for (kind, facing) in [("sauna", "se"), ("sauna", "sw"), ("soaktub", "se"), ("lounger", "ne"), ("lounger", "nw"), ("lounger", "se"), ("lounger", "sw")] {
-            let (col, row) = if kind == "sauna" { if facing == "sw" { (3, 0) } else { (0, 3) } } else { (3, 3) };
+        for (kind, facing) in [
+            ("sauna", "se"),
+            ("sauna", "sw"),
+            ("soaktub", "se"),
+            ("lounger", "ne"),
+            ("lounger", "nw"),
+            ("lounger", "se"),
+            ("lounger", "sw"),
+        ] {
+            let (col, row) = if kind == "sauna" {
+                if facing == "sw" { (3, 0) } else { (0, 3) }
+            } else {
+                (3, 3)
+            };
             assert!(piece_accepts(&p(kind, col, row, facing)), "{kind} {facing}");
         }
         assert!(!piece_accepts(&p("sauna", 3, 3, "sw")), "the sauna backs onto a wall");
@@ -1242,7 +1294,13 @@ mod tests {
         for facing in ["ne", "nw", "se", "sw"] {
             assert_eq!(seats(p("lounger", 8, 8, facing), 7)[..1], [(8, 8)], "{facing}");
         }
-        for (kind, n, col, row, facing) in [("mirror", 2, 0, 2, "se"), ("minibar", 2, 3, 3, "sw"), ("tv", 2, 9, 9, "se"), ("carpet", 2, 8, 8, "se"), ("partition", 4, 3, 3, "se")] {
+        for (kind, n, col, row, facing) in [
+            ("mirror", 2, 0, 2, "se"),
+            ("minibar", 2, 3, 3, "sw"),
+            ("tv", 2, 9, 9, "se"),
+            ("carpet", 2, 8, 8, "se"),
+            ("partition", 4, 3, 3, "se"),
+        ] {
             let doc = |v: u8| {
                 let mut l = base(vec![pv(kind, col, row, facing, v)]);
                 if kind == "tv" {

@@ -20,10 +20,10 @@ function rejects(schema: v.GenericSchema, input: unknown): void {
 }
 
 describe("catalogue lie style", () => {
-  test("the sofa and couch take a lier, the cat a curl; nothing else", () => {
+  test("the sofa, couch and lounger take a lier, the cat a curl; nothing else", () => {
     expect(LIE_STYLES).toEqual(["lie", "curl"]);
     const styled = Object.fromEntries(FURNITURE_KINDS.flatMap((kind) => (FURNITURE[kind].lie ? [[kind, FURNITURE[kind].lie]] : [])));
-    expect(styled).toEqual({ sofa: "lie", couch: "lie", cat: "curl" });
+    expect(styled).toEqual({ sofa: "lie", couch: "lie", cat: "curl", lounger: "lie" });
   });
 
   test("the cat stays a non-seat, so seat indices don't move", () => {
