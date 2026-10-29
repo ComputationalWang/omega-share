@@ -9,12 +9,12 @@ const edit = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), aw
 const tray = (): string[] => TRAY_TABS.flatMap((t) => [...t.kinds]);
 
 describe("the tray offers the v7 pieces", () => {
-  test("sauna, soaktub and lounger are in it; the older Dank Dungeon kinds still wait", () => {
+  test("sauna, soaktub and lounger are in it; the older Dank Dungeon kinds but the bed still wait", () => {
     for (const k of ["sauna", "soaktub", "lounger"] as const) {
       expect(AWAITING_ART.has(k)).toBe(false);
       expect(tray()).toContain(k);
     }
-    expect(AWAITING_ART.has("bed")).toBe(true);
+    expect(AWAITING_ART.has("whirlpool")).toBe(true);
   });
 
   test("only the tv's variants still wait for art", () => {

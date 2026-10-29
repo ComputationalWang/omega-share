@@ -56,6 +56,7 @@ describe("the queen bed in the editor", () => {
   test("it's in the Seats tab, in velvet, with its tray thumbnail", () => {
     expect(AWAITING_ART.has("bed")).toBe(false);
     expect(TRAY_TABS.find((t) => t.id === "seats")?.kinds).toContain("bed");
+    expect(coloursOf("bed")).toEqual(sheets[2]?.meta.omega.pieces.find((p) => p.id === "bed")?.colours ?? []);
     expect(coloursOf("bed")).toEqual(["velvet"]);
     expect(edit["thumb/bed/velvet"]).toBeDefined();
   });
