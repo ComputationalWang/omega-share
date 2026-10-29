@@ -1470,6 +1470,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         key: "furniture/<id>/<colour>/<dir>/<back|front>",
         ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
         ...(pieces.some((p) => p.open === true) ? { openKey: "furniture/<id>/<colour>/open/<dir>" } : {}),
+        ...(pieces.some((p) => p.cut === true) ? { cutKey: "furniture/<id>/<colour>/cut/<dir>" } : {}),
         // OME-1519: frame time in `pieces[].walk.ms`, the avatars' Basic walk clock (`avatars/motion.json` meta.omega.walk.frameMs).
         ...(pieces.some((p) => p.walk) ? { walkKey: "furniture/<id>/<colour>/walk/<dir>/<n>", sitKey: "furniture/<id>/<colour>/sit/<dir>", bedKey: "furniture/<id>/<colour>/bed/<dir>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
@@ -1568,6 +1569,8 @@ interface Placement {
   use?: number;
   /** OME-1424: draw the piece's open frame instead of `back`. */
   open?: boolean;
+  /** OME-1959: draw the piece's cut-down stub instead of `back`. */
+  cut?: boolean;
 }
 const cellAt = (c: number, r: number): { x: number; y: number } => ({ x: 480 + (c - r) * 32, y: 220 + (c + r + 1) * 16 });
 
@@ -1858,7 +1861,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   const items: (FurnItem & { ghost?: boolean })[] = [];
   for (const p of plan.placements.filter((q) => meta(q.id).layer === "object")) {
     const a = cellAt(p.col, p.row);
-    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : p.use !== undefined ? `furniture/${p.id}/${p.colour}/use/${p.dir}/${String(p.use)}` : undefined;
+    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : p.cut === true ? `furniture/${p.id}/${p.colour}/cut/${p.dir}` : p.use !== undefined ? `furniture/${p.id}/${p.colour}/use/${p.dir}/${String(p.use)}` : undefined;
     items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []).map((it) => ({ ...it, key: open !== undefined && it.layer === 2 ? open : it.key, ghost: p.ghost === true })));
   }
   for (const [key, c, r] of plan.standing) {
@@ -1985,6 +1988,47 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
     writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, pal));
     writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), pal));
   }
+  // OME-1959: the two-compartment grid for the reworked preset, as everyone sees it and as a viewer in the bedroom sees it (cut).
+  for (const cut of [false, true]) {
+    const two = composeFurnitureRoom(pieces, all, partitionPlan(cut));
+    for (const [name, pal] of [["partition-room", PALETTE], ["partition-room-night", NIGHT_PALETTE]] as const) {
+      const file = `${name}${cut ? "-cut" : ""}`;
+      writeFileSync(join(ROOT, "preview", `${file}@1x.png`), encodeIndexedPng(two.W, two.H, two.img, pal));
+      writeFileSync(join(ROOT, "preview", `${file}@2x.png`), encodeIndexedPng(two.W * 2, two.H * 2, upscale(two.img, two.W, two.H, 2), pal));
+    }
+  }
+}
+
+/** Partition row of the reworked Dank Dungeon (OME-1959): row 4, solid except glass at cols 5–8 and the doorway gap at col 1. */
+export const PARTITION_ROW = 4;
+export const PARTITION_GLASS: readonly number[] = [5, 6, 7, 8];
+export const PARTITION_DOOR = 1;
+
+/** The grid for OME-1960: bedroom behind the wall (rows 0–3, the beds line up with the glass), spa in front (rows 5–9). */
+function partitionPlan(cut: boolean): RoomPlan {
+  const wall: Placement[] = Array.from({ length: 10 }, (_, c) => c)
+    .filter((c) => c !== PARTITION_DOOR)
+    .map((c) => ({ id: "partition", colour: PARTITION_GLASS.includes(c) ? "glass" : "solid", dir: "sw", col: c, row: PARTITION_ROW, cut }));
+  return {
+    placements: [
+      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 0, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0, sitters: ["", "mo"] },
+      { id: "neonsign", colour: "pink", dir: "se", col: 0, row: 2 },
+      { id: "desk", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "minibar", colour: "wood", dir: "sw", col: 9, row: 0 },
+      { id: "wingback", colour: "ginger", dir: "nw", col: 8, row: 2 },
+      ...wall,
+      { id: "whirlpool", colour: "teal", dir: "ne", col: 2, row: 7, sitters: ["juno", ""], use: 0 },
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 6 },
+      { id: "mirror", colour: "brass", dir: "se", col: 0, row: 6 },
+      { id: "arclamp", colour: "brass", dir: "se", col: 1, row: 9 },
+      { id: "wingback", colour: "ginger", dir: "nw", col: 7, row: 7 },
+      { id: "coffeetable", colour: "wood", dir: "sw", col: 7, row: 6 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 9 },
+    ],
+    standing: [["pip/idle/se/0", 6, 2]],
+    rug: false,
+  };
 }
 
 /** Every v6 piece in both facings (seats in all four), a few taken. */

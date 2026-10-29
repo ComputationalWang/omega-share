@@ -572,6 +572,9 @@ const SWATCH_ART: Record<string, readonly string[]> = {
   floor: ["..........", ".NNNNNNNN.", ".NNNNNNNN.", ".NNvvNNNN.", ".NNvvNNNN.", ".NNvvvvNN.", ".NNxNNxNN.", ".wwwwwwww.", ".wwwwwwww.", ".........."],
   step: ["..........", ".NNNNNNNN.", ".NNvvNNNN.", ".NNvvNNNN.", ".NNvvvvNN.", ".yyyyyyyy.", ".nnnnnnnn.", ".nnnnnnnn.", ".wwwwwwww.", ".........."],
   high: ["..........", ".NNvvNNNN.", ".NNvvNNNN.", ".NNvvvvNN.", ".yyyyyyyy.", ".nnnnnnnn.", ".yyyyyyyy.", ".nnnnnnnn.", ".wwwwwwww.", ".........."],
+  // Interior wall (OME-1959): lilac paper over the wainscot; glass, a black-framed dark pane with its one frosted stripe.
+  solid: ["..........", ".llllllll.", ".llllllll.", ".llllllll.", ".llllllll.", ".llllllll.", ".wwwwwwww.", ".wwwwwwww.", ".wwwwwwww.", ".........."],
+  glass: ["..........", ".llllllll.", ".XXXXXXXX.", ".NNNNNNNN.", ".gggggggg.", ".NNNNNNNN.", ".XXXXXXXX.", ".wwwwwwww.", ".wwwwwwww.", ".........."],
 };
 function swatch(name: string): UiFrame {
   const ramp = SWATCH_RAMP[name];
@@ -606,7 +609,7 @@ function swatchRing(): UiFrame {
 }
 
 /** Every catalogue colour, in tray order. */
-export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach", "floor", "step", "high"] as const;
+export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach", "floor", "step", "high", "solid", "glass"] as const;
 
 /** Footprints the catalogue uses (`footprintByDir`), each marker state. */
 const FOOTPRINT_SIZES: readonly (readonly [number, number])[] = [[1, 1], [2, 1], [1, 2], [3, 2], [2, 3]];
