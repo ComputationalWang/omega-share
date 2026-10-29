@@ -93,3 +93,11 @@ test("room.css keys no rule on body:has() or main:has()", () => {
   const src = readFileSync(join(web, "src", "room.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   expect(src.match(/(?<![\w-])(?:body|main)(?:[.#[][^\s,{>+~]*)?:has\(/g) ?? []).toEqual([]);
 });
+
+// OME-1985: the same for the wide chat column. `.room-side:has(> .people:not([hidden]))` made Chromium re-style the
+// column (~150 elements, ~4 ms) on every chat line put in its log; the layout marks it people-open / poll-open instead.
+// (.room-side.is-typing:has() stays: it's only tried while a touch keyboard is up.)
+test("room.css keys no rule on .room-side:has()", () => {
+  const src = readFileSync(join(web, "src", "room.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  expect(src.match(/\.room-side(?::not\()?:has\(/g) ?? []).toEqual([]);
+});
