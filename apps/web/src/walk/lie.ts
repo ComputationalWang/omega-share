@@ -1,7 +1,7 @@
 // The lying pose's frame keys and where it sits on a piece (OME-1691, assets/avatars/lying.json): `lie/<avatar>/<dir>/<0|1>`
 // on a sofa or couch, `curl/<avatar>/<se|sw>/<0|1>` in the cat bed. Built once so a frame draw allocates nothing.
 // No JSON imports: e2e specs load animator → this under Node (walk-lie.test.ts pins every table to lying.json).
-import { FURNITURE, footprintCells, type FurnitureKind, type LieStyle, type RoomLayout } from "@omega/shared";
+import { FURNITURE, layoutSeats, type FurnitureKind, type LieStyle, type RoomLayout } from "@omega/shared";
 import type { Point } from "../layout";
 import { AVATAR_IDS } from "./avatar-ids";
 import type { Dir } from "./walks";
@@ -23,6 +23,7 @@ const OFFSETS: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Di
   sofa: SOFA,
   couch: SOFA,
   cat: { se: { x: 12, y: -2 }, sw: { x: -12, y: -2 } },
+  // shortcut: the v7 lounger (`lie: "lie"`) has no entry, so no lie spot: lying.json has no lounger art yet; it seats only. Add its offsets with the art.
 };
 
 /** Screen px from the piece's anchor to the lier's floor point (lying.json `meta.omega.pieces`); none for a facing the art lacks. */
@@ -42,8 +43,8 @@ export const pieceSeats = (layout: RoomLayout, piece: number): readonly [number,
   let first = 0;
   for (let i = 0; i < piece && i < layout.furniture.length; i++) {
     const f = layout.furniture[i];
-    if (f !== undefined && FURNITURE[f.kind].seats) first += footprintCells(f).length;
+    if (f !== undefined) first += layoutSeats({ furniture: [f] }).length;
   }
   const f = layout.furniture[piece];
-  return [first, f !== undefined && FURNITURE[f.kind].seats ? first + footprintCells(f).length : first];
+  return [first, f === undefined ? first : first + layoutSeats({ furniture: [f] }).length];
 };
