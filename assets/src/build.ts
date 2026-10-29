@@ -2220,7 +2220,10 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
         swaps: "tints.json and hairs.json: same PLTE slots as avatars.png, apply them to this sheet for that avatar's frames",
         hats: "own headwear (Pip beanie, Mo bucket hat) is drawn in; no overlay hat frames: hide theme/accessory hat overlays while lying",
         anims,
-        pieces: LIE_ANCHORS,
+        // The queen bed's two sleepers (OME-1983) stay out of `pieces` until the web knows the `sleep` style (OME-1982/1984):
+        // apps/web pins `pieces` to the contract's lie-able kinds.
+        pieces: Object.fromEntries(Object.entries(LIE_ANCHORS).filter(([, an]) => an.style !== "sleep")),
+        sleepers: Object.fromEntries(Object.entries(LIE_ANCHORS).filter(([, an]) => an.style === "sleep")),
       },
     },
   };

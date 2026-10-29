@@ -1468,7 +1468,7 @@ anchor end (local −x). Previews: `preview/queenbed@2x.png` (each facing: empty
   `nw` (0,0) (0,1), `se` (1,0) (1,1), `sw` (0,1) (1,1) as `{col, row}` from the anchor. Sitters face the piece's way, drawn as on any seat.
 - **Sleepers** (two, side by side along the length, heads on the pillows): the `sleep` pose in `avatars/lying.json`
   (`sleep/<avatar>/<dir>/<0|1>`, all four facings; nw is se's frame and ne is sw's, sharing a rect). Each shows the face, eyes shut; the body is
-  under the duvet. Where to draw them: `lying.json` `meta.omega.pieces.bed`: `dirs` is sleeper 0 (on the seats' half), `beside` sleeper 1,
+  under the duvet. Where to draw them: `lying.json` `meta.omega.sleepers.bed` (not `pieces`, which the web pins to the contract's `lie`/`curl` kinds; move it there with the wiring, OME-1984): `dirs` is sleeper 0 (on the seats' half), `beside` sleeper 1,
   screen px from the bed's anchor to the frame's floor point (`sleepFloorPoint` (13, 30) in the cell, mirrored for sw/ne; each frame's `anchor` holds it).
 
   | sleeper | ne | nw | se | sw |
@@ -1481,8 +1481,8 @@ anchor end (local −x). Previews: `preview/queenbed@2x.png` (each facing: empty
   point: `back`, then per sleeper, the one with the smaller screen y first: its `sleep` frame, then its `cover`. An empty half has no cover.
 - The empty bed looks the same whether or not someone sits on it; only sleepers pull a cover up.
 - `layersByDir` for the bed is now `["back"]` in every facing. Before, the frame filter matched the id `bed` itself and listed no layers.
-- **Bytes** (`bun assets/src/build.ts`): +6 228 B (396 504 → 402 732 of 409 600), all lazy: `furniture-v6.png` +3 109 (12 475 → 15 584,
-  the sheet grows to 256×2048), its JSON +148 gz, `lying.png` +2 427 (6 457 → 8 884) and its JSON +547 gz (lying total 10 726 of its 12 KB),
+- **Bytes** (`bun assets/src/build.ts`): +6 234 B (396 504 → 402 738 of 409 600), all lazy: `furniture-v6.png` +3 109 (12 475 → 15 584,
+  the sheet grows to 256×2048), its JSON +148 gz, `lying.png` +2 427 (6 457 → 8 884) and its JSON +553 gz (lying total 10 732 of its 12 KB),
   `ui/edit` −29 (the tray thumb keeps the twin's 43×34 rect, so the sheet doesn't repack and the eager `reference.css` is byte-identical).
   `presets/thumbs/dank-dungeon.png` +26 (it draws the new bed). Every other frame in v6, lying and edit is pixel-identical.
 - Not mine to change: the Dank Dungeon preset still places two 2×1 beds (`bed (4,0) nw`, `bed (0,3) ne`) and says "Twin beds". OME-1982
