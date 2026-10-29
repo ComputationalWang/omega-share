@@ -675,7 +675,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     return true;
   };
   snapKey.addEventListener("click", snap);
-  roomTop.append(title, popRoomKey, snapKey, people.key, help.key);
+  // Leave (OME-1967): top-left of the room bar, the same explicit leave as the report dialog's.
+  const leaveKey = el("button", { type: "button", className: "ui-button secondary leave-key", textContent: "Leave", title: "Leave the room", hidden: true }, "leave-key");
+  leaveKey.addEventListener("click", leaveForGood);
+  roomTop.append(leaveKey, title, popRoomKey, snapKey, people.key, help.key);
   // The first-visit tour (OME-1587): fixed chips beside the floor, the message field and People.
   const firstHint = createHints({
     // The `localStorage` getter itself throws when storage is blocked.
@@ -971,6 +974,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
     snapKey.hidden = !shown.stage;
+    leaveKey.hidden = !shown.stage;
     if (shown.stage) people.update(s.room?.members ?? [], s.self);
     else people.close();
     if (!shown.stage) {

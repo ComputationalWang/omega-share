@@ -246,3 +246,34 @@ test("two tabs with one token: only one member; the older tab says the session m
   await expect(twin.getByTestId("room-replaced")).toBeVisible();
   await expect(obs.page.locator(site.peopleRow).filter({ hasText: "ana" })).toHaveCount(1);
 });
+
+// OME-1967: Leave, top-left of the room bar, is the explicit leave (ADR 0043): the others see it now, not after the grace.
+for (const phone of [true, false]) {
+  test(`Leave, top-left, takes you to the landing and the others see you go at once (${phone ? "phone" : "desktop"})`, async ({ browser }) => {
+    const room = testRoom("m10-sessions", phone ? "leavephone" : "leavedesk");
+    const ana = await open(browser, room.url, "ana", undefined, phone);
+    const obs = await open(browser, room.url, "obs");
+    await expect(tag(obs.page, "ana")).toHaveCount(1);
+
+    const leave = ana.page.locator(site.leaveKey);
+    await expect(leave).toHaveRole("button");
+    await expect(leave).toHaveAccessibleName("Leave");
+    const box = await leave.boundingBox();
+    const view = ana.page.viewportSize();
+    expect(box && view).toBeTruthy();
+    if (box === null || view === null) return;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThan(view.width / 2);
+    expect(box.y).toBeLessThan(120);
+    // Clear of the TV.
+    const tv = await ana.page.locator(site.tv).boundingBox();
+    if (tv !== null) expect(box.y + box.height <= tv.y || box.x + box.width <= tv.x || box.y >= tv.y + tv.height).toBe(true);
+
+    await leave.focus();
+    await ana.page.keyboard.press("Enter");
+    await expect(ana.page).toHaveURL(`${URLS.web}/`);
+    await expect(tag(obs.page, "ana")).toHaveCount(0, { timeout: 10_000 });
+    await expect(chatLines(obs.page, "ana left the room")).toHaveCount(1);
+  });
+}
