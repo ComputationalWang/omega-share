@@ -494,8 +494,12 @@ test("row 8 · recap: the recap card shows the same numbers on every context at 
   if (fa === undefined) throw new Error("no frame on A");
   const duration = await fa.evaluate(() => document.querySelector("video")?.duration ?? Number.NaN);
   expect(duration, "video duration").toBeGreaterThan(180);
-  await seekTo(a.page, Math.floor(duration) - 6);
   const card = (m: Member) => m.page.locator(site.recapCard);
+  // Row 6's share moved the room on, so a context still holding row 3's reactions shows that item's recap (OME-2036):
+  // close it, or the wait below passes on the stale card before this item's `ended`.
+  for (const m of members) if (await card(m).isVisible()) await m.page.getByTestId("recap-close").click();
+  for (const m of members) await expect(card(m), `${m.name}'s old recap dismissed`).toBeHidden();
+  await seekTo(a.page, Math.floor(duration) - 6);
   for (const m of members) await expect(card(m), `${m.name}'s recap`).toBeVisible({ timeout: 30_000 });
   const read = (m: Member) => card(m).evaluate((el) => ({
     moments: [...el.querySelectorAll('[data-testid="recap-moment"]')].map((li) => li.textContent.trim()),
