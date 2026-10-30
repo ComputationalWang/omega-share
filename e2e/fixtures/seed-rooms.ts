@@ -24,7 +24,7 @@ const SEEDED_LAYOUTS = new Map([
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],
   // The Dank Dungeon without its partitions, so a sleeper's view doesn't turn (OME-1961): its first queen bed is layout index
-  // 1 (seats 0-1) and sleeps two (OME-2009), moved to (3, 4) so its lie key clears the TV shelf at 1280×720; the second bed
+  // 1 (seats 0-1) and sleeps two (OME-2009), moved to row 4 so its lie key clears the TV shelf at 1280×720; the second bed
   // faces sw, so only the first one's frames match the spec's nw filter.
   [testRoomId("lie", "bed"), { ...DUNGEON, furniture: DUNGEON.furniture.filter((f) => f.kind !== "partition").map((f, i) => (f.kind !== "bed" ? f : i === 1 ? { ...f, row: 4 } : { ...f, facing: "sw" as const })) }],
   // The whole preset for the 180° view swap (OME-1961).
