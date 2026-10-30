@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type MemberId, type PlaybackState, type QueueItemId } from "@omega/shared";
+import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type AnyEmbed, type ClientMessage, type FloorCell, type Member, type MemberId, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 import { lieStyleOf, pieceSeats } from "./walk/lie";
@@ -117,7 +117,7 @@ export function chatIntent(raw: string): ClientMessage | null {
 
 /** What the shared transport acts on: the room's embed and playback (RoomState fits). */
 export interface PlaybackTarget {
-  readonly embed: Embed | null;
+  readonly embed: AnyEmbed | null;
   readonly playback?: PlaybackState | null | undefined;
   /** The current queue item's id (ADR 0031), for `ended`; absent from a pre-M6 server. */
   readonly itemId?: QueueItemId | undefined;

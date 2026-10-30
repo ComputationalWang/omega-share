@@ -27,9 +27,9 @@ const FRAME: TvGeneric = {
 /** Messages the page posted to the extension, newest last; reset by `make`. */
 let posted: unknown[] = [];
 
-async function make(frame: TvGeneric = FRAME, bridge?: ExtensionBridge): Promise<GenericTv> {
+async function make(frame: TvGeneric = FRAME, bridge?: ExtensionBridge, onUnlockedLoad?: () => void): Promise<GenericTv> {
   const { createGenericTv } = await import("../src/controls/generic-tv");
-  const tv = createGenericTv(frame, bridge ?? (await newBridge()));
+  const tv = createGenericTv(frame, bridge ?? (await newBridge()), onUnlockedLoad);
   // Attached, as in the room: a connected iframe is the one that would load.
   document.body.replaceChildren(tv.screen, tv.strip);
   return tv;
@@ -59,12 +59,12 @@ function loadButton(tv: GenericTv): HTMLButtonElement {
 }
 
 describe("generic embed TV (ADR 0024 §3)", () => {
-  test("before Load: a card with the host, 'not synced' and Load, and nothing that fetches", async () => {
+  test("before Load: a card with the host, the sync hint (ADR 0057 §2) and Load, and nothing that fetches", async () => {
     const tv = await make();
     expect(tv.screen.querySelectorAll("iframe")).toHaveLength(0);
     expect(document.querySelectorAll("iframe, img, link, script, object, embed, video, audio, source")).toHaveLength(0);
     expect(tv.screen.textContent).toContain("media.example.org");
-    expect(tv.screen.textContent.toLowerCase()).toContain("not synced");
+    expect(tv.screen.textContent).toContain("Synced for viewers with the Omega Share extension");
     expect(loadButton(tv).textContent).toBe("Load");
     expect(tv.loaded()).toBe(false);
   });
@@ -245,6 +245,44 @@ describe("generic embed TV (ADR 0024 §3)", () => {
       deliver(unlockResult("unlocked"));
       await Promise.resolve();
       expect(tv.screen.querySelectorAll("iframe")).toHaveLength(1);
+    });
+  });
+
+  // ADR 0057 §2/§4: the per-viewer label says whether this viewer's frame follows the room.
+  describe("sync with the extension (ADR 0057)", () => {
+    const label = (tv: GenericTv): HTMLElement | null => tv.strip.querySelector<HTMLElement>(".generic-label");
+
+    test("an iframe made after unlocked reports its load once; a plain Load never does", async () => {
+      let loads = 0;
+      const plain = await make(FRAME, undefined, () => loads++);
+      loadButton(plain).click();
+      plain.screen.querySelector("iframe")?.dispatchEvent(new Event("load"));
+      expect(loads).toBe(0);
+
+      const tv = await make(FRAME, undefined, () => loads++);
+      deliver(PRESENT);
+      byId(tv, "generic-unlock")?.click();
+      deliver(unlockResult("unlocked"));
+      await Promise.resolve();
+      const f = tv.screen.querySelector("iframe");
+      f?.dispatchEvent(new Event("load"));
+      expect(loads).toBe(1);
+    });
+
+    test("setSync: Synced, back to Not synced, or can't sync this host", async () => {
+      const tv = await make();
+      deliver(PRESENT);
+      loadButton(tv).click();
+      tv.setSync("on");
+      expect(label(tv)?.textContent).toBe("Synced");
+      expect(label(tv)?.dataset["testid"]).toBe("synced");
+      expect(tv.strip.querySelector<HTMLElement>("[data-testid=generic-strip-unlock]")?.hidden).toBe(true);
+      tv.setSync("off");
+      expect(label(tv)?.textContent).toBe("Not synced");
+      expect(label(tv)?.dataset["testid"]).toBe("not-synced");
+      tv.setSync("failed");
+      expect(label(tv)?.textContent).toBe("Can't sync this host");
+      expect(label(tv)?.dataset["testid"]).toBe("not-synced");
     });
   });
 });

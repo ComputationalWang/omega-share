@@ -104,4 +104,32 @@ describe("extension bridge (ADR 0047 §5)", () => {
     expect(posted).toHaveLength(3);
     expect(posted.at(-1)?.msg).toEqual({ source: "omega-share", kind: "relock" });
   });
+
+  // ADR 0057 §3: attach and frame commands go out as posted; frame-* answers go to the one frame listener, parsed first.
+  test("toFrame posts attach and frame commands to our origin", async () => {
+    const { bridge, posted } = await make();
+    bridge.toFrame({ source: "omega-share", kind: "attach", host: "media.example.org" });
+    bridge.toFrame({ source: "omega-share", kind: "frame-command", host: "media.example.org", op: "seek", value: 3 });
+    expect(posted).toEqual([
+      { msg: { source: "omega-share", kind: "attach", host: "media.example.org" }, target: "https://omega.example" },
+      { msg: { source: "omega-share", kind: "frame-command", host: "media.example.org", op: "seek", value: 3 }, target: "https://omega.example" },
+    ]);
+  });
+
+  test("frame messages reach the frame listener only from our window and origin; null stops them", async () => {
+    const { bridge } = await make();
+    const got: unknown[] = [];
+    bridge.onFrame((m) => got.push(m));
+    const lost = { source: "omega-share", kind: "frame-lost", host: "media.example.org" };
+    const intent = { source: "omega-share", kind: "frame-intent", host: "media.example.org", playing: true, position: 4 };
+    deliver(lost, { origin: "https://evil.example" });
+    deliver(lost, { source: null });
+    deliver({ ...intent, position: -1 });
+    deliver(intent);
+    deliver(lost);
+    expect(got).toEqual([intent, lost]);
+    bridge.onFrame(null);
+    deliver(lost);
+    expect(got).toHaveLength(2);
+  });
 });

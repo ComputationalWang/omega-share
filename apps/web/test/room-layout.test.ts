@@ -30,7 +30,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const stage = div();
   clip.append(stage);
   let fsMode = "off";
-  const tv = createRoomTv({ playback, extension: { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => undefined }, wrap, fullscreen: () => fsMode !== "off", onProvider: () => undefined });
+  const tv = createRoomTv({ playback, extension: { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => undefined, toFrame: () => undefined, onFrame: () => undefined }, wrap, fullscreen: () => fsMode !== "off", onProvider: () => undefined });
   wrap.append(tv.tv, tv.controls, clip);
   const log = createChatLog({ ageing: "settle", now: () => 0, setTimer: () => 0, clearTimer: () => undefined });
   const form = document.createElement("form");

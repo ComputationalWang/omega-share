@@ -1,4 +1,4 @@
-import { DEFAULT_CONTROL_POLICY, MAX_POSITION_S, playbackCaps, type QueueItemId, type ClientMessage, type ControlPolicy, type PlaybackState, type Provider } from "@omega/shared";
+import { DEFAULT_CONTROL_POLICY, MAX_POSITION_S, isSyncedEmbed, playbackCaps, type QueueItemId, type ClientMessage, type ControlPolicy, type PlaybackState, type Provider } from "@omega/shared";
 import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
 import type { PlayerAdapter, PlayerError, PlayerEvent } from "../player/adapter";
 import { NO_QUALITIES, type QualityOption } from "../player/quality";
@@ -305,7 +305,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         detach();
         embedUrl = url;
         const caps = t.embed === null ? null : playbackCaps(t.embed);
-        provider = t.embed?.provider ?? null;
+        provider = t.embed === null || !isSyncedEmbed(t.embed) ? null : t.embed.provider;
         live = caps?.live === true;
         capsSeekOnly = caps !== null && !caps.live && caps.rate === "no";
       }

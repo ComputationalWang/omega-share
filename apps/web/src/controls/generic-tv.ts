@@ -11,10 +11,12 @@ export interface GenericTv {
   readonly strip: HTMLElement;
   /** True once this viewer clicked Load. */
   loaded(): boolean;
+  /** ADR 0057: this viewer's frame follows the room (on), doesn't (off), or the extension couldn't attach (failed). */
+  setSync(s: "on" | "off" | "failed"): void;
 }
 
 /** One per shown generic embed: a new embed gets a new card, so the viewer's choice resets with it. */
-export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): GenericTv {
+export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge, _onUnlockedLoad?: () => void): GenericTv {
   const screen = el("div", { className: "tv-generic" });
   const card = el("div", { className: "generic-card" }, "generic-card");
   const from = el("p", { className: "generic-from", textContent: "Video from " });
@@ -103,5 +105,5 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
     });
   });
 
-  return { screen, strip, loaded: () => loaded };
+  return { screen, strip, loaded: () => loaded, setSync: () => undefined };
 }

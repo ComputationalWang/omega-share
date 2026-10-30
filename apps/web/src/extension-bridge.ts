@@ -1,7 +1,7 @@
 // The page's side of the site ↔ extension bridge (ADR 0047 §5): one `message` listener, installed at startup so the
 // extension's one-time `present` isn't missed while the room chunk loads.
 import * as v from "valibot";
-import { BRIDGE_SOURCE, ExtensionToPageSchema, type PageToExtension, type UnlockOutcome } from "@omega/shared/extension-bridge";
+import { BRIDGE_SOURCE, ExtensionToPageSchema, type ExtensionToPage, type PageToExtension, type UnlockOutcome } from "@omega/shared/extension-bridge";
 
 export interface ExtensionBridge {
   /** Runs `cb` once the extension has announced itself, at once if it already has. One card at a time: replaces the last `cb`. */
@@ -10,7 +10,14 @@ export interface ExtensionBridge {
   unlock(host: string): Promise<UnlockOutcome>;
   /** The embed changed: drops this tab's unlock, if there is or may be one. */
   relock(): void;
+  /** ADR 0057 §3: `attach` and `frame-command`, for the frame adapter. */
+  toFrame(msg: FrameToExtension): void;
+  /** The one frame adapter's listener for `frame-*` messages; null drops it. */
+  onFrame(cb: ((m: FrameMessage) => void) | null): void;
 }
+
+export type FrameToExtension = Extract<PageToExtension, { kind: "attach" | "frame-command" }>;
+export type FrameMessage = Extract<ExtensionToPage, { kind: "frame-state" | "frame-intent" | "frame-lost" }>;
 
 /** The bits of `window` the bridge uses. */
 export interface BridgePage extends EventTarget {
@@ -68,5 +75,7 @@ export function createExtensionBridge(win: BridgePage): ExtensionBridge {
       pending = null;
       post({ source: BRIDGE_SOURCE, kind: "relock" });
     },
+    toFrame() {},
+    onFrame() {},
   };
 }
