@@ -40,7 +40,7 @@ const BESIDE: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Dir
 export const lieOffset = (kind: FurnitureKind, dir: Dir, sleeper: Sleeper = 0): Point | undefined => (sleeper === 0 ? OFFSETS : BESIDE)[kind]?.[dir];
 
 /** Stage px a lie key sits above the lier's floor point. */
-const LIE_KEY_LIFT = 40;
+export const LIE_KEY_LIFT = 40;
 
 /**
  * Where piece `f`'s lie key sits (stage.ts), or none if it can't be lain on. A sofa's is above it; the queen bed's on its

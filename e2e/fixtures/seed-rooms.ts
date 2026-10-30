@@ -18,12 +18,18 @@ for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: t
 const db = openDatabase(path);
 const store = new RoomStore(db);
 // Rooms whose layout the test needs on the server itself, not only in the snapshot: teleport pads, two doors to each other.
+const DUNGEON = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")));
 const SEEDED_LAYOUTS = new Map([
   [testRoomId("teleport", "pads"), PADS],
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],
-  // The Dank Dungeon preset: its queen bed at layout index 1 (seats 0-1) sleeps two (OME-2009).
-  [testRoomId("lie", "bed"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
+  // The Dank Dungeon without its partitions, so a sleeper's view doesn't turn (OME-1961): its first queen bed is layout index
+  // 1 (seats 0-1) and sleeps two (OME-2009), moved to row 4 so its lie key clears the TV shelf at 1280×720; the second bed
+  // faces sw, so only the first one's frames match the spec's nw filter.
+  [testRoomId("lie", "bed"), { ...DUNGEON, furniture: DUNGEON.furniture.filter((f) => f.kind !== "partition").map((f, i) => (f.kind !== "bed" ? f : i === 1 ? { ...f, row: 4 } : { ...f, facing: "sw" as const })) }],
+  // The whole preset for the 180° view swap (OME-1961).
+  [testRoomId("view-swap", "main"), DUNGEON],
+  [testRoomId("view-swap-perf", "frames"), DUNGEON],
   [testRoomId("doors", "a"), doorTo(testRoomId("doors", "b"))],
   [testRoomId("doors", "b"), doorTo(testRoomId("doors", "a"))],
 ]);

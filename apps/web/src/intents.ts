@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type AnyEmbed, type ClientMessage, type FloorCell, type Member, type MemberId, type PlaybackState, type QueueItemId, type RoomLayout } from "@omega/shared";
+import { isNorth } from "./layout";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 import { lieStyleOf, pieceSeats } from "./walk/lie";
@@ -117,8 +118,10 @@ export const isStepKey = (k: string): k is StepKey => k === "ArrowLeft" || k ===
 
 /** The cell an arrow key steps to, as the editor's cursor does: Right/Left walk the column, Down/Up the row; null off the floor. */
 export function stepCell(from: FloorCell, key: StepKey): FloorCell | null {
-  const x = from.x + (key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : 0);
-  const y = from.y + (key === "ArrowDown" ? 1 : key === "ArrowUp" ? -1 : 0);
+  // From the north the cells run the other way on screen (OME-1961): the keys keep their screen meaning.
+  const k = isNorth() ? -1 : 1;
+  const x = from.x + k * (key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : 0);
+  const y = from.y + k * (key === "ArrowDown" ? 1 : key === "ArrowUp" ? -1 : 0);
   return x >= 0 && x < FLOOR_CELLS && y >= 0 && y < FLOOR_CELLS ? { x, y } : null;
 }
 

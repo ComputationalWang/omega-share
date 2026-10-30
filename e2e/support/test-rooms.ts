@@ -17,6 +17,8 @@ export const SPEC_ROOMS = {
   "provider-share": ["1", "2", "3", "4"],
   "provider-generic": ["main"],
   "room-view": ["main"],
+  "view-swap": ["main"],
+  "view-swap-perf": ["frames"],
   walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over", "follow", "jog", "floor", "conga", "conga-late"],
   reactions: ["bar", "burst"],
   emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash", "action", "thinker", "dancer", "applause", "palette"],

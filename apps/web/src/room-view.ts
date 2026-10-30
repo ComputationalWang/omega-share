@@ -79,6 +79,8 @@ export interface RoomView {
   readonly canvas: HTMLCanvasElement;
   /** The room's shell, furniture and seat markers; rebuilt once per layout change (or when an atlas arrives). Draws on the next `update`. */
   setScene(scene: Scene, sheets: readonly (Sheet | null)[], walkGrid: Uint8Array): void;
+  /** The view turned 180° (OME-1961): everyone's drawn spot and path carried to the other side, so nobody walks. */
+  reflect(): void;
   /** The layout's pieces in use (furniture.ts `piecesInUse`, OME-1407): theirs loop, the rest show their still frame. Per change. */
   setInUse(pieces: ReadonlySet<number>): void;
   /** The furniture loops running now: each piece's idle frame key and the loop frame shown (-1 still), for e2e. */
@@ -989,6 +991,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     SPARKLE_MS,
     100,
   );
+  // shortcut: placed once from the south (OME-1961); from the north it fires at the near corner. Re-place it on reflect if anyone notices.
   const sparkle = makeSparkle(centerOf(DOOR));
   function arrive(): void {
     sparkle.fire();
@@ -1082,6 +1085,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   return {
     canvas: app.canvas,
+    reflect() {
+      walks.reflect();
+    },
     setScene(scene, sheets, walkGrid) {
       walks.setGrid(walkGrid);
       lastScene = scene;
