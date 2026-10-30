@@ -41,7 +41,7 @@ export interface UnlockDeps {
 
 /** The subset of `browser.declarativeNetRequest` this uses. Every session rule is ours. */
 export interface SessionRules {
-  getSessionRules(): Promise<{ id: number; condition: { tabIds?: number[] | undefined } }[]>;
+  getSessionRules(): Promise<{ id: number; condition: { tabIds?: number[] | undefined; requestDomains?: string[] | undefined } }[]>;
   updateSessionRules(options: { removeRuleIds?: number[]; addRules?: UnlockRule[] }): Promise<void>;
 }
 
@@ -195,6 +195,8 @@ export function createUnlocker(deps: UnlockDeps) {
         await remove(tabId);
         return;
       }
+      // attach and frame-command are the frame relay's (ADR 0057).
+      if (message.output.kind !== "unlock") return;
       const { host } = message.output;
       // Our own host (or one under it) is never unlocked, so don't ask the viewer about it.
       if ((await rulesFor(tabId, host, 1, false)) === null) {
@@ -212,5 +214,10 @@ export function createUnlocker(deps: UnlockDeps) {
       return remove(tabId, async () => originOf(url) === (await deps.ourOrigin()));
     },
     tabRemoved: (tabId: number): Promise<void> => remove(tabId),
+    /** The host the tab's live rule set unlocks (ADR 0057 §5), from the rule store, so it survives a background restart. */
+    async unlockedHost(tabId: number): Promise<string | undefined> {
+      const rules = (await deps.dnr()?.getSessionRules()) ?? [];
+      return rules.find((r) => r.condition.tabIds?.includes(tabId) === true)?.condition.requestDomains?.[0];
+    },
   };
 }

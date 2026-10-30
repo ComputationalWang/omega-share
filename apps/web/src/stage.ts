@@ -117,7 +117,7 @@ function place(e: HTMLElement, p: Point): void {
 /** Stage px a lie key sits above the lier's floor point. */
 const LIE_KEY_LIFT = 40;
 /** What a lie key's name calls each piece. */
-const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed" };
+const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
@@ -462,9 +462,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const throughDoor = (id: MemberId, cell: FloorCell): boolean => !before.has(id) && (before.size > 0 || id === s.self) && doorAt(nextLayout, cell.x, cell.y) !== null;
       // Lying (OME-1691): on the piece's spot, in its facing, drawn between its back and front; they hold no seat, and their cell is where they get up to.
       for (const m of everyone) {
-        const spot = m.lying === undefined ? undefined : scene.lies.get(m.lying);
+        const spot = m.lying === undefined ? undefined : scene.lies.get(m.lying)?.[m.sleeper ?? 0];
         if (spot === undefined) continue;
-        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: spot.at, z: spot.z, seatFacing: spot.dir, lie: spot.style });
+        const cover = spot.cover === undefined ? {} : { cover: { ...spot.cover, at: spot.anchor } };
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: spot.at, z: spot.z, seatFacing: spot.dir, lie: spot.style, ...cover });
         at.set(m.id, spot.at);
       }
       for (const v of views) {

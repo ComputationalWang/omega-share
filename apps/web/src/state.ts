@@ -184,6 +184,7 @@ function withoutCell(m: Member): Member {
 function withoutLying(m: Member): Member {
   const next = { ...m };
   delete next.lying;
+  delete next.sleeper;
   return next;
 }
 
@@ -316,7 +317,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       // Lying drops the cell and floor sit, as the server does: getting up lands on the standing slot for everyone.
       return withMember(state, msg.memberId, (m) => {
         if (piece === null) return withoutLying(m);
-        const next = { ...m, lying: piece };
+        // A sleeper's side on the bed (OME-2008); none elsewhere.
+        const next = { ...withoutLying(m), lying: piece, ...(msg.sleeper === undefined ? {} : { sleeper: msg.sleeper }) };
         delete next.cell;
         delete next.floorSit;
         return next;

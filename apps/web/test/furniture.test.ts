@@ -11,6 +11,7 @@ const manifest = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../
 const v2 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v2.json", import.meta.url)).json());
 const v4 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v4.json", import.meta.url)).json());
 const v5 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v5.json", import.meta.url)).json());
+const v6 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v6.json", import.meta.url)).json());
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
 /** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
 const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
@@ -125,18 +126,48 @@ describe("scene: lie spots", () => {
   });
 
   test("the lier's floor point is the anchor plus the facing's offset, and their depth sits between the piece's back and front", () => {
-    const sofa = scene.lies.get(2);
+    const sofa = scene.lies.get(2)?.[0];
     const anchor = cellCenter(2, 5);
     expect(sofa).toMatchObject({ style: "lie", dir: "ne", anchor, at: { x: anchor.x + 4, y: anchor.y + 1 } });
     expect(sofa?.z).toBeGreaterThan(sprite(scene, "furniture/sofa/velvet/ne/back").z);
     expect(sofa?.z).toBeLessThan(sprite(scene, "furniture/sofa/velvet/ne/front").z);
-    expect(scene.lies.get(3)).toMatchObject({ dir: "nw", at: { x: cellCenter(5, 2).x - 4, y: cellCenter(5, 2).y + 1 } });
+    expect(scene.lies.get(3)).toMatchObject([{ dir: "nw", at: { x: cellCenter(5, 2).x - 4, y: cellCenter(5, 2).y + 1 } }]);
   });
 
   test("the cat bed curls, on its se or sw side; before the atlas is in the lier still has a spot", () => {
     const cat = sceneOf({ furniture: [{ kind: "cat", col: 9, row: 9, facing: "sw", variant: 1 }] }, []);
     const anchor = cellCenter(9, 9);
-    expect(cat.lies.get(0)).toMatchObject({ style: "curl", dir: "sw", at: { x: anchor.x - 12, y: anchor.y - 2 }, z: standDepth(anchor) });
+    expect(cat.lies.get(0)).toEqual([{ style: "curl", dir: "sw", at: { x: anchor.x - 12, y: anchor.y - 2 }, anchor, z: standDepth(anchor) }]);
+  });
+
+  // OME-2009: the queen bed sleeps two side by side (lying.json `pieces.bed`: `dirs` sleeper 0, `beside` sleeper 1), each
+  // under their own cover (furniture-v6 `coverKey`). At the bed's sort point: back, then the sleeper higher up the screen
+  // and their cover, then the other and theirs.
+  test("the bed has a spot per sleeper, each with its cover, the one higher up the screen drawn first", () => {
+    const bed = sceneOf({ furniture: [{ kind: "bed", col: 4, row: 0, facing: "nw" }, { kind: "bed", col: 0, row: 3, facing: "se" }] }, [v6]);
+    const nw = cellCenter(4, 0);
+    const [n0, n1] = bed.lies.get(0) ?? [];
+    expect(n0).toMatchObject({ style: "sleep", dir: "nw", anchor: nw, at: { x: nw.x - 16, y: nw.y + 1 }, cover: { key: "furniture/bed/velvet/cover/nw/0" } });
+    expect(n1).toMatchObject({ style: "sleep", dir: "nw", anchor: nw, at: { x: nw.x + 16, y: nw.y + 17 }, cover: { key: "furniture/bed/velvet/cover/nw/1" } });
+    const back = sprite(bed, "furniture/bed/velvet/nw/back").z;
+    const order = [back, n0?.z, n0?.cover?.z, n1?.z, n1?.cover?.z];
+    expect(order).toEqual([...order].sort((a, b) => (a ?? NaN) - (b ?? NaN)));
+    expect(new Set(order).size).toBe(5);
+    // Facing se, sleeper 1 (`beside`) is the one higher up the screen.
+    const se = cellCenter(0, 3);
+    const [s0, s1] = bed.lies.get(1) ?? [];
+    expect(s0).toMatchObject({ at: { x: se.x + 16, y: se.y + 17 }, cover: { key: "furniture/bed/velvet/cover/se/0" } });
+    expect(s1).toMatchObject({ at: { x: se.x - 16, y: se.y + 1 }, cover: { key: "furniture/bed/velvet/cover/se/1" } });
+    expect(s1?.cover?.z ?? NaN).toBeLessThan(s0?.z ?? NaN);
+    expect(s1?.z ?? NaN).toBeGreaterThan(sprite(bed, "furniture/bed/velvet/se/back").z);
+  });
+
+  test("before the bed's sheet is in, each sleeper still has a spot, and there is no cover to draw", () => {
+    const [a, b] = sceneOf({ furniture: [{ kind: "bed", col: 4, row: 0, facing: "nw" }] }, []).lies.get(0) ?? [];
+    expect(a).toMatchObject({ style: "sleep", at: { x: cellCenter(4, 0).x - 16 } });
+    expect(b).toMatchObject({ style: "sleep", at: { x: cellCenter(4, 0).x + 16 } });
+    expect(a?.cover).toBeUndefined();
+    expect(b?.cover).toBeUndefined();
   });
 });
 

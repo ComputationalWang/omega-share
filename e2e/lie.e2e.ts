@@ -18,7 +18,7 @@ test.afterEach(async () => {
 });
 
 const SOFA = 2;
-const State = v.object({ self: v.string(), room: v.object({ seats: v.array(v.nullable(v.string())), members: v.array(v.object({ id: v.string(), lying: v.optional(v.number()), cell: v.optional(v.object({ x: v.number(), y: v.number() })), floorSit: v.optional(v.boolean()) })) }) });
+const State = v.object({ self: v.string(), room: v.object({ seats: v.array(v.nullable(v.string())), members: v.array(v.object({ id: v.string(), lying: v.optional(v.number()), sleeper: v.optional(v.number()), cell: v.optional(v.object({ x: v.number(), y: v.number() })), floorSit: v.optional(v.boolean()) })) }) });
 const Frames = v.nullable(v.object({ avatar: v.nullable(v.string()) }));
 
 /** The dev handle (apps/web/src/main.ts `window.__omega.room`): the view state now. */
@@ -117,6 +117,51 @@ test("a lain-on sofa's seats are taken for others, and getting up from a floor s
   await expect.poll(() => lyingOf(c.page, aId), { timeout: 15_000 }).toBeNull();
   expect(await memberOf(b.page)).toEqual(await memberOf(c.page));
   expect(await memberOf(b.page)).toEqual({ cell: null, floorSit: null });
+});
+
+// OME-2009: the Dank Dungeon's queen bed (layout piece 1, facing nw, seats 0-1) sleeps two side by side, each under their
+// own cover; a third can't lie down. Draw order at the bed: back, then each sleeper (higher up the screen first) and their cover.
+async function drawOrder(page: Page): Promise<string[]> {
+  const order = await page.evaluate(() => {
+    const debug: unknown = Reflect.get(window, "__omega");
+    const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+    const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "scene") : null;
+    return typeof get === "function" ? (Reflect.apply(get, room, []) as unknown) : null;
+  });
+  return v.parse(v.array(v.string()), order);
+}
+
+test("two members sleep side by side on the Dank Dungeon bed, each under a cover", async ({ browser }) => {
+  const BED = 1;
+  clients = await joinRoom(browser, { roomUrl: testRoom("lie", "bed").url, count: 2, nicknamePrefix: "sleeper" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  const aId = (await state(a.page)).self;
+  const bId = (await state(b.page)).self;
+  const key = (page: Page) => page.locator(`${site.lieKey}[data-lie="${String(BED)}"]`);
+  const sideOf = async (page: Page, id: string): Promise<number | null> => (await state(page)).room.members.find((m) => m.id === id)?.sleeper ?? null;
+
+  await expect(key(a.page)).toHaveAccessibleName("Lie down on the bed");
+  await key(a.page).click();
+  await expect.poll(() => sideOf(b.page, aId), { timeout: 15_000 }).toBe(0);
+  // The bed still has a side free: B's key lies down beside A.
+  await expect(key(b.page)).toBeEnabled();
+  await key(b.page).click();
+  for (const page of [a.page, b.page]) {
+    await expect.poll(() => sideOf(page, bId), { timeout: 15_000 }).toBe(1);
+    expect(await lyingOf(page, aId)).toBe(BED);
+    for (const id of [aId, bId]) await expect.poll(() => frame(page, id), { timeout: 15_000 }).toMatch(/^sleep\/\w+\/nw\/[01]$/);
+    await expect
+      .poll(async () => (await drawOrder(page)).filter((l) => l.startsWith("furniture/bed/velvet/nw/") || l.startsWith("furniture/bed/velvet/cover/nw/") || l === `avatar:${aId}` || l === `avatar:${bId}`), { timeout: 15_000 })
+      .toEqual(["furniture/bed/velvet/nw/back", `avatar:${aId}`, "furniture/bed/velvet/cover/nw/0", `avatar:${bId}`, "furniture/bed/velvet/cover/nw/1"]);
+  }
+  await expect(key(a.page)).toHaveAccessibleName("Get up from the bed");
+
+  // A gets up: their cover goes, B keeps their side.
+  await key(a.page).click();
+  await expect.poll(() => lyingOf(b.page, aId), { timeout: 15_000 }).toBeNull();
+  expect(await sideOf(b.page, bId)).toBe(1);
+  await expect.poll(async () => (await drawOrder(b.page)).filter((l) => l.startsWith("furniture/bed/velvet/cover/")), { timeout: 15_000 }).toEqual(["furniture/bed/velvet/cover/nw/1"]);
 });
 
 // OME-1807: a lie key is 44 px each way to a finger, and it never covers a seat key.

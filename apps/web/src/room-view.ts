@@ -48,6 +48,8 @@ export interface AvatarPlacement {
   readonly floorSit?: boolean;
   /** Lying on a sofa, couch or cat bed (OME-1691): `at` is their floor point on it, `seatFacing` the piece's facing. */
   readonly lie?: LieStyle;
+  /** Asleep in the queen bed (OME-2009): their cover's frame, drawn at `at` (the bed's anchor) at depth `z`, just over them. */
+  readonly cover?: { readonly key: string; readonly at: Point; readonly z: number };
   /** Arrived by a teleport pad (OME-1548): snapped, with a sparkle at both pads. */
   readonly teleport?: boolean;
   /** Walked in through the door they stand in front of (OME-1558): there at once, with a sparkle. */
@@ -374,6 +376,38 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let theme: ThemeAtlas | null = null;
   /** The scene as last set, so the decor can be placed when the theme arrives after it. */
   let lastScene: Scene | null = null;
+  /** The furniture sheets of the last `setScene`, where sleepers' covers come from. */
+  let sceneSheets: readonly (Sheet | null)[] = [];
+  /** A sleeper's cover (OME-2009), by member: made when they lie down in the bed, destroyed when they get up. */
+  const covers = new Map<MemberId, Sprite>();
+  const syncCovers = (avatars: readonly AvatarPlacement[]): void => {
+    const keep = new Set<MemberId>();
+    for (const a of avatars) {
+      const cover = a.cover;
+      let texture: Texture | undefined;
+      if (cover !== undefined) for (const sheet of sceneSheets) texture ??= sheet?.texture(cover.key);
+      if (cover === undefined || texture === undefined) continue;
+      keep.add(a.id);
+      let c = covers.get(a.id);
+      if (c === undefined) {
+        c = new Sprite({ texture, label: cover.key });
+        objectLayer.addChild(c);
+        covers.set(a.id, c);
+      } else if (c.texture !== texture) {
+        c.texture = texture;
+        c.label = cover.key;
+        // A texture swap keeps the old anchor; each facing's frame has its own.
+        c.anchor.copyFrom(texture.defaultAnchor ?? { x: 0, y: 0 });
+      }
+      c.position.set(cover.at.x, cover.at.y);
+      c.zIndex = cover.z;
+    }
+    for (const [id, c] of covers) {
+      if (keep.has(id)) continue;
+      c.destroy();
+      covers.delete(id);
+    }
+  };
   let hatsShown = 0;
   const placeDecor = (): void => {
     pinDirty = true;
@@ -1045,6 +1079,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     setScene(scene, sheets, walkGrid) {
       walks.setGrid(walkGrid);
       lastScene = scene;
+      sceneSheets = sheets;
       placeDecor();
       for (const s of furniture) s.destroy();
       for (const c of baked.removeChildren()) c.destroy();
@@ -1190,6 +1225,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (avatars.some((a) => a.lie !== undefined)) loadLie();
       if (avatars.some((a) => a.accessory !== 0)) loadAccessories();
       if (avatars.some((a) => wearsBare(a.avatar, a.accessory))) loadBare();
+      syncCovers(avatars);
       walks.place(avatars, performance.now());
       animator.set(avatars);
       render();

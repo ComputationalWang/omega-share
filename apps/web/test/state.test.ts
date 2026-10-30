@@ -696,6 +696,18 @@ describe("lay", () => {
     expect(server(s, { type: "lay", memberId: "zz", piece: 0 })).toBe(s);
   });
 
+  // OME-2009 (contract OME-2008): a sleeper's side on the bed comes with `lay`, and goes when they get up.
+  test("lay keeps the sleeper's side, and getting up drops it", () => {
+    const bedRoom = joined(room({ layout: { furniture: [{ kind: "bed", col: 4, row: 0, facing: "nw" }] } }));
+    const down = server(bedRoom, { type: "lay", memberId: "b", piece: 0, sleeper: 1 });
+    expect(down.room?.members.find((m) => m.id === "b")).toMatchObject({ lying: 0, sleeper: 1 });
+    expect(server(down, { type: "lay", memberId: "b", piece: null }).room?.members.find((m) => m.id === "b")).toEqual(bob);
+    expect(server(down, { type: "layout-changed", layout: { furniture: [] }, by: "a" }).room?.members.find((m) => m.id === "b")).toEqual(bob);
+    // Onto a sofa: no side there.
+    const sofa = server(server(down, { type: "layout-changed", layout: sofaLayout, by: "a" }), { type: "lay", memberId: "b", piece: 0 });
+    expect(sofa.room?.members.find((m) => m.id === "b")?.sleeper).toBeUndefined();
+  });
+
   test("a layout that drops the piece they lie on gets them up, one that keeps it doesn't", () => {
     const lying = server(inSofaRoom(), { type: "lay", memberId: "b", piece: 0 });
     expect(lyingOf(server(lying, { type: "layout-changed", layout: sofaLayout, by: "a" }), "b")).toBe(0);

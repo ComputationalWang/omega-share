@@ -1,7 +1,7 @@
 // The lying pose's frame keys and where it sits on a piece (OME-1691, assets/avatars/lying.json): `lie/<avatar>/<dir>/<0|1>`
-// on a sofa or couch, `curl/<avatar>/<se|sw>/<0|1>` in the cat bed. Built once so a frame draw allocates nothing.
+// on a sofa or couch, `curl/<avatar>/<se|sw>/<0|1>` in the cat bed, `sleep/<avatar>/<dir>/<0|1>` in the queen bed (OME-2009). Built once so a frame draw allocates nothing.
 // No JSON imports: e2e specs load animator → this under Node (walk-lie.test.ts pins every table to lying.json).
-import { FURNITURE, layoutSeats, type FurnitureKind, type LieStyle, type RoomLayout } from "@omega/shared";
+import { FURNITURE, layoutSeats, type FurnitureKind, type LieStyle, type RoomLayout, type Sleeper } from "@omega/shared";
 import type { Point } from "../layout";
 import { AVATAR_IDS } from "./avatar-ids";
 import type { Dir } from "./walks";
@@ -24,12 +24,20 @@ const OFFSETS: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Di
   sofa: SOFA,
   couch: SOFA,
   cat: { se: { x: 12, y: -2 }, sw: { x: -12, y: -2 } },
-  // The bed (`sleep`, OME-2008) has no entry yet: its two sleepers' offsets come with the web sleeper issue (OME-1984).
+  bed: { ne: { x: 16, y: 1 }, nw: { x: -16, y: 1 }, se: { x: 16, y: 17 }, sw: { x: -16, y: 17 } },
   // shortcut: the v7 lounger (`lie: "lie"`) has no entry, so no lie spot: lying.json has no lounger art yet; it seats only. Add its offsets with the art.
 };
 
-/** Screen px from the piece's anchor to the lier's floor point (lying.json `meta.omega.pieces`); none for a facing the art lacks. */
-export const lieOffset = (kind: FurnitureKind, dir: Dir): Point | undefined => OFFSETS[kind]?.[dir];
+/** The bed's second sleeper (OME-2009), across the bed from the first: lying.json `pieces.bed.beside`. */
+const BESIDE: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Dir, Point>>>>>> = {
+  bed: { ne: { x: -16, y: 17 }, nw: { x: 16, y: 17 }, se: { x: -16, y: 1 }, sw: { x: 16, y: 1 } },
+};
+
+/**
+ * Screen px from the piece's anchor to lier `sleeper`'s floor point (lying.json `meta.omega.pieces`: `dirs`, then `beside`);
+ * none for a facing the art lacks, or a second lier on a piece that takes one.
+ */
+export const lieOffset = (kind: FurnitureKind, dir: Dir, sleeper: Sleeper = 0): Point | undefined => (sleeper === 0 ? OFFSETS : BESIDE)[kind]?.[dir];
 
 /** A frame of the lying sheet (not the motion sheets). */
 export const isLieFrame = (frame: string): boolean => frame.startsWith("lie/") || frame.startsWith("curl/") || frame.startsWith("sleep/");
