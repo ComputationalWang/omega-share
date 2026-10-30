@@ -156,8 +156,9 @@ test("two members sleep side by side on the Dank Dungeon bed, each under a cover
     await expect.poll(() => sideOf(page, bId), { timeout: 15_000 }).toBe(1);
     expect(await lyingOf(page, aId)).toBe(BED);
     for (const id of [aId, bId]) await expect.poll(() => frame(page, id), { timeout: 15_000 }).toMatch(/^sleep\/\w+\/nw\/[01]$/);
+    // The second nw bed is drawn after this one (further forward), so its back layer comes last: keep this bed's five.
     await expect
-      .poll(async () => (await drawOrder(page)).filter((l) => l.startsWith("furniture/bed/velvet/nw/") || l.startsWith("furniture/bed/velvet/cover/nw/") || l === `avatar:${aId}` || l === `avatar:${bId}`), { timeout: 15_000 })
+      .poll(async () => (await drawOrder(page)).filter((l) => l.startsWith("furniture/bed/velvet/nw/") || l.startsWith("furniture/bed/velvet/cover/nw/") || l === `avatar:${aId}` || l === `avatar:${bId}`).slice(0, 5), { timeout: 15_000 })
       .toEqual(["furniture/bed/velvet/nw/back", `avatar:${aId}`, "furniture/bed/velvet/cover/nw/0", `avatar:${bId}`, "furniture/bed/velvet/cover/nw/1"]);
   }
   await expect(key(a.page)).toHaveAccessibleName("Get up from the bed");

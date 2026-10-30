@@ -1,8 +1,8 @@
 // The lying pose's frame keys and where it sits on a piece (OME-1691, assets/avatars/lying.json): `lie/<avatar>/<dir>/<0|1>`
 // on a sofa or couch, `curl/<avatar>/<se|sw>/<0|1>` in the cat bed, `sleep/<avatar>/<dir>/<0|1>` in the queen bed (OME-2009). Built once so a frame draw allocates nothing.
 // No JSON imports: e2e specs load animator → this under Node (walk-lie.test.ts pins every table to lying.json).
-import { FURNITURE, layoutSeats, type FurnitureKind, type LieStyle, type RoomLayout, type Sleeper } from "@omega/shared";
-import type { Point } from "../layout";
+import { FURNITURE, layoutSeats, type Furniture, type FurnitureKind, type LieStyle, type RoomLayout, type Sleeper } from "@omega/shared";
+import { cellCenter, type Point } from "../layout";
 import { AVATAR_IDS } from "./avatar-ids";
 import type { Dir } from "./walks";
 
@@ -38,6 +38,22 @@ const BESIDE: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Dir
  * none for a facing the art lacks, or a second lier on a piece that takes one.
  */
 export const lieOffset = (kind: FurnitureKind, dir: Dir, sleeper: Sleeper = 0): Point | undefined => (sleeper === 0 ? OFFSETS : BESIDE)[kind]?.[dir];
+
+/** Stage px a lie key sits above the lier's floor point. */
+const LIE_KEY_LIFT = 40;
+
+/**
+ * Where piece `f`'s lie key sits (stage.ts), or none if it can't be lain on. A sofa's is above it; the queen bed's on its
+ * footprint cell off the seats (OME-2024): above it, the desktop band's player chrome covered it, and a touch key there
+ * covers no seat key.
+ */
+export const lieKeyPoint = (f: Furniture): Point | undefined => {
+  const off = lieOffset(f.kind, f.facing);
+  if (off === undefined) return undefined;
+  if (f.kind === "bed") return f.facing === "ne" || f.facing === "se" ? cellCenter(f.col, f.row + 1) : cellCenter(f.col + 1, f.row);
+  const c = cellCenter(f.col, f.row);
+  return { x: c.x + off.x, y: c.y + off.y - LIE_KEY_LIFT };
+};
 
 /** A frame of the lying sheet (not the motion sheets). */
 export const isLieFrame = (frame: string): boolean => frame.startsWith("lie/") || frame.startsWith("curl/") || frame.startsWith("sleep/");

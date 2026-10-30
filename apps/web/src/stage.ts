@@ -18,7 +18,7 @@ import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from ".
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
-import { lieOffset } from "./walk/lie";
+import { lieKeyPoint } from "./walk/lie";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
 import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
@@ -114,8 +114,6 @@ function place(e: HTMLElement, p: Point): void {
   e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
 
-/** Stage px a lie key sits above the lier's floor point. */
-const LIE_KEY_LIFT = 40;
 /** What a lie key's name calls each piece. */
 const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
@@ -390,13 +388,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     });
     for (const k of lieButtons) k.b.remove();
     lieButtons = next.furniture.flatMap((f, i) => {
-      const off = lieOffset(f.kind, f.facing);
-      if (off === undefined) return [];
+      const p = lieKeyPoint(f);
+      if (p === undefined) return [];
       const b = el("button", { type: "button", className: "lie-key" }, "lie-key");
       b.dataset["lie"] = String(i);
-      const c = cellCenter(f.col, f.row);
-      // Above the piece, clear of its seat keys.
-      b.style.translate = `${String(c.x + off.x)}px ${String(c.y + off.y - LIE_KEY_LIFT)}px`;
+      b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
       const name = LIE_NAMES[f.kind] ?? "sofa";
       return [{ b, piece: i, down: `Lie down on the ${name}`, up: `Get up from the ${name}` }];
     });
