@@ -857,4 +857,20 @@ describe("generic embed (ADR 0057)", () => {
     expect(h.c.view().live).toBe(true);
     expect(h.c.seek(30)).toBe(false);
   });
+
+  test("no attached frame (no extension): the room's playback can't be controlled", () => {
+    const h = harness({ caps: { seek: true, live: false, rate: "yes" }, state: "paused" });
+    h.c.setRoom({ embed: PAGE, playback: pb({ playing: false }), itemId: "item-1" });
+    expect(h.c.view().canControl).toBe(false);
+  });
+
+  test("a frame that was lost can't control the room until it's back", () => {
+    const h = harness({ caps: { seek: true, live: false, rate: "yes" }, state: "paused" });
+    generic(h);
+    expect(h.c.view().canControl).toBe(true);
+    // Mirrors frame.ts on frame-lost: ready() turns false, then an unstarted state.
+    h.player.isReady = false;
+    h.player.emit({ type: "state", state: "unstarted" });
+    expect(h.c.view().canControl).toBe(false);
+  });
 });
