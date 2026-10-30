@@ -57,6 +57,72 @@ describe("extension → page", () => {
   });
 });
 
+describe("frame bridge (ADR 0057 §3)", () => {
+  const src = { source: "omega-share" } as const;
+  const state = { ...src, kind: "frame-state", host: "kwik.cx", state: "playing", position: 300.5, rate: 1.5, duration: 1370, live: false, muted: false };
+
+  test("page → extension: attach and every frame-command op", () => {
+    expect(ok(PageToExtensionSchema, { ...src, kind: "attach", host: "kwik.cx" })).toBe(true);
+    for (const op of ["play", "pause", "unmute"]) {
+      expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op })).toBe(true);
+    }
+    expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op: "seek", value: 0 })).toBe(true);
+    expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op: "seek", value: 43_200 })).toBe(true);
+    expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op: "rate", value: 0.25 })).toBe(true);
+    expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op: "rate", value: 2 })).toBe(true);
+    expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op: "volume", value: 0 })).toBe(true);
+    expect(ok(PageToExtensionSchema, { ...src, kind: "frame-command", host: "kwik.cx", op: "volume", value: 100 })).toBe(true);
+  });
+
+  test.each([
+    ["attach bad host", { kind: "attach", host: "localhost" }],
+    ["attach extra key", { kind: "attach", host: "kwik.cx", frameId: 3 }],
+    ["unknown op", { kind: "frame-command", host: "kwik.cx", op: "eval" }],
+    ["seek without value", { kind: "frame-command", host: "kwik.cx", op: "seek" }],
+    ["seek NaN", { kind: "frame-command", host: "kwik.cx", op: "seek", value: Number.NaN }],
+    ["seek negative", { kind: "frame-command", host: "kwik.cx", op: "seek", value: -1 }],
+    ["seek past MAX_POSITION_S", { kind: "frame-command", host: "kwik.cx", op: "seek", value: 43_201 }],
+    ["rate below range", { kind: "frame-command", host: "kwik.cx", op: "rate", value: 0.1 }],
+    ["rate above range", { kind: "frame-command", host: "kwik.cx", op: "rate", value: 4 }],
+    ["volume above 100", { kind: "frame-command", host: "kwik.cx", op: "volume", value: 101 }],
+    ["volume Infinity", { kind: "frame-command", host: "kwik.cx", op: "volume", value: Number.POSITIVE_INFINITY }],
+    ["play with a value", { kind: "frame-command", host: "kwik.cx", op: "play", value: 1 }],
+    ["extension-side kind", { kind: "frame-lost", host: "kwik.cx" }],
+  ])("page → extension rejects %s", (_, msg) => {
+    expect(ok(PageToExtensionSchema, { ...src, ...msg })).toBe(false);
+  });
+
+  test("extension → page: frame-state, frame-intent, frame-lost", () => {
+    expect(ok(ExtensionToPageSchema, state)).toBe(true);
+    for (const st of ["playing", "paused", "buffering", "ended"]) expect(ok(ExtensionToPageSchema, { ...state, state: st })).toBe(true);
+    // Before metadata (NaN) and live (Infinity) there is no finite duration.
+    expect(ok(ExtensionToPageSchema, { ...state, duration: null })).toBe(true);
+    expect(ok(ExtensionToPageSchema, { ...state, duration: null, live: true })).toBe(true);
+    expect(ok(ExtensionToPageSchema, { ...src, kind: "frame-intent", host: "kwik.cx", playing: true, position: 12 })).toBe(true);
+    expect(ok(ExtensionToPageSchema, { ...src, kind: "frame-lost", host: "kwik.cx" })).toBe(true);
+  });
+
+  test.each([
+    ["state unknown", { ...state, state: "ad" }],
+    ["position NaN", { ...state, position: Number.NaN }],
+    ["position negative", { ...state, position: -0.5 }],
+    ["position past MAX_POSITION_S", { ...state, position: 43_201 }],
+    ["rate out of range", { ...state, rate: 16 }],
+    ["duration Infinity", { ...state, duration: Number.POSITIVE_INFINITY }],
+    ["duration negative", { ...state, duration: -1 }],
+    ["muted not boolean", { ...state, muted: 0 }],
+    ["missing live", { source: "omega-share", kind: "frame-state", host: "kwik.cx", state: "paused", position: 0, rate: 1, duration: null, muted: true }],
+    ["extra key (page content)", { ...state, title: "Episode 1" }],
+    ["bad host", { ...state, host: "127.0.0.1" }],
+    ["intent position NaN", { source: "omega-share", kind: "frame-intent", host: "kwik.cx", playing: true, position: Number.NaN }],
+    ["intent without playing", { source: "omega-share", kind: "frame-intent", host: "kwik.cx", position: 1 }],
+    ["lost without host", { source: "omega-share", kind: "frame-lost" }],
+    ["page-side kind", { source: "omega-share", kind: "attach", host: "kwik.cx" }],
+  ])("extension → page rejects %s", (_, msg) => {
+    expect(ok(ExtensionToPageSchema, msg)).toBe(false);
+  });
+});
+
 describe("host follows ADR 0024 §1", () => {
   test.each(["kwik.cx", "player.example-cdn.com", "xn--bcher-kva.de"])("accepts %s", (h) => {
     expect(ok(GenericHostSchema, h)).toBe(true);

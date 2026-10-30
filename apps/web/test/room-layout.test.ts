@@ -101,6 +101,31 @@ describe("room layout", () => {
     expect(page.roomTop.nextElementSibling).toBe(page.people);
   });
 
+  test("the chat column says whether People or a poll is open in it, by class: :has() re-styled it per chat line (OME-1985)", async () => {
+    const wide = await setup({ wide: true });
+    expect(wide.side.classList.contains("people-open")).toBe(false);
+    wide.people.hidden = false;
+    await Promise.resolve();
+    expect(wide.side.classList.contains("people-open")).toBe(true);
+    wide.people.hidden = true;
+    await Promise.resolve();
+    expect(wide.side.classList.contains("people-open")).toBe(false);
+    expect(wide.poll.parentElement).toBe(wide.side);
+    wide.poll.hidden = false;
+    await Promise.resolve();
+    expect(wide.side.classList.contains("poll-open")).toBe(true);
+    wide.poll.hidden = true;
+    await Promise.resolve();
+    expect(wide.side.classList.contains("poll-open")).toBe(false);
+    // Out of the column (the page layout), an open People or poll isn't the column's.
+    const page = await setup();
+    page.people.hidden = false;
+    page.poll.hidden = false;
+    await Promise.resolve();
+    expect(page.side.classList.contains("people-open")).toBe(false);
+    expect(page.side.classList.contains("poll-open")).toBe(false);
+  });
+
   test("the owner's bar ends the People tab on a wide screen, Report room too on a short one (OME-1841, OME-1842)", async () => {
     const tall = await setup({ wide: true });
     expect(tall.people.nextElementSibling).toBe(tall.ownerBar);

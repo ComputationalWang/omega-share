@@ -83,6 +83,10 @@ export const SeatIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.
 export type SeatIndex = v.InferOutput<typeof SeatIndexSchema>;
 
 /** Shirt tint (ADR 0053): 0 is the avatar's own colours. */
+/** A sleeper's side of a `sleep` piece (OME-2008): 0 or 1, kept until they get up (the other getting up never moves it). */
+export const SleeperSchema = v.picklist([0, 1]);
+export type Sleeper = v.InferOutput<typeof SleeperSchema>;
+
 export const TintSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(TINT_COUNT - 1));
 export type Tint = v.InferOutput<typeof TintSchema>;
 
@@ -134,6 +138,8 @@ export const MemberSchema = v.object({
    * layout that drops or moves the piece.
    */
   lying: v.optional(PieceIndexSchema),
+  /** Their side of a `sleep` piece (OME-2008): sleeper `i` holds the piece's seat `i`. Present only while lying on one. */
+  sleeper: v.optional(SleeperSchema),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 
@@ -159,7 +165,7 @@ export const RoomStateSchema = v.pipe(
   }),
   v.check((r) => r.itemId === undefined || r.embed !== null, "item id without an embed"),
   v.check((r) => r.itemId === undefined || !(r.queue ?? []).some((i) => i.id === r.itemId), "current item also queued"),
-  v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
+  v.check((x) => playbackMatchesEmbed(x), "playback without an embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
     // MAX_ROOM_MEMBERS is 25: each validated slot fits a distinct 32-bit mask bit.

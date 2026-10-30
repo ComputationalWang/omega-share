@@ -11,7 +11,6 @@ import {
   canonicalizeGenericEmbed,
   playbackCaps,
   type AnyEmbed,
-  type Embed,
 } from "@omega/shared";
 import { EmbedPolicy } from "../../server/src/embed-policy";
 import { rawEmbedCorpus } from "./embed-raw-corpus";
@@ -431,10 +430,7 @@ export const embedCorpora: Corpus[] = [
   },
   {
     name: "playback-caps",
-    cases: () =>
-      storedEmbeds()
-        .filter((e): e is Embed => e.provider !== "generic")
-        .map((input) => ({ input, ok: true, output: JSON.stringify(playbackCaps(input)) })),
+    cases: () => storedEmbeds().map((input) => ({ input, ok: true, output: JSON.stringify(playbackCaps(input)) })),
   },
   {
     name: "embed-policy-accept",

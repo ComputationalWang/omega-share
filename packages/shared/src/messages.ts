@@ -8,7 +8,6 @@ import {
   DICE_MIN_SIDES,
   ERROR_MESSAGE_MAX_LENGTH,
   MAX_CLIENT_MESSAGE_BYTES,
-  MAX_EMBED_URL_LENGTH,
   MAX_SERVER_MESSAGE_BYTES,
   MAX_ROOM_MEMBERS,
   MAX_URL_LENGTH,
@@ -19,7 +18,7 @@ import {
   REACTIONS_MAX,
 } from "./constants";
 import { PollIdSchema, RoomIdSchema } from "./ids";
-import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
+import { AnyEmbedSchema, MAX_GENERIC_EMBED_URL_LENGTH, playbackMatchesEmbed } from "./generic-embed";
 import { MediaMsSchema, OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
@@ -33,6 +32,7 @@ import {
   RoomStateSchema,
   RoomTitleSchema,
   SeatIndexSchema,
+  SleeperSchema,
   TintSchema,
 } from "./room";
 import { FloorCellInputSchema, FloorCellSchema, PieceIndexSchema, RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
@@ -189,9 +189,11 @@ export const ClientMessageSchema = v.variant("type", [
    */
   v.strictObject({ type: v.literal("floor-sit"), on: v.boolean() }),
   /**
-   * Needs `join`. Lie down on a layout piece whose kind has a `lie` style (OME-1773; the sofa, couch and cat), or get up
-   * with `piece: null` (back to the standing spot, like `sit` null). A piece without one is `error: bad_cell`; one with
-   * a seat held by someone else, or someone else lying on it, is `error: seat_taken`. The lier first leaves their seat,
+   * Needs `join`. Lie down on a layout piece whose kind has a `lie` style (OME-1773; the sofa, couch, lounger, cat and
+   * bed), or get up with `piece: null` (back to the standing spot, like `sit` null). A piece without one is
+   * `error: bad_cell`; one with a seat held by someone else, or someone else lying on it, is `error: seat_taken`. A
+   * `sleep` piece (the bed, OME-2008) instead takes one sleeper per seat: the server gives the lowest side whose seat is
+   * free (or the lier's own) and nobody sleeps on; none left is `seat_taken`. The lier first leaves their seat,
    * cell or floor sit (`seat-changed` null / `floor-sat` false), then `lay`; while they lie the piece's seats are taken.
    * Shares the walk bucket: over it dropped silently.
    */
@@ -221,13 +223,13 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
   /**
    * Desired room playback. Seek while playing = `{ playing: true, position }`.
-   * Needs `join`; `url` must equal the current synced `embed.url`, else `error: no_embed`
-   * (a generic embed is never synced, ADR 0024).
+   * Needs `join`; `url` must equal the current `embed.url`, synced or generic (ADR 0057 §1), else `error: no_embed`.
+   * Capped at the generic cap, the larger of the two.
    * For a live embed (`playbackCaps(embed).live`) the server ignores `position`.
    */
   v.strictObject({
     type: v.literal("control"),
-    url: v.pipe(v.string(), v.maxLength(MAX_EMBED_URL_LENGTH)),
+    url: v.pipe(v.string(), v.maxLength(MAX_GENERIC_EMBED_URL_LENGTH)),
     playing: v.boolean(),
     position: PositionSchema,
     /**
@@ -390,8 +392,9 @@ const SingleServerMessageSchema = v.variant("type", [
   /**
    * A member lay down on a layout piece, or got up (`piece: null`) (OME-1773). On change only; also sent `null` before a
    * sit, walk, floor sit, leave or a `layout-changed` that drops or moves the piece. The snapshot's `Member.lying`.
+   * `sleeper`: their side on a `sleep` piece (OME-2008), the snapshot's `Member.sleeper`; absent otherwise and on `null`.
    */
-  v.object({ type: v.literal("lay"), memberId: MemberIdSchema, piece: v.nullable(PieceIndexSchema) }),
+  v.object({ type: v.literal("lay"), memberId: MemberIdSchema, piece: v.nullable(PieceIndexSchema), sleeper: v.optional(SleeperSchema) }),
   /** A member started or stopped typing (OME-1387). Ephemeral: a member missing from these is not typing. */
   v.object({ type: v.literal("typing-changed"), memberId: MemberIdSchema, on: v.boolean() }),
   v.object({
@@ -415,7 +418,7 @@ const SingleServerMessageSchema = v.variant("type", [
       /** The new current item's id (ADR 0031): every share and every advance gets one. Absent with a null embed, or from a pre-M6 server. */
       itemId: v.optional(QueueItemIdSchema),
     }),
-    v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
+    v.check((x) => playbackMatchesEmbed(x), "playback without an embed"),
     v.check((x) => x.itemId === undefined || x.embed !== null, "item id without an embed"),
   ),
   /**

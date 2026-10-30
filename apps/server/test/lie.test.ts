@@ -31,15 +31,15 @@ async function join(nickname: string, extra: Record<string, unknown> = {}) {
   return { client, snapshot: await client.next("snapshot") };
 }
 
-/** A room whose owner has set the layout with the sofa and cat, and two guests, alice and bob. */
-async function setup() {
+/** A room whose owner has set the layout with the sofa and cat (or `furniture`), and two guests, alice and bob. */
+async function setup(furniture = layout.furniture) {
   t = start();
   const res = await fetch(`${t.http}/rooms`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Beds", visibility: "public" }) });
   const created = v.parse(CreateRoomResponseSchema, await res.json());
   if (!created.ok) throw new Error("create failed");
   roomId.current = created.room.id;
   const owner = await join("owner", { ownerToken: created.ownerToken });
-  owner.client.send({ type: "layout-set", layout });
+  owner.client.send({ type: "layout-set", layout: { furniture } });
   await owner.client.next("layout-changed");
   const a = await join("alice");
   const b = await join("bob");
@@ -129,5 +129,27 @@ describe("lying down (OME-1691)", () => {
     await b.client.none("lay", 100);
     const late = await join("late");
     expect(late.snapshot.room.members.find((m) => m.id === a.snapshot.self)?.lying).toBe(SOFA);
+  });
+
+  // OME-2008: a queen bed (piece 10 in place of the sofa, seats 6 and 7) takes two sleepers, each on their own side.
+  binaryOnly("a bed takes two sleepers, each keeps their side when the other gets up, a third is seat_taken", async () => {
+    const BED = SOFA;
+    const { a, b, owner } = await setup(layout.furniture.map((f, i) => (i === BED ? { kind: "bed" as const, col: 7, row: 7, facing: "se" as const } : f)));
+    a.client.send({ type: "lie", piece: BED });
+    for (const c of clients) expect(await c.next("lay")).toEqual({ type: "lay", memberId: a.snapshot.self, piece: BED, sleeper: 0 });
+    b.client.send({ type: "lie", piece: BED });
+    for (const c of clients) expect(await c.next("lay")).toEqual({ type: "lay", memberId: b.snapshot.self, piece: BED, sleeper: 1 });
+    owner.client.send({ type: "lie", piece: BED });
+    expect((await owner.client.next("error")).code).toBe("seat_taken");
+    for (const seat of [6, 7]) {
+      owner.client.send({ type: "sit", seat });
+      expect((await owner.client.next("error")).code).toBe("seat_taken");
+    }
+    a.client.send({ type: "lie", piece: null });
+    for (const c of clients) expect(await c.next("lay")).toEqual({ type: "lay", memberId: a.snapshot.self, piece: null });
+    const late = await join("late");
+    expect(late.snapshot.room.members.find((m) => m.id === b.snapshot.self)).toMatchObject({ lying: BED, sleeper: 1 });
+    owner.client.send({ type: "sit", seat: 6 });
+    expect((await owner.client.next("seat-changed")).seat).toBe(6);
   });
 });

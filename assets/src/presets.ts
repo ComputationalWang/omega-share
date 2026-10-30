@@ -156,11 +156,13 @@ export const PRESETS: readonly Preset[] = [
     layout: {
       mood: "night",
       pairs: true,
+      shell: "dungeon",
       furniture: [
         TV,
         ...[0, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => p("partition", c, 4, "sw", c >= 5 && c <= 8 ? 1 : 0)),
         // The grid had (2, 0): one row too far back for a phone window (OME-1930) to hold every seat with me. Still behind the glass.
-        p("bed", 3, 0, "nw"), p("bed", 4, 0, "nw"),
+        // Queen beds are 2×2 since OME-2008 (ADR 0057): side by side they take cols 3–6.
+        p("bed", 3, 0, "nw"), p("bed", 5, 0, "nw"),
         p("desk", 7, 0, "sw"), p("minibar", 9, 0, "sw"), p("wingback", 8, 2, "nw"), p("neonsign", 0, 2, "se"),
         p("whirlpool", 2, 7, "ne"),
         // The grid had (0, 6), but row 6 of the left wall is a fixture segment: a mirror can't hang there.

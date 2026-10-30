@@ -13,7 +13,7 @@ use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
-use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PieceIndex, PollCount, SeatIndex, Tint};
+use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PieceIndex, PollCount, SeatIndex, Sleeper, Tint};
 use super::state::{
     Conga, EmoteKind, MediaMs, Member, PairPose, PingId, PlaybackState, Poll, QueueItem, Reaction, ReactionKind, RoomState, ServerTime,
     layout, nullable, playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
@@ -236,6 +236,9 @@ server_messages! {
         member_id: MemberId,
         #[serde(deserialize_with = "nullable")]
         piece: Option<PieceIndex>,
+        /// The sleeper's side on a `sleep` piece (OME-2008); absent otherwise.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        sleeper: Option<Sleeper>,
     }
     "typing-changed" TypingChanged TypingChangedWire { member_id: MemberId, on: bool }
     "chat" Chat ChatWire { member_id: MemberId, text: ChatText, at: ServerTime }
@@ -456,6 +459,8 @@ mod tests {
         same(r#"{"type":"paired","thrust":"m1","bendover":"m2"}"#);
         same(r#"{"type":"lay","memberId":"m1","piece":31}"#);
         same(r#"{"type":"lay","memberId":"m1","piece":null}"#);
+        same(r#"{"type":"lay","memberId":"m1","piece":4,"sleeper":1}"#);
+        same(r#"{"type":"member-joined","member":{"id":"m1","nickname":"alice","avatar":0,"lying":5,"sleeper":1}}"#);
         same(r#"{"type":"member-joined","member":{"id":"m1","nickname":"alice","avatar":0,"floorSit":true,"lying":5}}"#);
         same(r#"{"type":"error","code":"pairs_off","message":"x"}"#);
         same(r#"{"type":"member-muted","memberId":"m1","muted":true}"#);
@@ -497,7 +502,7 @@ mod tests {
         refused(&snap(&room("").replace("youtube.com/embed", "evil.example/embed")));
         refused(&snap(&room("").replace(r#","embed":"#, r#","embed2":"#))); // embed is required
         refused(&snap(&room("").replace(r#""id":"lobby""#, r#""id":"../etc""#)));
-        // ADR 0024: a synced embed's playback is a state, a generic embed's is null
+        // ADR 0057 §1: synced or generic, an embed may carry playback; only no embed means no playback
         let generic = r#"{"provider":"generic","host":"player.example.com","url":"https://player.example.com/embed/42"}"#;
         let playback = r#"{"playing":true,"position":0,"rate":1,"at":1,"rev":1,"action":"load","by":null}"#;
         let base = |embed: &str, p: &str, extra: &str| {
@@ -508,7 +513,7 @@ mod tests {
         };
         assert!(parse_server_message(&snap(&base(YT, playback, ""))).is_some());
         assert!(parse_server_message(&snap(&base(generic, "null", ""))).is_some());
-        refused(&snap(&base(generic, playback, "")));
+        assert!(parse_server_message(&snap(&base(generic, playback, ""))).is_some());
         refused(&snap(&base("null", playback, "")));
         refused(&snap(&base("null", "null", r#","itemId":"i1""#)));
         let queued = format!(r#","itemId":"q1","queue":[{{"id":"q1","embed":{YT},"by":null}}]"#);

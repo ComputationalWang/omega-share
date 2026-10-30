@@ -7,6 +7,8 @@ export const PAIR_MS = 4000;
 /** The thrust loop: frames 0 1 2 1 at this many ms each (dungeon.json `meta.omega.thrust`). */
 export const THRUST_FRAME_MS = 110;
 export const THRUST_SEQUENCE: readonly number[] = [0, 1, 2, 1];
+/** How far back the thruster stands from the bender's floor point, away from their facing (OME-1970): x mirrors per front. */
+export const THRUST_BACK = { x: 4, y: 2 } as const;
 
 export interface PairKeys {
   readonly bend: string;

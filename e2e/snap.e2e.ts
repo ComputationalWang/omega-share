@@ -107,7 +107,7 @@ for (const act of ["key", "slash"] as const) {
     const [a] = clients;
     if (a === undefined) throw new Error("need a client");
     if (act === "key") {
-      // Its 44 px touch target (reference.css, under .ui-touch) is audited by the a11y sweep at 844x390-touch.
+      // Its 44 px touch target (reference.css, under .ui-touch) is audited by the a11y sweep's touch viewports.
       await expect(a.page.locator(site.snapKey)).toHaveAccessibleName(/photo/i);
     }
     await say(a.page, "cheese");

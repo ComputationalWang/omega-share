@@ -66,6 +66,8 @@ const valid: Raw[] = [
   // lie (OME-1773)
   ...[0, 1, 31, null].map((piece) => js({ type: "lie", piece })),
   ...[true, false].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
+  // layout shell (OME-1989)
+  js({ type: "layout-set", layout: { ...LAYOUT, shell: "dungeon" } }),
   js({ type: "walk", cell: { x: 9, y: 0 }, teleport: true }), js({ type: "walk", cell: { x: 9, y: 0 }, teleport: false }), js({ type: "walk", cell: { x: 9, y: 0 }, run: true, teleport: true }),
   js({ type: "layout-set", layout: { ...LAYOUT, furniture: [...LAYOUT.furniture, { kind: "pad", col: 9, row: 1, facing: "se" }, { kind: "pad", col: 1, row: 9, facing: "se", variant: 1 }] } }),
   ...["none", "warm", "cool", "night"].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
@@ -83,6 +85,8 @@ const valid: Raw[] = [
   js({ ...CONTROL, position: 43200 }),
   js({ ...CONTROL, url: "" }),
   js({ ...CONTROL, url: URL128(128) }),
+  // A generic embed's url (ADR 0057 §1): up to MAX_GENERIC_EMBED_URL_LENGTH UTF-16 units.
+  js({ ...CONTROL, url: URL128(129) }), js({ ...CONTROL, url: URL128(1024) }), js({ ...CONTROL, url: "😀".repeat(512) }), js({ ...CONTROL, url: "é".repeat(1024) }),
   js({ ...CONTROL, url: "é".repeat(128) }),
   js({ ...CONTROL, url: "😀".repeat(64) }),
   js({ type: "status", catching: true }),
@@ -169,7 +173,7 @@ const invalid: Raw[] = [
   js({ type: "ping", id: 2147483648 }), js({ type: "ping", id: -1 }), js({ type: "ping", id: 1.5 }), js({ type: "ping", id: "1" }), js({ type: "ping", id: 1e10 }),
   ok('{"type":"ping","id":1e400}'), ok('{"type":"ping","id":-1e400}'), ok('{"type":"ping","id":NaN}'), ok('{"type":"ping","id":Infinity}'),
   // control
-  js({ ...CONTROL, url: URL128(129) }), js({ ...CONTROL, url: "é".repeat(129) }), js({ ...CONTROL, url: "😀".repeat(65) }), js({ ...CONTROL, url: 1 }),
+  js({ ...CONTROL, url: URL128(1025) }), js({ ...CONTROL, url: "é".repeat(1025) }), js({ ...CONTROL, url: "😀".repeat(513) }), js({ ...CONTROL, url: 1 }),
   js({ ...CONTROL, position: -1 }), js({ ...CONTROL, position: 43201 }), js({ ...CONTROL, position: -0.001 }), js({ ...CONTROL, position: "1" }),
   js({ ...CONTROL, playing: "true" }), js({ ...CONTROL, playing: 1 }),
   ok('{"type":"control","url":"u","playing":true,"position":1e400}'), ok('{"type":"control","url":"u","playing":true,"position":-1e400}'),
@@ -205,6 +209,7 @@ const invalid: Raw[] = [
   // lie (OME-1773)
   ...[-1, 32, 33, 255, 1.5, "1", true, [], {}].map((piece) => js({ type: "lie", piece })), js({ type: "lie" }), js({ type: "lie", piece: undefined }),
   ...["true", 1, 0, null, [], {}].map((pairs) => js({ type: "layout-set", layout: { ...LAYOUT, pairs } })),
+  ...["Dungeon", "default", "", null, 0, [], {}].map((shell) => js({ type: "layout-set", layout: { ...LAYOUT, shell } })),
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),

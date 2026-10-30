@@ -43,8 +43,8 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
-import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
-import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
+import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
@@ -71,7 +71,7 @@ import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
 import { ACCESSORIES, BARE } from "./accessories";
-import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, lieGrid, type LieStyle } from "./lying";
+import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, SLEEP_FLOOR, floorOf, lieGrid, type LieStyle } from "./lying";
 import { BEND_FLOOR, DUNGEON_CELL, DUNGEON_DIRS, THRUST_FLOOR, THRUST_FRAMES, THRUST_MS, THRUST_OFFSET, THRUST_SEQUENCE, bendGrid, thrustGrid } from "./dungeon";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
@@ -1388,13 +1388,20 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     seen.add(f.key);
   }
   // Catalogue v2 and batch 6 are their own lazy sheets with the same schema, so rooms that only use v1 pieces don't download them.
-  const sheetOf = (id: string): string => (CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture");
-  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256], ["furniture-v6", 256]] as const) {
-    const ids = new Set(pieces.filter((p) => sheetOf(p.id) === name).map((p) => p.id));
-    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW, name === "furniture-v4" || name === "furniture-v5" || name === "furniture-v6");
+  const shell = [...buildPanelShell(), ...paneMasks(frames)];
+  // OME-1977: v7 also takes single colours of older kinds (V7_COLOURS), so a sheet is picked per id and colour.
+  const sheetOf = (id: string, colour: string): string =>
+    CATALOGUE_V7.has(id) || V7_COLOURS.has(`${id}/${colour}`) ? "furniture-v7" : CATALOGUE_V6.has(id) ? "furniture-v6" : CATALOGUE_V5.has(id) ? "furniture-v5" : CATALOGUE_V4.has(id) ? "furniture-v4" : CATALOGUE_V2.has(id) ? "furniture-v2" : "furniture";
+  for (const [name, maxW] of [["furniture", 1024], ["furniture-v2", 512], ["furniture-v4", 256], ["furniture-v5", 256], ["furniture-v6", 256], ["furniture-v7", 512]] as const) {
+    const mine = pieces.map((p) => ({ ...p, colours: p.colours.filter((c) => sheetOf(p.id, c) === name) })).filter((p) => p.colours.length > 0);
+    const sheetFrames = frames.filter((f) => { const [, id = "", colour = ""] = f.key.split("/"); return sheetOf(id, colour) === name; });
+    writeFurnitureAtlas(name, name === "furniture-v7" ? [...sheetFrames, ...shell] : sheetFrames, mine, maxW, name !== "furniture" && name !== "furniture-v2");
   }
+  // OME-1997: the back views for the 180° view swap, a lazy sheet of their own (preloaded with a partitioned layout).
+  const backs = buildBackViews();
+  writeFurnitureAtlas("furniture-back", backs, [], 512, true);
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
-  for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
+  for (const f of [...roomFrames, ...frames, ...shell, ...backs]) all.set(f.key, f);
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
   buildFurnitureSheet(pieces, all);
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
@@ -1410,6 +1417,25 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildDungeon(pieces, all);
   buildLying(pieces, all);
   return { frames, pieces, all };
+}
+
+/** Night pane masks (OME-1994), for the v7 sheet: `furniture/partition/<glass|panelglass>/pane/<dir>`, an opaque amber fill of the
+ *  pixels the matching solid wall covers and the glass one leaves open, on the glass `<dir>/back` frame's rect and anchor. The
+ *  renderer lays it over the pane at about 20% alpha in the `night` mood. */
+function paneMasks(frames: readonly RoomFrame[]): RoomFrame[] {
+  const byKey = new Map(frames.map((f) => [f.key, f]));
+  const amber = colorIndex("mustard", 1);
+  return ([["glass", "solid"], ["panelglass", "panel"]] as const).flatMap(([glass, solid]) => (["se", "sw"] as const).map((d) => {
+    const g = byKey.get(`furniture/partition/${glass}/${d}/back`), s = byKey.get(`furniture/partition/${solid}/${d}/back`);
+    if (!g || !s) throw new Error(`partition ${glass}/${d}: no back frame to mask`);
+    const img = new Uint8Array(g.w * g.h);
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+      const sx = x - g.ax + s.ax, sy = y - g.ay + s.ay;
+      const wall = sx >= 0 && sy >= 0 && sx < s.w && sy < s.h && (s.img[sy * s.w + sx] ?? 0) !== 0;
+      if (wall && (g.img[y * g.w + x] ?? 0) === 0) img[y * g.w + x] = amber;
+    }
+    return { ...g, key: `furniture/partition/${glass}/pane/${d}`, img };
+  }));
 }
 
 /** `furniture/<name>.png` + `.json` (PixiJS v8 atlas, `meta.omega.pieces`) and its `preview/<name>-atlas@2x.png`. */
@@ -1471,6 +1497,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
         ...(pieces.some((p) => p.open === true) ? { openKey: "furniture/<id>/<colour>/open/<dir>" } : {}),
         ...(pieces.some((p) => p.cut === true) ? { cutKey: "furniture/<id>/<colour>/cut/<dir>" } : {}),
+        ...(pieces.some((p) => p.covers) ? { coverKey: "furniture/<id>/<colour>/cover/<dir>/<sleeper>" } : {}),
         // OME-1519: frame time in `pieces[].walk.ms`, the avatars' Basic walk clock (`avatars/motion.json` meta.omega.walk.frameMs).
         ...(pieces.some((p) => p.walk) ? { walkKey: "furniture/<id>/<colour>/walk/<dir>/<n>", sitKey: "furniture/<id>/<colour>/sit/<dir>", bedKey: "furniture/<id>/<colour>/bed/<dir>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
@@ -1806,6 +1833,8 @@ interface RoomPlan {
   rug?: boolean;
   /** False leaves the corner console out (a layout with the big screen instead, OME-1639). */
   tv?: boolean;
+  /** A skinned shell (OME-1977, the v7 panelling): frame keys per floor cell and wall segment instead of the default room's. */
+  shell?: { floor: (c: number, r: number) => string; l: (i: number) => string; r: (i: number) => string; corner: string; lEnd: string; rEnd: string };
 }
 
 function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: RoomPlan, hooks: RoomHooks = {}): void {
@@ -1843,16 +1872,17 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
     }
   };
   const floorKey = (key: string, c: number, r: number): string => (plan.rug === false && key.startsWith("rug/") ? `floor/${String((c * 3 + r) % 2)}` : key);
-  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(floorKey(key, c, r), cellAt(c, r).x, cellAt(c, r).y); }); });
+  const sh = plan.shell;
+  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(sh ? sh.floor(c, r) : floorKey(key, c, r), cellAt(c, r).x, cellAt(c, r).y); }); });
   // Edit mode lays the grid and markers on the floor (over rugs) before the walls and console stand on it.
   if (hooks.floor) { drawLayer("floor"); hooks.floor(draw); }
   for (let i = 0; i < 10; i++) {
-    draw(layout.walls.l[i] ?? "wall/l/plain", cellAt(0, i).x, cellAt(0, i).y);
-    draw(layout.walls.r[i] ?? "wall/r/plain", cellAt(i, 0).x, cellAt(i, 0).y);
+    draw(sh ? sh.l(i) : layout.walls.l[i] ?? "wall/l/plain", cellAt(0, i).x, cellAt(0, i).y);
+    draw(sh ? sh.r(i) : layout.walls.r[i] ?? "wall/r/plain", cellAt(i, 0).x, cellAt(i, 0).y);
   }
-  draw("wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
-  draw("wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
-  draw("wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
+  draw(sh?.corner ?? "wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
+  draw(sh?.lEnd ?? "wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
+  draw(sh?.rEnd ?? "wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
   if (plan.tv !== false) draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
   // Floor layer (rugs) and wall layer (frames) go with the static background; everything else is depth-sorted.
   if (!hooks.floor) drawLayer("floor");
@@ -1876,7 +1906,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
 
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
 
-const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "avatars/dungeon.png", "avatars/dungeon.json"];
+const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "furniture/furniture-v7.png", "furniture/furniture-v7.json", "furniture/furniture-back.png", "furniture/furniture-back.json", "avatars/dungeon.png", "avatars/dungeon.json"];
 const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
 
 /** The night mood (OME-1502, `apps/web/src/room.css`): rgb(36 48 110 / 0.5) multiplied over the room. Per colour, so a palette. */
@@ -1969,6 +1999,8 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
 
   buildFurnitureRoom(pieces, all, "furniture-v6-room", showroomV6());
   buildSeatContact(pieces, all, V6_SEATS, "furniture-v6-seats@2x.png");
+  buildFurnitureRoom(pieces, all, "furniture-v7-room", showroomV7());
+  buildSeatContact(pieces, all, ["soaktub", "lounger"], "furniture-v7-seats@2x.png");
   // The preset with a full house: every seat taken, plus juno bent over at (5,6) with mo behind her.
   const sit = new Map<string, string[]>([["bed:4,0", ["kiki", "pip"]], ["bed:0,3", ["mo", "juno"]], ["wingback:7,2", ["pip"]], ["wingback:7,4", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
   const placements: Placement[] = (PRESETS.find((x) => x.id === "dank-dungeon")?.layout.furniture ?? []).filter((f) => f.kind !== "tv").map((f) => {
@@ -1987,6 +2019,22 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   for (const [name, pal] of [["dungeon-room", PALETTE], ["dungeon-room-night", NIGHT_PALETTE]] as const) {
     writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, pal));
     writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), pal));
+  }
+  // OME-1977: the reworked room with every v7 piece, as everyone sees it and as a viewer in the bedroom sees it (cut).
+  for (const cut of [false, true]) {
+    const two = composeFurnitureRoom(pieces, all, dungeon2Plan(cut));
+    for (const [name, pal] of [["dungeon2-room", PALETTE], ["dungeon2-room-night", NIGHT_PALETTE]] as const) {
+      const file = `${name}${cut ? "-cut" : ""}`;
+      writeFileSync(join(ROOT, "preview", `${file}@1x.png`), encodeIndexedPng(two.W, two.H, two.img, pal));
+      writeFileSync(join(ROOT, "preview", `${file}@2x.png`), encodeIndexedPng(two.W * 2, two.H * 2, upscale(two.img, two.W, two.H, 2), pal));
+    }
+  }
+  // OME-1997: the same room from the north, as a viewer in the bedroom sees it after the 180° view swap.
+  const north = dungeon2North(pieces, all);
+  const nr = composeFurnitureRoom(north.pieces, all, north.plan);
+  for (const [name, pal] of [["dungeon2-room-north", PALETTE], ["dungeon2-room-north-night", NIGHT_PALETTE]] as const) {
+    writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(nr.W, nr.H, nr.img, pal));
+    writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(nr.W * 2, nr.H * 2, upscale(nr.img, nr.W, nr.H, 2), pal));
   }
   // OME-1959: the two-compartment grid for the reworked preset, as everyone sees it and as a viewer in the bedroom sees it (cut).
   for (const cut of [false, true]) {
@@ -2031,6 +2079,123 @@ function partitionPlan(cut: boolean): RoomPlan {
   };
 }
 
+/** The reworked Dank Dungeon (OME-1977) on the OME-1959 grid, every piece from v7: panelled shell (oak bedroom behind, smoked spa
+ *  in front), the panelled interior wall with its glass and doorway, the flat TV, the bar fridge, the oval rug by the doorway; the
+ *  sauna, the cedar tub, the whirlpool, two loungers and the basins under two tall mirrors in the spa. */
+function dungeon2Plan(cut: boolean): RoomPlan {
+  const wall: Placement[] = Array.from({ length: 10 }, (_, c) => c)
+    .filter((c) => c !== PARTITION_DOOR)
+    .map((c) => ({ id: "partition", colour: PARTITION_GLASS.includes(c) ? "panelglass" : "panel", dir: "sw", col: c, row: PARTITION_ROW, cut }));
+  const side = (r: number): string => (r < PARTITION_ROW ? "oak" : r === PARTITION_ROW ? "split" : "smoke");
+  return {
+    placements: [
+      { id: "tv", colour: "flat", dir: "se", col: 0, row: 0 },
+      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 0, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0 },
+      { id: "desk", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "minibar", colour: "fridge", dir: "sw", col: 9, row: 0 },
+      { id: "wingback", colour: "ginger", dir: "nw", col: 8, row: 2 },
+      { id: "neonsign", colour: "pink", dir: "se", col: 0, row: 1 },
+      { id: "carpet", colour: "oval", dir: "se", col: 0, row: 2 },
+      ...wall,
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 5 },
+      { id: "mirror", colour: "silver", dir: "se", col: 0, row: 5 },
+      { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 6 },
+      { id: "mirror", colour: "silver", dir: "se", col: 0, row: 6 },
+      { id: "sauna", colour: "cedar", dir: "se", col: 0, row: 8 },
+      { id: "soaktub", colour: "cedar", dir: "se", col: 3, row: 6, sitters: ["juno", ""] },
+      { id: "whirlpool", colour: "teal", dir: "ne", col: 6, row: 8, use: 0 },
+      { id: "lounger", colour: "teak", dir: "nw", col: 8, row: 5, sitters: ["", "mo"] },
+      { id: "lounger", colour: "teak", dir: "nw", col: 9, row: 5 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 9 },
+    ],
+    standing: [["pip/idle/se/0", 5, 2]],
+    rug: false,
+    tv: false,
+    shell: {
+      floor: (c, r) => `floor/${r < PARTITION_ROW ? "carpet" : r === PARTITION_ROW ? "split" : "deck"}/${String((c * 3 + r) % 2)}`,
+      l: (i) => `wall/l/${side(i)}`,
+      r: () => "wall/r/oak",
+      corner: "wall/corner/oak",
+      lEnd: "wall/l/end/smoke",
+      rEnd: "wall/r/end/oak",
+    },
+  };
+}
+
+/** The reworked Dank Dungeon seen from the north (OME-1997, the 180° view swap): cell (c, r) → (9 − c, 9 − r) anchored on the turned
+ *  footprint's min corner, every facing turned (one-sided pieces from furniture-back), wall pieces gone with the near walls they hang
+ *  on, the spa's walls at the back. A symmetric piece with no back view (the oval rug, the monstera) keeps its own frame. `pieces` gains the turned facings' layers, sort points and seats, as the web would derive them. */
+function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces: PieceMeta[]; plan: RoomPlan } {
+  const turnedMeta = pieces.map((m): PieceMeta => {
+    const out: PieceMeta = { ...m, layersByDir: { ...m.layersByDir }, footprintByDir: { ...m.footprintByDir }, sortByDir: { ...m.sortByDir } };
+    if (m.seatsByDir) out.seatsByDir = { ...m.seatsByDir };
+    for (const d of m.dirs) {
+      if (m.dirs.includes(TURN[d])) continue;
+      const t = TURN[d], fp = m.footprintByDir[d] ?? { cols: 1, rows: 1 };
+      out.layersByDir[t] = m.layersByDir[d] ?? ["back"];
+      out.footprintByDir[t] = fp;
+      out.sortByDir[t] = m.sortByDir[d] ?? { x: 0, y: 0 };
+      const seats = m.seatsByDir?.[d];
+      if (seats && out.seatsByDir) out.seatsByDir[t] = seats.map((q) => ({ col: fp.cols - 1 - q.col, row: fp.rows - 1 - q.row, dir: TURN[q.dir] }));
+    }
+    return out;
+  });
+  const meta = (id: string): PieceMeta | undefined => turnedMeta.find((m) => m.id === id);
+  const south = dungeon2Plan(false);
+  const placements = south.placements.filter((p) => meta(p.id)?.mount !== "wall").map((p): Placement => {
+    const fp = meta(p.id)?.footprintByDir[p.dir] ?? { cols: 1, rows: 1 };
+    const dir = all.has(`furniture/${p.id}/${p.colour}/${TURN[p.dir]}/back`) ? TURN[p.dir] : p.dir;
+    return { ...p, dir, col: 9 - p.col - Math.max(fp.cols - 1, 0), row: 9 - p.row - Math.max(fp.rows - 1, 0) };
+  });
+  const back = 9 - PARTITION_ROW;
+  return {
+    pieces: turnedMeta,
+    plan: {
+      placements,
+      standing: [["pip/idle/nw/0", 4, 7]],
+      rug: false,
+      tv: false,
+      shell: {
+        floor: (c, r) => `floor/${r < back ? "deck" : r === back ? "split/north" : "carpet"}/${String((c * 3 + r) % 2)}`,
+        l: (i) => (i < back ? "wall/l/smoke" : i === back ? "wall/l/split/north" : "wall/l/oak"),
+        r: () => "wall/r/smoke",
+        corner: "wall/corner/smoke",
+        lEnd: "wall/l/end/oak",
+        rEnd: "wall/r/end/smoke",
+      },
+    },
+  };
+}
+
+/** Every v7 piece and colour in each facing it ships (the lounger in all four), seats taken and free, on the spa skin. */
+function showroomV7(): RoomPlan {
+  return {
+    placements: [
+      { id: "sauna", colour: "cedar", dir: "se", col: 0, row: 1 },
+      { id: "sauna", colour: "cedar", dir: "sw", col: 6, row: 0 },
+      { id: "mirror", colour: "silver", dir: "sw", col: 3, row: 0 },
+      { id: "mirror", colour: "silver", dir: "se", col: 0, row: 4 },
+      { id: "minibar", colour: "fridge", dir: "sw", col: 4, row: 0 },
+      { id: "minibar", colour: "fridge", dir: "se", col: 0, row: 5 },
+      { id: "soaktub", colour: "cedar", dir: "se", col: 3, row: 3, sitters: ["kiki", "pip"] },
+      { id: "lounger", colour: "teak", dir: "ne", col: 2, row: 7, sitters: ["juno", ""] },
+      { id: "lounger", colour: "teak", dir: "nw", col: 7, row: 3 },
+      { id: "lounger", colour: "teak", dir: "se", col: 9, row: 3, sitters: ["", "mo"] },
+      { id: "lounger", colour: "teak", dir: "sw", col: 6, row: 8 },
+      { id: "carpet", colour: "oval", dir: "se", col: 6, row: 5 },
+      { id: "tv", colour: "flat", dir: "se", col: 0, row: 0 },
+      { id: "partition", colour: "panel", dir: "se", col: 1, row: 7 },
+      { id: "partition", colour: "panelglass", dir: "se", col: 1, row: 8 },
+      { id: "partition", colour: "panel", dir: "se", col: 1, row: 9, cut: true },
+    ],
+    standing: [],
+    rug: false,
+    tv: false,
+    shell: { floor: (c, r) => `floor/${r < 3 ? "carpet" : "deck"}/${String((c * 3 + r) % 2)}`, l: () => "wall/l/smoke", r: () => "wall/r/oak", corner: "wall/corner/oak", lEnd: "wall/l/end/smoke", rEnd: "wall/r/end/oak" },
+  };
+}
+
 /** Every v6 piece in both facings (seats in all four), a few taken. */
 function showroomV6(): RoomPlan {
   return {
@@ -2042,7 +2207,7 @@ function showroomV6(): RoomPlan {
       { id: "whirlpool", colour: "teal", dir: "ne", col: 2, row: 7, sitters: ["pip", "kiki"], use: 1 },
       { id: "whirlpool", colour: "teal", dir: "nw", col: 7, row: 2, sitters: ["juno"] },
       { id: "desk", colour: "wood", dir: "sw", col: 3, row: 0 },
-      { id: "desk", colour: "wood", dir: "se", col: 0, row: 4 },
+      { id: "desk", colour: "wood", dir: "se", col: 0, row: 5 },
       { id: "minibar", colour: "wood", dir: "sw", col: 7, row: 0 },
       { id: "minibar", colour: "wood", dir: "se", col: 4, row: 5 },
       { id: "washbasin", colour: "cream", dir: "se", col: 0, row: 7 },
@@ -2059,15 +2224,18 @@ function showroomV6(): RoomPlan {
 // ---------------------------------------------------------------- lying pose (OME-1687, lazy)
 
 const LYING_FILES = ["avatars/lying.png", "avatars/lying.json"];
-/** The facings each style ships in: `lie` for the sofas (all four), `curl` for the cat bed (the cat's two). */
-const LIE_STYLE_DIRS: Record<LieStyle, readonly Dir[]> = { lie: LIE_DIRS, curl: ["se", "sw"] };
+/** The facings each style ships in: `lie` for the sofas (all four), `curl` for the cat bed (the cat's two), `sleep` for the
+ *  queen bed (all four; nw is se's frame and ne is sw's, sharing a rect). */
+const LIE_STYLE_DIRS: Record<LieStyle, readonly Dir[]> = { lie: LIE_DIRS, curl: ["se", "sw"], sleep: LIE_DIRS };
+const SLEEP_ALIAS: Partial<Record<Dir, Dir>> = { nw: "se", ne: "sw" };
 
 /** `avatars/lying.png` + `.json` (the lying pose: breathing loop × facing × avatar, lazy), and its previews: every facing on the
  *  club sofa, the lounge couch and the cat bed for every avatar (`lying-pieces@2x.png`), the strip (`lying-strip@4x.png`) and
  *  a room with all three taken (`lying-room@1x/2x.png`). */
 function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   const { w: CW, h: CH } = LIE_CELL;
-  const cells = LIE_STYLES.flatMap((st) => LIE_STYLE_DIRS[st].flatMap((d) => Array.from({ length: BREATH_FRAMES }, (_, n) => ({ st, d, n }))));
+  const drawn = (st: LieStyle): readonly Dir[] => LIE_STYLE_DIRS[st].filter((d) => st !== "sleep" || !SLEEP_ALIAS[d]);
+  const cells = LIE_STYLES.flatMap((st) => drawn(st).flatMap((d) => Array.from({ length: BREATH_FRAMES }, (_, n) => ({ st, d, n }))));
   const sheetW = pow2(cells.length * CW), sheetH = pow2(AVATARS.length * CH);
   const sheet = new Uint8Array(sheetW * sheetH);
   const frames: Record<string, Frame> = {};
@@ -2079,18 +2247,28 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
       const img = render(lieGrid(a, d, st, n), a.roles);
       assertInside(key, img, CW, CH);
       blit(sheet, sheetW, img, CW, CH, c * CW, i * CH);
-      const ax = d === "sw" || d === "ne" ? CW - 1 - LIE_FLOOR.x : LIE_FLOOR.x;
+      const fl = floorOf(st);
+      const ax = d === "sw" || d === "ne" ? CW - 1 - fl.x : fl.x;
       frames[key] = {
         frame: { x: c * CW, y: i * CH, w: CW, h: CH },
         rotated: false,
         trimmed: false,
         spriteSourceSize: { x: 0, y: 0, w: CW, h: CH },
         sourceSize: { w: CW, h: CH },
-        anchor: { x: ax / CW, y: LIE_FLOOR.y / CH },
+        anchor: { x: ax / CW, y: fl.y / CH },
       };
-      all.set(key, { img, w: CW, h: CH, ax, ay: LIE_FLOOR.y });
+      all.set(key, { img, w: CW, h: CH, ax, ay: fl.y });
       if (n === 0) anims[`${st}/${a.id}/${d}`] = { frames: Array.from({ length: BREATH_FRAMES }, (_, m) => `${st}/${a.id}/${d}/${String(m)}`), ms: [...BREATH_MS], loop: true };
     });
+    for (const [d, src] of Object.entries(SLEEP_ALIAS)) {
+      for (let n = 0; n < BREATH_FRAMES; n++) {
+        const f = frames[`sleep/${a.id}/${src}/${String(n)}`], sp = all.get(`sleep/${a.id}/${src}/${String(n)}`);
+        if (!f || !sp) throw new Error(`no sleep frame ${a.id}/${src}`);
+        frames[`sleep/${a.id}/${d}/${String(n)}`] = f;
+        all.set(`sleep/${a.id}/${d}/${String(n)}`, sp);
+      }
+      anims[`sleep/${a.id}/${d}`] = { frames: Array.from({ length: BREATH_FRAMES }, (_, m) => `sleep/${a.id}/${d}/${String(m)}`), ms: [...BREATH_MS], loop: true };
+    }
   });
   registerKeys("lying", Object.keys(frames));
   writeFileSync(join(ROOT, "avatars", "lying.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
@@ -2110,12 +2288,16 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
         license: "CC-BY-SA-4.0",
         cell: LIE_CELL,
         floorPoint: LIE_FLOOR,
+        sleepFloorPoint: SLEEP_FLOOR,
         dirs: LIE_STYLE_DIRS,
         // Not listed in the eager hairs/tints tables (they stay frozen); the PLTE is the same, so their slots apply as is.
         swaps: "tints.json and hairs.json: same PLTE slots as avatars.png, apply them to this sheet for that avatar's frames",
         hats: "own headwear (Pip beanie, Mo bucket hat) is drawn in; no overlay hat frames: hide theme/accessory hat overlays while lying",
         anims,
-        pieces: LIE_ANCHORS,
+        // The queen bed's two sleepers (OME-1983) stay out of `pieces` until the web knows the `sleep` style (OME-1982/1984):
+        // apps/web pins `pieces` to the contract's lie-able kinds.
+        pieces: Object.fromEntries(Object.entries(LIE_ANCHORS).filter(([, an]) => an.style !== "sleep")),
+        sleepers: Object.fromEntries(Object.entries(LIE_ANCHORS).filter(([, an]) => an.style === "sleep")),
       },
     },
   };
@@ -2160,6 +2342,52 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
     });
   });
   writeFileSync(join(ROOT, "preview", "lying-pieces@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+
+  // OME-1983: the queen bed in each facing: empty, two sleepers side by side (each under their duvet), two sitters.
+  const bedM = meta("bed"), bedA = LIE_ANCHORS["bed"];
+  const pairs: [string, string][] = [["juno", "pip"], ["mo", "kiki"], ["kiki", "juno"], ["pip", "mo"]];
+  const sleepers = (dir: FurnDir, who: readonly [string, string], n: number, x: number, y: number): { key: string; x: number; y: number }[] => {
+    const offs = [bedA?.dirs[dir], bedA?.beside?.[dir]];
+    const order = [0, 1].sort((i, j) => (offs[i]?.y ?? 0) - (offs[j]?.y ?? 0));
+    return [
+      { key: `furniture/bed/velvet/${dir}/back`, x, y },
+      ...order.flatMap((i) => {
+        const o = offs[i];
+        if (!o) throw new Error(`no sleeper ${String(i)} anchor bed/${dir}`);
+        return [{ key: `sleep/${who[i] ?? ""}/${dir}/${String(n)}`, x: x + o.x, y: y + o.y }, { key: `furniture/bed/velvet/cover/${dir}/${String(i)}`, x, y }];
+      }),
+    ];
+  };
+  {
+    const dirs = ["ne", "nw", "se", "sw"] as const;
+    const BW = 170, BH = 120, W = BW * dirs.length + 20, H = BH * 3 + 20;
+    const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+    dirs.forEach((d, ci) => {
+      for (let ri = 0; ri < 3; ri++) {
+        const ax = 10 + ci * BW + 85, ay = 10 + ri * BH + 60;
+        for (let c = 0; c < 2; c++) for (let r = 0; r < 2; r++) drawSprite(img, W, H, all, `floor/${String((c + r) % 2)}`, ax + (c - r) * 32, ay + (c + r) * 16);
+        const pair = pairs[ci] ?? ["juno", "pip"];
+        const items = ri === 1 ? sleepers(d, pair, 0, ax, ay) : placePiece(bedM, "velvet", d, ax, ay, ri === 2 ? pair : []);
+        for (const it of items) drawSprite(img, W, H, all, it.key, it.x, it.y);
+      }
+    });
+    writeFileSync(join(ROOT, "preview", "queenbed@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+  }
+  // And in a room at 1× / 2×: juno and mo asleep in one, pip and kiki sitting up on the other to watch.
+  {
+    const at = cellAt(7, 0), sleep = sleepers("nw", ["juno", "mo"], 0, at.x, at.y);
+    const bedRoom = composeFurnitureRoom(pieces, all, {
+      placements: [
+        { id: "bed", colour: "velvet", dir: "ne", col: 0, row: 3, sitters: ["pip", "kiki"] },
+        { id: "desk", colour: "wood", dir: "sw", col: 4, row: 0 },
+        { id: "wingback", colour: "ginger", dir: "nw", col: 7, row: 5 },
+        { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+      ],
+      standing: [],
+    }, { top: (draw) => { for (const it of sleep) draw(it.key, it.x, it.y); } });
+    writeFileSync(join(ROOT, "preview", "queenbed-room@1x.png"), encodeIndexedPng(bedRoom.W, bedRoom.H, bedRoom.img, PALETTE));
+    writeFileSync(join(ROOT, "preview", "queenbed-room@2x.png"), encodeIndexedPng(bedRoom.W * 2, bedRoom.H * 2, upscale(bedRoom.img, bedRoom.W, bedRoom.H, 2), PALETTE));
+  }
 
   const strips = new Map<string, { img: Uint8Array; w: number; h: number }>();
   for (const [k, sp] of all) if (sp.w === CW && sp.h === CH) strips.set(k, { img: sp.img, w: sp.w, h: sp.h });
@@ -2614,7 +2842,7 @@ function report(): void {
     console.log(`${f}: ${String(buf.length)} B${text ? ` (${String(size)} B gz)` : ""}`);
   }
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
-  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 409600 (ADR 0056)`);
+  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 460800 (ADR 0056, amended 2026-10-29)`);
   // Set (j): the extension icons ship in the extension package, not the site, so they're reported apart from the art budget.
   const icons = readdirSync(join(ROOT, "store")).filter((n) => /^(icon|found)-\d+\.png$/.test(n)).sort();
   const iconBytes = icons.map((n) => readFileSync(join(ROOT, "store", n)).length);

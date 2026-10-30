@@ -247,9 +247,14 @@ describe("generic embeds on the wire", () => {
     expect(v.is(RoomStateSchema, room(GENERIC, null))).toBe(true);
   });
 
-  test("a generic embed never carries playback state", () => {
-    expect(v.is(RoomStateSchema, room(GENERIC, LOADED))).toBe(false);
-    expect(v.is(ServerMessageSchema, { type: "embed-changed", embed: GENERIC, by: null, playback: LOADED })).toBe(false);
+  test("a generic embed carries playback state like a synced one (ADR 0057 §1)", () => {
+    expect(v.is(RoomStateSchema, room(GENERIC, LOADED))).toBe(true);
+    expect(v.is(ServerMessageSchema, { type: "embed-changed", embed: GENERIC, by: null, playback: LOADED })).toBe(true);
+  });
+
+  test("playback without an embed is still rejected", () => {
+    expect(v.is(RoomStateSchema, room(null, LOADED))).toBe(false);
+    expect(v.is(ServerMessageSchema, { type: "embed-changed", embed: null, by: null, playback: LOADED })).toBe(false);
   });
 
   test("embed-changed carries a generic embed", () => {

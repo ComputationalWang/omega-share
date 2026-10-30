@@ -15,7 +15,7 @@ use super::embed::NowPlaying;
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, RoomId};
 use super::layout::RoomLayout;
-use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PieceIndex, PollCount, StandingSlot, Tint};
+use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PieceIndex, PollCount, Sleeper, StandingSlot, Tint};
 use super::text::{Nickname, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashSet;
@@ -362,6 +362,9 @@ wire_type!(
         /// Lying on this layout piece (OME-1773); absent when not lying.
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         lying: Option<PieceIndex>,
+        /// Their side of a `sleep` piece (OME-2008); absent when not lying on one.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        sleeper: Option<Sleeper>,
     }
 );
 
@@ -431,13 +434,9 @@ pub fn queue_is_valid(queue: &[QueueItem]) -> bool {
     queue.len() <= QUEUE_MAX && queue.iter().map(|i| i.id.as_str()).collect::<HashSet<_>>().len() == queue.len()
 }
 
-/// `playbackMatchesEmbed`: playback exists only for a synced embed (`null` or absent otherwise).
+/// `playbackMatchesEmbed`: playback only alongside an embed, synced or generic (ADR 0057 §1).
 pub fn playback_matches_embed(embed: Option<&AnyEmbed>, playback: Option<&Option<PlaybackState>>) -> bool {
-    let has_playback = matches!(playback, Some(Some(_)));
-    match embed {
-        None => !has_playback,
-        Some(e) => e.is_synced() || !has_playback,
-    }
+    embed.is_some() || !matches!(playback, Some(Some(_)))
 }
 
 // ---- room state

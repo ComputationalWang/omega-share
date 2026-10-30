@@ -118,6 +118,7 @@ function setTone(name) {
 }
 
 const FLOORS = ["step.wood", "step.carpet", "step.tile"];
+const EMOTES = ["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn", "dance"].map((k) => `emote.${k}`);
 // shortcut: a fixed 0.32 s footfall cadence stands in for the room's walk poses; the engine triggers steps from the animator.
 function walkSteps(n, floorOf) { for (let i = 0; i < n; i++) play(floorOf(i), i * 0.32); return n * 0.32; }
 function stopScene() { if (scene) { clearTimeout(scene.timer); scene.button.setAttribute("aria-pressed", "false"); scene = null; } }
@@ -136,7 +137,7 @@ function runSession(button) {
     if (x < 0.4) { const f = FLOORS[Math.floor(Math.random() * 3)]; walkSteps(4 + Math.floor(Math.random() * 8), () => f); }
     else if (x < 0.55) play(Math.random() < 0.5 ? "chair.sit" : "chair.stand");
     else if (x < 0.75) play(["ui.tick", "ui.tick", "ui.toggle", "ui.error"][Math.floor(Math.random() * 4)]);
-    else if (x < 0.92) { const n = 1 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) play("pop", i * 0.18); }
+    else if (x < 0.92) { const n = 1 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) play(EMOTES[Math.floor(Math.random() * EMOTES.length)], i * 0.18); }
     else play("door");
     scene.timer = setTimeout(beat, 1500 + Math.random() * 3500);
   };
