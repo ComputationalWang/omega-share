@@ -1,10 +1,13 @@
 // Lying down (OME-1691, contract OME-1773): sit on a sofa, lie down on it, and get up. Everyone sees the lier in the
 // lying sheet's frames, and the sofa's key is taken while they lie. The room is SET_G (e2e/fixtures/layouts.ts): its
 // first sofa is layout piece 2, seats 0 and 1.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { RoomLayoutSchema } from "@omega/shared";
 import * as v from "valibot";
 import { expect, test } from "./support/csp";
 import type { Page } from "@playwright/test";
-import { PENDING, available } from "./support/apps";
+import { PENDING, ROOT, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 
@@ -119,7 +122,7 @@ test("a lain-on sofa's seats are taken for others, and getting up from a floor s
   expect(await memberOf(b.page)).toEqual({ cell: null, floorSit: null });
 });
 
-// OME-2009: the Dank Dungeon's queen bed (layout piece 1, facing nw, seats 0-1) sleeps two side by side, each under their
+// OME-2009: the Dank Dungeon's first queen bed (facing nw, seats 0-1) sleeps two side by side, each under their
 // own cover; a third can't lie down. Draw order at the bed: back, then each sleeper (higher up the screen first) and their cover.
 async function drawOrder(page: Page): Promise<string[]> {
   const order = await page.evaluate(() => {
@@ -132,7 +135,9 @@ async function drawOrder(page: Page): Promise<string[]> {
 }
 
 test("two members sleep side by side on the Dank Dungeon bed, each under a cover", async ({ browser }) => {
-  const BED = 1;
+  // The preset's first bed, by index: OME-1960 put the partitions ahead of it.
+  const dungeon = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(join(ROOT, "assets/presets/dank-dungeon.json"), "utf8")));
+  const BED = dungeon.furniture.findIndex((f) => f.kind === "bed");
   clients = await joinRoom(browser, { roomUrl: testRoom("lie", "bed").url, count: 2, nicknamePrefix: "sleeper" });
   const [a, b] = clients;
   if (a === undefined || b === undefined) throw new Error("need two clients");
