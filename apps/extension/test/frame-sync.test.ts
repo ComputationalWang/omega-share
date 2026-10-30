@@ -62,6 +62,13 @@ describe("frameSync", () => {
     expect(state).toEqual({ source: "omega-share", kind: "frame-state", host: HOST, state: "paused", position: 0, rate: 1, duration: 1370, live: false, muted: false });
   });
 
+  test("reports a video that is already loaded and paused on attach, with no event (OME-2029)", () => {
+    const f = frame();
+    f.addVideo();
+    frameSync(HOST, f.env);
+    expect(v.parse(FrameStateMessageSchema, last(f.sent)).state).toBe("paused");
+  });
+
   test("finds a video that appears later", async () => {
     const f = frame();
     frameSync(HOST, f.env);
@@ -103,7 +110,7 @@ describe("frameSync", () => {
     const video = f.addVideo();
     frameSync(HOST, f.env);
     await new Promise((r) => setTimeout(r, 1100));
-    expect(f.sent).toEqual([]);
+    expect(kinds(f.sent)).toEqual(["frame-state"]); // the attach report only
     await video.play();
     const before = f.sent.length;
     await new Promise((r) => setTimeout(r, 1100));
@@ -209,6 +216,7 @@ describe("frameSync", () => {
     expect(f.listeners.size).toBe(1);
     f.command({ source: "omega-share", kind: "frame-detach" });
     expect(f.listeners.size).toBe(0);
+    f.sent.length = 0;
     f.fire(video, "pause");
     f.addVideo();
     await f.tick();
@@ -222,6 +230,6 @@ describe("frameSync", () => {
     const injected = (new Function(`return ${frameSync.toString()}`) as () => typeof frameSync)();
     injected(HOST, f.env);
     f.fire(video, "pause");
-    expect(kinds(f.sent)).toEqual(["frame-state"]);
+    expect(kinds(f.sent)).toEqual(["frame-state", "frame-state"]);
   });
 });
