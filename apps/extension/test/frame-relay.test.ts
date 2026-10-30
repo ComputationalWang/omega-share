@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { ExtensionToPage } from "@omega/shared/extension-bridge";
 import { type FrameRelayDeps, createFrameRelay } from "../src/frame-relay";
 
 // ADR 0057 §3 and §5 (OME-1974): the background attaches the frame script, relays both ways and detaches it.
@@ -12,7 +11,7 @@ function harness(over: Partial<FrameRelayDeps> & { unlocked?: string | undefined
   const unlocked = "unlocked" in over ? over.unlocked : HOST;
   const injected: [number, string][] = [];
   const toFrames: [number, unknown, number | undefined][] = [];
-  const notes: [number, ExtensionToPage][] = [];
+  const notes: [number, unknown][] = [];
   const deps: FrameRelayDeps = {
     ourOrigin: () => Promise.resolve(OUR),
     unlockedHost: (tabId) => Promise.resolve(tabId === TAB ? unlocked : undefined),

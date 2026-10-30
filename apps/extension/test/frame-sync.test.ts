@@ -134,7 +134,7 @@ describe("frameSync", () => {
     const video = f.addVideo();
     frameSync(HOST, f.env);
     f.command({ ...cmd("seek", 300), host: "other-host.net" });
-    f.command({ ...cmd("seek", "300") });
+    f.command({ ...cmd("seek"), value: "300" });
     f.command("seek");
     expect(video.currentTime).toBe(0);
   });
