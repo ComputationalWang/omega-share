@@ -657,7 +657,7 @@ mod tests {
 
     // apps/server/test/queue.test.ts:361
     #[test]
-    fn advancing_onto_a_generic_item_has_null_playback_and_announces_who_stopped_catching() {
+    fn advancing_onto_a_generic_item_loads_it_and_announces_who_stopped_catching() {
         let mut f = fixture();
         let current = f.share(YT1);
         let a = actor("alice", false);
@@ -683,7 +683,8 @@ mod tests {
         drop(inner);
         let frames = f.frames();
         assert_eq!(types(&frames), ["embed-changed", "queue-changed", "member-status"]);
-        assert_eq!(frames[0]["playback"], Value::Null);
+        // ADR 0057 section 1
+        assert_eq!(frames[0]["playback"]["action"], "load");
         assert_eq!(frames[2]["memberId"], member.as_str());
         assert_eq!(frames[2]["catching"], false);
     }

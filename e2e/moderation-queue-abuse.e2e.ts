@@ -667,8 +667,8 @@ test.describe("queue-add URLs and frame shape (ADR 0031 §2, ADR 0024)", () => {
 
     const started = watcher.sock.of("embed-changed", mark);
     expect(started).toHaveLength(1);
-    // A generic embed is never synced: no playback state, click to load.
-    expect(started[0]?.playback ?? null).toBeNull();
+    // Still click to load, but since ADR 0057 §1 a generic embed carries the room's playback like a synced one.
+    expect(started[0]?.playback).toMatchObject({ action: "load" });
     const items = [started[0]?.embed, ...(watcher.sock.of("queue-changed", mark).at(-1)?.queue ?? []).map((i) => i.embed)];
     expect(items).toHaveLength(3);
     for (const embed of items) {

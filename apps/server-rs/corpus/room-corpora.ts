@@ -28,9 +28,10 @@ const VIMEO_H = embedOf("https://vimeo.com/76979871/abcdef0123");
 const LIVE = embedOf("https://www.twitch.tv/somechannel");
 const VOD = embedOf("https://www.twitch.tv/videos/123456789");
 const GENERIC: AnyEmbed = { provider: "generic", host: "player.vidsite.com", url: "https://player.vidsite.com/embed/42" };
-const GENERIC2: AnyEmbed = { provider: "generic", host: "cdn.vidsite.com", url: "https://cdn.vidsite.com/watch?v=7" };
 const SYNCED: Embed[] = [YT, YT2, VIMEO, VIMEO_H, LIVE, VOD];
-const EMBEDS: AnyEmbed[] = [...SYNCED, GENERIC, GENERIC2];
+// No generic embed in a script: ADR 0057 §1 (OME-1973) gives one playback, which the frozen TS `Room` never does.
+// Rust's unit tests in `room.rs` and `queue.rs` cover that path; GENERIC stays only as a url no embed has.
+const EMBEDS: AnyEmbed[] = SYNCED;
 
 /** A small seeded generator (mulberry32): the corpus is the same on every run. */
 function prng(seed: number): () => number {
@@ -473,9 +474,6 @@ const hand: Script[] = [
       { op: "setCatching", m: "m3", catching: true },
       { op: "takeCatchingChange", m: "m2" },
       { op: "takeCatchingChange", m: "m1" },
-      { op: "setEmbed", embed: GENERIC, by: "m3", itemId: "g1", since: 1, now: T0 + 30_000 },
-      { op: "itemInfo" },
-      { op: "control", m: "m1", control: { url: GENERIC.url, playing: true, position: 0 }, now: T0 + 30_001 },
       { op: "setEmbed", embed: YT, by: "m1", itemId: "i3", since: 2, now: T0 + 40_000 },
       { op: "setEmbed", embed: null, by: null, itemId: "ignored", since: 3, now: T0 + 50_000 },
       { op: "itemInfo" },
@@ -488,7 +486,6 @@ const hand: Script[] = [
     init: { embed: YT, itemId: "cur1", itemSince: 7.5 },
     ops: [{ op: "itemInfo" }, { op: "setEmbed", embed: VIMEO, by: null, itemId: "n1", since: 1, now: T0 + 1 }],
   },
-  { init: { embed: GENERIC, itemId: "cur1" }, ops: [{ op: "itemInfo" }, { op: "setEmbed", embed: YT, by: null, itemId: "n1", since: 1, now: T0 + 1 }] },
   { init: { embed: LIVE, itemId: "cur1", createdAt: 5, lastActiveAt: 9 }, ops: [{ op: "itemInfo" }, J("m1", "alice"), { op: "control", m: "m1", control: { url: LIVE.url, playing: true, position: 5 }, now: T0 + 3000 }] },
   {
     init: { embed: YT, itemId: "cur1", queue: [{ id: "cur1", embed: YT }, { id: "q1", embed: VIMEO }, { id: "q2", embed: LIVE }] },
@@ -500,7 +497,7 @@ const hand: Script[] = [
     ops: [
       J("m1", "alice"),
       { op: "enqueue", id: "q1", embed: YT, by: "m1" },
-      { op: "enqueue", id: "q2", embed: GENERIC, by: null },
+      { op: "enqueue", id: "q2", embed: VOD, by: null },
       { op: "enqueue", id: "q3", embed: LIVE, by: "m1" },
       { op: "dequeue", id: "q2" },
       { op: "dequeue", id: "q2" },
@@ -508,7 +505,7 @@ const hand: Script[] = [
       { op: "advance", since: 10, by: "m1", now: T0 + 1 },
       { op: "setCatching", m: "m1", catching: true },
       { op: "takeCatchingChange", m: "m1" },
-      { op: "enqueue", id: "q4", embed: GENERIC2, by: null },
+      { op: "enqueue", id: "q4", embed: VIMEO_H, by: null },
       { op: "dequeue", id: "q3" },
       { op: "advance", since: 11, by: null, now: T0 + 2 },
       { op: "itemInfo" },

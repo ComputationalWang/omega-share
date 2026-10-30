@@ -36,6 +36,10 @@ const watch = (i: number): string =>
 const embedUrl = (i: number): string =>
   `https://www.youtube.com/embed/${vid(i)}`;
 const SHARED = 999;
+// ADR 0057 §1 (OME-1973): a generic item gets playback; only the Rust server implements it, so the frozen TS server's
+// ADR 0024 cases run against it alone, beside their binary-only replacements.
+const tsOnly = test.skipIf(process.env["OMEGA_SERVER_BIN"] !== undefined);
+const binaryOnly = test.skipIf(process.env["OMEGA_SERVER_BIN"] === undefined);
 const SHARE_BODY = JSON.stringify({ url: watch(SHARED) });
 const LIVE_BODY = JSON.stringify({ url: "https://www.twitch.tv/somechannel" });
 const GENERIC_URL = "https://videos.example-host.net/embed/abc";
@@ -468,7 +472,7 @@ describe("queue-advance (ADR 0031 §2, §5)", () => {
     await alice.client.none("queue-changed", 0);
   });
 
-  test("onto a generic item: playback null, so it stays click-to-load (ADR 0024)", async () => {
+  tsOnly("onto a generic item: playback null, so it stays click-to-load (ADR 0024)", async () => {
     t = start();
     const alice = await joined();
     const current = await share(alice);
@@ -477,6 +481,17 @@ describe("queue-advance (ADR 0031 §2, §5)", () => {
     const changed = await alice.client.next("embed-changed");
     expect(changed.embed?.provider).toBe("generic");
     expect(changed.playback).toBeNull();
+  });
+
+  binaryOnly("onto a generic item: load playback, like a synced one (ADR 0057 §1)", async () => {
+    t = start();
+    const alice = await joined();
+    const current = await share(alice);
+    await added(alice.client, GENERIC_URL);
+    alice.client.send({ type: "queue-advance", fromItemId: current });
+    const changed = await alice.client.next("embed-changed");
+    expect(changed.embed?.provider).toBe("generic");
+    expect(changed.playback).toMatchObject({ position: 0, action: "load" });
   });
 });
 
@@ -1084,7 +1099,18 @@ describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
     );
   });
 
-  test("a generic first item becomes current with playback null: click-to-load (ADR 0024)", async () => {
+  binaryOnly("a generic first item becomes current with load playback (ADR 0057 §1)", async () => {
+    t = start();
+    const alice = await joined();
+    add(alice.client, GENERIC_URL);
+    const changed = await alice.client.next("embed-changed");
+    expect(changed.embed?.provider).toBe("generic");
+    expect(changed.playback).toMatchObject({ position: 0, action: "load" });
+    expect(changed.by).toBe(alice.snapshot.self);
+    expect((await alice.client.next("queue-changed")).queue).toEqual([]);
+  });
+
+  tsOnly("a generic first item becomes current with playback null: click-to-load (ADR 0024)", async () => {
     t = start();
     const alice = await joined();
     add(alice.client, GENERIC_URL);

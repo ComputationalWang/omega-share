@@ -295,7 +295,7 @@ impl Room {
                 start_seconds: None,
             })
             .collect();
-        let playback = init.embed.as_ref().filter(|e| e.is_synced()).map(|_| restored_playback(now_wall));
+        let playback = init.embed.as_ref().map(|_| restored_playback(now_wall));
         let rev = playback.as_ref().map_or(-1, |p| i64::try_from(p.rev.0).unwrap_or(0));
         Ok(Self {
             topic: format!("room:{}", id.as_str()),
@@ -1061,7 +1061,7 @@ impl Room {
         self.embed.as_ref()
     }
 
-    /// The current playback; `None` with no embed or a generic one.
+    /// The current playback; `None` iff there is no embed (ADR 0057 section 1).
     pub fn current_playback(&self) -> Option<&PlaybackState> {
         self.playback.as_ref()
     }
@@ -1148,19 +1148,23 @@ impl Room {
     ) -> EmbedSwitch {
         let synced = embed.as_ref().is_some_and(AnyEmbed::is_synced);
         let start = embed.as_ref().and_then(|e| start_of(e, start));
+        let loaded = embed.is_some();
         self.embed = embed;
         self.current_item_id = item_id;
         self.current_since = since;
         self.reactions.clear();
         self.peak_members = self.order.len();
-        self.playback = synced.then(|| PlaybackState {
+        // Any embed gets playback (ADR 0057 section 1); catching up stays a synced-only status (ADR 0024 section 7).
+        self.playback = loaded.then(|| PlaybackState {
             position: start.and_then(|s| Position::new(f64::from(s.get()))).unwrap_or(Position::ZERO),
             ..load_playback(self.rev, now_wall, by)
         });
         if let Some(playback) = &self.playback {
             self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
+        }
+        if synced {
             return EmbedSwitch {
-                playback: Some(playback.clone()),
+                playback: self.playback.clone(),
                 uncaught: Vec::new(),
             };
         }
@@ -1176,11 +1180,14 @@ impl Room {
             rec.catching = false;
             rec.announced = None;
         }
-        EmbedSwitch { playback: None, uncaught }
+        EmbedSwitch {
+            playback: self.playback.clone(),
+            uncaught,
+        }
     }
 
     /// A member's timed reaction (OME-1632, ADR 0056), stamped with the room clock and kept for the current item.
-    /// `None`, and nothing kept, without a synced current item.
+    /// `None`, and nothing kept, without a current item.
     pub fn react(&mut self, member: &MemberId, kind: ReactionKind, now_wall: i64) -> Option<Reaction> {
         let playback = self.playback.as_ref()?;
         if !self.index.contains_key(member) {
@@ -1213,8 +1220,7 @@ impl Room {
 
     /// Applies a member's `control`; the new playback, or `None` if it's for no/another/a generic embed.
     pub fn control(&mut self, member: &MemberId, control: &Control<'_>, now_wall: i64) -> Option<PlaybackState> {
-        let Some(AnyEmbed::Synced(embed)) = &self.embed else { return None };
-        let next = apply_control(self.playback.as_ref(), Some(embed), control, member, now_wall)?;
+        let next = apply_control(self.playback.as_ref(), self.embed.as_ref(), control, member, now_wall)?;
         self.rev = i64::try_from(next.rev.0).unwrap_or(i64::MAX);
         self.playback = Some(next.clone());
         Some(next)
@@ -1421,12 +1427,13 @@ mod tests {
     }
 
     #[test]
-    fn no_reaction_without_a_synced_item_or_from_a_stranger() {
+    fn no_reaction_without_an_item_or_from_a_stranger() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        // A generic item has a room clock too (ADR 0057 section 1).
         r.set_embed(Some(generic()), None, None, None, 0.0, T0).unwrap();
-        assert!(r.react(&a, ReactionKind::Wow, T0).is_none());
+        assert!(r.react(&a, ReactionKind::Wow, T0).is_some());
         r.set_embed(Some(yt()), None, None, None, 0.0, T0).unwrap();
         assert!(r.react(&mid("ghost"), ReactionKind::Wow, T0).is_none());
         assert!(r.reactions().is_none());
@@ -1568,19 +1575,20 @@ mod tests {
     }
 
     #[test]
-    fn a_restored_generic_embed_has_no_playback_and_rev_starts_at_minus_one() {
+    fn a_restored_generic_embed_has_paused_playback_like_a_synced_one() {
         let mut r = room_with(RoomInit {
             embed: Some(generic()),
             item_id: Some(iid("cur1")),
             ..RoomInit::default()
         });
-        assert!(r.current_playback().is_none() && r.has_generic_embed());
+        // ADR 0057 section 1
+        assert_eq!(r.current_playback(), Some(&restored_playback(T0)));
         let next = r
             .set_embed(Some(yt()), None, Some(iid("n1")), None, 0.0, T0)
             .unwrap()
             .playback
             .unwrap();
-        assert_eq!(next.rev, Rev(0));
+        assert_eq!(next.rev, Rev(1));
     }
 
     #[test]
@@ -2099,13 +2107,13 @@ mod tests {
         assert_eq!(r.control(&a, &ctl(false, 0.0), T0 + 1).unwrap().rev, Rev(1));
         assert_eq!(rev(&mut r, Some(vimeo())), Some(2));
         assert_eq!(rev(&mut r, None), None);
-        assert_eq!(rev(&mut r, Some(generic())), None);
-        assert_eq!(rev(&mut r, Some(yt())), Some(3));
+        assert_eq!(rev(&mut r, Some(generic())), Some(3));
+        assert_eq!(rev(&mut r, Some(yt())), Some(4));
     }
 
-    // ADR 0024 section 7
+    // ADR 0024 section 7; ADR 0057 section 1: a generic embed keeps playback, but catching stays a synced-only status
     #[test]
-    fn a_generic_or_no_embed_clears_playback_and_every_catching_flag() {
+    fn a_generic_or_no_embed_clears_every_catching_flag() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         let b = join(&mut r, "m2", "bob", None);
@@ -2118,9 +2126,9 @@ mod tests {
         r.take_catching_change(&b);
         r.take_catching_change(&a);
         let sw = r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
-        assert_eq!(sw.playback, None);
+        assert_eq!(sw.playback.as_ref().map(|p| p.action), Some(PlaybackAction::Load));
         assert_eq!(sw.uncaught, [b.clone(), a.clone()]);
-        assert!(r.current_playback().is_none() && r.has_generic_embed());
+        assert!(r.current_playback() == sw.playback.as_ref() && r.has_generic_embed());
         assert!([&a, &b, &c].iter().all(|m| !r.is_catching(m)));
         assert!(json(&r.snapshot().members).find("catching").is_none());
         // Nothing left to announce.
@@ -2156,7 +2164,7 @@ mod tests {
     }
 
     #[test]
-    fn control_applies_only_to_the_current_synced_embed() {
+    fn control_applies_only_to_the_current_embed_synced_or_generic() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert_eq!(r.control(&a, &ctl(true, 0.0), T0), None);
@@ -2183,8 +2191,10 @@ mod tests {
                     countdown: false,
                 },
                 T0
-            ),
-            None
+            )
+            .map(|p| (p.action, p.playing, p.rev)),
+            // ADR 0057 section 1
+            Some((PlaybackAction::Play, true, Rev(3)))
         );
     }
 
@@ -2251,7 +2261,7 @@ mod tests {
     }
 
     #[test]
-    fn advancing_into_a_generic_embed_clears_playback_and_catching() {
+    fn advancing_into_a_generic_embed_loads_it_and_clears_catching() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         r.set_embed(Some(yt()), None, Some(iid("cur")), None, 0.0, T0).unwrap();
@@ -2259,8 +2269,9 @@ mod tests {
         r.take_catching_change(&a);
         r.enqueue(queued("g1", generic(), None));
         let adv = r.advance(2.0, None, T0).unwrap();
-        assert_eq!((adv.embed_switch.playback, adv.embed_switch.uncaught), (None, vec![a]));
-        assert!(r.current_playback().is_none() && r.has_generic_embed());
+        assert_eq!(adv.embed_switch.playback.as_ref().map(|p| p.action), Some(PlaybackAction::Load));
+        assert_eq!(adv.embed_switch.uncaught, vec![a]);
+        assert!(r.current_playback().is_some() && r.has_generic_embed());
     }
 
     // ---- snapshot, view, summary

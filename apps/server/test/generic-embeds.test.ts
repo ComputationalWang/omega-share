@@ -63,8 +63,13 @@ async function share(server: TestServer, url: string, nickname = "alice") {
 
 const unsupported = { ok: false, error: { code: "unsupported_url" } };
 
+// ADR 0057 §1 (OME-1973) gives a generic embed playback and accepts its `control`; only the Rust server implements
+// it, so the frozen TS server's ADR 0024 cases below run against it alone, beside their binary-only replacements.
+const tsOnly = test.skipIf(process.env["OMEGA_SERVER_BIN"] !== undefined);
+const binaryOnly = test.skipIf(process.env["OMEGA_SERVER_BIN"] === undefined);
+
 describe("POST /rooms/:id/share accepts the generic tier (ADR 0024)", () => {
-  test("a valid generic URL is shared canonically and broadcast with playback null", async () => {
+  tsOnly("a valid generic URL is shared canonically and broadcast with playback null", async () => {
     const server = boot();
     const watcher = await join(server, "bob");
     const { status, body } = await share(server, GENERIC_URL);
@@ -78,6 +83,22 @@ describe("POST /rooms/:id/share accepts the generic tier (ADR 0024)", () => {
     const late = await join(server, "carol");
     expect(late.snapshot.room.embed).toEqual(GENERIC);
     expect(late.snapshot.room.playback).toBeNull();
+  });
+
+  binaryOnly("a valid generic URL is shared canonically and broadcast with load playback (ADR 0057 §1)", async () => {
+    const server = boot();
+    const watcher = await join(server, "bob");
+    const { status, body } = await share(server, GENERIC_URL);
+    expect(status).toBe(200);
+    expect(body).toEqual({ ok: true, embed: GENERIC });
+
+    const changed = await watcher.client.next("embed-changed");
+    expect(changed.embed).toEqual(GENERIC);
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, rate: 1, action: "load" });
+
+    const late = await join(server, "carol");
+    expect(late.snapshot.room.embed).toEqual(GENERIC);
+    expect(late.snapshot.room.playback).toMatchObject({ action: "load" });
   });
 
   test("synced providers still become synced embeds with playback", async () => {
@@ -155,12 +176,26 @@ describe("host denylist hook (ADR 0024 §6)", () => {
 });
 
 describe("a generic embed's sync state stays inert (ADR 0024 §7)", () => {
-  test("control gets error no_embed, even with the embed's exact url, and nothing is broadcast", async () => {
+  tsOnly("control gets error no_embed, even with the embed's exact url, and nothing is broadcast", async () => {
     const server = boot();
     const watcher = await join(server, "bob");
     const { member } = await share(server, "https://videos.example-host.net/e/1");
     await watcher.client.next("embed-changed");
     member.client.send({ type: "control", url: "https://videos.example-host.net/e/1", playing: false, position: 30 });
+    expect((await member.client.next("error")).code).toBe("no_embed");
+    await watcher.client.none("playback");
+  });
+
+  binaryOnly("control with the embed's exact url is relayed to everyone; another url gets no_embed (ADR 0057 §1)", async () => {
+    const server = boot();
+    const watcher = await join(server, "bob");
+    const { member } = await share(server, "https://videos.example-host.net/e/1");
+    await watcher.client.next("embed-changed");
+    member.client.send({ type: "control", url: "https://videos.example-host.net/e/1", playing: false, position: 30 });
+    const heard = (await watcher.client.next("playback")).playback;
+    expect(heard).toMatchObject({ playing: false, position: 30, action: "seek", by: member.snapshot.self });
+    expect((await member.client.next("playback")).playback).toEqual(heard);
+    member.client.send({ type: "control", url: "https://videos.example-host.net/e/2", playing: true, position: 30 });
     expect((await member.client.next("error")).code).toBe("no_embed");
     await watcher.client.none("playback");
   });
