@@ -66,7 +66,7 @@ describe("frameSync", () => {
     const f = frame();
     f.addVideo();
     frameSync(HOST, f.env);
-    expect(v.parse(FrameStateMessageSchema, last(f.sent))["state"]).toBe("paused");
+    expect(v.parse(FrameStateMessageSchema, last(f.sent)).state).toBe("paused");
   });
 
   test("finds a video that appears later", async () => {
@@ -110,7 +110,7 @@ describe("frameSync", () => {
     const video = f.addVideo();
     frameSync(HOST, f.env);
     await new Promise((r) => setTimeout(r, 1100));
-    expect(f.sent).toEqual([]);
+    expect(kinds(f.sent)).toEqual(["frame-state"]); // the attach report only
     await video.play();
     const before = f.sent.length;
     await new Promise((r) => setTimeout(r, 1100));
@@ -216,6 +216,7 @@ describe("frameSync", () => {
     expect(f.listeners.size).toBe(1);
     f.command({ source: "omega-share", kind: "frame-detach" });
     expect(f.listeners.size).toBe(0);
+    f.sent.length = 0;
     f.fire(video, "pause");
     f.addVideo();
     await f.tick();
@@ -229,6 +230,6 @@ describe("frameSync", () => {
     const injected = (new Function(`return ${frameSync.toString()}`) as () => typeof frameSync)();
     injected(HOST, f.env);
     f.fire(video, "pause");
-    expect(kinds(f.sent)).toEqual(["frame-state"]);
+    expect(kinds(f.sent)).toEqual(["frame-state", "frame-state"]);
   });
 });

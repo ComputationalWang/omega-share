@@ -69,6 +69,8 @@ export function frameSync(host: string, env?: FrameEnv): void {
     video = next;
     echoes.clear();
     for (const type of EVENTS) video?.addEventListener(type, onEvent);
+    // A video already loaded and paused fires nothing more: report it now so the page can attach.
+    report();
   };
 
   const onCommand = (raw: unknown): void => {
