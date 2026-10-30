@@ -18,7 +18,6 @@ import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, 
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
-import { lieOffset } from "./walk/lie";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
 import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
@@ -398,13 +397,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     });
     for (const k of lieButtons) k.b.remove();
     lieButtons = next.furniture.flatMap((f, i) => {
-      const off = lieOffset(f.kind, f.facing);
-      if (off === undefined) return [];
+      // The first lier's spot, in my view (OME-1961: from the north the piece is turned).
+      const spot = scene.lies.get(i)?.[0];
+      if (spot === undefined) return [];
       const b = el("button", { type: "button", className: "lie-key" }, "lie-key");
       b.dataset["lie"] = String(i);
-      const c = cellCenter(f.col, f.row);
       // Above the piece, clear of its seat keys.
-      b.style.translate = `${String(c.x + off.x)}px ${String(c.y + off.y - LIE_KEY_LIFT)}px`;
+      b.style.translate = `${String(spot.at.x)}px ${String(spot.at.y - LIE_KEY_LIFT)}px`;
       const name = LIE_NAMES[f.kind] ?? "sofa";
       return [{ b, piece: i, down: `Lie down on the ${name}`, up: `Get up from the ${name}` }];
     });

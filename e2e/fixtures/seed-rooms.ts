@@ -18,15 +18,17 @@ for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: t
 const db = openDatabase(path);
 const store = new RoomStore(db);
 // Rooms whose layout the test needs on the server itself, not only in the snapshot: teleport pads, two doors to each other.
+const DUNGEON = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")));
 const SEEDED_LAYOUTS = new Map([
   [testRoomId("teleport", "pads"), PADS],
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],
-  // The Dank Dungeon preset: its queen bed at layout index 1 (seats 0-1) sleeps two (OME-2009).
-  [testRoomId("lie", "bed"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
-  // The same preset for the 180° view swap (OME-1961): its own room, so the lie spec's sleepers don't turn anyone's view.
-  [testRoomId("view-swap", "main"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
-  [testRoomId("view-swap-perf", "frames"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
+  // The Dank Dungeon's tv and first queen bed only (layout index 1, seats 0-1), which sleeps two (OME-2009): no partition, so
+  // a sleeper's view doesn't turn (OME-1961), and one bed's frames in the draw order.
+  [testRoomId("lie", "bed"), { ...DUNGEON, furniture: [DUNGEON.furniture.find((f) => f.kind === "tv"), DUNGEON.furniture.find((f) => f.kind === "bed")].flatMap((f) => (f === undefined ? [] : [f])) }],
+  // The whole preset for the 180° view swap (OME-1961).
+  [testRoomId("view-swap", "main"), DUNGEON],
+  [testRoomId("view-swap-perf", "frames"), DUNGEON],
   [testRoomId("doors", "a"), doorTo(testRoomId("doors", "b"))],
   [testRoomId("doors", "b"), doorTo(testRoomId("doors", "a"))],
 ]);
