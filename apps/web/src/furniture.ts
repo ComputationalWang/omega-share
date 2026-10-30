@@ -6,7 +6,7 @@ import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCell
 import { STAGE_W, cellCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { lieOffset } from "./walk/lie";
-import { cellOf } from "./walk/path";
+import { cellOf, colOf, rowOf } from "./walk/path";
 
 /**
  * A layout's content as a string: each piece's fields in a fixed order, an absent variant as 0. Two layouts with the same
@@ -60,6 +60,8 @@ export const FurnitureManifestSchema = v.object({
           /** A door (OME-1424): an open frame, `furniture/<id>/<colour>/open/<dir>`, same rect and anchor as the closed back frame. */
           open: v.optional(v.boolean()),
           /** A piece that wanders (the cat, OME-1520): its walk loop; frames `meta.omega.walkKey`, `sitKey`, and `bedKey` for the empty bed. */
+          /** An interior wall (OME-1959): its cut-down stub, `furniture/<id>/<colour>/cut/<dir>`, with its own rect and anchor. */
+          cut: v.optional(v.boolean()),
           walk: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
         }),
       ),
@@ -200,10 +202,12 @@ const NOBODY: ReadonlySet<number> = new Set();
  * footprint cell's; a wall piece's front is the floor cell under it), someone sits in a seated piece, or a video plays.
  * `standing` and `seated` hold walk cells (`cellOf`). Worked out when someone moves or the layout changes, never per frame.
  */
-export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean, seated: ReadonlySet<number> = NOBODY): Set<number> {
+export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean, seated: ReadonlySet<number> = NOBODY, cut = false): Set<number> {
   const out = new Set<number>();
   layout.furniture.forEach((f, i) => {
-    if (playing && PLAYING_KINDS.has(f.kind)) out.add(i);
+    if (f.kind === "partition") {
+      if (cut) out.add(i);
+    } else if (playing && PLAYING_KINDS.has(f.kind)) out.add(i);
     else if (ON_KINDS.has(f.kind)) {
       if (standing.has(cellOf(f.col, f.row))) out.add(i);
     } else if (SEATED_KINDS.has(f.kind) && footprintCells(f).some(([c, r]) => seated.has(cellOf(c, r)))) out.add(i);
@@ -220,6 +224,20 @@ export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, p
     }
   });
   return out;
+}
+
+/**
+ * The partitions are cut down for this viewer (OME-1960): my cell `self` is behind a partition (a smaller row than a row
+ * of them, facing sw; a smaller col than a col of them, facing se). On a partition's own line (the doorway), or with no
+ * avatar of mine, it stays `was`. Worked out on a walk event, never per frame.
+ */
+export function cutaway(layout: RoomLayout, self: number | null, was: boolean): boolean {
+  // shortcut: one verdict cuts every partition (phase A has one wall); go per wall if a layout ever has two.
+  const wall = layout.furniture.find((f) => f.kind === "partition");
+  if (wall === undefined) return false;
+  if (self === null) return was;
+  const [mine, line] = wall.facing === "se" ? [colOf(self), wall.col] : [rowOf(self), wall.row];
+  return mine === line ? was : mine < line;
 }
 
 /** The room a door leads to (OME-1425), if `(col, row)` is the cell in front of one of the layout's doors. */
@@ -372,11 +390,11 @@ function pushSprites(
       y: anchor.y,
       layer,
       z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
-      // The loop swaps the back frame in place (same size and anchor). An open piece (a door) has one frame: its open one, a state.
+      // The loop swaps the back frame in place. An open piece (a door) or a cut one (a partition, OME-1960) has one frame: a state.
       ...(part === "back" && piece.use !== undefined
         ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms } }
-        : part === "back" && piece.open === true
-          ? { use: { piece: index, frames: [frame(`open/${f.facing}`)], ms: OPEN_MS } }
+        : part === "back" && (piece.open === true || piece.cut === true)
+          ? { use: { piece: index, frames: [frame(`${piece.open === true ? "open" : "cut"}/${f.facing}`)], ms: OPEN_MS } }
           : part === "back" && piece.walk !== undefined
             ? { walker: walkerOf(frame, index, cellOf(f.col, f.row), f.facing, piece.walk) }
             : {}),

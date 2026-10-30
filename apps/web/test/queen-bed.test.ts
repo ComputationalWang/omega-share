@@ -46,8 +46,7 @@ describe("the queen bed in a room", () => {
 
   test("the Dank Dungeon preset shows its two queen beds", () => {
     const keys = sceneOf(dungeon, sheets, room).sprites.map((x) => x.key);
-    expect(keys).toContain("furniture/bed/velvet/nw/back");
-    expect(keys).toContain("furniture/bed/velvet/ne/back");
+    expect(keys.filter((k) => k === "furniture/bed/velvet/nw/back")).toHaveLength(2);
     expect(problems(dungeon)).toEqual([]);
   });
 });
