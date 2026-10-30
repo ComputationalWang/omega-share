@@ -66,7 +66,7 @@ describe("lie offsets", () => {
 });
 
 // OME-2024: the desktop band keeps every seat whole from its top (bandHome, SEAT_HIT_H 44), not what lies above it, so a
-// queen bed's key sits on the bed, inside that guarantee, and a touch key (room.css: 44 px, 34 px up) covers no seat key.
+// queen bed's desktop key (room.css: 20 px, 10 px up) sits inside that guarantee, and a touch key (room.css: 44 px, 34 px up) covers no seat key.
 describe("the queen bed's lie key", () => {
   for (const facing of DIRS) {
     test(`facing ${facing}: below the band's top and clear of its seat keys`, () => {
@@ -75,7 +75,6 @@ describe("the queen bed's lie key", () => {
       if (key === undefined) throw new Error("no lie key");
       const top = Math.min(...seatPoints({ furniture: [bed] }).map((p) => p.y)) - 22;
       expect(key.y - 10).toBeGreaterThanOrEqual(top);
-      expect(key.y - 34).toBeGreaterThanOrEqual(top);
       const under = seatTiles({ furniture: [bed] }).filter((s) => Math.abs(s.x - key.x) <= 22 && s.y >= key.y - 34 && s.y <= key.y + 10);
       expect(under).toEqual([]);
     });

@@ -42,10 +42,15 @@ export const lieOffset = (kind: FurnitureKind, dir: Dir, sleeper: Sleeper = 0): 
 /** Stage px a lie key sits above the lier's floor point. */
 const LIE_KEY_LIFT = 40;
 
-/** Where piece `f`'s lie key sits (stage.ts), or none if it can't be lain on. */
+/**
+ * Where piece `f`'s lie key sits (stage.ts), or none if it can't be lain on. A sofa's is above it; the queen bed's on its
+ * footprint cell off the seats (OME-2024): above it, the desktop band's player chrome covered it, and a touch key there
+ * covers no seat key.
+ */
 export const lieKeyPoint = (f: Furniture): Point | undefined => {
   const off = lieOffset(f.kind, f.facing);
   if (off === undefined) return undefined;
+  if (f.kind === "bed") return f.facing === "ne" || f.facing === "se" ? cellCenter(f.col, f.row + 1) : cellCenter(f.col + 1, f.row);
   const c = cellCenter(f.col, f.row);
   return { x: c.x + off.x, y: c.y + off.y - LIE_KEY_LIFT };
 };
