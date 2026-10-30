@@ -16,6 +16,13 @@ export interface Point {
   readonly y: number;
 }
 
+let north = false;
+/** Which side I see the room from (OME-1961): north maps cell (c, r) to (9 − c, 9 − r). */
+export const setNorth = (on: boolean): void => {
+  north = on;
+};
+export const isNorth = (): boolean => north;
+
 /** Centre of iso cell (col, row). */
 export function cellCenter(col: number, row: number): Point {
   return { x: ORIGIN_X + (col - row) * (TILE_W / 2), y: ORIGIN_Y + (col + row + 1) * (TILE_H / 2) };

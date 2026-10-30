@@ -78,6 +78,8 @@ export interface Walks {
   setGrid(grid: Uint8Array): void;
   /** Everyone's spot now. The first call with people in it (my snapshot) places them without a walk. */
   place(targets: readonly WalkTarget[], now: number): void;
+  /** The view turned 180° (OME-1961): everyone's drawn spot, path and last facing carried over to the other side. */
+  reflect(): void;
   /** Writes `id`'s pose at `now` into `out`; false if they're not in the room. */
   sample(id: MemberId, now: number, out: Pose): boolean;
   /** True while anyone is still on their way. */
@@ -276,6 +278,8 @@ export function createWalks(opts: WalksOptions): Walks {
       }
       for (const id of entries.keys()) if (!seen.has(id)) entries.delete(id);
     },
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- red stub (OME-1961)
+    reflect() {},
     sample(id, now, out) {
       const e = entries.get(id);
       if (e === undefined) return false;

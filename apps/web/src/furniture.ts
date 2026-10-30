@@ -240,6 +240,23 @@ export function cutaway(layout: RoomLayout, self: number | null, was: boolean): 
   return mine === line ? was : mine < line;
 }
 
+/** True if the layout has a partition, i.e. the back-view sheet must load (OME-1961). */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1961)
+export function usesBack(_layout: RoomLayout): boolean {
+  return false;
+}
+
+/** My view of a partitioned room (OME-1961): `behind` the wall (cutaway's verdict), `north` (seen from the other side), `cut` (the stubs, the fallback). */
+export interface ViewVerdict {
+  readonly behind: boolean;
+  readonly north: boolean;
+  readonly cut: boolean;
+}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1961)
+export function viewVerdict(_layout: RoomLayout, _self: number | null, was: boolean, _editing: boolean, _ready: boolean): ViewVerdict {
+  return { behind: was, north: false, cut: false };
+}
+
 /** The room a door leads to (OME-1425), if `(col, row)` is the cell in front of one of the layout's doors. */
 export function doorAt(layout: RoomLayout, col: number, row: number): RoomId | null {
   for (const f of layout.furniture) {
@@ -320,7 +337,8 @@ interface Colour {
  * sitters sort by their own cell; without the room manifest, so are the floor, walls and room-atlas kinds. Built once per
  * layout change, never per frame.
  */
-export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null): Scene {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1961)
+export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null, _back: FurnitureManifest | null = null): Scene {
   // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's colours of older kinds (V7_COLOURS).
   const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour }] as const))));
   const layers = manifests[0]?.meta.omega.layers;

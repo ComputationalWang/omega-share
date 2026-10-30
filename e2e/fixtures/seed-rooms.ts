@@ -24,6 +24,9 @@ const SEEDED_LAYOUTS = new Map([
   [testRoomId("lie", "sofa"), SET_G],
   // The Dank Dungeon preset: its queen bed at layout index 1 (seats 0-1) sleeps two (OME-2009).
   [testRoomId("lie", "bed"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
+  // The same preset for the 180° view swap (OME-1961): its own room, so the lie spec's sleepers don't turn anyone's view.
+  [testRoomId("view-swap", "main"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
+  [testRoomId("view-swap-perf", "frames"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
   [testRoomId("doors", "a"), doorTo(testRoomId("doors", "b"))],
   [testRoomId("doors", "b"), doorTo(testRoomId("doors", "a"))],
 ]);
