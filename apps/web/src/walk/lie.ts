@@ -14,6 +14,7 @@ const DIRS: readonly Dir[] = ["se", "sw", "ne", "nw"];
 const KEYS: Readonly<Record<LieStyle, readonly (readonly ([string, string] | undefined)[])[]>> = {
   lie: AVATAR_IDS.map((id) => DIRS.map((d) => [`lie/${id}/${d}/0`, `lie/${id}/${d}/1`])),
   curl: AVATAR_IDS.map((id) => DIRS.map((d) => (d === "se" || d === "sw" ? [`curl/${id}/${d}/0`, `curl/${id}/${d}/1`] : undefined))),
+  sleep: AVATAR_IDS.map((id) => DIRS.map((d) => [`sleep/${id}/${d}/0`, `sleep/${id}/${d}/1`])),
 };
 
 export const lieKeys = (style: LieStyle, avatar: number, dir: Dir): readonly [string, string] | undefined => KEYS[style][avatar]?.[DIRS.indexOf(dir)];
@@ -23,6 +24,7 @@ const OFFSETS: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Di
   sofa: SOFA,
   couch: SOFA,
   cat: { se: { x: 12, y: -2 }, sw: { x: -12, y: -2 } },
+  // The bed (`sleep`, OME-2008) has no entry yet: its two sleepers' offsets come with the web sleeper issue (OME-1984).
   // shortcut: the v7 lounger (`lie: "lie"`) has no entry, so no lie spot: lying.json has no lounger art yet; it seats only. Add its offsets with the art.
 };
 
@@ -30,7 +32,7 @@ const OFFSETS: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Di
 export const lieOffset = (kind: FurnitureKind, dir: Dir): Point | undefined => OFFSETS[kind]?.[dir];
 
 /** A frame of the lying sheet (not the motion sheets). */
-export const isLieFrame = (frame: string): boolean => frame.startsWith("lie/") || frame.startsWith("curl/");
+export const isLieFrame = (frame: string): boolean => frame.startsWith("lie/") || frame.startsWith("curl/") || frame.startsWith("sleep/");
 
 /** How someone can lie on layout piece `piece`, or undefined if there is no such piece or it has no lie style. */
 export const lieStyleOf = (layout: RoomLayout, piece: number): LieStyle | undefined => {

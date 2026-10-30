@@ -13,8 +13,11 @@ export const FACINGS = ["ne", "nw", "se", "sw"] as const;
 export const FacingSchema = v.picklist(FACINGS);
 export type Facing = v.InferOutput<typeof FacingSchema>;
 
-/** How a member lies on a piece (OME-1773): stretched out (`lie`) or curled up (`curl`), art in `assets/avatars/lying.json`. */
-export const LIE_STYLES = ["lie", "curl"] as const;
+/**
+ * How a member lies on a piece (OME-1773): stretched out (`lie`) or curled up (`curl`), one lier per piece; or asleep
+ * (`sleep`, OME-2008), up to the piece's seat count side by side. Art in `assets/avatars/lying.json`.
+ */
+export const LIE_STYLES = ["lie", "curl", "sleep"] as const;
 export type LieStyle = (typeof LIE_STYLES)[number];
 
 export interface FurnitureSpec {
@@ -26,13 +29,16 @@ export interface FurnitureSpec {
   readonly rows: number;
   /** Every footprint cell is a seat facing the piece's way. */
   readonly seats: boolean;
-  /** Seats only the first `seatCells` cells of its first row, from the anchor. Absent: the whole row. */
+  /** Seats only the first `seatCells` cells of its seat row, from the anchor. Absent: the whole row. */
   readonly seatCells?: number;
   /** Colour or artwork variants; variant 0 is the default. */
   readonly variants: number;
   /** Backs onto a wall: facing sw it stands on row 0 (right wall), facing se on col 0 (left wall). */
   readonly wallBacked: boolean;
-  /** A member may lie on it (`lie` message), blocking its seats. Absent: not a bed for anyone. */
+  /**
+   * A member may lie on it (`lie` message). `lie`/`curl`: one lier, blocking all its seats. `sleep`: one sleeper per
+   * seat, sleeper `i` blocking seat `i` of the piece (OME-2008). Absent: not a bed for anyone.
+   */
   readonly lie?: LieStyle;
 }
 
@@ -108,8 +114,8 @@ export const FURNITURE = {
   aislelight: piece("floor", ["ne", "nw"], ONE),
   carpet: piece("floor", FIXED, { cols: 2, rows: 2 }, { variants: 2 }),
   // Dank Dungeon (OME-1670 / OME-1672, `assets/furniture/furniture-v6.json`, lazy).
-  /** A queen bed (OME-1982): 2×2, two sleepers side by side on its first row. */
-  bed: piece("object", FACINGS, { cols: 2, rows: 2 }, { seats: true }),
+  /** A queen bed (OME-1982): 2×2, two sleepers side by side on its front row (ADR 0057). */
+  bed: piece("object", FACINGS, { cols: 2, rows: 2 }, { seats: true, lie: "sleep" }),
   whirlpool: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
   mirror: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
   minibar: piece("object", CAMERA, ONE, { variants: 2 }),
@@ -227,13 +233,18 @@ export function canTeleport(layout: { readonly furniture: readonly Placed[] }, f
   return from !== undefined && (from.x !== cell.x || from.y !== cell.y) && isPad(from) && isPad(cell) && isStandable(layout, cell);
 }
 
-/** Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). A piece seats along its first row only (ADR 0057). */
+/**
+ * Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). A piece seats along its
+ * first row only (ADR 0057): the anchor row. A `sleep` piece (the bed) seats along its front row, where the art lays
+ * its sleepers: the anchor row for ne/nw, the last row for se/sw (OME-2008).
+ */
 export function layoutSeats(layout: { readonly furniture: readonly Placed[] }): Seat[] {
   const seats: Seat[] = [];
   for (const f of layout.furniture) {
     const spec: FurnitureSpec = FURNITURE[f.kind];
     if (!spec.seats) continue;
-    const row = footprintCells(f).filter(([c, r]) => (turned(f) ? c === f.col : r === f.row));
+    const back = spec.lie === "sleep" && (f.facing === "se" || f.facing === "sw") ? spec.rows - 1 : 0;
+    const row = footprintCells(f).filter(([c, r]) => (turned(f) ? c === f.col + back : r === f.row + back));
     for (const [col, r] of row.slice(0, spec.seatCells)) seats.push({ col, row: r, facing: f.facing });
   }
   return seats;

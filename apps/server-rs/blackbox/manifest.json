@@ -148,6 +148,7 @@
     "apps/server/test/http-limits.test.ts::per-key HTTP request limit::loopback peers without the proxy skip the per-key limit (ADR 0018 §3: local dev, e2e, the load test)",
     "apps/server/test/http-limits.test.ts::per-key HTTP request limit::prepending to X-Forwarded-For does not make a new key (T-07)",
     "apps/server/test/http-limits.test.ts::per-key HTTP request limit::spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08)",
+    "apps/server/test/lie.test.ts::lying down (OME-1691)::a bed takes two sleepers, each keeps their side when the other gets up, a third is seat_taken",
     "apps/server/test/lie.test.ts::lying down (OME-1691)::a lain-on sofa and its seats are taken for everyone else",
     "apps/server/test/lie.test.ts::lying down (OME-1691)::a layout-set that drops the piece gets the lier up right after layout-changed",
     "apps/server/test/lie.test.ts::lying down (OME-1691)::a layout-set that keeps the piece leaves the lier lying",

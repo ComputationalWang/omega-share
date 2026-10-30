@@ -186,6 +186,8 @@ pub enum Layer {
 pub enum LieStyle {
     Lie,
     Curl,
+    /// Two sleepers side by side, up to the piece's seat count, each on their own side (OME-2008).
+    Sleep,
 }
 
 /// One row of `FURNITURE`.
@@ -287,8 +289,8 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bigscreen => Spec::new(Object, FIXED, 1, 1),
         Kind::Aislelight => Spec::new(Floor, ON_FLOOR, 1, 1),
         Kind::Carpet => Spec::new(Floor, FIXED, 2, 2).variants(2),
-        // A queen bed (OME-1982): 2×2, two sleepers side by side on its first row.
-        Kind::Bed => Spec::new(Object, ALL, 2, 2).seated(),
+        // A queen bed (OME-1982): 2×2, two sleepers side by side on its front row (ADR 0057, OME-2008).
+        Kind::Bed => Spec::new(Object, ALL, 2, 2).seated().lie(LieStyle::Sleep),
         Kind::Whirlpool => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Mirror => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Minibar => Spec::new(Object, CAMERA, 1, 1).variants(2),
@@ -354,19 +356,25 @@ pub fn footprint_cells(f: &Furniture) -> Vec<(u32, u32)> {
         .collect()
 }
 
-/// The seat cells of one piece: its first row (ADR 0057), at most `seat_cells` of it from the anchor.
+/// The seat cells of one piece: its first row (ADR 0057), at most `seat_cells` of it from the anchor. A `sleep` piece
+/// seats along its front row instead, where the art lays its sleepers: the last row for se/sw (OME-2008).
 fn seat_cells(f: &Furniture) -> impl Iterator<Item = (u32, u32)> + '_ {
     let s = spec(f.kind);
-    let first_row = move |&(col, row): &(u32, u32)| {
+    let back = if s.lie == Some(LieStyle::Sleep) && matches!(f.facing, Facing::Se | Facing::Sw) {
+        u32::from(s.rows).saturating_sub(1)
+    } else {
+        0
+    };
+    let seat_row = move |&(col, row): &(u32, u32)| {
         if turned(f) {
-            col == u32::from(f.col)
+            col == u32::from(f.col) + back
         } else {
-            row == u32::from(f.row)
+            row == u32::from(f.row) + back
         }
     };
     footprint_cells(f)
         .into_iter()
-        .filter(first_row)
+        .filter(seat_row)
         .take(if s.seats { s.seat_cells } else { 0 })
 }
 
@@ -1191,20 +1199,21 @@ mod tests {
         assert_eq!(footprint_cells(&Furniture::new(Kind::Rug, 1, 1, Facing::Se)).len(), 49);
     }
 
-    // packages/shared/test/dank-dungeon-contract.test.ts (OME-1982): a queen bed, two sleepers side by side.
+    // packages/shared/test/dank-dungeon-contract.test.ts (OME-1982, OME-2008): a queen bed, two sleepers side by side on its front row.
     #[test]
-    fn a_bed_covers_2x2_and_seats_two_side_by_side_in_every_facing() {
-        for facing in FACINGS {
+    fn a_bed_covers_2x2_and_seats_two_side_by_side_on_its_front_row_in_every_facing() {
+        for (facing, want) in [
+            (Facing::Ne, [(4, 0), (5, 0)]),
+            (Facing::Nw, [(4, 0), (4, 1)]),
+            (Facing::Se, [(5, 0), (5, 1)]),
+            (Facing::Sw, [(4, 1), (5, 1)]),
+        ] {
             let bed = Furniture::new(Kind::Bed, 4, 0, facing);
             assert_eq!(footprint_cells(&bed), [(4, 0), (4, 1), (5, 0), (5, 1)], "{facing:?}");
-            let next = if matches!(facing, Facing::Ne | Facing::Sw) {
-                (5, 0)
-            } else {
-                (4, 1)
-            };
-            let seats: Vec<_> = layout_seats(&[bed]).iter().map(|s| (s.col, s.row, s.facing)).collect();
-            assert_eq!(seats, [(4, 0, facing), (next.0, next.1, facing)], "{facing:?}");
+            let seats: Vec<_> = layout_seats(&[bed]).iter().map(|s| (s.col, s.row)).collect();
+            assert_eq!(seats, want, "{facing:?}");
         }
+        assert_eq!(spec(Kind::Bed).lie, Some(LieStyle::Sleep));
     }
 
     // packages/shared/test/layout-contract.test.ts:291

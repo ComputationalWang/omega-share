@@ -40,7 +40,7 @@
 {"input":"bigscreen","ok":true,"output":{"lie":null}},
 {"input":"aislelight","ok":true,"output":{"lie":null}},
 {"input":"carpet","ok":true,"output":{"lie":null}},
-{"input":"bed","ok":true,"output":{"lie":null}},
+{"input":"bed","ok":true,"output":{"lie":"sleep"}},
 {"input":"whirlpool","ok":true,"output":{"lie":null}},
 {"input":"mirror","ok":true,"output":{"lie":null}},
 {"input":"minibar","ok":true,"output":{"lie":null}},
