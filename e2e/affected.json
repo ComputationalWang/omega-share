@@ -321,12 +321,14 @@
         "e2e/fake-players.e2e.ts",
         "e2e/fake-yt.e2e.ts",
         "e2e/provider-fullscreen.e2e.ts",
+        "e2e/provider-generic-sync.e2e.ts",
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-quality.e2e.ts",
         "e2e/provider-queue.e2e.ts",
         "e2e/provider-share.e2e.ts",
         "e2e/provider-shelf.e2e.ts",
         "e2e/provider-sync.e2e.ts",
+        "e2e/real/kwik-sync.real.ts",
         "e2e/real/real-ads.real.ts",
         "e2e/real/real-invite-referrer.real.ts",
         "e2e/real/real-providers.real.ts",
@@ -354,6 +356,7 @@
       "specs": [
         "e2e/acceptance.e2e.ts",
         "e2e/fullscreen.e2e.ts",
+        "e2e/provider-generic-sync.e2e.ts",
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-quality.e2e.ts",
         "e2e/provider-queue.e2e.ts",
@@ -969,6 +972,8 @@
         "e2e/extension-watching.e2e.ts",
         "e2e/extension.e2e.ts",
         "e2e/extension.firefox.ts",
+        "e2e/generic-sync.firefox.ts",
+        "e2e/provider-generic-sync.e2e.ts",
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-share.e2e.ts",
         "e2e/qa-rooms-extension.e2e.ts",
@@ -1007,6 +1012,16 @@
         "e2e/real/share-now.real.ts"
       ],
       "why": "popup start time + watching badge on real providers (OME-1646)"
+    },
+    {
+      "paths": [
+        "apps/extension/src/{frame-sync,frame-relay}.ts",
+        "apps/extension/src/entrypoints/background.ts"
+      ],
+      "specs": [
+        "e2e/real/kwik-sync.real.ts"
+      ],
+      "why": "generic frame sync on a real host: e2e-real (ADR 0057, OME-1976)"
     },
     {
       "paths": [

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>video host</title></head>
+<body>
+  <!-- A generic host with a local <video> for ADR 0057 frame sync (OME-1976). The buttons are a viewer's own clicks in the frame. -->
+  <video id="v" src="clip.webm" muted playsinline width="320" height="180"></video>
+  <button id="play" onclick="document.getElementById('v').play()">play</button>
+  <button id="pause" onclick="document.getElementById('v').pause()">pause</button>
+  <button id="seek" onclick="document.getElementById('v').currentTime = 20">seek 20</button>
+</body></html>

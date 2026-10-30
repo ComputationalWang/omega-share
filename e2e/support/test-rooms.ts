@@ -16,6 +16,7 @@ export const SPEC_ROOMS = {
   "provider-sync": ["twvod", "vimeo", "vimeo-rate", "twvod-late", "live", "live-early", "live-forge", "live-ad"],
   "provider-share": ["1", "2", "3", "4"],
   "provider-generic": ["main"],
+  "provider-generic-sync": ["main"],
   "room-view": ["main"],
   "view-swap": ["main"],
   "view-swap-perf": ["frames"],
