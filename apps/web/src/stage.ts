@@ -9,12 +9,12 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { cutaway, doorAt, layoutOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7 } from "./furniture";
+import { doorAt, layoutOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesBack, viewVerdict } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
-import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
+import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
@@ -130,6 +130,9 @@ function box(e: HTMLElement, r: Rect): void {
 export async function createStage(o: StageOptions): Promise<Stage> {
   // .ui-room: set (e)/(c) chrome inside the stage is at the room's 1× art scale.
   const root = el("div", { className: "stage ui-room" }, "room");
+  // Every room opens from the south (OME-1961); the view turns once my avatar is behind a partition.
+  setNorth(false);
+  root.dataset["view"] = "south";
   const overlay = el("div", { className: "overlay" });
   // Placed from the room's layout on each render that changes it (applyLayout).
   const seatButtons = Array.from({ length: SEAT_COUNT }, (_, i) => {
@@ -316,16 +319,21 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let standCells = new Set<number>();
   let sitCells = new Set<number>();
   let inUseStale = true;
-  /** My avatar is behind the partition (OME-1960): it draws cut down, for me only. */
+  /** My avatar is behind the partition (OME-1960): for me only, the room turns north (OME-1961) or, until the back sheet is in, its partitions draw cut down. */
+  let behind = false;
   let cut = false;
+  /** My avatar's walk cell as last placed, for the view verdict; null with no avatar. */
+  let myCell: number | null = null;
+  /** The back-view atlas once loaded (OME-1961): turned one-sided pieces and the north shell skin. */
+  let backAtlas: FurnitureAtlas | null = null;
   let drawnPlaying = false;
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
     const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
-    scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, roomAtlas, recolours], grid);
+    scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null, backAtlas?.manifest ?? null);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, backAtlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
   };
 
@@ -416,6 +424,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
     if (usesV7(next) && v7Atlas === null) {
       lazyAtlas("furniture v7", key, next, () => import("./furniture-v7-atlas").then((m) => m.loadFurnitureV7Atlas()), (a) => (v7Atlas = a));
+    }
+    if (usesBack(next) && backAtlas === null) {
+      lazyAtlas("furniture back", key, next, () => import("./furniture-back-atlas").then((m) => m.loadFurnitureBackAtlas()), (a) => (backAtlas = a));
     }
     if (next.pairs === true) view.loadPairPoses();
     if (usesV4(next) && v4Atlas === null) {
@@ -516,8 +527,24 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
       sitCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [] : [cellAt(p.at)])));
       const mine = placements.find((p) => p.id === s.self);
-      cut = cutaway(nextLayout, mine === undefined ? null : cellAt(mine.at), cut);
+      myCell = mine === undefined ? null : cellAt(mine.at);
       inUseStale = true;
+    }
+    // Per render, not per placement: the editor opening turns the view south (OME-1961). Cheap: one find over the furniture.
+    const verdict = viewVerdict(nextLayout, myCell, behind, editing, backAtlas !== null);
+    behind = verdict.behind;
+    if (verdict.cut !== cut) {
+      cut = verdict.cut;
+      inUseStale = true;
+    }
+    if (verdict.north !== isNorth()) {
+      // The 180° swap: everyone's drawn spot turns with the room (no walk), then the layout is rebuilt once in the new projection.
+      setNorth(verdict.north);
+      root.dataset["view"] = verdict.north ? "north" : "south";
+      view.reflect();
+      layoutKey = "";
+      applyLayout(nextLayout);
+      o.requestRender();
     }
     const playing = s.room?.playback?.playing === true;
     if (inUseStale || playing !== drawnPlaying) {

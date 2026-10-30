@@ -378,7 +378,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       });
       if (spots.length > 0) lies.set(i, spots);
     }
-    if (drawn !== null && fromBack && back !== null) {
+    if (drawn !== null && fromBack) {
       for (const part of drawn.piece.layersByDir[source.facing] ?? []) {
         const key = `furniture/${id}/${drawn.colour}/${f.facing}/${part}`;
         if (back.frames[key] !== undefined) sprites.push({ key, x: anchor.x, y: anchor.y, layer: spec.layer, z: depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers[part]) });
