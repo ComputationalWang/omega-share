@@ -18,6 +18,7 @@ import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, 
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
+import { LIE_KEY_LIFT, lieKeyPoint } from "./walk/lie";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
 import type { AvatarEmote } from "./walk/motion";
 import { standingPlacement } from "./walk/standing";
@@ -113,8 +114,6 @@ function place(e: HTMLElement, p: Point): void {
   e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
 
-/** Stage px a lie key sits above the lier's floor point. */
-const LIE_KEY_LIFT = 40;
 /** What a lie key's name calls each piece. */
 const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
@@ -397,13 +396,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     });
     for (const k of lieButtons) k.b.remove();
     lieButtons = next.furniture.flatMap((f, i) => {
-      // The first lier's spot, in my view (OME-1961: from the north the piece is turned).
+      // The bed's key sits on a footprint cell (cellCenter follows the view); a sofa's is above the first lier's spot in
+      // my view (OME-1961: from the north the piece is turned, so its south-view offset doesn't apply).
       const spot = scene.lies.get(i)?.[0];
-      if (spot === undefined) return [];
+      const p = f.kind === "bed" ? lieKeyPoint(f) : spot && { x: spot.at.x, y: spot.at.y - LIE_KEY_LIFT };
+      if (p === undefined) return [];
       const b = el("button", { type: "button", className: "lie-key" }, "lie-key");
       b.dataset["lie"] = String(i);
-      // Above the piece, clear of its seat keys.
-      b.style.translate = `${String(spot.at.x)}px ${String(spot.at.y - LIE_KEY_LIFT)}px`;
+      b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
       const name = LIE_NAMES[f.kind] ?? "sofa";
       return [{ b, piece: i, down: `Lie down on the ${name}`, up: `Get up from the ${name}` }];
     });

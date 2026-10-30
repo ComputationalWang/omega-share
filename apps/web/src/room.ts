@@ -16,7 +16,7 @@ import { el, sprite } from "./controls/dom";
 import { createSoundKey } from "./controls/sound-key";
 import { snapRoom } from "./snap";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
-import { createRoomTv, syncedOnly } from "./room-tv";
+import { createRoomTv } from "./room-tv";
 import { expectedPosition } from "./sync";
 import { createReplay } from "./moments/replay";
 import { createMomentsStrip } from "./moments/strip";
@@ -1147,7 +1147,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
-      playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
+      playback.setRoom(room === null ? { embed: null, playback: null } : { embed: room.embed, playback: room.playback ?? null, itemId: room.itemId });
       countdown.set(room?.playback ?? null);
       tvBox.sync(next);
       replay.sync();

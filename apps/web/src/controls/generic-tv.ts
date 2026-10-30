@@ -11,10 +11,13 @@ export interface GenericTv {
   readonly strip: HTMLElement;
   /** True once this viewer clicked Load. */
   loaded(): boolean;
+  /** ADR 0057: this viewer's frame follows the room (on), doesn't (off), or the extension couldn't attach (failed). */
+  setSync(s: "on" | "off" | "failed"): void;
 }
 
 /** One per shown generic embed: a new embed gets a new card, so the viewer's choice resets with it. */
-export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): GenericTv {
+/** `onUnlockedLoad`: an iframe made after the extension unlocked the host has loaded, so its script can attach (ADR 0057 §3). */
+export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge, onUnlockedLoad?: () => void): GenericTv {
   const screen = el("div", { className: "tv-generic" });
   const card = el("div", { className: "generic-card" }, "generic-card");
   const from = el("p", { className: "generic-from", textContent: "Video from " });
@@ -25,7 +28,7 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
   // ADR 0047 §1: we can't see a refusal across origins, so this names no host.
   const extHint = el("p", { className: "generic-note", textContent: "Some hosts only play here with the Omega Share extension." }, "generic-ext-hint");
   const status = el("p", { className: "generic-note", hidden: true }, "generic-unlock-status");
-  card.append(from, el("p", { className: "generic-note", textContent: "Not synced: everyone plays it on their own." }), actions, extHint, status);
+  card.append(from, el("p", { className: "generic-note", textContent: "Synced for viewers with the Omega Share extension." }), actions, extHint, status);
   screen.append(card);
 
   const strip = el("div", { className: "generic-strip" });
@@ -49,16 +52,18 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
 
   let loaded = false;
   let present = false;
+  let synced = false;
   const showStrip = (): void => {
-    hint.hidden = !loaded || present;
-    stripUnlock.hidden = !loaded || !present;
+    hint.hidden = !loaded || present || synced;
+    stripUnlock.hidden = !loaded || !present || synced;
   };
   /** Creates the iframe, or recreates it so its first navigation happens under the extension's rules. */
-  const play = (): void => {
+  const play = (unlocked = false): void => {
     loaded = true;
     // Every attribute is a constant from tv.ts `genericFrame`; src is its parsed url.
     const iframe = el("iframe", { src: frame.src, allow: frame.allow, referrerPolicy: frame.referrerPolicy, title: frame.title }, "shared-video");
     iframe.setAttribute("sandbox", frame.sandbox);
+    if (unlocked && onUnlockedLoad !== undefined) iframe.addEventListener("load", onUnlockedLoad, { once: true });
     screen.replaceChildren(iframe);
     showStrip();
   };
@@ -69,7 +74,7 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
     window.addEventListener("focus", () => (button.disabled = false), { once: true });
     void bridge.unlock(frame.host).then((outcome) => {
       button.disabled = false;
-      if (outcome === "unlocked") play();
+      if (outcome === "unlocked") play(true);
       else failed(outcome);
     });
   };
@@ -103,5 +108,15 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
     });
   });
 
-  return { screen, strip, loaded: () => loaded };
+  return {
+    screen,
+    strip,
+    loaded: () => loaded,
+    setSync(s) {
+      synced = s === "on";
+      label.textContent = synced ? "Synced" : s === "failed" ? "Can't sync this host" : "Not synced";
+      label.dataset["testid"] = synced ? "synced" : "not-synced";
+      showStrip();
+    },
+  };
 }

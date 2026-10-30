@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { AnyEmbed, Member, RoomState } from "@omega/shared";
 import { createPlaybackController } from "../src/controls/playback";
+import type { ExtensionBridge, FrameMessage, FrameToExtension } from "../src/extension-bridge";
 import { initialState, reduce, type ViewState } from "../src/state";
 
 // OME-1100: the room's TV and its shelf, split out of room.ts. The TV follows the room's embed: nothing shared, a synced
@@ -25,23 +26,23 @@ const withEmbed = (embed: AnyEmbed | null): ViewState => {
 };
 const page = { provider: "generic", host: "media.example.org", url: "https://media.example.org/embed/42" } as const;
 
-async function setup() {
+async function setup(extension: ExtensionBridge = { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => { relockCount++; }, toFrame: () => undefined, onFrame: () => () => undefined }) {
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
   const wrap = document.createElement("div");
-  let relocks = 0;
   let providers = 0;
   const tv = createRoomTv({
     playback,
-    extension: { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => { relocks++; } },
+    extension,
     wrap,
     fullscreen: () => false,
     onProvider: () => { providers++; },
   });
   wrap.append(tv.tv, tv.controls);
   document.body.replaceChildren(wrap, tv.personal);
-  return { tv, fsKey: tv.fsKey, relocks: () => relocks, providers: () => providers };
+  return { tv, playback, fsKey: tv.fsKey, relocks: () => relockCount, providers: () => providers };
 }
+let relockCount = 0;
 
 describe("room TV", () => {
   test("nothing shared: the empty card, and the synced shelf ends with the full-screen key", async () => {
@@ -74,6 +75,7 @@ describe("room TV", () => {
   });
 
   test("a generic page: its load card, no sync chrome, and the shelf is the strip and the full-screen key", async () => {
+    relockCount = 0;
     const { tv, fsKey, relocks } = await setup();
     tv.sync(withEmbed(page));
     expect(document.querySelectorAll("iframe")).toHaveLength(0);
@@ -114,5 +116,43 @@ describe("room TV", () => {
     expect(src.searchParams.get("video")).toBe("v1234567890");
     expect(src.searchParams.get("parent")).toBe("omega.example");
     expect(frames[0]?.getAttribute("sandbox")).toContain("allow-scripts");
+  });
+
+  // ADR 0057 §4: unlocked and loaded, the page's frame gets the frame adapter; while it's attached the sync shelf is back.
+  test("a generic page with the extension: attach after the unlocked frame loads, sync shelf while attached", async () => {
+    const toFrame: FrameToExtension[] = [];
+    const link: { cb: ((m: FrameMessage) => void) | null } = { cb: null };
+    const { tv, playback } = await setup({
+      whenPresent: (cb) => {
+        cb();
+      },
+      unlock: () => Promise.resolve("unlocked" as const),
+      relock: () => undefined,
+      toFrame: (m) => toFrame.push(m),
+      onFrame: (cb) => {
+        link.cb = cb;
+        return () => undefined;
+      },
+    });
+    const s = withEmbed(page);
+    playback.setRoom({ embed: page, playback: null, itemId: "q1" });
+    tv.sync(s);
+    tv.tv.querySelector<HTMLButtonElement>("[data-testid=generic-unlock]")?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    tv.tv.querySelector("iframe")?.dispatchEvent(new Event("load"));
+    for (let i = 0; i < 100 && toFrame.length === 0; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(toFrame).toEqual([{ source: "omega-share", kind: "attach", host: "media.example.org" }]);
+    const deliver = (m: unknown) => link.cb?.(m as FrameMessage);
+    deliver({ source: "omega-share", kind: "frame-state", host: "media.example.org", state: "paused", position: 0, rate: 1, duration: 60, live: false, muted: false });
+    for (let i = 0; i < 100 && !playback.view().hasVideo; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(tv.personal.hidden).toBe(false);
+    expect(tv.controls.childElementCount).toBeGreaterThan(2);
+    expect(tv.controls.querySelector("[data-testid=synced]")?.textContent).toBe("Synced");
+    expect(playback.view().hasVideo).toBe(true);
+    deliver({ source: "omega-share", kind: "frame-lost", host: "media.example.org" });
+    expect(tv.personal.hidden).toBe(true);
+    expect(tv.controls.childElementCount).toBe(2);
+    expect(tv.controls.querySelector("[data-testid=not-synced]")?.textContent).toBe("Not synced");
   });
 });

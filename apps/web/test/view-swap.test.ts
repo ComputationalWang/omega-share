@@ -114,8 +114,8 @@ describe("sceneOf in the north view (dank-dungeon)", () => {
 
   test("a piece with all four facings draws the turned one, from its own sheet, at its 2×2 far corner", () => {
     const s = north();
-    // The beds at (3, 0) and (5, 0) facing nw: far corners (4, 1) and (6, 1) → cells (5, 8) and (3, 8).
-    expect(at(s, "furniture/bed/velvet/se/back")).toEqual([{ x: 384, y: 444, layer: "object" }, { x: 320, y: 412, layer: "object" }]);
+    // The beds at (2, 1) and (4, 1) facing nw (OME-2023): far corners (3, 2) and (5, 2) → cells (6, 7) and (4, 7).
+    expect(at(s, "furniture/bed/velvet/se/back")).toEqual([{ x: 448, y: 444, layer: "object" }, { x: 384, y: 412, layer: "object" }]);
     expect(at(s, "furniture/bed/velvet/nw/back")).toEqual([]);
   });
 
