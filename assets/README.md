@@ -1445,12 +1445,12 @@ as the board described it:
 
 | | cells |
 |---|---|
-| Partition | row 4, facing `sw`: `solid` at cols 0, 2, 3, 4, 9; `glass` at cols 5–8; **doorway gap at (1, 4)** |
-| Bedroom (rows 0–3, behind the wall) | `bed (2,0) nw`, `bed (4,0) nw` (headboards on the back wall; both line up with the glass); `desk (7,0) sw`, `minibar (9,0) sw`; `wingback (8,2) nw`; `neonsign (0,2) se`; the TV corner console (0,0) |
+| Partition | row 4, facing `sw`: `solid` at cols 0, 2, 3, 9; `glass` at cols 4–8; **doorway gap at (1, 4)** |
+| Bedroom (rows 0–3, behind the wall) | `bed (2,1) nw`, `bed (4,1) nw` (queens, 2×2: cols 2–5, rows 1–2; both fill the glass, OME-2023); `desk (7,0) sw`, `minibar (9,0) sw`; `wingback (8,2) nw`; `neonsign (0,2) se`; the TV corner console (0,0) |
 | Spa (rows 5–9, in front) | `whirlpool (2,7) ne`; `washbasin (0,6) se` under `mirror (0,6) se`; `wingback (7,7) nw` + `coffeetable (7,6) sw`; `arclamp (1,9) se`; `monstera (9,9) sw` |
 
-Notes for the hookup: the glass has to sit at cols 5–8 because a far cell (c, r) shows above partition cell (c − r + 4, 4); move the
-beds and the glass together. The TV console stays in the bedroom corner and is mostly hidden from the spa side, which is fine
+Notes for the hookup: a far cell (c, r) shows above partition cell (c − r + 4, 4), so the queens on cols 2–5, rows 1–2 span partition
+cols 4–8 and the glass sits there (OME-2023); move the beds and the glass together. The TV console stays in the bedroom corner and is mostly hidden from the spa side, which is fine
 because the video is page chrome (ADR 0012). The spa has no sauna cabin yet (a later piece, OME-1956's list). Cost: +2 722 B
 (furniture-v6.png +2 106, its JSON +269 gz, `ui/edit.png` +220 for the tray thumbnail, two swatches `solid` / `glass` +127 gz in
 edit.json and reference.css).

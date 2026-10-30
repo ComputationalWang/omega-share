@@ -2002,7 +2002,7 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   buildFurnitureRoom(pieces, all, "furniture-v7-room", showroomV7());
   buildSeatContact(pieces, all, ["soaktub", "lounger"], "furniture-v7-seats@2x.png");
   // The preset with a full house: every seat taken, plus juno bent over at (5,6) with mo behind her.
-  const sit = new Map<string, string[]>([["bed:4,0", ["kiki", "pip"]], ["bed:0,3", ["mo", "juno"]], ["wingback:7,2", ["pip"]], ["wingback:7,4", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
+  const sit = new Map<string, string[]>([["bed:2,1", ["kiki", "pip"]], ["bed:4,1", ["mo", "juno"]], ["wingback:8,2", ["pip"]], ["wingback:6,7", ["kiki"]], ["whirlpool:2,7", ["juno", "mo"]]]);
   const placements: Placement[] = (PRESETS.find((x) => x.id === "dank-dungeon")?.layout.furniture ?? []).filter((f) => f.kind !== "tv").map((f) => {
     const kind: string = f.kind === "runner" ? "rug" : f.kind;
     const meta = pieces.find((p) => p.id === kind);
@@ -2047,9 +2047,9 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   }
 }
 
-/** Partition row of the reworked Dank Dungeon (OME-1959): row 4, solid except glass at cols 5–8 and the doorway gap at col 1. */
+/** Partition row of the reworked Dank Dungeon (OME-1959): row 4, solid except glass at cols 4–8 (OME-2023) and the doorway gap at col 1. */
 export const PARTITION_ROW = 4;
-export const PARTITION_GLASS: readonly number[] = [5, 6, 7, 8];
+export const PARTITION_GLASS: readonly number[] = [4, 5, 6, 7, 8];
 export const PARTITION_DOOR = 1;
 
 /** The grid for OME-1960: bedroom behind the wall (rows 0–3, the beds line up with the glass), spa in front (rows 5–9). */
@@ -2059,8 +2059,8 @@ function partitionPlan(cut: boolean): RoomPlan {
     .map((c) => ({ id: "partition", colour: PARTITION_GLASS.includes(c) ? "glass" : "solid", dir: "sw", col: c, row: PARTITION_ROW, cut }));
   return {
     placements: [
-      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 0, sitters: ["kiki", ""] },
-      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0, sitters: ["", "mo"] },
+      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 1, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 1, sitters: ["", "mo"] },
       { id: "neonsign", colour: "pink", dir: "se", col: 0, row: 2 },
       { id: "desk", colour: "wood", dir: "sw", col: 7, row: 0 },
       { id: "minibar", colour: "wood", dir: "sw", col: 9, row: 0 },
@@ -2090,8 +2090,8 @@ function dungeon2Plan(cut: boolean): RoomPlan {
   return {
     placements: [
       { id: "tv", colour: "flat", dir: "se", col: 0, row: 0 },
-      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 0, sitters: ["kiki", ""] },
-      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 0 },
+      { id: "bed", colour: "velvet", dir: "nw", col: 2, row: 1, sitters: ["kiki", ""] },
+      { id: "bed", colour: "velvet", dir: "nw", col: 4, row: 1 },
       { id: "desk", colour: "wood", dir: "sw", col: 7, row: 0 },
       { id: "minibar", colour: "fridge", dir: "sw", col: 9, row: 0 },
       { id: "wingback", colour: "ginger", dir: "nw", col: 8, row: 2 },
@@ -2109,7 +2109,7 @@ function dungeon2Plan(cut: boolean): RoomPlan {
       { id: "lounger", colour: "teak", dir: "nw", col: 9, row: 5 },
       { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 9 },
     ],
-    standing: [["pip/idle/se/0", 5, 2]],
+    standing: [["pip/idle/se/0", 6, 3]],
     rug: false,
     tv: false,
     shell: {
