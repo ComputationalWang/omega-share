@@ -12,8 +12,8 @@ export interface ExtensionBridge {
   relock(): void;
   /** ADR 0057 §3: `attach` and `frame-command`, for the frame adapter. */
   toFrame(msg: FrameToExtension): void;
-  /** The one frame adapter's listener for `frame-*` messages; null drops it. */
-  onFrame(cb: ((m: FrameMessage) => void) | null): void;
+  /** The one frame adapter's listener for `frame-*` messages, replacing the last; the returned off drops it only if it's still the one. */
+  onFrame(cb: (m: FrameMessage) => void): () => void;
 }
 
 export type FrameToExtension = Extract<PageToExtension, { kind: "attach" | "frame-command" }>;
@@ -30,6 +30,7 @@ export function createExtensionBridge(win: BridgePage): ExtensionBridge {
   let onPresent: (() => void) | null = null;
   let pending: { host: string; resolve: (o: UnlockOutcome) => void } | null = null;
   let unlocked = false;
+  let onFrameMsg: ((m: FrameMessage) => void) | null = null;
   const post = (msg: PageToExtension): void => {
     win.postMessage(msg, win.location.origin);
   };
@@ -46,7 +47,10 @@ export function createExtensionBridge(win: BridgePage): ExtensionBridge {
       return;
     }
     // frame-* (ADR 0057 §3) belongs to the frame adapter.
-    if (msg.kind !== "unlock-result") return;
+    if (msg.kind !== "unlock-result") {
+      onFrameMsg?.(msg);
+      return;
+    }
     if (pending?.host === msg.host) {
       const { resolve } = pending;
       pending = null;
@@ -75,7 +79,12 @@ export function createExtensionBridge(win: BridgePage): ExtensionBridge {
       pending = null;
       post({ source: BRIDGE_SOURCE, kind: "relock" });
     },
-    toFrame() {},
-    onFrame() {},
+    toFrame: post,
+    onFrame(cb) {
+      onFrameMsg = cb;
+      return () => {
+        if (onFrameMsg === cb) onFrameMsg = null;
+      };
+    },
   };
 }

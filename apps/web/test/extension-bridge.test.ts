@@ -116,10 +116,10 @@ describe("extension bridge (ADR 0047 §5)", () => {
     ]);
   });
 
-  test("frame messages reach the frame listener only from our window and origin; null stops them", async () => {
+  test("frame messages reach the frame listener only from our window and origin; its off stops them", async () => {
     const { bridge } = await make();
     const got: unknown[] = [];
-    bridge.onFrame((m) => got.push(m));
+    const off = bridge.onFrame((m) => got.push(m));
     const lost = { source: "omega-share", kind: "frame-lost", host: "media.example.org" };
     const intent = { source: "omega-share", kind: "frame-intent", host: "media.example.org", playing: true, position: 4 };
     deliver(lost, { origin: "https://evil.example" });
@@ -128,8 +128,14 @@ describe("extension bridge (ADR 0047 §5)", () => {
     deliver(intent);
     deliver(lost);
     expect(got).toEqual([intent, lost]);
-    bridge.onFrame(null);
+    off();
     deliver(lost);
     expect(got).toHaveLength(2);
+    // A stale off (an older adapter's) leaves the newer listener alone.
+    const later: unknown[] = [];
+    bridge.onFrame((m) => later.push(m));
+    off();
+    deliver(lost);
+    expect(later).toEqual([lost]);
   });
 });

@@ -123,6 +123,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let error: PlayerError | null = null;
   let provider: Provider | null = null;
   let live = false;
+  /** ADR 0057: a generic embed. Only an attached frame player controls it, and its end is never reported. */
+  let generic = false;
   /** From the embed's static caps (Twitch VOD); the loop can also fall back at runtime (a rejected Vimeo rate probe). */
   let capsSeekOnly = false;
   let seekOnly = false;
@@ -187,7 +189,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     const hasVideo = !refused && player?.ready() === true;
     const playing = !refused && (pb?.playing ?? false);
     // Pausing a playing room needs the server clock for the position; playing a paused one doesn't. Live has no position.
-    const canControl = !refused && !held && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready);
+    const canControl = !refused && !held && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready) && (!generic || hasVideo);
     seekOnly = capsSeekOnly || loop?.mode === "seek-only";
     const q = refused ? undefined : player?.quality;
     const qualities = q?.options() ?? NO_QUALITIES;
@@ -222,7 +224,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   /** The player reached the end of the current item: tell the server once, unless it's live (live never ends) or refused. */
   const reportEnded = (): void => {
     const id = target.itemId;
-    if (id === undefined || id === endedSent || live || error !== null || player === null) return;
+    if (id === undefined || id === endedSent || live || generic || error !== null || player === null) return;
     // Not a control: it goes out under the owner policy too (ADR 0031 §3). A failed send retries on the next report.
     if (o.send({ type: "ended", itemId: id, position: Math.min(MAX_POSITION_S, Math.max(0, player.time())) })) endedSent = id;
   };
@@ -305,7 +307,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         detach();
         embedUrl = url;
         const caps = t.embed === null ? null : playbackCaps(t.embed);
-        provider = t.embed === null || !isSyncedEmbed(t.embed) ? null : t.embed.provider;
+        generic = t.embed !== null && !isSyncedEmbed(t.embed);
+        provider = t.embed !== null && isSyncedEmbed(t.embed) ? t.embed.provider : null;
         live = caps?.live === true;
         capsSeekOnly = caps !== null && !caps.live && caps.rate === "no";
       }
@@ -329,6 +332,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       }
       detach();
       player = p;
+      // A generic stream is live only once its frame says so (ADR 0057 §1); a provider's caps are its embed's.
+      live = p.caps.live;
       startLoop(p);
       offPlayer = p.onEvent(onPlayer);
       if (p.ready()) {

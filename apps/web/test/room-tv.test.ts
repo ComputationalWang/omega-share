@@ -26,7 +26,7 @@ const withEmbed = (embed: AnyEmbed | null): ViewState => {
 };
 const page = { provider: "generic", host: "media.example.org", url: "https://media.example.org/embed/42" } as const;
 
-async function setup(extension: ExtensionBridge = { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => { relockCount++; }, toFrame: () => undefined, onFrame: () => undefined }) {
+async function setup(extension: ExtensionBridge = { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => { relockCount++; }, toFrame: () => undefined, onFrame: () => () => undefined }) {
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
   const wrap = document.createElement("div");
@@ -131,6 +131,7 @@ describe("room TV", () => {
       toFrame: (m) => toFrame.push(m),
       onFrame: (cb) => {
         link.cb = cb;
+        return () => undefined;
       },
     });
     const s = withEmbed(page);
@@ -144,7 +145,7 @@ describe("room TV", () => {
     expect(toFrame).toEqual([{ source: "omega-share", kind: "attach", host: "media.example.org" }]);
     const deliver = (m: unknown) => link.cb?.(m as FrameMessage);
     deliver({ source: "omega-share", kind: "frame-state", host: "media.example.org", state: "paused", position: 0, rate: 1, duration: 60, live: false, muted: false });
-    for (let i = 0; i < 100 && tv.personal.hidden; i++) await new Promise((r) => setTimeout(r, 10));
+    for (let i = 0; i < 100 && !playback.view().hasVideo; i++) await new Promise((r) => setTimeout(r, 10));
     expect(tv.personal.hidden).toBe(false);
     expect(tv.controls.childElementCount).toBeGreaterThan(2);
     expect(tv.controls.querySelector("[data-testid=synced]")?.textContent).toBe("Synced");

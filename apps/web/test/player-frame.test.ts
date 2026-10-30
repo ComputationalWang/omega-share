@@ -22,6 +22,9 @@ function harness() {
       toFrame: (m) => sent.push(m),
       onFrame: (cb) => {
         listener = cb;
+        return () => {
+          if (listener === cb) listener = null;
+        };
       },
     },
     now: () => t.now,
