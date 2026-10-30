@@ -1,8 +1,9 @@
 // Run with bun (bun:sqlite): `bun e2e/fixtures/seed-rooms.ts <db path>` (OME-341). Recreates the e2e server's DB
 // with the lobby and every test room of e2e/support/test-rooms.ts, all on DEFAULT_LAYOUT. Playwright's webServer
 // runs it right before `dev`, so each run starts from empty rooms.
-import { rmSync } from "node:fs";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID } from "@omega/shared";
+import { readFileSync, rmSync } from "node:fs";
+import * as v from "valibot";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, RoomLayoutSchema } from "@omega/shared";
 import { openDatabase } from "../../apps/server/src/store/db";
 import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
@@ -21,6 +22,8 @@ const SEEDED_LAYOUTS = new Map([
   [testRoomId("teleport", "pads"), PADS],
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],
+  // The Dank Dungeon preset: its queen bed at layout index 1 (seats 0-1) sleeps two (OME-2009).
+  [testRoomId("lie", "bed"), v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")))],
   [testRoomId("doors", "a"), doorTo(testRoomId("doors", "b"))],
   [testRoomId("doors", "b"), doorTo(testRoomId("doors", "a"))],
 ]);

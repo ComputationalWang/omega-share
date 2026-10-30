@@ -70,12 +70,12 @@ test("the sleep pose lies head-up toward the headboard: the face is on the high 
 });
 
 test("lying.json lists the sleep loop for every avatar in all four facings", () => {
-  const atlas = JSON.parse(readFileSync(join(ROOT, "avatars", "lying.json"), "utf8")) as { frames: Record<string, unknown>; animations: Record<string, string[]>; meta: { omega: { pieces: Record<string, unknown>; sleepers: Record<string, unknown> } } };
+  const atlas = JSON.parse(readFileSync(join(ROOT, "avatars", "lying.json"), "utf8")) as { frames: Record<string, unknown>; animations: Record<string, string[]>; meta: { omega: { pieces: Record<string, unknown>; sleepers?: unknown } } };
   for (const a of AVATARS) for (const d of DIRS) {
     expect(atlas.animations[`sleep/${a.id}/${d}`]?.length).toBe(BREATH_FRAMES);
     for (let n = 0; n < BREATH_FRAMES; n++) expect(atlas.frames[`sleep/${a.id}/${d}/${String(n)}`]).toBeDefined();
   }
-  // Beside `pieces` (the web pins those to the contract's lie styles) until the wiring adds `sleep` (OME-1984).
-  expect(atlas.meta.omega.sleepers["bed"]).toBeDefined();
-  expect(atlas.meta.omega.pieces["bed"]).toBeUndefined();
+  // Under `pieces` with the sofa, couch and cat since the web knows the `sleep` style (OME-2009).
+  expect(atlas.meta.omega.pieces["bed"]).toBeDefined();
+  expect(atlas.meta.omega.sleepers).toBeUndefined();
 });
