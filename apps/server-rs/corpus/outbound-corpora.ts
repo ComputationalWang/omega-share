@@ -122,6 +122,9 @@ const FRAMES: unknown[] = [
   // lie (OME-1773)
   ...[0, 31, null].map((piece) => ({ type: "lay", memberId: "m1", piece })),
   { type: "member-joined", member: { id: "m2", nickname: "Bob 2", avatar: 3, standingSlot: 1, lying: 5 } },
+  // sleepers (OME-2008)
+  ...[0, 1].map((sleeper) => ({ type: "lay", memberId: "m1", piece: 4, sleeper })),
+  ...[0, 1].map((sleeper) => ({ type: "member-joined", member: { id: "m2", nickname: "Bob 2", avatar: 3, standingSlot: 1, lying: 5, sleeper } })),
   ...[true, false].map((on) => ({ type: "typing-changed", memberId: "m1", on })),
   // relay batches (OME-1624): 1..BATCH_MAX_MESSAGES, ±1 of the cap
   ...[1, 63, 64].map((n) => ({ type: "batch", msgs: Array.from({ length: n }, (_, i) => ({ type: "walked", memberId: "m1", cell: { x: i % 10, y: 2 } })) })),
@@ -408,6 +411,8 @@ const EDGE_TEXTS: string[] = [
   ...[true, false, 1, null].map((floorSit) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, floorSit } })),
   ...[0, 31, 32, -1, 0.5, "1", null, true].map((piece) => JSON.stringify({ type: "lay", memberId: "m1", piece })), JSON.stringify({ type: "lay", memberId: "m1" }), JSON.stringify({ type: "lay", piece: 1 }),
   ...[0, 31, 32, -1, 0.5, "1", null].map((lying) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, lying } })),
+  ...[0, 1, 2, -1, 0.5, "1", null, true].map((sleeper) => JSON.stringify({ type: "lay", memberId: "m1", piece: 4, sleeper })),
+  ...[0, 1, 2, -1, 0.5, "1", null].map((sleeper) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, lying: 4, sleeper } })),
   ...[{ x: 1, y: 2 }, { x: 10, y: 0 }, null, { x: 1, y: 2, z: 3 }].map((cell) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, cell } })),
   ...[0, 5, 6, null].map((tint) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, tint } })),
   ...["clap", "wave", "cheer", "yawn", "dance", "jump", "Clap", 0, null].map((kind) => JSON.stringify({ type: "emoted", memberId: "m1", kind })),

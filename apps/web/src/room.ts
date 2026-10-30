@@ -13,6 +13,7 @@ import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { inviteLink, joinMessage, loadRoomSecrets, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
 import { el, sprite } from "./controls/dom";
+import { createSoundKey } from "./controls/sound-key";
 import { snapRoom } from "./snap";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createRoomTv, syncedOnly } from "./room-tv";
@@ -54,7 +55,7 @@ import { createTypingSender } from "./chat/typing";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createRoomCards } from "./room-cards";
-import { createHelp } from "./help/dialog";
+import { createHelp, type SoundSetting } from "./help/dialog";
 import { createCinemaDim } from "./cinema";
 import { createCountdown } from "./countdown/countdown";
 import { createHints } from "./help/hints";
@@ -560,24 +561,31 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const popRoomKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out room", title: "Pop out room", hidden: true }, "room-popout");
   popRoomKey.append(sprite("ui-icon-popout-room"));
   // The "?" help (OME-768): the room bar's last key; its dialog is built on the first open and never draws on the canvas.
+  // Room sounds (OME-1638): in Help's settings and, where people look for it, as a key beside Leave (OME-1968).
+  const soundSetting = (): SoundSetting | null =>
+    sound === null
+      ? null
+      : {
+          volume: () => sound?.volume() ?? 0,
+          setVolume: (v) => {
+            sound?.setVolume(v);
+            sound?.play("ui.tick");
+            soundKey.sync();
+          },
+          muted: () => sound?.muted() ?? false,
+          setMuted: (m) => {
+            sound?.setMuted(m);
+            sound?.play("ui.toggle");
+            soundKey.sync();
+          },
+        };
+  // The key goes with the stage, like Leave: not over the kicked or closed screens.
+  let onStage = false;
+  const soundKey = createSoundKey(() => (onStage ? soundSetting() : null));
   const help = createHelp({
     owner: () => state.owner && opts.secret?.ownerToken !== undefined,
     cinema,
-    sound: () =>
-      sound === null
-        ? null
-        : {
-            volume: () => sound?.volume() ?? 0,
-            setVolume: (v) => {
-              sound?.setVolume(v);
-              sound?.play("ui.tick");
-            },
-            muted: () => sound?.muted() ?? false,
-            setMuted: (m) => {
-              sound?.setMuted(m);
-              sound?.play("ui.toggle");
-            },
-          },
+    sound: soundSetting,
     tips: () => {
       firstHint.restart();
     },
@@ -675,7 +683,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     return true;
   };
   snapKey.addEventListener("click", snap);
-  roomTop.append(title, popRoomKey, snapKey, people.key, help.key);
+  // Leave (OME-1967): top-left of the room bar, the same explicit leave as the report dialog's.
+  const leaveKey = el("button", { type: "button", className: "ui-button secondary leave-key", textContent: "Leave", title: "Leave the room", hidden: true }, "leave-key");
+  leaveKey.addEventListener("click", leaveForGood);
+  roomTop.append(leaveKey, soundKey.root, title, popRoomKey, snapKey, people.key, help.key);
   // The first-visit tour (OME-1587): fixed chips beside the floor, the message field and People.
   const firstHint = createHints({
     // The `localStorage` getter itself throws when storage is blocked.
@@ -971,6 +982,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
     snapKey.hidden = !shown.stage;
+    leaveKey.hidden = !shown.stage;
+    onStage = shown.stage;
+    soundKey.sync();
     if (shown.stage) people.update(s.room?.members ?? [], s.self);
     else people.close();
     if (!shown.stage) {
@@ -1522,6 +1536,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         },
       });
       sound.unlock();
+      soundKey.sync();
       for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => sound?.unlock(), { capture: true, passive: true });
       dim();
     })

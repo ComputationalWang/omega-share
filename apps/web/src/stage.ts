@@ -9,7 +9,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6 } from "./furniture";
+import { doorAt, layoutOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -298,6 +298,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let v5Atlas: FurnitureAtlas | null = null;
   /** The Dank Dungeon's atlas once loaded (OME-1672). */
   let v6Atlas: FurnitureAtlas | null = null;
+  /** The reworked dungeon's v7 atlas once loaded (OME-1991): its pieces, v7 colours and shell skin. */
+  let v7Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
   /** The new colours' sheet copies (OME-1463), once a layout used one; `recolouring` names the copies asked for. */
@@ -319,9 +321,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, roomAtlas, recolours], grid);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
   };
 
@@ -409,6 +411,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
     if (usesV6(next) && v6Atlas === null) {
       lazyAtlas("furniture v6", key, next, () => import("./furniture-v6-atlas").then((m) => m.loadFurnitureV6Atlas()), (a) => (v6Atlas = a));
+    }
+    if (usesV7(next) && v7Atlas === null) {
+      lazyAtlas("furniture v7", key, next, () => import("./furniture-v7-atlas").then((m) => m.loadFurnitureV7Atlas()), (a) => (v7Atlas = a));
     }
     if (next.pairs === true) view.loadPairPoses();
     if (usesV4(next) && v4Atlas === null) {

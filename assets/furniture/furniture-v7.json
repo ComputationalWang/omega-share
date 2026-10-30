@@ -1,0 +1,1425 @@
+{
+ "frames": {
+  "floor/carpet/0": {
+   "frame": {
+    "x": 150,
+    "y": 521,
+    "w": 64,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "floor/carpet/1": {
+   "frame": {
+    "x": 71,
+    "y": 523,
+    "w": 64,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "floor/deck/0": {
+   "frame": {
+    "x": 0,
+    "y": 534,
+    "w": 64,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "floor/deck/1": {
+   "frame": {
+    "x": 403,
+    "y": 535,
+    "w": 64,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "floor/split/0": {
+   "frame": {
+    "x": 215,
+    "y": 547,
+    "w": 64,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "floor/split/1": {
+   "frame": {
+    "x": 280,
+    "y": 547,
+    "w": 64,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "furniture/carpet/oval/se/back": {
+   "frame": {
+    "x": 71,
+    "y": 482,
+    "w": 78,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 78,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 78,
+    "h": 40
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.1
+   }
+  },
+  "furniture/lounger/teak/ne/back": {
+   "frame": {
+    "x": 333,
+    "y": 413,
+    "w": 92,
+    "h": 66
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 92,
+    "h": 66
+   },
+   "sourceSize": {
+    "w": 92,
+    "h": 66
+   },
+   "anchor": {
+    "x": 0.32608695652173914,
+    "y": 0.5454545454545454
+   }
+  },
+  "furniture/lounger/teak/nw/back": {
+   "frame": {
+    "x": 79,
+    "y": 415,
+    "w": 92,
+    "h": 66
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 92,
+    "h": 66
+   },
+   "sourceSize": {
+    "w": 92,
+    "h": 66
+   },
+   "anchor": {
+    "x": 0.6739130434782609,
+    "y": 0.5454545454545454
+   }
+  },
+  "furniture/lounger/teak/se/back": {
+   "frame": {
+    "x": 172,
+    "y": 415,
+    "w": 92,
+    "h": 66
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 92,
+    "h": 66
+   },
+   "sourceSize": {
+    "w": 92,
+    "h": 66
+   },
+   "anchor": {
+    "x": 0.6739130434782609,
+    "y": 0.5454545454545454
+   }
+  },
+  "furniture/lounger/teak/sw/back": {
+   "frame": {
+    "x": 265,
+    "y": 480,
+    "w": 92,
+    "h": 66
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 92,
+    "h": 66
+   },
+   "sourceSize": {
+    "w": 92,
+    "h": 66
+   },
+   "anchor": {
+    "x": 0.32608695652173914,
+    "y": 0.5454545454545454
+   }
+  },
+  "furniture/minibar/fridge/se/back": {
+   "frame": {
+    "x": 426,
+    "y": 479,
+    "w": 44,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.6590909090909091,
+    "y": 0.8545454545454545
+   }
+  },
+  "furniture/minibar/fridge/sw/back": {
+   "frame": {
+    "x": 358,
+    "y": 480,
+    "w": 44,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.3409090909090909,
+    "y": 0.8545454545454545
+   }
+  },
+  "furniture/mirror/silver/se/back": {
+   "frame": {
+    "x": 333,
+    "y": 234,
+    "w": 31,
+    "h": 108
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 31,
+    "h": 108
+   },
+   "sourceSize": {
+    "w": 31,
+    "h": 108
+   },
+   "anchor": {
+    "x": 0.967741935483871,
+    "y": 1.6018518518518519
+   }
+  },
+  "furniture/mirror/silver/sw/back": {
+   "frame": {
+    "x": 365,
+    "y": 234,
+    "w": 31,
+    "h": 108
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 31,
+    "h": 108
+   },
+   "sourceSize": {
+    "w": 31,
+    "h": 108
+   },
+   "anchor": {
+    "x": 0.03225806451612903,
+    "y": 1.6018518518518519
+   }
+  },
+  "furniture/partition/glass/pane/se": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.5116279069767442,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/glass/pane/sw": {
+   "frame": {
+    "x": 44,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.4883720930232558,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/panel/cut/se": {
+   "frame": {
+    "x": 471,
+    "y": 479,
+    "w": 41,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 41,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 41,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.5121951219512195,
+    "y": 0.7027027027027027
+   }
+  },
+  "furniture/partition/panel/cut/sw": {
+   "frame": {
+    "x": 471,
+    "y": 517,
+    "w": 41,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 41,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 41,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.4878048780487805,
+    "y": 0.7027027027027027
+   }
+  },
+  "furniture/partition/panel/se/back": {
+   "frame": {
+    "x": 264,
+    "y": 0,
+    "w": 41,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 41,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 41,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.5121951219512195,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/panel/sw/back": {
+   "frame": {
+    "x": 306,
+    "y": 0,
+    "w": 41,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 41,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 41,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.4878048780487805,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/panelglass/cut/se": {
+   "frame": {
+    "x": 150,
+    "y": 482,
+    "w": 43,
+    "h": 38
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 38
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 38
+   },
+   "anchor": {
+    "x": 0.5116279069767442,
+    "y": 0.7105263157894737
+   }
+  },
+  "furniture/partition/panelglass/cut/sw": {
+   "frame": {
+    "x": 194,
+    "y": 482,
+    "w": 43,
+    "h": 38
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 38
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 38
+   },
+   "anchor": {
+    "x": 0.4883720930232558,
+    "y": 0.7105263157894737
+   }
+  },
+  "furniture/partition/panelglass/pane/se": {
+   "frame": {
+    "x": 88,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.5116279069767442,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/panelglass/pane/sw": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.4883720930232558,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/panelglass/se/back": {
+   "frame": {
+    "x": 176,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.5116279069767442,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/partition/panelglass/sw/back": {
+   "frame": {
+    "x": 220,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0.4883720930232558,
+    "y": 0.9527896995708155
+   }
+  },
+  "furniture/sauna/cedar/se/back": {
+   "frame": {
+    "x": 79,
+    "y": 234,
+    "w": 126,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 126,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 126,
+    "h": 180
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7333333333333333
+   }
+  },
+  "furniture/sauna/cedar/sw/back": {
+   "frame": {
+    "x": 206,
+    "y": 234,
+    "w": 126,
+    "h": 180
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 126,
+    "h": 180
+   },
+   "sourceSize": {
+    "w": 126,
+    "h": 180
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7333333333333333
+   }
+  },
+  "furniture/soaktub/cedar/se/back": {
+   "frame": {
+    "x": 426,
+    "y": 413,
+    "w": 70,
+    "h": 65
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 70,
+    "h": 65
+   },
+   "sourceSize": {
+    "w": 70,
+    "h": 65
+   },
+   "anchor": {
+    "x": 0.6142857142857143,
+    "y": 0.3230769230769231
+   }
+  },
+  "furniture/soaktub/cedar/se/front": {
+   "frame": {
+    "x": 0,
+    "y": 468,
+    "w": 70,
+    "h": 65
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 70,
+    "h": 65
+   },
+   "sourceSize": {
+    "w": 70,
+    "h": 65
+   },
+   "anchor": {
+    "x": 0.6142857142857143,
+    "y": 0.3230769230769231
+   }
+  },
+  "furniture/tv/flat/se/back": {
+   "frame": {
+    "x": 333,
+    "y": 343,
+    "w": 162,
+    "h": 69
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 162,
+    "h": 69
+   },
+   "sourceSize": {
+    "w": 162,
+    "h": 69
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6376811594202898
+   }
+  },
+  "wall/corner/oak": {
+   "frame": {
+    "x": 40,
+    "y": 234,
+    "w": 16,
+    "h": 221
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 221
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 221
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 1.0723981900452488
+   }
+  },
+  "wall/l/end/smoke": {
+   "frame": {
+    "x": 57,
+    "y": 234,
+    "w": 10,
+    "h": 219
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 219
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 219
+   },
+   "anchor": {
+    "x": 4.1,
+    "y": 0.9954337899543378
+   }
+  },
+  "wall/l/oak": {
+   "frame": {
+    "x": 348,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 39,
+    "h": 233
+   },
+   "anchor": {
+    "x": 1,
+    "y": 1
+   }
+  },
+  "wall/l/smoke": {
+   "frame": {
+    "x": 388,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 39,
+    "h": 233
+   },
+   "anchor": {
+    "x": 1,
+    "y": 1
+   }
+  },
+  "wall/l/split": {
+   "frame": {
+    "x": 428,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 39,
+    "h": 233
+   },
+   "anchor": {
+    "x": 1,
+    "y": 1
+   }
+  },
+  "wall/r/end/oak": {
+   "frame": {
+    "x": 68,
+    "y": 234,
+    "w": 10,
+    "h": 219
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 219
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 219
+   },
+   "anchor": {
+    "x": -3.1,
+    "y": 0.9954337899543378
+   }
+  },
+  "wall/r/oak": {
+   "frame": {
+    "x": 468,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 39,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0,
+    "y": 1
+   }
+  },
+  "wall/r/smoke": {
+   "frame": {
+    "x": 0,
+    "y": 234,
+    "w": 39,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 39,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 39,
+    "h": 233
+   },
+   "anchor": {
+    "x": 0,
+    "y": 1
+   }
+  }
+ },
+ "meta": {
+  "app": "omega-share assets/src/build.ts",
+  "version": "1",
+  "image": "furniture-v7.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 1024
+  },
+  "scale": "1",
+  "omega": {
+   "license": "CC-BY-SA-4.0",
+   "tile": {
+    "w": 64,
+    "h": 32
+   },
+   "seatHeight": 8,
+   "key": "furniture/<id>/<colour>/<dir>/<back|front>",
+   "cutKey": "furniture/<id>/<colour>/cut/<dir>",
+   "layers": {
+    "floor": 0,
+    "wall": 1,
+    "back": 2,
+    "avatar": 3,
+    "front": 4
+   },
+   "pieces": [
+    {
+     "id": "mirror",
+     "label": "Wall mirror",
+     "kind": "wall",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "silver"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "minibar",
+     "label": "Minibar",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "fridge"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "partition",
+     "label": "Interior wall",
+     "kind": "wall",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "panel",
+      "panelglass"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "cut": true
+    },
+    {
+     "id": "carpet",
+     "label": "Theatre carpet",
+     "kind": "rug",
+     "mount": "floor",
+     "layer": "floor",
+     "colours": [
+      "oval"
+     ],
+     "dirs": [
+      "se"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 2
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 2,
+       "rows": 2
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 16
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "sauna",
+     "label": "Sauna cabin",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "cedar"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 2
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 2,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 2
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 16
+      },
+      "sw": {
+       "x": 0,
+       "y": 16
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "soaktub",
+     "label": "Cedar soaking tub",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "cedar"
+     ],
+     "dirs": [
+      "se"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 2
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 2,
+       "rows": 2
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 16
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back",
+       "front"
+      ]
+     },
+     "seatsByDir": {
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "se"
+       }
+      ]
+     }
+    },
+    {
+     "id": "lounger",
+     "label": "Spa lounger",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "teak"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 2,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 2
+      },
+      "se": {
+       "cols": 1,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 16,
+       "y": 8
+      },
+      "nw": {
+       "x": -16,
+       "y": 8
+      },
+      "se": {
+       "x": -16,
+       "y": 8
+      },
+      "sw": {
+       "x": 16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ],
+      "nw": [
+       "back"
+      ],
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "nw"
+       }
+      ],
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "se"
+       }
+      ],
+      "sw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "sw"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "sw"
+       }
+      ]
+     }
+    },
+    {
+     "id": "tv",
+     "label": "Flat TV",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "flat"
+     ],
+     "dirs": [
+      "se"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

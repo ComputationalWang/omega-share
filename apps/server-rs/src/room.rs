@@ -14,9 +14,10 @@ use crate::contract::constants::{
 };
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
-use crate::contract::layout::{RoomLayout, default_layout, door_cell, piece_seats, spec};
+use crate::contract::layout::{LieStyle, RoomLayout, default_layout, door_cell, piece_seats, spec};
 use crate::contract::room::{
-    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, PieceIndex, RoomVisibility, SeatIndex, StandingSlot, Tint,
+    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, PieceIndex, RoomVisibility, SeatIndex, Sleeper,
+    StandingSlot, Tint,
 };
 use crate::contract::state::{
     Conga, MediaMs, Member, PairPose, PlaybackState, Position, QueueItem, Reaction, ReactionKind, RoomState, RoomSummary, ServerTime,
@@ -563,8 +564,8 @@ impl Room {
             };
         };
         let idx = usize::from(piece.get());
-        let lie_ok = self.layout.furniture().get(idx).is_some_and(|f| spec(f.kind).lie.is_some());
-        let Some(seats) = piece_seats(self.layout.furniture(), idx).filter(|_| lie_ok) else {
+        let style = self.layout.furniture().get(idx).and_then(|f| spec(f.kind).lie);
+        let Some((style, seats)) = style.zip(piece_seats(self.layout.furniture(), idx)) else {
             return LieResult::BadCell;
         };
         if self
@@ -575,36 +576,60 @@ impl Room {
         {
             return LieResult::Unchanged;
         }
-        let lain_on = self.lying_by_others(slot).any(|p| p == piece);
-        let seat_held = seats
-            .into_iter()
-            .any(|i| self.seats.get(i).copied().flatten().is_some_and(|o| o != slot));
-        if lain_on || seat_held {
-            return LieResult::SeatTaken;
-        }
+        let held = |i: &usize| self.seats.get(*i).copied().flatten().is_some_and(|o| o != slot);
+        let sleeper = if style == LieStyle::Sleep {
+            // The lowest side whose seat is free (or theirs) and nobody sleeps on (OME-2008).
+            let side = seats
+                .clone()
+                .enumerate()
+                .filter(|(_, i)| !held(i))
+                .filter_map(|(n, _)| u64::try_from(n).ok().and_then(Sleeper::new))
+                .find(|&side| {
+                    !self
+                        .lying_by_others(slot)
+                        .any(|m| m.lying == Some(piece) && m.sleeper == Some(side))
+                });
+            let Some(side) = side else {
+                return LieResult::SeatTaken;
+            };
+            Some(side)
+        } else {
+            if self.lying_by_others(slot).any(|m| m.lying == Some(piece)) || seats.clone().any(|i| held(&i)) {
+                return LieResult::SeatTaken;
+            }
+            None
+        };
         let left_seat = self.seats.contains(&Some(slot));
         self.free(slot);
         if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
             rec.member.cell = None;
             rec.member.floor_sit = None;
             rec.member.lying = Some(piece);
+            rec.member.sleeper = sleeper;
         }
         self.prune_conga();
         LieResult::Changed { left_seat }
     }
 
-    /// The pieces everyone but `slot` lies on.
-    fn lying_by_others(&self, slot: Slot) -> impl Iterator<Item = PieceIndex> + '_ {
+    /// Everyone but `slot` who lies on a piece.
+    fn lying_by_others(&self, slot: Slot) -> impl Iterator<Item = &Member> + '_ {
         self.order
             .iter()
             .filter(move |&&s| s != slot)
-            .filter_map(|&s| self.slots.get(usize::from(s))?.as_ref()?.member.lying)
+            .filter_map(|&s| self.slots.get(usize::from(s))?.as_ref())
+            .map(|r| &r.member)
+            .filter(|m| m.lying.is_some())
     }
 
-    /// Whether someone but `slot` lies on the piece that gives seat `seat`.
+    /// Whether someone but `slot` lies on the piece that gives seat `seat`: on any of its seats, or a sleeper on theirs.
     fn seat_lain_on(&self, seat: usize, slot: Slot) -> bool {
-        self.lying_by_others(slot)
-            .any(|p| piece_seats(self.layout.furniture(), usize::from(p.get())).is_some_and(|r| r.contains(&seat)))
+        self.lying_by_others(slot).any(|m| {
+            let seats = m.lying.and_then(|p| piece_seats(self.layout.furniture(), usize::from(p.get())));
+            seats.is_some_and(|mut r| match m.sleeper {
+                Some(side) => r.nth(usize::from(side.get())) == Some(seat),
+                None => r.contains(&seat),
+            })
+        })
     }
 
     /// Gets `member` up from a piece; false if they were not lying (OME-1691).
@@ -612,6 +637,7 @@ impl Room {
         let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
             return false;
         };
+        rec.member.sleeper = None;
         rec.member.lying.take().is_some()
     }
 
@@ -626,6 +652,7 @@ impl Room {
             let at = usize::from(p.get());
             if old.furniture().get(at) != self.layout.furniture().get(at) {
                 rec.member.lying = None;
+                rec.member.sleeper = None;
                 up.push(rec.member.id.clone());
             }
         }
@@ -835,6 +862,7 @@ impl Room {
             hair: None,
             floor_sit: None,
             lying: None,
+            sleeper: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
@@ -2759,6 +2787,65 @@ mod tests {
         r.lie(&a, piece(1));
         r.leave(&a, T0);
         assert_eq!(r.lie(&b, piece(1)), LieResult::Changed { left_seat: false });
+    }
+
+    /// `lie_layout` with a queen bed (piece 1, seats 0 and 1, sleepers 0 and 1) for the first sofa (OME-2008).
+    fn bed_room() -> (Room, MemberId, MemberId, MemberId) {
+        let mut r = room();
+        let mut v: serde_json::Value = serde_json::from_str(&json(&lie_layout())).unwrap();
+        v["furniture"][1] = serde_json::json!({"kind":"bed","col":1,"row":5,"facing":"ne"});
+        r.set_layout(RoomLayout::parse(v.to_string().as_bytes()).unwrap());
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        let c = join(&mut r, "m3", "cleo", None);
+        (r, a, b, c)
+    }
+    fn sleeper(r: &Room, m: &MemberId) -> Option<u8> {
+        r.member(m).unwrap().sleeper.map(Sleeper::get)
+    }
+
+    // OME-2008
+    #[test]
+    fn a_bed_takes_two_sleepers_each_on_a_stable_side() {
+        let (mut r, a, b, c) = bed_room();
+        assert_eq!(r.lie(&a, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!(r.lie(&b, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!((sleeper(&r, &a), sleeper(&r, &b)), (Some(0), Some(1)));
+        assert_eq!(r.lie(&c, piece(1)), LieResult::SeatTaken, "the bed is full");
+        assert_eq!(
+            json(&r.snapshot().members[1]),
+            r#"{"id":"m2","nickname":"bob","avatar":0,"standingSlot":1,"lying":1,"sleeper":1}"#
+        );
+        assert_eq!(r.lie(&b, piece(1)), LieResult::Unchanged, "already there, same side");
+        assert_eq!(r.lie(&a, None), LieResult::Changed { left_seat: false });
+        assert_eq!(sleeper(&r, &a), None);
+        assert_eq!(sleeper(&r, &b), Some(1), "no side swap when the other gets up");
+        assert_eq!(r.lie(&c, piece(1)), LieResult::Changed { left_seat: false });
+        assert_eq!(sleeper(&r, &c), Some(0));
+        assert!(r.clear_lying(&c));
+        assert_eq!(sleeper(&r, &c), None);
+    }
+
+    #[test]
+    fn a_sleeper_holds_only_their_sides_seat() {
+        let (mut r, a, b, c) = bed_room();
+        r.lie(&a, piece(1));
+        assert_eq!(r.sit(&b, Some(seat(0))), SitResult::SeatTaken, "alice sleeps on side 0");
+        assert_eq!(r.sit(&b, Some(seat(1))), SitResult::Ok, "side 1 is free to sit on");
+        assert_eq!(r.lie(&c, piece(1)), LieResult::SeatTaken, "bob sits on side 1");
+        assert_eq!(
+            r.lie(&b, piece(1)),
+            LieResult::Changed { left_seat: true },
+            "bob lies down from his seat"
+        );
+        assert_eq!(sleeper(&r, &b), Some(1));
+    }
+
+    #[test]
+    fn a_sofa_lier_has_no_sleeper() {
+        let (mut r, a, _) = lie_room();
+        r.lie(&a, piece(1));
+        assert_eq!(sleeper(&r, &a), None);
     }
 
     #[test]

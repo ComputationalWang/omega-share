@@ -8,13 +8,13 @@ import { SEAT_HEIGHT } from "./avatars";
 import { WALK_FRAMES, WALK_FRAME_MS } from "./motion";
 import { addOutline, box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
-import { WALL_H, wallPaint, type RoomFrame } from "./room";
+import { WALL_H, buildNorthShell, drawReel, panelPaint, tvSolids, wallPaint, type RoomFrame } from "./room";
 import { blank, mirror, render as renderRoles, stamp, type Grid, type RoleMap } from "./sprite";
 
 export type FurnDir = "ne" | "nw" | "se" | "sw";
 type Paint = readonly [RampName, Tone];
 /** A face in the piece's own frame. "front" is the side a sitter faces out of. */
-type LFace = "top" | "front" | "back" | "right" | "other";
+type LFace = "top" | "front" | "back" | "right" | "left" | "other";
 interface L3 {
   x: number;
   y: number;
@@ -32,28 +32,33 @@ const toWorld = (d: FurnDir, x: number, y: number): { u: number; v: number } =>
   d === "ne" ? { u: x, v: y } : d === "nw" ? { u: y, v: x } : d === "se" ? { u: -y, v: x } : { u: x, v: -y };
 const toLocal = (d: FurnDir, u: number, v: number): { x: number; y: number } =>
   d === "ne" ? { x: u, y: v } : d === "nw" ? { x: v, y: u } : d === "se" ? { x: v, y: -u } : { x: u, y: -v };
-/** Which local face the two camera-facing world faces are, per facing. */
-const FACE: Record<FurnDir, { sw: LFace; se: LFace }> = {
-  ne: { sw: "back", se: "right" },
-  nw: { sw: "right", se: "back" },
-  se: { sw: "right", se: "front" },
-  sw: { sw: "front", se: "right" },
-};
+/** Local face with outward normal (x, y): +x right, -x left (never camera-facing unless turned), +y back, -y front. */
+const faceOf = (x: number, y: number): LFace => (x > 0 ? "right" : x < 0 ? "left" : y > 0 ? "back" : "front");
 
-/** Collects solids for one facing of one piece, written in local coordinates. */
-class Kit {
+/** Collects solids for one facing of one piece, written in local coordinates. `turned` spins the piece 180° about its
+ *  anchor: the same model seen from the other side of the room (the Dank Dungeon north view, OME-1956). */
+export class Kit {
   readonly parts: { solid: Solid; front: boolean }[] = [];
-  constructor(readonly dir: FurnDir) {}
+  private readonly k: number;
+  constructor(readonly dir: FurnDir, turned = false) {
+    this.k = turned ? -1 : 1;
+  }
+
+  world(x: number, y: number): { u: number; v: number } {
+    const p = toWorld(this.dir, x, y);
+    return { u: this.k * p.u, v: this.k * p.v };
+  }
 
   private extra(o: PartOpts): Omit<Solid, "planes" | "ramp"> {
-    const d = this.dir;
+    const d = this.dir, k = this.k;
     const paint = o.paint;
     const out: Omit<Solid, "planes" | "ramp"> = {};
     if (o.tones) out.tones = o.tones;
     if (paint) {
       out.paint = (p: Vec3, f: Facing) => {
-        const l = toLocal(d, p.u, p.v);
-        const lf: LFace = f === "top" ? "top" : f === "sw" ? FACE[d].sw : f === "se" ? FACE[d].se : "other";
+        const l = toLocal(d, k * p.u, k * p.v);
+        const n = f === "sw" ? toLocal(d, 0, k) : f === "se" ? toLocal(d, k, 0) : null;
+        const lf: LFace = f === "top" ? "top" : n ? faceOf(n.x, n.y) : "other";
         return paint({ x: l.x, y: l.y, z: p.z }, lf);
       };
     }
@@ -61,7 +66,7 @@ class Kit {
   }
 
   private worldBox(x0: number, x1: number, y0: number, y1: number): [number, number, number, number] {
-    const a = toWorld(this.dir, x0, y0), b = toWorld(this.dir, x1, y1);
+    const a = this.world(x0, y0), b = this.world(x1, y1);
     return [Math.min(a.u, b.u), Math.max(a.u, b.u), Math.min(a.v, b.v), Math.max(a.v, b.v)];
   }
 
@@ -73,7 +78,7 @@ class Kit {
   /** Ellipsoid (rz = Infinity: vertical cylinder) at (cx, cy, cz), clipped to the local box [x0,x1]×[y0,y1]×[z0,z1]. */
   ell(c: L3, r: L3, clip: readonly [number, number, number, number, number, number], ramp: RampName, o: PartOpts = {}): void {
     const [u0, u1, v0, v1] = this.worldBox(clip[0], clip[1], clip[2], clip[3]);
-    const wc = toWorld(this.dir, c.x, c.y);
+    const wc = this.world(c.x, c.y);
     const swap = this.dir === "nw" || this.dir === "se";
     const solid = box(u0, u1, v0, v1, clip[4], clip[5], ramp, this.extra(o));
     solid.quad = { c: { u: wc.u, v: wc.v, z: c.z }, r: { u: swap ? r.y : r.x, v: swap ? r.x : r.y, z: r.z } };
@@ -1297,32 +1302,56 @@ function padImage(field: RampName, n = 0, s = 1, cv: Canvas = CANVAS): Uint8Arra
 
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670): a hotel suite after dark
 
-/** Twin bed: a plinth, a plum duvet folded back over cream sheets, a mustard throw at the foot, and a pile of pillows
- *  against a tufted headboard at the anchor end (the −x end, so it backs onto the left wall facing ne and the right wall facing nw). */
-function bed(k: Kit, c: RampName): void {
-  k.box(-7, 23, -6.5, 6.5, 0, 1.5, "charcoal");
-  k.box(-7.5, 23.5, -7, 7, 1.5, 4, "wood", { paint: (p, f) => (f !== "top" && p.z < 2.4 ? ["wood", 2] : null) });
-  k.box(-7, 23.5, -7, 7, 4, 6.5, "cream", { paint: (p, f) => (f !== "top" && p.z < 4.8 ? ["cream", 2] : null) });
-  // The duvet drapes over both long sides; its top edge is folded back, showing a cream sheet band.
-  const duvet: LPaint = (p, f) => (f === "top" ? (p.x < 3 ? ["cream", 0] : p.x < 4.5 ? [c, 0] : null) : p.z < 5 ? [c, 2] : null);
-  k.box(-1, 23.8, -7.4, 7.4, 3.6, SEAT_HEIGHT, c, { paint: duvet });
-  k.box(17, 21, -7.6, 7.6, 3, SEAT_HEIGHT + 0.4, "mustard", { paint: (p, f) => (f === "top" && Math.abs(p.x - 19) < 0.5 ? ["mustard", 2] : null) });
-  k.box(-7, -1, -7, 7, 6.5, SEAT_HEIGHT, "cream", { tones: { top: 0, sw: 1, se: 2 } });
+/** Queen bed (OME-1983), 2×2: a plinth, a plum duvet folded back over cream sheets, a mustard throw at the foot, two big pillows
+ *  and two cushions against a tufted headboard at the anchor end (the −x end, so it backs onto the left wall facing ne and the
+ *  right wall facing nw). Local y is the width: 0..16 facing ne/nw, −16..0 facing se/sw (the footprint's second row is on
+ *  the −y side there). `n` 2 and 3 draw only the duvet pulled up over sleeper 0 (the front, −y half, where the seats are) or 1. */
+function bed(k: Kit, c: RampName, n = 0): void {
+  const O = k.dir === "se" || k.dir === "sw" ? -16 : 0;
+  const Y0 = O - 7.5, Y1 = O + 23.5, MID = O + 8;
+  const halves = [O, O + 16];
+  const sleeper = halves[n - 2];
+  if (sleeper !== undefined) {
+    // The duvet over one sleeper: from the shoulders to the foot, over their half, the outer edge draping down the side.
+    const y0 = sleeper === O ? Y0 + 0.1 : MID, y1 = sleeper === O ? MID : Y1 - 0.1;
+    const lo = (y: number): boolean => (sleeper === O ? y < Y0 + 0.6 : y > Y1 - 0.6);
+    const quilt: LPaint = (p, f) => {
+      if (f === "top") return p.x < 3.2 ? ["cream", 0] : Math.abs(((p.x + 40) % 6) - 3) < 0.35 ? [c, 1] : null;
+      return lo(p.y) && p.z < 6 ? [c, 2] : null;
+    };
+    k.box(1.5, 23.9, y0, y1, 3.6, SEAT_HEIGHT + 1, c, { paint: quilt });
+    k.ell({ x: 11, y: sleeper, z: SEAT_HEIGHT + 1 }, { x: 9.5, y: 5.6, z: 5 }, [1.5, 21, y0, y1, SEAT_HEIGHT + 1, 40], c, {
+      paint: (p, f) => (f === "top" && p.x < 3.2 ? ["cream", 0] : null),
+    });
+    return;
+  }
+  k.box(-7, 23, Y0 + 0.5, Y1 - 0.5, 0, 1.5, "charcoal");
+  k.box(-7.5, 23.5, Y0, Y1, 1.5, 4, "wood", { paint: (p, f) => (f !== "top" && p.z < 2.4 ? ["wood", 2] : null) });
+  k.box(-7, 23.5, Y0, Y1, 4, 6.5, "cream", { paint: (p, f) => (f !== "top" && p.z < 4.8 ? ["cream", 2] : null) });
+  // The duvet drapes over both long sides; its top edge is folded back, showing a cream sheet band. A seam down the middle.
+  const duvet: LPaint = (p, f) => {
+    if (f !== "top") return p.z < 5 ? [c, 2] : null;
+    if (p.x < 3) return ["cream", 0];
+    if (p.x < 4.5) return [c, 0];
+    return Math.abs(p.y - MID) < 0.4 ? [c, 1] : null;
+  };
+  k.box(-1, 23.8, Y0 - 0.4, Y1 + 0.4, 3.6, SEAT_HEIGHT, c, { paint: duvet });
+  k.box(17, 21, Y0 - 0.6, Y1 + 0.6, 3, SEAT_HEIGHT + 0.4, "mustard", { paint: (p, f) => (f === "top" && Math.abs(p.x - 19) < 0.5 ? ["mustard", 2] : null) });
+  k.box(-7, -1, Y0, Y1, 6.5, SEAT_HEIGHT, "cream", { tones: { top: 0, sw: 1, se: 2 } });
   const tufts: LPaint = (p, f) => {
     if (f === "top") return [c, 0];
     return Math.abs(((p.y + 40) % 4) - 2) < 0.6 && Math.abs(((p.z - 10) % 4) - 2) < 0.6 ? [c, 2] : null;
   };
-  k.box(-8, -6.5, -7.5, 7.5, 1.5, 26, c, { paint: tufts });
-  k.box(-8, -6.5, -7.5, 7.5, 26, 27, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
-  // Pillows: two big cream ones against the headboard, then plum, mustard and teal cushions, and a little bolster.
+  k.box(-8, -6.5, Y0 - 0.5, Y1 + 0.5, 1.5, 26, c, { paint: tufts });
+  k.box(-8, -6.5, Y0 - 0.5, Y1 + 0.5, 26, 27, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
+  // Two big cream pillows, one per sleeper, then a plum and a mustard cushion in front of them and a teal bolster between.
   const pillow = (x: number, y: number, z: number, r: L3, ramp: RampName): void => {
-    k.ell({ x, y, z }, r, [-8, 24, -8, 8, 0, 40], ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.y - y) < 0.4 ? [ramp, 2] : null) });
+    k.ell({ x, y, z }, r, [-8, 24, Y0 - 1, Y1 + 1, 0, 40], ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.y - y) < 0.4 ? [ramp, 2] : null) });
   };
-  pillow(-4.4, -3.5, 13, { x: 2.2, y: 3.6, z: 5 }, "cream");
-  pillow(-4.4, 3.5, 13, { x: 2.2, y: 3.6, z: 5 }, "cream");
-  pillow(-2, -3.2, 11.6, { x: 1.8, y: 3, z: 3.6 }, c);
-  pillow(-2, 3.2, 11.6, { x: 1.8, y: 3, z: 3.6 }, "mustard");
-  pillow(-0.4, 0, 10.2, { x: 1.4, y: 2.4, z: 2.2 }, "teal");
+  for (const y of halves) pillow(-4.2, y, 12.6, { x: 2.4, y: 6, z: 4.6 }, "cream");
+  pillow(-1.6, O, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, c);
+  pillow(-1.6, O + 16, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, "mustard");
+  pillow(-0.6, MID, 9.8, { x: 1.4, y: 2.6, z: 2 }, "teal");
 }
 
 /** Whirlpool for two: a cream acrylic tub on a wood skirt, teal water that bubbles while someone is in it (frames 1–2),
@@ -1330,10 +1359,10 @@ function bed(k: Kit, c: RampName): void {
  *  sitter is in the tub up to the waist. */
 function whirlpool(k: Kit, n = 0): void {
   const X0 = -7.5, X1 = 23.5, Y0 = -7.5, Y1 = 7.5, RIM = 13, WATER = 11.6, T = 1.6;
-  const seats = [toWorld(k.dir, 0, 0), toWorld(k.dir, 16, 0)];
+  const seats = [k.world(0, 0), k.world(16, 0)];
   // In front of the nearest sitter: further toward the camera (u + v) than the sitter's own spot.
   const near = (x: number, y: number): boolean => {
-    const w = toWorld(k.dir, x, y);
+    const w = k.world(x, y);
     const s = seats.reduce((a, b) => (Math.hypot(w.u - b.u, w.v - b.v) < Math.hypot(w.u - a.u, w.v - a.v) ? b : a));
     return w.u - s.u + (w.v - s.v) > 1;
   };
@@ -1452,6 +1481,328 @@ function washbasin(k: Kit): void {
   k.box(-5, 1, D0 - 1.6, D0 - 0.9, H - 9, H - 1.4, "teal", { paint: (p, f) => (f !== "top" && Math.abs(p.z - (H - 7.5)) < 0.4 ? ["cream", 0] : null) });
 }
 
+// ---------------------------------------------------------------- Dank Dungeon rework (OME-1977): its own lazy sheet, furniture-v7
+
+/** Sauna cabin, 2×2, backing onto a wall: pale cedar boards (lighter than either panelling) under a dark roof trim. Front (into the
+ *  room): a glazed door lit from inside, a long handle, light spilling from under it onto the floor, a curl of steam over it and a
+ *  thermometer beside it. Side: a window onto a slatted two-tier bench and a stone-topped heater with embers and steam. */
+function sauna(k: Kit): void {
+  const X0 = -7.5, X1 = 23.5, Y0 = -7.5, Y1 = 23.5, H = 116;
+  const boards = (s: number): boolean => ((s + 40) % 4) < 0.6;
+  k.box(X0, X1, Y0, Y1, 0, H, "floor", {
+    paint: (p, f) => {
+      if (f === "top") return ["wood", (Math.floor(p.x + p.y) % 6) < 1 ? 2 : 1];
+      if (p.z > H - 6) return ["charcoal", p.z > H - 2 ? 0 : 1];
+      if (p.z < 3) return ["charcoal", 2];
+      if (f === "right") {
+        const s = p.y, z = p.z;
+        if (s > -4 && s < 20 && z > 34 && z < 90) {
+          if (s < -2.8 || s > 18.8 || z < 35.4 || z > 88.6) return ["charcoal", 2]; // window frame
+          // Heater: a dark iron box, a heap of grey stones on top with embers between them, a glow round it.
+          if (s < 5 && z < 52) return z > 50.8 || s > 4 ? ["charcoal", 1] : ["charcoal", 2];
+          if (s < 5.6 && z < 58) {
+            const bump = Math.abs(((s + 20) % 2.4) - 1.2) * 1.6 + (z - 52);
+            if (bump > 5.4) return ["ginger", 0];
+            const h = hash(Math.floor(s * 2) + 40, Math.floor(z * 2));
+            return h % 5 === 0 ? ["mustard", 0] : h % 5 === 1 ? ["rust", 0] : ["charcoal", h % 2 === 0 ? 0 : 1];
+          }
+          // Steam: a few loose cream pixels rising off the stones.
+          if (s < 6 && z > 60 && hash(Math.floor(s * 2) + 7, Math.floor(z)) % 7 === 0) return ["cream", 0];
+          // Two-tier bench: a lower step (z 46–49) and the upper seat (z 62–66) with a back rail, slats in pale cedar.
+          if (s >= 6) {
+            // Dark against the glow, so the bench reads as a silhouette at 1×; slat gaps pick up the light.
+            if (z > 61 && z < 66) return ((s + 40) % 2.5) < 0.7 ? ["ginger", 0] : ["wood", z > 64.6 ? 1 : 2];
+            if (z > 45 && z < 49) return ((s + 41) % 2.5) < 0.7 ? ["ginger", 0] : ["wood", z > 47.6 ? 1 : 2];
+            if (z > 74 && z < 77) return ["wood", 1]; // back rail
+            if (z <= 62 && z >= 49 && (Math.abs(s - 8) < 0.7 || Math.abs(s - 17) < 0.7)) return ["wood", 2]; // posts
+            if (z <= 46 && (Math.abs(s - 8) < 0.7 || Math.abs(s - 17) < 0.7)) return ["wood", 2];
+          }
+          return ["ginger", z > 72 ? 1 : 0]; // warm light inside
+        }
+      }
+      if (f === "front") {
+        const s = p.x - 4, z = p.z;
+        if (Math.abs(s - 15.5) < 1.2 && z > 66 && z < 84) return z < 69 ? ["rust", 0] : Math.abs(s - 15.5) < 0.5 ? ["rust", 1] : ["cream", 0]; // thermometer
+        if (s > -1 && s < 13 && z < 96) {
+          if (z < 4.5 && s > 0.5 && s < 11.5) return ["mustard", 0]; // light under the door
+          if (s < 0.5 || s > 11.5 || z > 94.5) return ["charcoal", 1]; // frame
+          if (Math.abs(s - 1.8) < 0.6 && z > 40 && z < 64) return ["wood", 2]; // handle
+          if (s > 3 && s < 10.5 && z > 20 && z < 88) {
+            const g = s - (z - 20) * 0.1;
+            return g > 7 && g < 8.2 ? ["cream", 0] : ["ginger", z > 58 ? 1 : 0]; // glazed, lit inside
+          }
+          return ["wood", 0];
+        }
+        if (s > 2 && s < 10 && z > 97 && z < 106 && hash(Math.floor(s * 2) + 3, Math.floor(z)) % 4 === 0) return ["cream", 0]; // steam
+      }
+      // OME-1997: on its back (seen from the north) a louvred vent up under the roof trim.
+      if (f === "back" && Math.abs(p.x - 8) < 5 && p.z > 92 && p.z < 104) return Math.abs(p.x - 8) > 4.2 || p.z < 92.8 || p.z > 103.2 ? ["charcoal", 1] : Math.floor(p.z) % 3 === 0 ? ["charcoal", 2] : ["floor", 1];
+      const s = f === "right" || f === "left" ? p.y : p.x;
+      return boards(s) ? ["floor", 2] : null;
+    },
+  });
+  // Warm light spilling from under the door onto the floor in front of it.
+  k.box(4.5, 15.5, -10.5, -7.5, 0, 0.3, "mustard", { paint: (p, f) => (f !== "top" ? null : p.y > -9 ? ["mustard", 0] : ["ginger", 0]) });
+}
+
+/** Round cedar soaking tub for two, 2×2: staves with two dark hoops, the water up to the rim, a little bucket and ladle. The
+ *  rim and water in front of each sitter are the `front` layer, as for the whirlpool, so a sitter is in it to the chest. */
+function soakTub(k: Kit): void {
+  // The sitters are the footprint's back row (local y 16, the contract's seat cells); the tub leans toward them, back edge on the
+  // footprint's, so both are well inside the water. The bucket stands on the free near corner.
+  const CX = 8, CY = 12, R = 12, WATER = 15, BX = 20, BY = -3.5;
+  const seats = [k.world(0, 16), k.world(16, 16)];
+  // In front of a sitter (toward the camera) and in their screen column (u − v within a body's width): that's what hides them.
+  const near = (x: number, y: number): boolean => {
+    const w = k.world(x, y);
+    return seats.some((s) => w.u - s.u + (w.v - s.v) > 1 && Math.abs(w.u - s.u - (w.v - s.v)) < 8);
+  };
+  const staves: LPaint = (p, f) => {
+    if (f === "top") return ["floor", 0];
+    if (Math.abs(p.z - 3.5) < 1.1 || Math.abs(p.z - 10.5) < 1.1) return ["charcoal", 1];
+    return ((Math.atan2(p.y - CY, p.x - CX) * 24 + 200) % 3) < 0.45 ? ["floor", 2] : null;
+  };
+  // The wall in 4-unit wedges so each can sit in front of or behind a sitter; the water in 2-unit tiles for the same reason.
+  for (let x = CX - R; x < CX + R - 0.01; x += 4) for (let y = CY - R; y < CY + R - 0.01; y += 4) {
+    const mx = x + 2, my = y + 2;
+    if (Math.hypot(mx - CX, my - CY) < R - 4.5) continue;
+    k.ell({ x: CX, y: CY, z: 0 }, { x: R, y: R, z: Infinity }, [x, x + 4, y, y + 4, 0, WATER - 1], "floor", { paint: staves, front: near(mx, my) });
+  }
+  for (let x = CX - R + 1; x < CX + R - 1; x += 2) for (let y = CY - R + 1; y < CY + R - 1; y += 2) {
+    const mx = x + 1, my = y + 1;
+    if (Math.hypot(mx - CX, my - CY) > R + 1.5) continue;
+    k.ell({ x: CX, y: CY, z: 0 }, { x: R, y: R, z: Infinity }, [x, x + 2, y, y + 2, WATER - 1, WATER], "teal", {
+      front: near(mx, my),
+      paint: (p, f) => {
+        if (f !== "top") return null;
+        const d = Math.hypot(p.x - CX, p.y - CY);
+        if (d > R - 1.6) return ["floor", 0]; // the rim's top
+        if (d > R - 2.6) return ["floor", 2]; // its inner edge, in shadow
+        return hash(Math.floor(p.x * 2) + 50, Math.floor(p.y * 2) + 50) % 13 === 0 ? ["glow", 0] : ["teal", d < 6 ? 1 : 0];
+      },
+    });
+  }
+  // Bucket and ladle on the floor beside it (outside the circle, on the near-right corner of the footprint).
+  k.ell({ x: BX, y: BY, z: 0 }, { x: 2.6, y: 2.6, z: Infinity }, [-99, 99, -99, 99, 0, 6], "floor", { paint: (p, f) => (f === "top" ? ["teal", 0] : Math.abs(p.z - 3) < 0.7 ? ["charcoal", 1] : null) });
+  k.box(BX - 0.3, BX + 0.3, BY - 0.5, BY + 0.5, 5, 11, "wood");
+  k.box(BX - 0.9, BX + 0.9, BY - 1.1, BY + 1.1, 10.4, 11.4, "wood", { tones: { top: 0 } });
+}
+
+/** Spa lounger, 2×1: a teak frame on four legs, a thick cream mattress with a raised back at the head (local −x), a rolled teal
+ *  towel under the head and a folded one at the foot. Reads as a bed you lie on, not a machine. */
+function lounger(k: Kit): void {
+  const H = 6.5, MAT = 9.5;
+  for (const [x, y] of [[-7, -6.5], [21.5, -6.5], [-7, 5.5], [21.5, 5.5]] as const) k.box(x, x + 1, y, y + 1, 0, H, "wood", { tones: { top: 1 } });
+  // Frame rails with slat ends showing along the sides.
+  k.box(-7.5, 23.5, -7, 7, H - 1.5, H, "wood", { paint: (p, f) => (f === "top" ? null : ((p.x + p.y + 40) % 2.5) < 0.6 ? ["wood", 2] : ["wood", 1]) });
+  k.box(-2, 23, -6.2, 6.2, H, MAT, "cream", { paint: (p, f) => (f === "top" ? (Math.abs(p.x - 10) < 0.4 ? ["cream", 2] : null) : p.z < H + 0.8 ? ["cream", 2] : null) });
+  // The raised back: stacked steps leaning toward the head, the mattress carried up it.
+  for (let i = 0; i < 6; i++) k.box(-7 + i * 0.9, -6 + i * 0.9, -6.2, 6.2, H, MAT + 11 - i * 2.2, "cream", { tones: { top: 0, sw: 1, se: 2 } });
+  k.box(-7.6, -6.6, -6.6, 6.6, H, MAT + 12, "wood", { tones: { top: 0 } });
+  k.ell({ x: -2.6, y: 0, z: MAT + 4 }, { x: 1.6, y: 5.2, z: 1.6 }, [-99, 99, -5.2, 5.2, MAT, MAT + 8], "teal", { paint: (p, f) => (f !== "top" && Math.abs(p.y) % 3 < 0.6 ? ["cream", 0] : null) });
+  k.box(17, 21.5, -5.5, 5.5, MAT, MAT + 1.6, "teal", { paint: (p, f) => (f !== "top" && Math.abs(p.z - MAT - 0.8) < 0.4 ? ["teal", 2] : Math.abs(p.y) < 0.4 ? ["cream", 0] : null) });
+}
+
+/** Tall rectangular wall mirror (OME-1977, the judge's note): a thin brass frame round a cool blue-grey pane, lighter at the top,
+ *  one soft diagonal sheen and the faint reflection of someone standing in front of it. One segment, so two hang side by side
+ *  over a pair of basins. */
+function silverMirror(k: Kit): void {
+  const Z0 = 66, Z1 = 158, HW = 6.5;
+  const face: LPaint = (p, f) => {
+    if (f === "top") return ["mustard", 0];
+    const x = p.x, z = p.z;
+    if (Math.abs(x) > HW - 1 || z < Z0 + 1 || z > Z1 - 1) return x < -HW + 1 || z > Z1 - 1 ? ["mustard", 0] : ["mustard", 2];
+    const sheen = x * 2.2 + (z - Z0) * 0.5;
+    if (sheen > 30 && sheen < 33.5) return ["glow", 0];
+    // A head and shoulders, centred and faint (one tone off the pane).
+    const head = Math.hypot(x - 0.5, (z - 116) / 1.25) < 3.2;
+    const body = z < 110 && z > Z0 + 18 && Math.abs(x - 0.5) < 4.6 - Math.max(0, (z - 104) * 0.5);
+    if (head || body) return ["navy", 0];
+    return ["glow", z > 132 ? 1 : 2];
+  };
+  k.box(-HW, HW, 6.6, 8, Z0, Z1, "glow", { paint: face });
+}
+
+/** Cream bar fridge, 1×1, standing on its own: a freezer seam, two long dark handles, a kick plate, a teal badge and two bottles. */
+function barFridge(k: Kit): void {
+  const H = 32;
+  k.box(-6, 6, -1, 8, 0, H, "cream", {
+    paint: (p, f) => {
+      if (f === "top") return ["cream", 0];
+      if (p.z < 2.5) return ["charcoal", 2];
+      // OME-1997: the condenser coil on its back, a black zigzag between two rails.
+      if (f === "back") return Math.abs(p.x) < 4.2 && p.z > 5 && p.z < 28 && (Math.abs(p.x) > 3.4 || Math.floor(p.z) % 3 === 0) ? ["charcoal", 2] : null;
+      if (f !== "front") return null;
+      if (Math.abs(p.z - 23) < 0.5 || Math.abs(p.x) > 5.4) return ["cream", 2];
+      if (Math.abs(p.x - 4) < 0.6 && ((p.z > 8 && p.z < 21) || (p.z > 24.5 && p.z < 30))) return ["charcoal", 2];
+      if (Math.abs(p.x + 3) < 1 && Math.abs(p.z - 27) < 0.8) return ["teal", 0];
+      return null;
+    },
+  });
+  k.ell({ x: -2, y: 3, z: 0 }, { x: 1.2, y: 1.2, z: Infinity }, [-99, 99, -99, 99, H, H + 7], "teal");
+  k.ell({ x: 2, y: 4, z: 0 }, { x: 1.2, y: 1.2, z: Infinity }, [-99, 99, -99, 99, H, H + 6], "rust");
+}
+
+/** Oval velvet rug, 2×2, flat: a velvet field with a darker inner ring, a gold border and a little gold lozenge in the middle. */
+function ovalRugImage(s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const img = new Uint8Array(cv.w * cv.h);
+  const at = (u: number, v: number): number => ((u - 8) / 15.5) ** 2 + ((v - 8) / 11) ** 2;
+  for (let py = 0; py < cv.h; py++) {
+    for (let px = 0; px < cv.w; px++) {
+      const sx = (px + 0.5 - cv.ax) / s, sy = (py + 0.5 - cv.ay) / s;
+      const u = (sy + sx / 2) / 2, v = (sy - sx / 2) / 2;
+      const e = at(u, v);
+      if (e > 1) continue;
+      let p: Paint = ["velvet", 1];
+      if (e > 0.8) p = ["mustard", e > 0.9 ? 2 : 1];
+      else if (e > 0.62 && e < 0.68) p = ["velvet", 2];
+      else if (Math.abs(u - 8) + Math.abs(v - 8) * 1.4 < 4) p = ["mustard", 1];
+      img[py * cv.w + px] = colorIndex(p[0], p[1]);
+    }
+  }
+  // Plum outline round the oval, like every floor piece.
+  addOutline(img, cv.w, cv.h);
+  return img;
+}
+
+/** A flat-screen TV on the room's corner console (cell (0,0) units, as `tvSolids`): a thin dark bezel, a navy screen lit teal low
+ *  down, a glint top-left, a stand and a power light. The console and its knick-knacks are the room's, minus the projector. */
+function flatTvImage(s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const pl = (u: number, v: number, d: number): { n: Vec3; d: number } => ({ n: { u, v, z: 0 }, d });
+  const Z0 = 27, Z1 = 55, HW = 15;
+  const screen: Solid = {
+    ramp: "charcoal",
+    planes: [pl(1, 1, 15), pl(-1, -1, -12), pl(1, -1, HW), pl(-1, 1, HW), { n: { u: 0, v: 0, z: 1 }, d: Z1 }, { n: { u: 0, v: 0, z: -1 }, d: -Z0 }],
+    paint: (p, f) => {
+      if (f === "top") return ["charcoal", 1];
+      if (p.u + p.v < 14.6) return ["charcoal", 2];
+      const x = 2 * (p.u - p.v);
+      if (Math.abs(x) > 2 * HW - 2.5 || p.z < Z0 + 1.5 || p.z > Z1 - 1.2) return Math.abs(x + 1) < 1 && p.z < Z0 + 1 ? ["mustard", 0] : ["charcoal", 2];
+      const g = x + 2 * (p.z - Z0);
+      if (g < -18 && g > -26) return ["glow", 2];
+      if (p.z < Z0 + 9) return ["teal", p.z < Z0 + 5 ? 1 : 0];
+      return ["navy", p.z > Z1 - 8 ? 2 : 1];
+    },
+  };
+  const solids = [...tvSolids().slice(0, -1), box(4, 7, 4, 7, 20, Z0, "charcoal"), box(2, 9, 2, 9, 20, 21, "charcoal", { tones: { top: 1, sw: 2, se: 2 } }), screen];
+  return renderSolids(solids, cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
+}
+
+// ---------------------------------------------------------------- back views (OME-1997): the 180° view swap, lazy sheet furniture-back
+
+/** The facing a piece shows when the room is seen from the other side: the same model turned 180°. */
+export const TURN: Record<FurnDir, FurnDir> = { se: "nw", sw: "ne", ne: "sw", nw: "se" };
+
+/** One-sided (CAMERA/FIXED) pieces of the Dank Dungeon that get a back view, by `<id>/<colour>`, with the facings they ship. Symmetric
+ *  ones (the oval rug, the plants, the coffee table, the papered partitions) need none: from behind they look as from the front. */
+export const BACK_VIEWS: Readonly<Record<string, readonly FurnDir[]>> = {
+  "tv/charcoal": ["se"], "tv/flat": ["se"],
+  "desk/wood": ["se", "sw"], "minibar/wood": ["se", "sw"], "minibar/fridge": ["se", "sw"],
+  "arclamp/brass": ["se", "sw"], "washbasin/cream": ["se", "sw"],
+  "sauna/cedar": ["se", "sw"], "soaktub/cedar": ["se"],
+  "partition/panel": ["se", "sw"], "partition/panelglass": ["se", "sw"],
+};
+
+/** The corner console and its screen from behind, turned 180° about cell (0,0) (judge's note, OME-1977): the console stands on its
+ *  plinth on the floor, its two hardboard back panels meeting at the near corner, with a cable hatch, vent slots and the cables
+ *  hanging down them. On top, the flat TV's matte back (a raised housing with vents and ports, the stand's neck in front of it) or the
+ *  projector's back (a vent grille, a power socket, its two reels). No rails, no glow. */
+function tvBackImage(flat: boolean, s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const pl = (u: number, v: number, d: number): { n: Vec3; d: number } => ({ n: { u, v, z: 0 }, d });
+  const zs = (z0: number, z1: number): { n: Vec3; d: number }[] => [{ n: { u: 0, v: 0, z: 1 }, d: z1 }, { n: { u: 0, v: 0, z: -1 }, d: -z0 }];
+  // The console's back panels: u = 8 (the "se" face) and v = 8 ("sw"); `a` runs from the near corner outward.
+  const console_: Solid = {
+    ramp: "wood",
+    planes: [pl(1, 0, 8), pl(0, 1, 8), pl(-1, -1, 24), ...zs(0, 20)],
+    paint: (p, f) => {
+      if (f === "top") return ["wood", 1];
+      const a = f === "se" ? 8 - p.v : 8 - p.u, z = p.z;
+      if (z < 2) return ["charcoal", 2]; // plinth on the floor
+      if (z >= 18) return ["wood", 0]; // top lip
+      if (a > 37.5 || a < 0.8) return ["wood", 1]; // the side boards' edges
+      if (f === "se" && a > 5 && a < 13 && z > 10 && z < 16) return a < 5.8 || a > 12.2 || z < 10.8 || z > 15.2 ? ["charcoal", 1] : ["charcoal", 2]; // cable hatch
+      if (f === "sw" && a > 9 && a < 23 && z > 7 && z < 14) return Math.floor(z) % 2 === 0 ? ["charcoal", 2] : ["wood", 2]; // vent slots
+      if (f === "sw" && a > 27 && a < 31 && z > 5 && z < 9) return ["cream", 1]; // a blank label
+      if ((Math.abs(a - 2.5) < 0.6 || Math.abs(a - 35.5) < 0.6) && (Math.abs(z - 4) < 0.6 || Math.abs(z - 15.5) < 0.6)) return ["wood", 0]; // screws
+      return ["wood", 2]; // hardboard
+    },
+  };
+  // Cables: from the screen down over the lip into the hatch, and a bundle from the hatch down to the floor.
+  const cables = [
+    box(-4, 8.6, -6, -5.2, 20, 20.8, "charcoal", { tones: { top: 0, sw: 1, se: 1 } }),
+    box(8, 8.6, -6, -5.2, 13, 20.8, "charcoal", { tones: { top: 0, sw: 1, se: 0 } }),
+    box(8, 8.6, -9.5, -8.7, 0, 12, "charcoal", { tones: { top: 0, sw: 1, se: 0 } }),
+    box(8, 8.6, -11, -10.2, 0, 12, "navy", { tones: { top: 0, sw: 1, se: 1 } }),
+  ];
+  // The knick-knacks, turned with the console.
+  const things = [box(-16, -12, 2, 6, 20, 26, "rust"), box(-15.5, -12.5, 2.5, 5.5, 26, 32, "olive"), ...[0, 1, 2].map((i) => box(0, 6, -14, -8, 20 + i * 2, 22 + i * 2, i === 1 ? "teal" : "charcoal", { tones: { top: 0, sw: 1, se: 2 } }))];
+  let top: Solid[];
+  if (flat) {
+    const Z0 = 27, Z1 = 55, HW = 15;
+    const back: Solid = {
+      ramp: "charcoal",
+      planes: [pl(-1, -1, 15), pl(1, 1, -12), pl(1, -1, HW), pl(-1, 1, HW), ...zs(Z0, Z1)],
+      paint: (p, f) => {
+        if (f === "top") return ["charcoal", 1];
+        const x = 2 * (p.u - p.v), z = p.z;
+        if (Math.abs(x) > 2 * HW - 1.5 || z < Z0 + 1 || z > Z1 - 1) return ["charcoal", 2]; // rim
+        if (z > Z1 - 7 && z < Z1 - 3 && Math.abs(x) < 18 && Math.floor(x + 40) % 3 === 0) return ["charcoal", 2]; // vents
+        if (x > 15 && x < 22 && z > Z0 + 3 && z < Z0 + 7) return ["cream", 2]; // a blank label
+        return ["charcoal", 1];
+      },
+    };
+    const housing: Solid = {
+      ramp: "charcoal",
+      planes: [pl(-1, -1, 12), pl(1, 1, -10), pl(1, -1, 8), pl(-1, 1, 8), ...zs(Z0 + 4, Z0 + 19)],
+      paint: (p, f) => {
+        if (f === "top") return ["charcoal", 0];
+        const x = 2 * (p.u - p.v);
+        if (p.z < Z0 + 8 && p.z > Z0 + 5.5 && Math.abs(x + 6) < 6 && Math.floor(x + 40) % 4 < 2) return ["mustard", 0]; // ports
+        return Math.abs(x) > 14.5 ? ["charcoal", 2] : ["charcoal", 1];
+      },
+    };
+    top = [back, housing, box(-7, -4, -7, -4, 20, Z0 + 6, "charcoal", { tones: { top: 0, sw: 1, se: 2 } }), box(-9, -2, -9, -2, 20, 21, "charcoal", { tones: { top: 1, sw: 2, se: 2 } })];
+  } else {
+    const projector: Solid = {
+      ramp: "cream",
+      planes: [pl(-1, -1, 18), pl(1, 1, -8), pl(1, -1, 7), pl(-1, 1, 7), ...zs(20, 34)],
+      paint: (p, f) => {
+        if (f === "top") return ["cream", 0];
+        const x = 2 * (p.u - p.v), z = p.z;
+        if (p.u + p.v < -8.4) return null; // its sides
+        if (Math.abs(x) < 8 && z > 26 && z < 32) return Math.floor(z) % 2 === 0 ? ["cream", 2] : ["cream", 1]; // vent grille
+        if (x > -11 && x < -6 && z > 21.5 && z < 24.5) return ["charcoal", 2]; // power socket
+        return z < 21.5 ? ["cream", 2] : null;
+      },
+    };
+    top = [projector, box(-5, -4.2, -5, -4.2, 20, 23, "charcoal")];
+  }
+  const r = renderSolids([console_, ...cables, ...things, ...top], cv.w, cv.h, cv.ax, cv.ay, "all", s);
+  if (!flat) {
+    // The reels on the projector, as on the front view, turned with it (mirrored across and 26 rows up).
+    drawReel(r.img, cv, 6, -53);
+    drawReel(r.img, cv, -6, -54);
+    addOutline(r.img, cv.w, cv.h);
+  }
+  return r.img;
+}
+
+/** Back views (OME-1997) for the furniture-back sheet: `furniture/<id>/<colour>/<nw|ne>/<back|front>` for every BACK_VIEWS piece,
+ *  anchored on the turned footprint's min corner like any other frame, plus the north view's shell skin. */
+export function buildBackViews(): RoomFrame[] {
+  const out: RoomFrame[] = [];
+  for (const [key, dirs] of Object.entries(BACK_VIEWS)) {
+    const [id = "", colour = ""] = key.split("/");
+    for (const dir of dirs) {
+      if (id === "tv") { out.push(crop(`furniture/${key}/${TURN[dir]}/back`, tvBackImage(colour === "flat"))); continue; }
+      const def = PIECES.find((d) => d.id === id);
+      if (!def) throw new Error(`no piece ${id}`);
+      out.push(...pieceFrames(def, colour, dir, true));
+    }
+  }
+  return [...out, ...buildNorthShell()];
+}
+
 // ---------------------------------------------------------------- theatre set v2 (OME-1639): its own lazy sheet, furniture-v5
 
 /** Riser height per theatre-row variant, px (= z units): what the web lifts a sitter by (`meta.omega.pieces[].seatLiftByColour`). */
@@ -1513,6 +1864,8 @@ function theatreRow(k: Kit, colour: string): void {
 /** Partition stub height (OME-1959): low enough that an avatar one row behind shows from the knees up. */
 export const PARTITION_STUB = 16;
 const PARTITION_BAND = [110, 114] as const;
+/** The panelled glass's stripe (OME-1977): thinner and up near the header, clear of the beds and the tub behind the pane. */
+const PANEL_BAND = [133, 135] as const;
 /** A partition cell's outline (OME-1959): none on its trailing end (local x = −8, the side the previous cell in the run is drawn
  *  on), so a row joins like one wall; none round the glass band, so it reads as a frosted stripe, not a rail. */
 function partitionOutline(dir: FurnDir, colour: string, x: number, y: number): boolean {
@@ -1521,17 +1874,24 @@ function partitionOutline(dir: FurnDir, colour: string, x: number, y: number): b
   const z = -8 + s - y;
   if (s >= -2.5 && z >= -3 && z <= WALL_H + 2) return false;
   const zMid = (dir === "sw" ? x / 2 : -x / 2) - y; // height on the wall's mid plane
-  return !(colour === "glass" && zMid > PARTITION_BAND[0] - 2.5 && zMid < PARTITION_BAND[1] + 2.5);
+  const band = colour === "panelglass" ? PANEL_BAND : PARTITION_BAND;
+  return !((colour === "glass" || colour === "panelglass") && zMid > band[0] - 2.5 && zMid < band[1] + 2.5);
 }
 /** Interior wall cell (OME-1959): the room's own wall (wainscot, lozenge paper, crown), one wall thick through the cell's middle, so
  *  a row of them reads as part of the shell. `glass`: a wainscot sill at mattress height and a header, each with a black frame, open
  *  in between except one frosted stripe, which lines up from cell to cell into a single band through the whole window. `cut` (n = 1):
  *  the low stub for a viewer whose avatar is behind the wall, sawn off flat; the glass one keeps its black sill cap. */
-function partition(k: Kit, glass: boolean, cut: boolean): void {
+function partition(k: Kit, colour: string, cut: boolean): void {
   const T = 2, SILL = 24, HEAD = 150, lit = k.dir === "sw";
-  const wall: LPaint = (p, f) => (f === "top" ? ["wall", 0] : f === "front" ? wallPaint("plain", p.x, p.z, lit) : wallPaint("plain", p.y, p.z, !lit));
+  const glass = colour === "glass" || colour === "panelglass";
+  // OME-1977: `panel` / `panelglass` wear the spa's smoked panelling (the side the camera sees) instead of the room's paper.
+  // OME-1997: its back (the bedroom side, seen from the north) wears the bedroom's oak.
+  const paint: (s: number, z: number, l: boolean, back: boolean) => Paint = colour.startsWith("panel") ? (s, z, l, back) => panelPaint(back ? "oak" : "smoke", s, z, l) : (s, z, l) => wallPaint("plain", s, z, l);
+  const band = colour === "panelglass" ? PANEL_BAND : PARTITION_BAND;
+  const face = (f: LFace): boolean => f === "front" || f === "back";
+  const wall: LPaint = (p, f) => (f === "top" ? ["wall", 0] : face(f) ? paint(p.x, p.z, lit, f === "back") : paint(p.y, p.z, !lit, false));
   // The wainscot without its panel inset, which a sill or a stub would cut in half.
-  const wood: LPaint = (p, f) => (f === "top" ? ["wood", 0] : p.z < 5 ? ["wood", 2] : ["wood", (f === "front") === lit ? 1 : 2]);
+  const wood: LPaint = (p, f) => (f === "top" ? ["wood", 0] : p.z < 5 ? ["wood", 2] : ["wood", face(f) === lit ? 1 : 2]);
   const frame = (z0: number, z1: number): void => { k.box(-8, 8, -T - 0.5, T + 0.5, z0, z1, "charcoal", { tones: { top: 1, sw: 2, se: 2 } }); };
   if (cut) {
     k.box(-8, 8, -T, T, 0, glass ? PARTITION_STUB - 2 : PARTITION_STUB, "wood", { paint: wood });
@@ -1542,9 +1902,9 @@ function partition(k: Kit, glass: boolean, cut: boolean): void {
     k.box(-8, 8, -T, T, 0, WALL_H, "wall", { paint: wall });
     return;
   }
-  k.box(-8, 8, -T, T, 0, SILL, "wood", { paint: wood });
+  k.box(-8, 8, -T, T, 0, SILL, "wood", { paint: colour === "panelglass" ? wall : wood });
   frame(SILL, SILL + 2);
-  k.box(-8, 8, -0.5, 0.5, PARTITION_BAND[0], PARTITION_BAND[1], "glow", { tones: { top: 0, sw: 0, se: 1 } });
+  k.box(-8, 8, -0.5, 0.5, band[0], band[1], "glow", { tones: { top: 0, sw: 0, se: 1 } });
   frame(HEAD - 2, HEAD);
   k.box(-8, 8, -T, T, HEAD, WALL_H, "wall", { paint: wall });
 }
@@ -1685,6 +2045,9 @@ export interface PieceMeta {
   walk?: { frames: number; ms: number };
   /** A raised seat (the theatre rows, OME-1639): draw its sitters this many px higher, per colour. Absent = 0. */
   seatLiftByColour?: Record<string, number>;
+  /** Sleepers side by side (the queen bed, OME-1983): `furniture/<id>/<colour>/cover/<dir>/<0..covers-1>`, the duvet pulled
+   *  over that sleeper, in `back`'s rect (same anchor). Draw it right after its sleeper (lying.json `pieces`). */
+  covers?: number;
 }
 
 export interface PieceDef {
@@ -1699,6 +2062,10 @@ export interface PieceDef {
   rows: number;
   /** Seat cells along local x (0 = anchor cell). */
   seats?: readonly number[];
+  /** The seats are on the front (−y) row of a 2-row piece, which is the footprint's last row facing se/sw (the queen bed). */
+  frontRow?: true;
+  /** Duvet frames pulled over each of this many sleepers: build gets n = 2.. for them (see PieceMeta `coverKey`). */
+  covers?: number;
   walkable?: boolean;
   /** "In use" loop: `frames` extra back frames (build gets n = 1..frames; n = 0 is the idle frame), each shown `ms`. */
   use?: { frames: number; ms: number };
@@ -1760,20 +2127,26 @@ export const PIECES: readonly PieceDef[] = [
   // Batch 12 (OME-1546), packed into the v4 sheet. Round, so one facing (the contract's `se`); the active frame is its one-frame "in use" loop.
   { id: "pad", label: "Teleport pad", kind: "fun", layer: "floor", colours: ["teal", "lilac"], dirs: ["se"], cols: 1, rows: 1, walkable: true, use: { frames: 1, ms: 1000 }, image: (_d, c, s, cv, n) => padImage(asRamp(c), n, s, cv) },
   // Dank Dungeon (OME-1670): its own lazy sheet, furniture-v6. The desk and the washbasin back onto a wall like the bookcase.
-  { id: "bed", label: "Twin bed", kind: "seat", colours: ["velvet"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], build: (k, c) => { bed(k, asRamp(c)); } },
+  { id: "bed", label: "Queen bed", kind: "seat", colours: ["velvet"], dirs: ALL, cols: 2, rows: 2, seats: [0, 1], frontRow: true, covers: 2, build: (k, c, n) => { bed(k, asRamp(c), n); } },
   { id: "whirlpool", label: "Whirlpool", kind: "seat", colours: ["teal"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], use: { frames: 2, ms: 200 }, build: (k, _c, n) => { whirlpool(k, n); } },
-  { id: "mirror", label: "Wall mirror", kind: "wall", mount: "wall", layer: "wall", colours: ["brass"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallMirror(k); } },
-  { id: "minibar", label: "Minibar", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { minibar(k); } },
+  { id: "mirror", label: "Wall mirror", kind: "wall", mount: "wall", layer: "wall", colours: ["brass", "silver"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { if (c === "silver") silverMirror(k); else wallMirror(k); } },
+  { id: "minibar", label: "Minibar", kind: "fun", colours: ["wood", "fridge"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k, c) => { if (c === "fridge") barFridge(k); else minibar(k); } },
   { id: "desk", label: "Writing desk", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { desk(k); } },
   { id: "washbasin", label: "Washbasin", kind: "fun", colours: ["cream"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { washbasin(k); } },
   // Interior wall (OME-1959), packed into v6 with the room it was made for. Facing picks the axis like the curtain: sw runs along a row, se along a col.
-  { id: "partition", label: "Interior wall", kind: "wall", colours: ["solid", "glass"], dirs: ["se", "sw"], cols: 1, rows: 1, cut: true, keepOutline: partitionOutline, build: (k, c, n) => { partition(k, c === "glass", n === 1); } },
+  { id: "partition", label: "Interior wall", kind: "wall", colours: ["solid", "glass", "panel", "panelglass"], dirs: ["se", "sw"], cols: 1, rows: 1, cut: true, keepOutline: partitionOutline, build: (k, c, n) => { partition(k, c, n === 1); } },
   // Theatre set v2 (OME-1639): its own lazy sheet, furniture-v5. A row's colour is its riser height (THEATRE_LIFT).
   { id: "theatrerow", label: "Theatre row", kind: "seat", colours: ["floor", "step", "high"], dirs: ["ne", "nw"], cols: 2, rows: 1, seats: [0, 1], seatLift: THEATRE_LIFT, build: (k, c) => { theatreRow(k, c); } },
   { id: "curtain", label: "Stage curtain", kind: "wall", mount: "wall", layer: "wall", colours: ["velvet"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { curtain(k); } },
   { id: "bigscreen", label: "Big screen", kind: "fun", colours: ["charcoal"], dirs: ["se"], cols: 1, rows: 1, build: (k) => { bigScreen(k); } },
   { id: "aislelight", label: "Aisle lights", kind: "light", layer: "floor", colours: ["warm"], dirs: ["ne", "nw"], cols: 1, rows: 1, walkable: true, image: (d, _c, s, cv) => aisleLightImage(d, s, cv) },
-  { id: "carpet", label: "Theatre carpet", kind: "rug", layer: "floor", colours: ["navy"], dirs: ["se"], cols: 2, rows: 2, walkable: true, image: (_d, _c, s, cv) => carpetImage(s, cv) },
+  { id: "carpet", label: "Theatre carpet", kind: "rug", layer: "floor", colours: ["navy", "oval"], dirs: ["se"], cols: 2, rows: 2, walkable: true, image: (_d, c, s, cv) => (c === "oval" ? ovalRugImage(s, cv) : carpetImage(s, cv)) },
+  // Dank Dungeon rework (OME-1977): its own lazy sheet, furniture-v7, with the new colours above (V7_COLOURS). The sauna backs onto
+  // a wall; the tub is round, so one facing; the TV is the room's corner console with a flat screen instead of the projector.
+  { id: "sauna", label: "Sauna cabin", kind: "fun", colours: ["cedar"], dirs: ["se", "sw"], cols: 2, rows: 2, build: (k) => { sauna(k); } },
+  { id: "soaktub", label: "Cedar soaking tub", kind: "seat", colours: ["cedar"], dirs: ["se"], cols: 2, rows: 2, seats: [0, 1], build: (k) => { soakTub(k); } },
+  { id: "lounger", label: "Spa lounger", kind: "seat", colours: ["teak"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], build: (k) => { lounger(k); } },
+  { id: "tv", label: "Flat TV", kind: "fun", colours: ["flat"], dirs: ["se"], cols: 1, rows: 1, image: (_d, _c, s, cv) => flatTvImage(s, cv) },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
@@ -1782,6 +2155,10 @@ export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench
 export const CATALOGUE_V4: ReadonlySet<string> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace", "pad"]);
 /** Dank Dungeon (OME-1670): `furniture/furniture-v6.json`, same schema, loaded only by rooms that use one of these. */
 export const CATALOGUE_V6: ReadonlySet<string> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
+/** Dank Dungeon rework (OME-1977): `furniture/furniture-v7.json`, same schema. Whole kinds, plus new colours of kinds that live in
+ *  older sheets (`<id>/<colour>`): those sheets keep their frames, and v7's `meta.omega.pieces` lists only the new colours. */
+export const CATALOGUE_V7: ReadonlySet<string> = new Set(["sauna", "soaktub", "lounger", "tv"]);
+export const V7_COLOURS: ReadonlySet<string> = new Set(["mirror/silver", "minibar/fridge", "carpet/oval", "partition/panel", "partition/panelglass"]);
 /** Theatre set v2 (OME-1639): a fourth lazy atlas, `furniture/furniture-v5.json`, same schema plus `seatLiftByColour`. */
 export const CATALOGUE_V5: ReadonlySet<string> = new Set(["theatrerow", "curtain", "bigscreen", "aislelight", "carpet"]);
 
@@ -1808,20 +2185,28 @@ function crop(key: string, img: Uint8Array, box0?: { x0: number; y0: number; w: 
 }
 
 /** Back (+ front, for seats) layers of one piece facing `dir`. Both layers share one crop rect, so one anchor. */
-export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
-  const base = `furniture/${def.id}/${colour}/${dir}`;
-  if (def.image) {
+export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir, turned = false): RoomFrame[] {
+  const base = `furniture/${def.id}/${colour}/${turned ? TURN[dir] : dir}`;
+  if (def.image && !turned) {
     const back = crop(`${base}/back`, def.image(dir, colour));
     return [back, ...useFrames(def, colour, dir, back.rect), ...(def.walk?.draw(dir, colour, back.rect) ?? [])];
   }
-  const k = new Kit(dir);
+  const k = new Kit(dir, turned);
   def.build?.(k, colour, 0);
+  // Move the model so its centre sits on the footprint's centre and the anchor is the footprint's min corner, as the contract
+  // places it (footprintCells). Turned, it spins about its anchor cell; facing se/sw, local +y runs toward −u/−v, so a piece two
+  // cells deep would otherwise stand a cell off its footprint (OME-1999). One-deep and wall pieces already sit right.
+  const fp = swapsAxes(dir) ? { c: def.rows, r: def.cols } : { c: def.cols, r: def.rows };
+  const mid = k.world(8 * (def.cols - 1), 8 * (def.rows - 1));
+  const centre = turned || def.rows > 1;
+  const du = centre ? 8 * (fp.c - 1) - mid.u : 0, dv = centre ? 8 * (fp.r - 1) - mid.v : 0;
+  const AX = CANVAS.ax + 2 * (du - dv), AY = CANVAS.ay + du + dv;
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);
   const all = [...back, ...front];
   const keep = def.keepOutline;
   const draw = (solids: readonly Solid[]): ReturnType<typeof renderSolids> => {
-    const r = renderSolids(solids, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, keep ? "none" : "all");
+    const r = renderSolids(solids, CANVAS.w, CANVAS.h, AX, AY, keep ? "none" : "all");
     if (keep) {
       const lined = r.img.slice();
       addOutline(lined, CANVAS.w, CANVAS.h);
@@ -1830,7 +2215,7 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
     return r;
   };
   const full = draw(all);
-  const alt = def.open ? "open" : def.cut ? "cut" : null;
+  const alt = turned ? null : def.open ? "open" : def.cut ? "cut" : null;
   if (front.length === 0 && alt) {
     // Closed and open share one rect (the union), so one anchor: swap the texture in place.
     const ko = new Kit(dir);
@@ -1844,9 +2229,15 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   }
   if (front.length === 0) {
     const idle = crop(`${base}/back`, full.img);
-    return [idle, ...useFrames(def, colour, dir, idle.rect)];
+    if (turned) return [idle];
+    const covers = Array.from({ length: def.covers ?? 0 }, (_, s) => {
+      const kc = new Kit(dir);
+      def.build?.(kc, colour, 2 + s);
+      return crop(`furniture/${def.id}/${colour}/cover/${dir}/${String(s)}`, draw(kc.parts.map((p) => p.solid)).img, idle.rect);
+    });
+    return [idle, ...useFrames(def, colour, dir, idle.rect), ...covers];
   }
-  const backImg = renderSolids(back, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+  const backImg = renderSolids(back, CANVAS.w, CANVAS.h, AX, AY, "all").img;
   const frontImg = new Uint8Array(CANVAS.w * CANVAS.h);
   const isFront = (i: number): boolean => (full.ids[i] ?? -1) >= back.length;
   for (let y = 0; y < CANVAS.h; y++) {
@@ -1863,7 +2254,7 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFr
   for (let i = 0; i < both.length; i++) both[i] = (backImg[i] ?? 0) || (frontImg[i] ?? 0);
   const { rect } = crop(`${base}/both`, both);
   // A seat's use loop replaces only its back layer (the front stays put), so its frames are the back parts alone.
-  return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect), ...useFrames(def, colour, dir, rect, true)];
+  return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect), ...(turned ? [] : useFrames(def, colour, dir, rect, true))];
 }
 
 function kitImage(def: PieceDef, colour: string, dir: FurnDir, n: number, backOnly = false): Uint8Array {
@@ -1887,6 +2278,8 @@ function useFrames(def: PieceDef, colour: string, dir: FurnDir, rect: { x0: numb
 }
 
 const swapsAxes = (d: FurnDir): boolean => d === "nw" || d === "se";
+/** Frames beside a facing's `back`/`front` layers: loops, alternates, the cat's frames, the queen bed's covers. */
+const EXTRA_FRAMES: ReadonlySet<string> = new Set(["use", "open", "cut", "walk", "sit", "bed", "cover"]);
 
 export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
   const frames: RoomFrame[] = [];
@@ -1897,7 +2290,8 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       for (const dir of def.dirs) {
         const fs = pieceFrames(def, colour, dir);
         frames.push(...fs);
-        layersByDir[dir] = fs.filter((f) => !/\/(use|open|cut|walk|sit|bed)\//.test(f.key)).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
+        // The 4th key segment names the frame (`furniture/<id>/<colour>/<dir|use|cover…>`): `/bed/` alone also matched the bed's own id.
+        layersByDir[dir] = fs.filter((f) => !EXTRA_FRAMES.has(f.key.split("/")[3] ?? "")).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
       }
     }
     const footprintByDir: PieceMeta["footprintByDir"] = {};
@@ -1908,7 +2302,8 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       footprintByDir[dir] = fp;
       const dc = Math.max(fp.cols - 1, 0) / 2, dr = Math.max(fp.rows - 1, 0) / 2;
       sortByDir[dir] = { x: (dc - dr) * 32, y: (dc + dr) * 16 };
-      if (def.seats) seatsByDir[dir] = def.seats.map((i) => (swapsAxes(dir) ? { col: 0, row: i, dir } : { col: i, row: 0, dir }));
+      const f = def.frontRow && (dir === "se" || dir === "sw") ? def.rows - 1 : 0;
+      if (def.seats) seatsByDir[dir] = def.seats.map((i) => (swapsAxes(dir) ? { col: f, row: i, dir } : { col: i, row: f, dir }));
     }
     const meta: PieceMeta = {
       id: def.id,
@@ -1928,6 +2323,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     if (def.use) meta.use = { ...def.use };
     if (def.open) meta.open = true;
     if (def.cut) meta.cut = true;
+    if (def.covers) meta.covers = def.covers;
     if (def.seatLift) meta.seatLiftByColour = { ...def.seatLift };
     if (def.walk) meta.walk = { frames: def.walk.frames, ms: def.walk.ms };
     pieces.push(meta);
@@ -1956,9 +2352,22 @@ export function buildThumbs(): RoomFrame[] {
   const out: RoomFrame[] = [];
   for (const def of PIECES) {
     const dir: FurnDir = def.dirs.includes("se") ? "se" : "ne";
-    for (const colour of def.colours) out.push(fitThumb(`thumb/${def.id}/${colour}`, cv, (s) => pieceImage(def, colour, dir, s, cv)));
+    for (const colour of def.colours) out.push(padThumb(fitThumb(`thumb/${def.id}/${colour}`, cv, (s) => pieceImage(def, colour, dir, s, cv))));
   }
   return out;
+}
+
+/** OME-1983: the queen bed's thumb keeps the twin's 43×34 rect (centred, transparent margin), so the edit sheet doesn't repack
+ *  and the eager `reference.css` stays byte-identical. */
+const THUMB_RECT: Readonly<Record<string, { w: number; h: number }>> = { "thumb/bed/velvet": { w: 43, h: 34 } };
+function padThumb(t: RoomFrame): RoomFrame {
+  const r = THUMB_RECT[t.key];
+  if (!r || (r.w === t.w && r.h === t.h)) return t;
+  if (t.w > r.w || t.h > r.h) throw new Error(`${t.key}: ${String(t.w)}×${String(t.h)} outgrew its kept rect`);
+  const dx = Math.floor((r.w - t.w) / 2), dy = Math.floor((r.h - t.h) / 2);
+  const img = new Uint8Array(r.w * r.h);
+  for (let y = 0; y < t.h; y++) img.set(t.img.subarray(y * t.w, (y + 1) * t.w), (y + dy) * r.w + dx);
+  return { ...t, w: r.w, h: r.h, img, ax: t.ax + dx, ay: t.ay + dy };
 }
 
 /** The largest scale ≤ ½ at which `at(s)` (drawn on `cv`) fits THUMB_BOX, cropped; anchor = its visual centre. */

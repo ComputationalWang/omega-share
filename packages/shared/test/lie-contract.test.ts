@@ -20,10 +20,10 @@ function rejects(schema: v.GenericSchema, input: unknown): void {
 }
 
 describe("catalogue lie style", () => {
-  test("the sofa and couch take a lier, the cat a curl; nothing else", () => {
-    expect(LIE_STYLES).toEqual(["lie", "curl"]);
+  test("the sofa, couch and lounger take a lier, the cat a curl, the bed sleepers; nothing else", () => {
+    expect(LIE_STYLES).toEqual(["lie", "curl", "sleep"]);
     const styled = Object.fromEntries(FURNITURE_KINDS.flatMap((kind) => (FURNITURE[kind].lie ? [[kind, FURNITURE[kind].lie]] : [])));
-    expect(styled).toEqual({ sofa: "lie", couch: "lie", cat: "curl" });
+    expect(styled).toEqual({ sofa: "lie", couch: "lie", cat: "curl", lounger: "lie", bed: "sleep" });
   });
 
   test("the cat stays a non-seat, so seat indices don't move", () => {
@@ -52,6 +52,12 @@ describe("lie", () => {
       expect(parseServerMessage(JSON.stringify(msg))).toEqual(msg);
     }
     rejects(ServerMessageSchema, { type: "lay", memberId: "m1", piece: 32 });
+    // OME-2008: a sleeper on a `sleep` piece names their side; absent means 0.
+    for (const sleeper of [0, 1] as const) {
+      const msg = { type: "lay", memberId: "m1", piece: 3, sleeper } as const;
+      expect(parseServerMessage(JSON.stringify(msg))).toEqual(msg);
+    }
+    for (const sleeper of [2, -1, 0.5, "1", null]) rejects(ServerMessageSchema, { type: "lay", memberId: "m1", piece: 3, sleeper });
     rejects(ServerMessageSchema, { type: "lay", memberId: "m1" });
     rejects(ServerMessageSchema, { type: "lay", piece: 1 });
   });
@@ -61,5 +67,7 @@ describe("lie", () => {
     expect(v.parse(MemberSchema, { ...member, lying: 4 })).toEqual({ ...member, lying: 4 });
     expect(v.parse(MemberSchema, member)).toEqual(member);
     for (const lying of [null, 32, true]) rejects(MemberSchema, { ...member, lying });
+    for (const sleeper of [0, 1] as const) expect(v.parse(MemberSchema, { ...member, lying: 4, sleeper })).toEqual({ ...member, lying: 4, sleeper });
+    for (const sleeper of [2, null, "0"]) rejects(MemberSchema, { ...member, lying: 4, sleeper });
   });
 });

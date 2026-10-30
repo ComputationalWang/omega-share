@@ -64,6 +64,12 @@ bounded_index!(
 );
 
 bounded_index!(
+    /// `SleeperSchema` (OME-2008): a sleeper's side of a `sleep` piece, 0 (the seats' first) or 1.
+    Sleeper,
+    2
+);
+
+bounded_index!(
     /// `TintSchema`: a shirt tint, an integer in `0..TINT_COUNT`; 0 is the avatar's own colours (ADR 0053).
     Tint,
     TINT_COUNT

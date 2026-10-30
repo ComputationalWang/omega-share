@@ -15,7 +15,7 @@ use super::embed::NowPlaying;
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, RoomId};
 use super::layout::RoomLayout;
-use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PieceIndex, PollCount, StandingSlot, Tint};
+use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PieceIndex, PollCount, Sleeper, StandingSlot, Tint};
 use super::text::{Nickname, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashSet;
@@ -362,6 +362,9 @@ wire_type!(
         /// Lying on this layout piece (OME-1773); absent when not lying.
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         lying: Option<PieceIndex>,
+        /// Their side of a `sleep` piece (OME-2008); absent when not lying on one.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        sleeper: Option<Sleeper>,
     }
 );
 

@@ -13,7 +13,7 @@ use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, PollId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
-use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PieceIndex, PollCount, SeatIndex, Tint};
+use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, Hair, PieceIndex, PollCount, SeatIndex, Sleeper, Tint};
 use super::state::{
     Conga, EmoteKind, MediaMs, Member, PairPose, PingId, PlaybackState, Poll, QueueItem, Reaction, ReactionKind, RoomState, ServerTime,
     layout, nullable, playback_matches_embed, poll_counts_are_valid, present, queue_is_valid,
@@ -236,6 +236,9 @@ server_messages! {
         member_id: MemberId,
         #[serde(deserialize_with = "nullable")]
         piece: Option<PieceIndex>,
+        /// The sleeper's side on a `sleep` piece (OME-2008); absent otherwise.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        sleeper: Option<Sleeper>,
     }
     "typing-changed" TypingChanged TypingChangedWire { member_id: MemberId, on: bool }
     "chat" Chat ChatWire { member_id: MemberId, text: ChatText, at: ServerTime }
@@ -456,6 +459,8 @@ mod tests {
         same(r#"{"type":"paired","thrust":"m1","bendover":"m2"}"#);
         same(r#"{"type":"lay","memberId":"m1","piece":31}"#);
         same(r#"{"type":"lay","memberId":"m1","piece":null}"#);
+        same(r#"{"type":"lay","memberId":"m1","piece":4,"sleeper":1}"#);
+        same(r#"{"type":"member-joined","member":{"id":"m1","nickname":"alice","avatar":0,"lying":5,"sleeper":1}}"#);
         same(r#"{"type":"member-joined","member":{"id":"m1","nickname":"alice","avatar":0,"floorSit":true,"lying":5}}"#);
         same(r#"{"type":"error","code":"pairs_off","message":"x"}"#);
         same(r#"{"type":"member-muted","memberId":"m1","muted":true}"#);
