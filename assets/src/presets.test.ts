@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import * as v from "valibot";
-import { RoomLayoutInputSchema, SEAT_COUNT, layoutSeats } from "@omega/shared";
+import { DOOR_CELL, RoomLayoutInputSchema, SEAT_COUNT, footprintCells, layoutSeats } from "@omega/shared";
 import { PRESETS } from "./presets";
 
 const DIR = join(import.meta.dir, "..", "presets");
@@ -71,6 +71,29 @@ describe("room presets", () => {
     expect(walls.map((w) => [w.col, w.variant ?? 0]).sort((a, b) => (a[0] ?? 0) - (b[0] ?? 0))).toEqual([[0, 0], [2, 0], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1]]);
     expect(f.filter((x) => x.kind === "bed").map((b) => [b.col, b.row, b.facing])).toEqual([[2, 2, "nw"], [5, 2, "nw"]]);
     for (const k of ["whirlpool", "washbasin", "mirror"]) expect(f.find((x) => x.kind === k)?.row).toBeGreaterThan(4);
+  });
+
+  test("Dank Dungeon (OME-2039): nothing stands on the way in, the doorway's cells or the room's door cell", () => {
+    const f = PRESETS.find((p) => p.id === "dank-dungeon")?.layout.furniture ?? [];
+    // The doorway at (1, 4) and the cells either side of it; DOOR_CELL is where people walk in.
+    const keep = new Set([[1, 3], [1, 4], [1, 5], [DOOR_CELL.x, DOOR_CELL.y]].map(([c, r]) => `${String(c)},${String(r)}`));
+    expect(f.flatMap((x) => footprintCells(x).filter(([c, r]) => keep.has(`${String(c)},${String(r)}`)).map(() => x.kind))).toEqual([]);
+  });
+
+  test("Dank Dungeon (OME-2039): every chair faces the beds, one from beside the glass", () => {
+    const f = PRESETS.find((p) => p.id === "dank-dungeon")?.layout.furniture ?? [];
+    const beds = f.filter((x) => x.kind === "bed").flatMap(footprintCells);
+    const ahead = { nw: [-1, 0], ne: [0, -1], se: [1, 0], sw: [0, 1] } as const;
+    const chairs = f.filter((x) => x.kind === "wingback");
+    expect(chairs.length).toBeGreaterThanOrEqual(2);
+    for (const c of chairs) {
+      // A chair faces the beds when a bed cell lies straight ahead of it (its row or col, in its facing's direction).
+      const [dc, dr] = ahead[c.facing];
+      const facesBed = beds.some(([bc, br]) => (dc === 0 ? bc === c.col && (br - c.row) * dr > 0 : br === c.row && (bc - c.col) * dc > 0));
+      expect([c.col, c.row, c.facing, facesBed]).toEqual([c.col, c.row, c.facing, true]);
+    }
+    // Beside the glass (cols 3–9 on row 4), on the spa side, looking in.
+    expect(chairs.some((c) => c.row === 5 && c.col >= 3 && c.facing === "ne")).toBe(true);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 40 KB together, no strays", () => {

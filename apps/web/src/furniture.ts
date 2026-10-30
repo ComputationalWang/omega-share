@@ -156,6 +156,9 @@ export function seatPoints(layout: RoomLayout): Point[] {
   return layout.furniture.flatMap((f) => seatCells(f).map(([c, r]) => seatAt(f, c, r)));
 }
 
+/** Seat i's facing in my view. */
+export const seatFacings = (layout: RoomLayout): Facing[] => layoutSeats(layout).map((s) => s.facing);
+
 /** Seat i's floor tile, without the riser lift: where its key sits, so a riser's key doesn't cover the row in front. */
 export function seatTiles(layout: RoomLayout): Point[] {
   return layout.furniture.flatMap((f) => seatCells(f).map(([c, r]) => cellCenter(c, r)));
