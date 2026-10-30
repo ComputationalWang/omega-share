@@ -242,3 +242,25 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     for (const target of [input, link]) await visibleInViewport(target, height);
   });
 }
+
+// OME-1966: Android's keyboard shrinks the layout viewport (adjustResize) and hiding it grows it back. Hidden, the
+// field lets go of focus and nothing gives it back, so the keyboard stays down; a tap on the field brings it up again.
+test("360 portrait: hiding the keyboard blurs the chat field and it stays blurred", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m10-portrait", "keyboard").url, count: 1, nicknamePrefix: "keyboard",
+    contextOptions: () => ({ viewport: { width: 360, height: 740 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("No portrait client");
+  const input = page.locator(site.chatInput);
+  await input.tap();
+  await expect(input).toBeFocused();
+  // The keyboard comes up: the field keeps focus.
+  await page.setViewportSize({ width: 360, height: 340 });
+  await expect(input).toBeFocused();
+  // The OS "hide keyboard" key: the field doesn't take focus back (that would raise the keyboard again).
+  await page.setViewportSize({ width: 360, height: 740 });
+  await expect(input).not.toBeFocused();
+  await page.locator(site.room).tap();
+  await expect(input).not.toBeFocused();
+  await input.tap();
+  await expect(input).toBeFocused();
+});

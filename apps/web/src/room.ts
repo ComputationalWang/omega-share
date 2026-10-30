@@ -1398,6 +1398,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   chatInput.addEventListener("blur", () => {
     typingSender.blur();
   });
+  // A phone's "hide keyboard" key leaves the field focused, and the layout change that follows (Android shrinks the
+  // layout viewport, so the media queries flip back) would hand it focus again and raise the keyboard (OME-1966): the
+  // visible height growing at the same width (no turn, no pinch) lets go of the field.
+  let seenW = window.visualViewport?.width ?? innerWidth;
+  let seenH = window.visualViewport?.height ?? innerHeight;
+  const onViewport = (): void => {
+    const w = window.visualViewport?.width ?? innerWidth;
+    const h = window.visualViewport?.height ?? innerHeight;
+    if (touchOnly() && w === seenW && h - seenH > 100 && document.activeElement === chatInput) chatInput.blur();
+    seenW = w;
+    seenH = h;
+  };
+  window.visualViewport?.addEventListener("resize", onViewport);
+  window.addEventListener("resize", onViewport);
   chatForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
     // Held while the server says rate_limited; the text stays in the box for when it reopens.
