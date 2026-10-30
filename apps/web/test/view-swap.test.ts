@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { FLOOR_CELLS, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, sceneOf, usesBack, viewVerdict, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, sceneOf, seatFacings, usesBack, viewVerdict, type Scene } from "../src/furniture";
 import { cellCenter, isNorth, setNorth } from "../src/layout";
 import { stepCell } from "../src/intents";
 import { cellAt, cellOf, centerOf } from "../src/walk/path";
@@ -108,7 +108,7 @@ describe("sceneOf in the north view (dank-dungeon)", () => {
     const s = north();
     expect(at(s, "furniture/partition/solid/sw/back")[0]).toEqual({ x: 608, y: 460, layer: "object" });
     expect(at(s, "furniture/coffeetable/wood/sw/back")).toHaveLength(1);
-    expect(at(s, "furniture/monstera/teal/sw/back")).toEqual([{ x: 480, y: 236, layer: "object" }]);
+    expect(at(s, "furniture/monstera/teal/sw/back")).toEqual([{ x: 448, y: 252, layer: "object" }]);
     expect(s.sprites.filter((x) => x.use?.frames.some((k) => k.includes("/cut/")))).toEqual([]);
   });
 
@@ -144,6 +144,14 @@ describe("sceneOf in the north view (dank-dungeon)", () => {
     expect(keys.filter((k) => k === "wall/r/smoke")).toHaveLength(FLOOR_CELLS);
     for (const k of ["wall/corner/smoke", "wall/l/end/oak", "wall/r/end/smoke"]) expect(keys).toContain(k);
     expect(keys).not.toContain("wall/r/oak");
+  });
+
+  test("a sitter faces the way their turned chair does (OME-2039): se <-> nw, sw <-> ne", () => {
+    // Seat 4 is the bedroom wingback (nw), 5-6 the whirlpool (ne).
+    const south = seatFacings(dungeon);
+    expect(south.slice(4, 7)).toEqual(["nw", "ne", "ne"]);
+    setNorth(true);
+    expect(seatFacings(dungeon)).toEqual(south.map((d) => ({ se: "nw", nw: "se", sw: "ne", ne: "sw" } as const)[d]));
   });
 
   test("seats follow the flip: a wingback's sitter is on the flipped cell", () => {

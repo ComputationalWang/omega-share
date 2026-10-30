@@ -42,6 +42,15 @@ test("every bed colour and facing has a back frame wider than the twin's and a c
   }
 });
 
+test("every facing's bed frame stands on its 2×2 footprint: the footprint's centre is the frame's middle (OME-2039)", () => {
+  // The anchor is the footprint's min cell's centre; the 2×2 diamond's centre is 16 px below it. se/sw once stood a cell off.
+  for (const c of bed?.colours ?? ["missing"]) for (const d of DIRS) {
+    const f = v6.frames[`furniture/bed/${c}/${d}/back`];
+    if (f === undefined) throw new Error(`no ${d} frame`);
+    expect([d, Math.abs(f.anchor.x * f.frame.w - f.frame.w / 2) <= 2]).toEqual([d, true]);
+  }
+});
+
 test("two sleepers lie side by side: an anchor each per facing, a cell apart across the bed", () => {
   const an = LIE_ANCHORS["bed"];
   expect(an?.style).toBe("sleep");

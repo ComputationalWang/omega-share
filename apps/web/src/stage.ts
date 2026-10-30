@@ -2,14 +2,14 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesBack, viewVerdict } from "./furniture";
+import { doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesBack, viewVerdict } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -384,7 +384,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     seats = seatPoints(next);
     standing = standingPoints(next);
     o.onLayout?.(seats, standing);
-    seatFacings = layoutSeats(next).map((s) => s.facing);
+    seatFacings = facingsOf(next);
     grid = walkGrid(next);
     buildScene(next);
     // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
