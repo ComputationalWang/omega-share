@@ -826,3 +826,51 @@ describe("per-viewer quality (OME-599): local, remembered per device, never sync
     expect(h.c.view().qualities).toEqual([]);
   });
 });
+
+// ADR 0057: a generic embed has room playback too. Its player is the frame adapter, only where the extension attached.
+describe("generic embed (ADR 0057)", () => {
+  const PAGE = { provider: "generic", host: "media.example.org", url: "https://media.example.org/embed/42" } as const;
+  const generic = (h: ReturnType<typeof harness>) => {
+    h.c.setRoom({ embed: PAGE, playback: pb({ playing: false }), itemId: "item-1" });
+    h.c.attach(h.player, PAGE.url);
+  };
+
+  test("an attached frame player is controlled like any other: control carries the page's url", () => {
+    const h = harness({ caps: { seek: true, live: false, rate: "yes" }, state: "paused" });
+    generic(h);
+    expect(h.c.view().hasVideo).toBe(true);
+    expect(h.c.view().provider).toBeNull();
+    expect(h.c.togglePlay()).toBe(true);
+    expect(h.sent.at(-1)).toMatchObject({ type: "control", url: PAGE.url, playing: true });
+  });
+
+  test("the page's end never reports ended: a page we don't vet can't advance the queue (§1)", () => {
+    const h = harness({ caps: { seek: true, live: false, rate: "yes" }, state: "playing" });
+    generic(h);
+    h.player.emit({ type: "state", state: "ended" });
+    expect(h.sent.filter((m) => m.type === "ended")).toEqual([]);
+  });
+
+  test("a live stream found by the frame is play/pause only", () => {
+    const h = harness({ caps: { seek: false, live: true, rate: "no" }, state: "paused" });
+    generic(h);
+    expect(h.c.view().live).toBe(true);
+    expect(h.c.seek(30)).toBe(false);
+  });
+
+  test("no attached frame (no extension): the room's playback can't be controlled", () => {
+    const h = harness({ caps: { seek: true, live: false, rate: "yes" }, state: "paused" });
+    h.c.setRoom({ embed: PAGE, playback: pb({ playing: false }), itemId: "item-1" });
+    expect(h.c.view().canControl).toBe(false);
+  });
+
+  test("a frame that was lost can't control the room until it's back", () => {
+    const h = harness({ caps: { seek: true, live: false, rate: "yes" }, state: "paused" });
+    generic(h);
+    expect(h.c.view().canControl).toBe(true);
+    // Mirrors frame.ts on frame-lost: ready() turns false, then an unstarted state.
+    h.player.isReady = false;
+    h.player.emit({ type: "state", state: "unstarted" });
+    expect(h.c.view().canControl).toBe(false);
+  });
+});

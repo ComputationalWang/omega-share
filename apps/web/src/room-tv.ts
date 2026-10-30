@@ -1,8 +1,8 @@
 // The room's TV and its shelf (split out of room.ts, OME-1100): what the picture shows for the room's embed (nothing, a
 // synced player, or a generic page's load card, ADR 0024 §3) and the controls under it.
-import { isSyncedEmbed, type AnyEmbed, type Embed } from "@omega/shared";
+import { isSyncedEmbed, type Embed } from "@omega/shared";
 import { createPersonal, createTransport, el, sprite } from "./controls/dom";
-import { createGenericTv } from "./controls/generic-tv";
+import { createGenericTv, type GenericTv } from "./controls/generic-tv";
 import type { PlaybackController, PlaybackView } from "./controls/playback";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { createQualityPicker } from "./controls/quality-picker";
@@ -45,11 +45,6 @@ export interface RoomTv {
   readonly setFullscreen: (on: boolean) => void;
   /** The open tray follows its key after a layout change. */
   readonly place: () => void;
-}
-
-/** What the sync loop plays: the synced embed, or null (a generic embed is never synced, ADR 0024). */
-export function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
-  return e != null && isSyncedEmbed(e) ? e : null;
 }
 
 export function createRoomTv(o: RoomTvOptions): RoomTv {
@@ -132,6 +127,8 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
   const mount = createPlayerMounter(PLAYERS);
   /** What the TV shows now: the iframe we built, or the container a provider SDK renders into. */
   let tvScreen: HTMLElement | null = null;
+  /** Counts frame attaches, so only the newest one's answer counts. */
+  let frameAttempt = 0;
   const tvIframe = (f: TvIframe, testId = "shared-video"): HTMLIFrameElement => {
     const iframe = el("iframe", { src: f.src, allow: f.allow, referrerPolicy: f.referrerPolicy, title: "Shared video" }, testId);
     iframe.setAttribute("sandbox", f.sandbox);
@@ -162,12 +159,11 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
    * background tab, and the old video must not keep playing (unsynced) after the controller dropped it.
    */
   const syncTv = (s: ViewState): void => {
-    const any = s.room?.embed ?? null;
-    if (any !== null && !isSyncedEmbed(any)) {
-      showGeneric(any, s.room?.itemId);
+    const embed = s.room?.embed ?? null;
+    if (embed !== null && !isSyncedEmbed(embed)) {
+      showGeneric(embed, s.room?.itemId);
       return;
     }
-    const embed = syncedOnly(any);
     const tf = tvFrame(embed);
     const nextKey = tf?.key ?? null;
     if (nextKey !== tvKey) {
@@ -207,7 +203,53 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     personal.root.hidden = !synced;
   };
 
-  /** A generic embed (ADR 0024 §3): the load card, and after Load one sandboxed iframe. No player, no sync loop. */
+  /** The generic tier's shelf: its strip, and the sync controls and your volume only while the frame is attached (ADR 0057 §4). */
+  const genericShelf = (g: GenericTv, attached: boolean): void => {
+    if (attached) controls.replaceChildren(g.strip, transport.root, personal.pod, fsKey);
+    else controls.replaceChildren(g.strip, fsKey);
+    personal.root.hidden = !attached;
+  };
+
+  /**
+   * After an unlocked frame loaded: the frame adapter (ADR 0057 §4), lazily, like the other players. No frame-state
+   * within its timeout leaves the frame unsynced. A later load (the strip's Unlock reloads the frame) supersedes it.
+   */
+  const attachFrame = (g: GenericTv, host: string, url: string): void => {
+    const attempt = ++frameAttempt;
+    const current = (): boolean => tvScreen === g.screen && attempt === frameAttempt;
+    void import("./player/frame")
+      .then((m) =>
+        m.mountFrame({
+          host,
+          bridge: o.extension,
+          now: () => performance.now(),
+          setTimeout: (fn, ms) => setTimeout(fn, ms),
+          clearTimeout: (h) => {
+            clearTimeout(h);
+          },
+          onSync: (on) => {
+            if (!current()) return;
+            g.setSync(on ? "on" : "off");
+            genericShelf(g, on);
+          },
+        }),
+      )
+      .then(
+        (r) => {
+          if (!current()) {
+            if (r.ok) r.player.destroy();
+            return;
+          }
+          if (r.ok) playback.attach(r.player, url);
+          else g.setSync("failed");
+        },
+        () => {
+          if (current()) g.setSync("failed");
+        },
+      );
+  };
+
+  /** A generic embed (ADR 0024 §3): the load card, and after Load one sandboxed iframe; synced only through the extension (ADR 0057). */
   const showGeneric = (embed: unknown, itemId: string | undefined): void => {
     const gf = genericFrame(embed);
     // Keyed by queue item too: the same page queued twice is a new card, so it waits for its own Load click.
@@ -229,9 +271,12 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
       tv.replaceChildren(tvEmpty);
       return;
     }
-    const g = createGenericTv(gf, o.extension);
+    const g: GenericTv = createGenericTv(gf, o.extension, () => {
+      attachFrame(g, gf.host, gf.src);
+    });
+    tvScreen = g.screen;
     tv.replaceChildren(g.screen);
-    controls.replaceChildren(g.strip, fsKey);
+    genericShelf(g, false);
   };
 
   return {

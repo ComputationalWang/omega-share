@@ -97,7 +97,7 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     const card = room.getByTestId("generic-card");
     await expect(card).toBeVisible({ timeout: 15_000 });
     await expect(card).toContainText(`Video from ${HOST}`);
-    await expect(card).toContainText(/not synced/i);
+    await expect(card).toContainText("Synced for viewers with the Omega Share extension");
     await expect(room.getByTestId("not-synced")).toBeVisible();
     await expect(room.locator("iframe")).toHaveCount(0);
     // No sync controls or volume for a generic embed, and no hint before Load (folded in from generic-embed-card, OME-292/OME-341).
