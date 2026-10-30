@@ -5,9 +5,9 @@
 // step together, Basic redraws at most once a step, and arrivals are the same on both tiers. A jog (OME-1464) is the same
 // walk at twice the clock: Basic steps every 75 ms, Smooth's frames every 37.5 ms. A path is found once per target change;
 // `sample` allocates nothing.
-import type { MemberId } from "@omega/shared";
+import { FLOOR_CELLS, type MemberId } from "@omega/shared";
 import { standDepth } from "../furniture";
-import { TILE_H, TILE_W, type Point } from "../layout";
+import { TILE_H, TILE_W, TURN, flipPoint, isNorth, type Point } from "../layout";
 import { DOOR, cellAt, centerOf, colOf, findPath, rowOf } from "./path";
 
 export type Dir = "se" | "sw" | "ne" | "nw";
@@ -78,6 +78,8 @@ export interface Walks {
   setGrid(grid: Uint8Array): void;
   /** Everyone's spot now. The first call with people in it (my snapshot) places them without a walk. */
   place(targets: readonly WalkTarget[], now: number): void;
+  /** The view turned 180° (OME-1961): everyone's drawn spot, path and last facing carried over to the other side. */
+  reflect(): void;
   /** Writes `id`'s pose at `now` into `out`; false if they're not in the room. */
   sample(id: MemberId, now: number, out: Pose): boolean;
   /** True while anyone is still on their way. */
@@ -103,7 +105,11 @@ interface Entry {
 }
 
 /** With no walk seen (OME-1489), standing people face the TV in the back corner: ne left of the aisle, nw right of it (like seats, ADR 0008). */
-const standFacing = (cell: number): Dir => (colOf(cell) < rowOf(cell) ? "ne" : "nw");
+const standFacing = (cell: number): Dir => {
+  // The screen's left of the aisle: the cell's col < row from the south, its mirror from the north (OME-1961).
+  const [c, r] = isNorth() ? [FLOOR_CELLS - 1 - colOf(cell), FLOOR_CELLS - 1 - rowOf(cell)] : [colOf(cell), rowOf(cell)];
+  return c < r ? "ne" : "nw";
+};
 
 function dirOf(dx: number, dy: number): Dir {
   if (dy >= 0) return dx >= 0 ? "se" : "sw";
@@ -275,6 +281,17 @@ export function createWalks(opts: WalksOptions): Walks {
         walk(e, t, scratch.x, scratch.y, ahead, behind >= 0 ? behind : cellAt({ x: e.xs[i - 1] ?? 0, y: e.ys[i - 1] ?? 0 }), now);
       }
       for (const id of entries.keys()) if (!seen.has(id)) entries.delete(id);
+    },
+    reflect() {
+      for (const e of entries.values()) {
+        for (let i = 0; i < e.xs.length; i++) {
+          const p = flipPoint({ x: e.xs[i] ?? 0, y: e.ys[i] ?? 0 });
+          e.xs[i] = p.x;
+          e.ys[i] = p.y;
+        }
+        e.target = { ...e.target, at: flipPoint(e.target.at) };
+        if (e.restDir !== null) e.restDir = TURN[e.restDir];
+      }
     },
     sample(id, now, out) {
       const e = entries.get(id);

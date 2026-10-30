@@ -25,6 +25,7 @@ QA measures these on every merge that touches a perf-relevant path, daily and at
 | Site | Main-thread work per frame in full screen, 8 avatars + video playing | ≤ 8 ms p95, per provider, same full-screen run — OME-597 |
 | Site | Missed vsyncs in full screen, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same full-screen run — OME-597 |
 | Site | Longest task entering or leaving full screen | ≤ 50 ms (no long task), per provider, `PerformanceObserver("longtask")` for 1 s after each press of the full-screen key — OME-597 |
+| Site | Longest frame across the 180° view swap | ≤ 50 ms (no long task), desktop Chromium, two clients in the Dank Dungeon (`assets/presets/dank-dungeon.json`): my avatar walks into the bedroom (the room turns to the north view: scene rebuilt, shell baked once) and back, the longest `requestAnimationFrame` gap across both swaps — OME-1961 |
 | Site | Frame rate with the chat popped out, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, the room tab (desktop Chromium) with the chat in its pop-out window (`chat.html`, no second Pixi renderer, no second socket) while 7 members chat at 1/s, relayed over the BroadcastChannel — OME-598 |
 | Site | Main-thread work per frame with the chat popped out, 8 avatars + video playing | ≤ 8 ms p95, per provider, same pop-out run — OME-598 |
 | Site | Missed vsyncs with the chat popped out, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same pop-out run — OME-598 |

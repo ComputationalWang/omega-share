@@ -135,9 +135,9 @@ async function drawOrder(page: Page): Promise<string[]> {
 }
 
 test("two members sleep side by side on the Dank Dungeon bed, each under a cover", async ({ browser }) => {
-  // The preset's first bed, by index: OME-1960 put the partitions ahead of it.
+  // The preset's first bed, by index in the seeded room, which drops the partitions so the view doesn't turn (OME-1961).
   const dungeon = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(join(ROOT, "assets/presets/dank-dungeon.json"), "utf8")));
-  const BED = dungeon.furniture.findIndex((f) => f.kind === "bed");
+  const BED = dungeon.furniture.filter((f) => f.kind !== "partition").findIndex((f) => f.kind === "bed");
   clients = await joinRoom(browser, { roomUrl: testRoom("lie", "bed").url, count: 2, nicknamePrefix: "sleeper" });
   const [a, b] = clients;
   if (a === undefined || b === undefined) throw new Error("need two clients");

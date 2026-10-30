@@ -66,6 +66,11 @@ const FULLSCREEN: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `fs.toggleLongTask.${p}`, area: "Site", metric: `Longest task entering or leaving full screen, ${PROVIDER_LABEL[p]}`, docMetric: "Longest task entering or leaving full screen", unit: "ms", limit: 50, comparator: "<=" },
 ]);
 
+// OME-1961: the 180° view swap in a partitioned room, on a walk event (perf/view-swap.perf.ts).
+const VIEW_SWAP: readonly Budget[] = [
+  { id: "viewswap.longFrame.desktop", area: "Site", metric: "Longest frame across the 180° view swap", docMetric: "Longest frame across the 180° view swap", unit: "ms", limit: 50, comparator: "<=" },
+];
+
 // OME-598 (M7 W3): the same three frame budgets for the room tab with the chat in its pop-out window (perf/popout.perf.ts).
 const POPOUT: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `pop.frameP95.${p}`, area: "Site", metric: `p95 frame time with the chat popped out, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate with the chat popped out, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
@@ -146,6 +151,7 @@ export const BUDGETS: readonly Budget[] = [
   ...PHONE,
   ...THEATRE,
   ...FULLSCREEN,
+  ...VIEW_SWAP,
   ...POPOUT,
   ...POPOUT_ROOM,
   ...WALK25,

@@ -215,7 +215,9 @@
         "perf/sync.perf.ts",
         "perf/theatre.perf.ts",
         "perf/walk-tiers.perf.ts",
-        "perf/wide.perf.ts"
+        "perf/wide.perf.ts",
+        "e2e/view-swap.e2e.ts",
+        "perf/view-swap.perf.ts"
       ],
       "why": "room core: stage, state, connection, layout, routes"
     },
@@ -692,7 +694,9 @@
         "perf/walk-tiers.perf.ts",
         "e2e/teleport.e2e.ts",
         "e2e/doors.e2e.ts",
-        "e2e/lie.e2e.ts"
+        "e2e/lie.e2e.ts",
+        "e2e/view-swap.e2e.ts",
+        "perf/view-swap.perf.ts"
       ]
     },
     {

@@ -18,6 +18,8 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "provider-generic-sync": ["main"],
   "room-view": ["main"],
+  "view-swap": ["main"],
+  "view-swap-perf": ["frames"],
   walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over", "follow", "jog", "floor", "conga", "conga-late"],
   reactions: ["bar", "burst"],
   emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash", "action", "thinker", "dancer", "applause", "palette"],

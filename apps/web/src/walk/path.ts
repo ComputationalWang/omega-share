@@ -2,7 +2,7 @@
 // the ends of a walk may be solid (a seat is its chair's cell). BFS over 4 neighbours, i.e. the four iso directions.
 // Runs once per seat change, never per frame.
 import { FLOOR_CELLS, FURNITURE, footprintCells, type RoomLayout } from "@omega/shared";
-import { TILE_H, TILE_W, cellCenter, type Point } from "../layout";
+import { TILE_H, TILE_W, cellCenter, isNorth, rawCenter, type Point } from "../layout";
 
 const N = FLOOR_CELLS * FLOOR_CELLS;
 
@@ -14,13 +14,15 @@ export const centerOf = (cell: number): Point => cellCenter(colOf(cell), rowOf(c
 /** Where people walk in from: the floor's front corner, nearest the camera. */
 export const DOOR = cellOf(FLOOR_CELLS - 1, FLOOR_CELLS - 1);
 
-/** The cell whose floor point is `p` (the inverse of `cellCenter`), or -1 off the floor. */
+/** The cell whose floor point is `p` (the inverse of `cellCenter`, in my view), or -1 off the floor. */
 export function cellAt(p: Point): number {
-  const origin = cellCenter(0, 0);
-  const diff = (p.x - origin.x) / (TILE_W / 2); // col - row
-  const sum = (p.y - origin.y) / (TILE_H / 2); // col + row
-  const col = Math.round((sum + diff) / 2);
-  const row = Math.round((sum - diff) / 2);
+  const origin = rawCenter(0, 0);
+  const diff = (p.x - origin.x) / (TILE_W / 2); // col - row, as drawn
+  const sum = (p.y - origin.y) / (TILE_H / 2); // col + row, as drawn
+  const c = Math.round((sum + diff) / 2);
+  const r = Math.round((sum - diff) / 2);
+  const col = isNorth() ? FLOOR_CELLS - 1 - c : c;
+  const row = isNorth() ? FLOOR_CELLS - 1 - r : r;
   return col >= 0 && col < FLOOR_CELLS && row >= 0 && row < FLOOR_CELLS ? cellOf(col, row) : -1;
 }
 
