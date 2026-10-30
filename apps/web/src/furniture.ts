@@ -267,6 +267,8 @@ export interface SceneSeat {
   readonly marker: boolean;
 }
 
+const SLEEPERS = [0, 1] as const;
+
 /** Where someone lies on a piece (OME-1691): their floor point, the piece's anchor, and their depth (the piece's sort point, between its back and front). */
 export interface LieSpot {
   readonly style: LieStyle;
@@ -274,11 +276,13 @@ export interface LieSpot {
   readonly at: Point;
   readonly anchor: Point;
   readonly z: number;
+  /** The queen bed's duvet over this sleeper (OME-2009): its frame, drawn at `anchor` just over them. Absent: nothing to pull up. */
+  readonly cover?: { readonly key: string; readonly z: number };
 }
 
 export interface Scene {
-  /** By layout piece index: the pieces someone can lie on. */
-  readonly lies: ReadonlyMap<number, LieSpot>;
+  /** By layout piece index: the pieces someone can lie on, a spot per lier it takes (index: `Member.sleeper`, else 0). */
+  readonly lies: ReadonlyMap<number, readonly LieSpot[]>;
   readonly sprites: readonly FurnitureSprite[];
   readonly seats: readonly SceneSeat[];
   /** The layout is the classic preset's (= DEFAULT_LAYOUT; the preset id never reaches the client): theme decor goes here. */
@@ -304,7 +308,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
   const layers = manifests[0]?.meta.omega.layers;
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
-  const lies = new Map<number, LieSpot>();
+  const lies = new Map<number, readonly LieSpot[]>();
   // The dungeon shell skin needs v7's frames; a layout that asks for it before they load keeps today's shell.
   if (room !== null) pushShell(sprites, layout, room, layout.shell === "dungeon" && manifests.some((m) => m.frames["floor/deck/0"] !== undefined));
   for (const [i, f] of layout.furniture.entries()) {
@@ -317,10 +321,17 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
     const sort = piece?.sortByDir[f.facing];
     const drawn = piece !== undefined && found !== undefined && sort !== undefined && layers !== undefined ? { piece, colour: found.colour, sort, layers } : null;
     const style = spec.lie;
-    const off = style === undefined ? undefined : lieOffset(f.kind, f.facing);
-    if (style !== undefined && off !== undefined) {
+    if (style !== undefined) {
+      const offs = SLEEPERS.flatMap((n) => lieOffset(f.kind, f.facing, n) ?? []);
       const z = drawn === null ? standDepth(anchor) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar);
-      lies.set(i, { style, dir: f.facing, at: { x: anchor.x + off.x, y: anchor.y + off.y }, anchor, z });
+      // Two sleepers share the bed's sort point: the one higher up the screen first, each with their cover over them (OME-2009).
+      const rank = (y: number): number => offs.filter((o) => o.y < y).length;
+      const spots = offs.map((off, n): LieSpot => {
+        const at = { x: anchor.x + off.x, y: anchor.y + off.y };
+        const own = z + rank(off.y) * 0.5;
+        return { style, dir: f.facing, at, anchor, z: own, ...(style === "sleep" && drawn !== null ? { cover: { key: `furniture/${id}/${drawn.colour}/cover/${f.facing}/${String(n)}`, z: own + 0.25 } } : {}) };
+      });
+      if (spots.length > 0) lies.set(i, spots);
     }
     if (drawn !== null) {
       pushSprites(sprites, f, i, anchor, drawn);
