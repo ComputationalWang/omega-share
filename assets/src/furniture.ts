@@ -1863,9 +1863,10 @@ function theatreRow(k: Kit, colour: string): void {
 
 /** Partition stub height (OME-1959): low enough that an avatar one row behind shows from the knees up. */
 export const PARTITION_STUB = 16;
-const PARTITION_BAND = [110, 114] as const;
-/** The panelled glass's stripe (OME-1977): thinner and up near the header, clear of the beds and the tub behind the pane. */
-const PANEL_BAND = [133, 135] as const;
+/** The glass's stripe: tucked just under the header (OME-2023), clear of the beds' pillows behind the pane. */
+const PARTITION_BAND = [141, 144] as const;
+/** The panelled glass's stripe (OME-1977): thin, tucked just under the header (OME-2023), clear of the beds' pillows behind the pane. */
+const PANEL_BAND = [142, 144] as const;
 /** A partition cell's outline (OME-1959): none on its trailing end (local x = −8, the side the previous cell in the run is drawn
  *  on), so a row joins like one wall; none round the glass band, so it reads as a frosted stripe, not a rail. */
 function partitionOutline(dir: FurnDir, colour: string, x: number, y: number): boolean {
@@ -1904,7 +1905,8 @@ function partition(k: Kit, colour: string, cut: boolean): void {
   }
   k.box(-8, 8, -T, T, 0, SILL, "wood", { paint: colour === "panelglass" ? wall : wood });
   frame(SILL, SILL + 2);
-  k.box(-8, 8, -0.5, 0.5, band[0], band[1], "glow", { tones: { top: 0, sw: 0, se: 1 } });
+  // OME-2023: the pane's stripe is a muted sheen (base / shade), not the white highlight, so it doesn't streak across the beds.
+  k.box(-8, 8, -0.5, 0.5, band[0], band[1], "glow", { tones: { top: 1, sw: 1, se: 2 } });
   frame(HEAD - 2, HEAD);
   k.box(-8, 8, -T, T, HEAD, WALL_H, "wall", { paint: wall });
 }

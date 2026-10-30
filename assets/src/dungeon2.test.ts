@@ -125,3 +125,16 @@ test("the sauna and the soaking tub stand on their contract footprint (2×2 from
   }
   expect(checked).toBe(8);
 });
+
+test("the glass partitions' stripe is a muted sheen, no white glow highlight streaking across the beds behind it (OME-2023)", () => {
+  const v7 = atlas("furniture/furniture-v7.json"), v6 = atlas("furniture/furniture-v6.json");
+  const px7 = indexed("furniture/furniture-v7.png"), px6 = indexed("furniture/furniture-v6.png");
+  const white = colorIndex("glow", 0);
+  for (const [colour, sheet, px] of [["glass", v6, px6], ["panelglass", v7, px7]] as const) for (const d of ["se", "sw"]) {
+    const b = sheet.frames[`furniture/partition/${colour}/${d}/back`];
+    if (!b) throw new Error(`${colour}/${d}: missing frame`);
+    let hot = 0;
+    for (let y = 0; y < b.frame.h; y++) for (let x = 0; x < b.frame.w; x++) if (px(b.frame.x + x, b.frame.y + y) === white) hot++;
+    expect(hot, `${colour}/${d}`).toBe(0);
+  }
+});
