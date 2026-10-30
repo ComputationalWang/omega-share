@@ -307,3 +307,24 @@ describe("a DNR call that never settles (OME-1666)", () => {
     expect(store.rules()).not.toEqual([]);
   });
 });
+
+describe("frame sync messages (ADR 0057, OME-1974)", () => {
+  test("attach and frame-command are the frame relay's: they never unlock or open the consent page", async () => {
+    const h = harness({ granted: false });
+    await h.unlocker.onMessage({ source: "omega-share", kind: "attach", host: "video.cdn-host.net" }, roomSender);
+    await h.unlocker.onMessage({ source: "omega-share", kind: "frame-command", host: "video.cdn-host.net", op: "play" }, roomSender);
+    expect(h.consents).toEqual([]);
+    expect(h.notes).toEqual([]);
+    expect(h.rules()).toEqual([]);
+  });
+
+  test("unlockedHost: the host a tab's live rule set unlocks, from the rule store", async () => {
+    const h = harness({ granted: true });
+    expect(await h.unlocker.unlockedHost(ROOM_TAB)).toBeUndefined();
+    await h.unlocker.onMessage(unlock("video.cdn-host.net"), roomSender);
+    expect(await h.unlocker.unlockedHost(ROOM_TAB)).toBe("video.cdn-host.net");
+    expect(await h.unlocker.unlockedHost(8)).toBeUndefined();
+    await h.unlocker.onMessage({ source: "omega-share", kind: "relock" }, roomSender);
+    expect(await h.unlocker.unlockedHost(ROOM_TAB)).toBeUndefined();
+  });
+});

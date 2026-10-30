@@ -1,8 +1,11 @@
 import { browser } from "wxt/browser";
+import type { ExtensionToPage } from "@omega/shared/extension-bridge";
 import { defineBackground } from "wxt/utils/define-background";
 import { bridgeMatches } from "../bridge";
 import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, readServerBaseUrl } from "../settings";
 import { FOUND_ORIGINS, actionState, parseFoundMessage, syncFound } from "../found";
+import { createFrameRelay } from "../frame-relay";
+import { frameSync } from "../frame-sync";
 import { UNLOCK_HOSTS_KEY, createUnlocker, hasConsent, unlockPermissions, withoutRevoked } from "../unlock";
 
 const BRIDGE_ID = "omega-bridge";
@@ -58,11 +61,15 @@ function registerFound(): void {
 // Event-driven: Chrome runs it as a service worker, Firefox as a non-persistent event page. The popup does the
 // sharing; this owns the "Unlock with extension" session rules (ADR 0047) and the bridge that asks for them.
 export default defineBackground(() => {
+  const ourOrigin = async () => readServerBaseUrl((await browser.storage.local.get(SERVER_BASE_URL_KEY))[SERVER_BASE_URL_KEY]);
+  const notify = async (tabId: number, message: ExtensionToPage) => {
+    await browser.tabs.sendMessage(tabId, message, { frameId: 0 }).catch(() => undefined);
+  };
   const unlocker = createUnlocker({
     browser: BROWSER,
     consentUrl: browser.runtime.getURL("/consent.html"),
     version: browser.runtime.getManifest().version,
-    ourOrigin: async () => readServerBaseUrl((await browser.storage.local.get(SERVER_BASE_URL_KEY))[SERVER_BASE_URL_KEY]),
+    ourOrigin,
     dnr: () => browser.declarativeNetRequest,
     hasAccess: async (host) =>
       hasConsent(
@@ -78,9 +85,20 @@ export default defineBackground(() => {
       await browser.tabs.create({ url: `${browser.runtime.getURL("/consent.html")}?${query.toString()}` });
     },
     tabUrl: (tabId) => browser.tabs.get(tabId).then((tab) => tab.url, () => undefined),
-    notify: async (tabId, message) => {
-      await browser.tabs.sendMessage(tabId, message, { frameId: 0 }).catch(() => undefined);
+    notify,
+  });
+  // ADR 0057: frame sync for an unlocked host. allFrames injects only where we hold host access: our page (the
+  // script exits in the top frame) and the unlocked host's frames.
+  const frames = createFrameRelay({
+    ourOrigin,
+    unlockedHost: (tabId) => unlocker.unlockedHost(tabId),
+    inject: async (tabId, host) => {
+      await browser.scripting.executeScript({ target: { tabId, allFrames: true }, func: frameSync, args: [host] });
     },
+    toFrames: async (tabId, message, frameId) => {
+      await browser.tabs.sendMessage(tabId, message, frameId === undefined ? undefined : { frameId }).catch(() => undefined);
+    },
+    notify,
   });
 
   browser.runtime.onMessage.addListener((message, sender) => {
@@ -91,11 +109,18 @@ export default defineBackground(() => {
       return;
     }
     void unlocker.onMessage(message, sender);
+    void frames.onMessage(message, sender);
   });
-  browser.tabs.onRemoved.addListener((tabId) => void unlocker.tabRemoved(tabId));
+  browser.tabs.onRemoved.addListener((tabId) => {
+    frames.tabGone(tabId);
+    void unlocker.tabRemoved(tabId);
+  });
   // A tab URL we can't see (no host access) isn't ours, so its rules go too.
   browser.tabs.onUpdated.addListener((tabId, change, tab) => {
-    if (change.status === "loading" || change.url !== undefined) void unlocker.tabUpdated(tabId, tab.url);
+    if (change.status === "loading" || change.url !== undefined) {
+      frames.tabGone(tabId);
+      void unlocker.tabUpdated(tabId, tab.url);
+    }
     // A new page starts idle; its found script (if any) reports again at document_idle.
     if (change.status === "loading") void setAction(tabId, 0);
   });
