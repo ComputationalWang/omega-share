@@ -5,9 +5,8 @@
 //! Shape (serde, strict, string-only tags) → field rules (validator) → [`ClientMessage`], whose
 //! fields are all merged newtypes or the small ones below, so nothing downstream holds raw input.
 
-use super::constants::{
-    MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS,
-};
+use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS};
+use super::generic_embed::MAX_GENERIC_EMBED_URL_LENGTH;
 use super::ids::{InviteKey, MemberId, OwnerToken, PollId, QueueItemId, ResumeToken, RoomId};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
@@ -58,7 +57,7 @@ impl PingId {
     }
 }
 
-/// `control.url`: at most `MAX_EMBED_URL_LENGTH` UTF-16 units. Unparsed text: compared with the
+/// `control.url`: at most `MAX_GENERIC_EMBED_URL_LENGTH` UTF-16 units (ADR 0057 §1). Unparsed text: compared with the
 /// current embed's url, never opened.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(Serialize))]
@@ -288,7 +287,7 @@ fn poll_option_count(options: &[PollOption]) -> Result<(), ValidationError> {
 }
 
 fn control_url_len(s: &str) -> Result<(), ValidationError> {
-    if utf16_len(s) <= MAX_EMBED_URL_LENGTH {
+    if utf16_len(s) <= MAX_GENERIC_EMBED_URL_LENGTH {
         Ok(())
     } else {
         Err(ValidationError::new("control_url_length"))
@@ -903,8 +902,9 @@ mod tests {
     #[test]
     fn urls_are_capped_in_utf16_units() {
         let control = |u: String| json!({"type":"control","url":u,"playing":true,"position":0});
-        assert!(parse(&control("😀".repeat(64))).is_some());
-        assert!(parse(&control("😀".repeat(65))).is_none());
+        // MAX_GENERIC_EMBED_URL_LENGTH (ADR 0057 §1)
+        assert!(parse(&control("😀".repeat(512))).is_some());
+        assert!(parse(&control("😀".repeat(513))).is_none());
         assert!(parse(&json!({"type":"queue-add","url":"a".repeat(2048)})).is_some());
         assert!(parse(&json!({"type":"queue-add","url":"a".repeat(2049)})).is_none());
     }

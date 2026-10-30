@@ -197,9 +197,9 @@ describe("room state queue", () => {
     accepts(RoomStateSchema, room({ embed: YT, playback: PLAYBACK, itemId: "q1", queue }));
   });
 
-  test("a generic current item has no playback (click-to-load, ADR 0024)", () => {
+  test("a generic current item may carry playback (ADR 0057 §1)", () => {
     accepts(RoomStateSchema, room({ embed: GENERIC, playback: null, itemId: "q1", queue: [] }));
-    rejects(RoomStateSchema, room({ embed: GENERIC, playback: PLAYBACK, itemId: "q1", queue: [] }));
+    accepts(RoomStateSchema, room({ embed: GENERIC, playback: PLAYBACK, itemId: "q1", queue: [] }));
   });
 
   test("an empty room can still have a queue waiting", () => {

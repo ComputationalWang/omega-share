@@ -1,6 +1,7 @@
 //! What the room can do with an embed's player (ADR 0014), mirroring `packages/shared/src/capabilities.ts`.
 
 use super::embed::Embed;
+use super::generic_embed::AnyEmbed;
 use serde::Serialize;
 
 /// "yes" settable; "probe" depends on the video (Vimeo owner plan); "no" never (Twitch).
@@ -42,6 +43,13 @@ static TWITCH_LIVE: PlaybackCaps = PlaybackCaps {
     rate: RateSupport::No,
 };
 
+/// ADR 0057 §1: `HTMLMediaElement` through the extension. A live generic stream is detected on the client only.
+static GENERIC: PlaybackCaps = PlaybackCaps {
+    seek: true,
+    live: false,
+    rate: RateSupport::Yes,
+};
+
 /// Static capabilities of an embed. Pure; returns shared static objects.
 pub fn playback_caps(embed: &Embed) -> &'static PlaybackCaps {
     match embed {
@@ -49,5 +57,13 @@ pub fn playback_caps(embed: &Embed) -> &'static PlaybackCaps {
         Embed::Vimeo(_) => &VIMEO,
         Embed::TwitchLive(_) => &TWITCH_LIVE,
         Embed::TwitchVod(_) => &TWITCH_VOD,
+    }
+}
+
+/// `playbackCaps` over both tiers (ADR 0057 §1).
+pub fn any_playback_caps(embed: &AnyEmbed) -> &'static PlaybackCaps {
+    match embed {
+        AnyEmbed::Synced(e) => playback_caps(e),
+        AnyEmbed::Generic(_) => &GENERIC,
     }
 }

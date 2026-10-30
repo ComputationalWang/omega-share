@@ -165,7 +165,7 @@ export const RoomStateSchema = v.pipe(
   }),
   v.check((r) => r.itemId === undefined || r.embed !== null, "item id without an embed"),
   v.check((r) => r.itemId === undefined || !(r.queue ?? []).some((i) => i.id === r.itemId), "current item also queued"),
-  v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
+  v.check((x) => playbackMatchesEmbed(x), "playback without an embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
     // MAX_ROOM_MEMBERS is 25: each validated slot fits a distinct 32-bit mask bit.

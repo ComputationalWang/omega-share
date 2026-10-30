@@ -3,7 +3,9 @@
  * export (`@omega/shared/extension-bridge`) so the main entry doesn't grow.
  */
 import * as v from "valibot";
+import { PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN } from "./constants";
 import { canonicalizeGenericEmbed, normalizeHostname } from "./generic-embed";
+import { PositionSchema } from "./playback";
 
 /** Fixed tag on every bridge message, so other `postMessage` traffic on the page is ignored. */
 export const BRIDGE_SOURCE = "omega-share";
@@ -20,8 +22,28 @@ const source = v.literal(BRIDGE_SOURCE);
 
 export const UnlockMessageSchema = v.strictObject({ source, kind: v.literal("unlock"), host: GenericHostSchema });
 export const RelockMessageSchema = v.strictObject({ source, kind: v.literal("relock") });
+
+/** A rate the room can share, PLAYBACK_RATE_MIN–PLAYBACK_RATE_MAX. */
+const RateSchema = v.pipe(v.number(), v.finite(), v.minValue(PLAYBACK_RATE_MIN), v.maxValue(PLAYBACK_RATE_MAX));
+
+/** Page → extension (ADR 0057 §3): inject the frame script into `host`'s frame in this tab, after `unlock-result: unlocked` and the iframe's `load`. */
+export const AttachMessageSchema = v.strictObject({ source, kind: v.literal("attach"), host: GenericHostSchema });
+
+const command = <const E extends v.ObjectEntries>(op: string, entries: E) =>
+  v.strictObject({ source, kind: v.literal("frame-command"), host: GenericHostSchema, op: v.literal(op), ...entries });
+/** Page → extension → the attached frame (ADR 0057 §3). `seek` in seconds, `volume` 0–100 like `PlayerAdapter.setVolume`. */
+export const FrameCommandMessageSchema = v.variant("op", [
+  command("play", {}),
+  command("pause", {}),
+  command("unmute", {}),
+  command("seek", { value: PositionSchema }),
+  command("rate", { value: RateSchema }),
+  command("volume", { value: v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(100)) }),
+]);
+export type FrameCommand = v.InferOutput<typeof FrameCommandMessageSchema>;
+
 /** Page → extension. */
-export const PageToExtensionSchema = v.variant("kind", [UnlockMessageSchema, RelockMessageSchema]);
+export const PageToExtensionSchema = v.variant("kind", [UnlockMessageSchema, RelockMessageSchema, AttachMessageSchema, FrameCommandMessageSchema]);
 export type PageToExtension = v.InferOutput<typeof PageToExtensionSchema>;
 
 export const UNLOCK_OUTCOMES = ["unlocked", "denied", "unsupported"] as const;
@@ -39,8 +61,47 @@ export const UnlockResultMessageSchema = v.strictObject({
   host: GenericHostSchema,
   outcome: v.picklist(UNLOCK_OUTCOMES),
 });
+
+export const FRAME_STATES = ["playing", "paused", "buffering", "ended"] as const;
+export type FrameState = (typeof FRAME_STATES)[number];
+
+/**
+ * Frame → extension → page (ADR 0057 §3): the attached `<video>`'s media state, on every media event and once a
+ * second while playing. Untrusted: the host page can fake it (§5). The same shape crosses `runtime.sendMessage`,
+ * which can't carry NaN or Infinity, hence `duration: null` and `live`.
+ */
+export const FrameStateMessageSchema = v.strictObject({
+  source,
+  kind: v.literal("frame-state"),
+  host: GenericHostSchema,
+  state: v.picklist(FRAME_STATES),
+  position: PositionSchema,
+  rate: RateSchema,
+  /** Seconds; null while unknown (NaN before metadata) or live. */
+  duration: v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0))),
+  /** `duration === Infinity`: treated like Twitch live on the client (play/pause only). */
+  live: v.boolean(),
+  muted: v.boolean(),
+});
+/** Frame → page: a play/pause/seek the user made inside the frame, sent only under `navigator.userActivation.isActive` (§5). */
+export const FrameIntentMessageSchema = v.strictObject({
+  source,
+  kind: v.literal("frame-intent"),
+  host: GenericHostSchema,
+  playing: v.boolean(),
+  position: PositionSchema,
+});
+/** The attached frame went away (navigation, video gone, detach). */
+export const FrameLostMessageSchema = v.strictObject({ source, kind: v.literal("frame-lost"), host: GenericHostSchema });
+
 /** Extension → page. */
-export const ExtensionToPageSchema = v.variant("kind", [PresentMessageSchema, UnlockResultMessageSchema]);
+export const ExtensionToPageSchema = v.variant("kind", [
+  PresentMessageSchema,
+  UnlockResultMessageSchema,
+  FrameStateMessageSchema,
+  FrameIntentMessageSchema,
+  FrameLostMessageSchema,
+]);
 export type ExtensionToPage = v.InferOutput<typeof ExtensionToPageSchema>;
 
 /**

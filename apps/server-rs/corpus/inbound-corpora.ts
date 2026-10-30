@@ -85,6 +85,8 @@ const valid: Raw[] = [
   js({ ...CONTROL, position: 43200 }),
   js({ ...CONTROL, url: "" }),
   js({ ...CONTROL, url: URL128(128) }),
+  // A generic embed's url (ADR 0057 §1): up to MAX_GENERIC_EMBED_URL_LENGTH UTF-16 units.
+  js({ ...CONTROL, url: URL128(129) }), js({ ...CONTROL, url: URL128(1024) }), js({ ...CONTROL, url: "😀".repeat(512) }), js({ ...CONTROL, url: "é".repeat(1024) }),
   js({ ...CONTROL, url: "é".repeat(128) }),
   js({ ...CONTROL, url: "😀".repeat(64) }),
   js({ type: "status", catching: true }),
@@ -171,7 +173,7 @@ const invalid: Raw[] = [
   js({ type: "ping", id: 2147483648 }), js({ type: "ping", id: -1 }), js({ type: "ping", id: 1.5 }), js({ type: "ping", id: "1" }), js({ type: "ping", id: 1e10 }),
   ok('{"type":"ping","id":1e400}'), ok('{"type":"ping","id":-1e400}'), ok('{"type":"ping","id":NaN}'), ok('{"type":"ping","id":Infinity}'),
   // control
-  js({ ...CONTROL, url: URL128(129) }), js({ ...CONTROL, url: "é".repeat(129) }), js({ ...CONTROL, url: "😀".repeat(65) }), js({ ...CONTROL, url: 1 }),
+  js({ ...CONTROL, url: URL128(1025) }), js({ ...CONTROL, url: "é".repeat(1025) }), js({ ...CONTROL, url: "😀".repeat(513) }), js({ ...CONTROL, url: 1 }),
   js({ ...CONTROL, position: -1 }), js({ ...CONTROL, position: 43201 }), js({ ...CONTROL, position: -0.001 }), js({ ...CONTROL, position: "1" }),
   js({ ...CONTROL, playing: "true" }), js({ ...CONTROL, playing: 1 }),
   ok('{"type":"control","url":"u","playing":true,"position":1e400}'), ok('{"type":"control","url":"u","playing":true,"position":-1e400}'),

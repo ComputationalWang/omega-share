@@ -38,6 +38,8 @@ export function createExtensionBridge(win: BridgePage): ExtensionBridge {
       onPresent?.();
       return;
     }
+    // frame-* (ADR 0057 §3) belongs to the frame adapter.
+    if (msg.kind !== "unlock-result") return;
     if (pending?.host === msg.host) {
       const { resolve } = pending;
       pending = null;
