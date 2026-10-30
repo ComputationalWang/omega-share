@@ -3,7 +3,8 @@ import * as v from "valibot";
 import { AVATAR_COUNT, FURNITURE, type FurnitureKind } from "@omega/shared";
 import { FramesSchema } from "../src/walk/motion";
 import { AVATAR_IDS } from "../src/walk/avatar-ids";
-import { LIE_MS, isLieFrame, lieKeys, lieOffset } from "../src/walk/lie";
+import { LIE_MS, isLieFrame, lieKeyPoint, lieKeys, lieOffset } from "../src/walk/lie";
+import { seatPoints, seatTiles } from "../src/furniture";
 import type { Dir } from "../src/walk/walks";
 
 // OME-1691: the lying sheet's keys, breath and per-piece offsets are read off assets/avatars/lying.json; the web copies are pinned here.
@@ -62,4 +63,21 @@ describe("lie offsets", () => {
     expect(lieOffset("lamp", "se")).toBeUndefined();
     expect(lieOffset("cat", "ne")).toBeUndefined();
   });
+});
+
+// OME-2024: the desktop band keeps every seat whole from its top (bandHome, SEAT_HIT_H 44), not what lies above it, so a
+// queen bed's key sits on the bed, inside that guarantee, and a touch key (room.css: 44 px, 34 px up) covers no seat key.
+describe("the queen bed's lie key", () => {
+  for (const facing of DIRS) {
+    test(`facing ${facing}: below the band's top and clear of its seat keys`, () => {
+      const bed = { kind: "bed", col: 3, row: 0, facing } as const;
+      const key = lieKeyPoint(bed);
+      if (key === undefined) throw new Error("no lie key");
+      const top = Math.min(...seatPoints({ furniture: [bed] }).map((p) => p.y)) - 22;
+      expect(key.y - 10).toBeGreaterThanOrEqual(top);
+      expect(key.y - 34).toBeGreaterThanOrEqual(top);
+      const under = seatTiles({ furniture: [bed] }).filter((s) => Math.abs(s.x - key.x) <= 22 && s.y >= key.y - 34 && s.y <= key.y + 10);
+      expect(under).toEqual([]);
+    });
+  }
 });
