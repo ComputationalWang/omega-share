@@ -108,7 +108,7 @@ describe("sceneOf in the north view (dank-dungeon)", () => {
     const s = north();
     expect(at(s, "furniture/partition/solid/sw/back")[0]).toEqual({ x: 608, y: 460, layer: "object" });
     expect(at(s, "furniture/coffeetable/wood/sw/back")).toHaveLength(1);
-    expect(at(s, "furniture/monstera/teal/sw/back")).toEqual([{ x: 480, y: 236, layer: "object" }]);
+    expect(at(s, "furniture/monstera/teal/sw/back")).toEqual([{ x: 448, y: 252, layer: "object" }]);
     expect(s.sprites.filter((x) => x.use?.frames.some((k) => k.includes("/cut/")))).toEqual([]);
   });
 

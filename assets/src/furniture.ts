@@ -1304,17 +1304,16 @@ function padImage(field: RampName, n = 0, s = 1, cv: Canvas = CANVAS): Uint8Arra
 
 /** Queen bed (OME-1983), 2×2: a plinth, a plum duvet folded back over cream sheets, a mustard throw at the foot, two big pillows
  *  and two cushions against a tufted headboard at the anchor end (the −x end, so it backs onto the left wall facing ne and the
- *  right wall facing nw). Local y is the width: 0..16 facing ne/nw, −16..0 facing se/sw (the footprint's second row is on
- *  the −y side there). `n` 2 and 3 draw only the duvet pulled up over sleeper 0 (the front, −y half, where the seats are) or 1. */
+ *  right wall facing nw). Local y is the width, 0..16 in every facing: pieceFrames
+ *  stands every 2-deep model on its footprint (OME-1999), so the bed doesn't shift itself for se/sw (OME-2039). `n` 2 and 3 draw only the duvet pulled up over sleeper 0 (the front, −y half, where the seats are) or 1. */
 function bed(k: Kit, c: RampName, n = 0): void {
-  const O = k.dir === "se" || k.dir === "sw" ? -16 : 0;
-  const Y0 = O - 7.5, Y1 = O + 23.5, MID = O + 8;
-  const halves = [O, O + 16];
+  const Y0 = -7.5, Y1 = 23.5, MID = 8;
+  const halves = [0, 16];
   const sleeper = halves[n - 2];
   if (sleeper !== undefined) {
     // The duvet over one sleeper: from the shoulders to the foot, over their half, the outer edge draping down the side.
-    const y0 = sleeper === O ? Y0 + 0.1 : MID, y1 = sleeper === O ? MID : Y1 - 0.1;
-    const lo = (y: number): boolean => (sleeper === O ? y < Y0 + 0.6 : y > Y1 - 0.6);
+    const y0 = sleeper === 0 ? Y0 + 0.1 : MID, y1 = sleeper === 0 ? MID : Y1 - 0.1;
+    const lo = (y: number): boolean => (sleeper === 0 ? y < Y0 + 0.6 : y > Y1 - 0.6);
     const quilt: LPaint = (p, f) => {
       if (f === "top") return p.x < 3.2 ? ["cream", 0] : Math.abs(((p.x + 40) % 6) - 3) < 0.35 ? [c, 1] : null;
       return lo(p.y) && p.z < 6 ? [c, 2] : null;
@@ -1349,8 +1348,8 @@ function bed(k: Kit, c: RampName, n = 0): void {
     k.ell({ x, y, z }, r, [-8, 24, Y0 - 1, Y1 + 1, 0, 40], ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.y - y) < 0.4 ? [ramp, 2] : null) });
   };
   for (const y of halves) pillow(-4.2, y, 12.6, { x: 2.4, y: 6, z: 4.6 }, "cream");
-  pillow(-1.6, O, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, c);
-  pillow(-1.6, O + 16, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, "mustard");
+  pillow(-1.6, 0, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, c);
+  pillow(-1.6, 16, 11.2, { x: 1.8, y: 3.4, z: 3.4 }, "mustard");
   pillow(-0.6, MID, 9.8, { x: 1.4, y: 2.6, z: 2 }, "teal");
 }
 

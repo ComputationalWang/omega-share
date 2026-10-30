@@ -167,9 +167,10 @@ export const PRESETS: readonly Preset[] = [
         p("whirlpool", 2, 7, "ne"),
         // The grid had (0, 6), but row 6 of the left wall is a fixture segment: a mirror can't hang there.
         p("washbasin", 0, 7, "se"), p("mirror", 0, 7, "se"),
-        // One col left of the grid's (7, 7): the seats' spread has to fit the audience band (OME-1945).
-        p("wingback", 6, 7, "nw"), p("coffeetable", 6, 6, "sw"),
-        p("arclamp", 1, 9, "se"), p("monstera", 9, 9, "sw", 1),
+        // By the glass, looking in at the beds (OME-2039); the table at its side.
+        p("wingback", 5, 5, "ne"), p("coffeetable", 6, 5, "sw"),
+        // The plant stays off DOOR_CELL (9, 9), where people walk in (OME-2039).
+        p("arclamp", 1, 9, "se"), p("monstera", 9, 8, "sw", 1),
       ],
     },
   },

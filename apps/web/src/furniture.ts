@@ -156,8 +156,8 @@ export function seatPoints(layout: RoomLayout): Point[] {
   return layout.furniture.flatMap((f) => seatCells(f).map(([c, r]) => seatAt(f, c, r)));
 }
 
-/** Seat i's facing in my view. */
-export const seatFacings = (layout: RoomLayout): Facing[] => layoutSeats(layout).map((s) => s.facing);
+/** Seat i's facing in my view: from the north (OME-1961) a sitter turns with their chair (OME-2039). */
+export const seatFacings = (layout: RoomLayout): Facing[] => layoutSeats(layout).map((s) => (isNorth() ? TURN[s.facing] : s.facing));
 
 /** Seat i's floor tile, without the riser lift: where its key sits, so a riser's key doesn't cover the row in front. */
 export function seatTiles(layout: RoomLayout): Point[] {
