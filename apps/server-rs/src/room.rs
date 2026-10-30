@@ -1568,19 +1568,20 @@ mod tests {
     }
 
     #[test]
-    fn a_restored_generic_embed_has_no_playback_and_rev_starts_at_minus_one() {
+    fn a_restored_generic_embed_has_paused_playback_like_a_synced_one() {
         let mut r = room_with(RoomInit {
             embed: Some(generic()),
             item_id: Some(iid("cur1")),
             ..RoomInit::default()
         });
-        assert!(r.current_playback().is_none() && r.has_generic_embed());
+        // ADR 0057 section 1
+        assert_eq!(r.current_playback(), Some(&restored_playback(T0)));
         let next = r
             .set_embed(Some(yt()), None, Some(iid("n1")), None, 0.0, T0)
             .unwrap()
             .playback
             .unwrap();
-        assert_eq!(next.rev, Rev(0));
+        assert_eq!(next.rev, Rev(1));
     }
 
     #[test]
@@ -2099,13 +2100,13 @@ mod tests {
         assert_eq!(r.control(&a, &ctl(false, 0.0), T0 + 1).unwrap().rev, Rev(1));
         assert_eq!(rev(&mut r, Some(vimeo())), Some(2));
         assert_eq!(rev(&mut r, None), None);
-        assert_eq!(rev(&mut r, Some(generic())), None);
-        assert_eq!(rev(&mut r, Some(yt())), Some(3));
+        assert_eq!(rev(&mut r, Some(generic())), Some(3));
+        assert_eq!(rev(&mut r, Some(yt())), Some(4));
     }
 
-    // ADR 0024 section 7
+    // ADR 0024 section 7; ADR 0057 section 1: a generic embed keeps playback, but catching stays a synced-only status
     #[test]
-    fn a_generic_or_no_embed_clears_playback_and_every_catching_flag() {
+    fn a_generic_or_no_embed_clears_every_catching_flag() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         let b = join(&mut r, "m2", "bob", None);
@@ -2118,9 +2119,9 @@ mod tests {
         r.take_catching_change(&b);
         r.take_catching_change(&a);
         let sw = r.set_embed(Some(generic()), None, Some(iid("g")), None, 0.0, T0).unwrap();
-        assert_eq!(sw.playback, None);
+        assert_eq!(sw.playback.as_ref().map(|p| p.action), Some(PlaybackAction::Load));
         assert_eq!(sw.uncaught, [b.clone(), a.clone()]);
-        assert!(r.current_playback().is_none() && r.has_generic_embed());
+        assert!(r.current_playback() == sw.playback.as_ref() && r.has_generic_embed());
         assert!([&a, &b, &c].iter().all(|m| !r.is_catching(m)));
         assert!(json(&r.snapshot().members).find("catching").is_none());
         // Nothing left to announce.
@@ -2156,7 +2157,7 @@ mod tests {
     }
 
     #[test]
-    fn control_applies_only_to_the_current_synced_embed() {
+    fn control_applies_only_to_the_current_embed_synced_or_generic() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         assert_eq!(r.control(&a, &ctl(true, 0.0), T0), None);
@@ -2183,8 +2184,10 @@ mod tests {
                     countdown: false,
                 },
                 T0
-            ),
-            None
+            )
+            .map(|p| (p.action, p.playing, p.rev)),
+            // ADR 0057 section 1
+            Some((PlaybackAction::Play, true, Rev(3)))
         );
     }
 
@@ -2251,7 +2254,7 @@ mod tests {
     }
 
     #[test]
-    fn advancing_into_a_generic_embed_clears_playback_and_catching() {
+    fn advancing_into_a_generic_embed_loads_it_and_clears_catching() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
         r.set_embed(Some(yt()), None, Some(iid("cur")), None, 0.0, T0).unwrap();
@@ -2259,8 +2262,9 @@ mod tests {
         r.take_catching_change(&a);
         r.enqueue(queued("g1", generic(), None));
         let adv = r.advance(2.0, None, T0).unwrap();
-        assert_eq!((adv.embed_switch.playback, adv.embed_switch.uncaught), (None, vec![a]));
-        assert!(r.current_playback().is_none() && r.has_generic_embed());
+        assert_eq!(adv.embed_switch.playback.as_ref().map(|p| p.action), Some(PlaybackAction::Load));
+        assert_eq!(adv.embed_switch.uncaught, vec![a]);
+        assert!(r.current_playback().is_some() && r.has_generic_embed());
     }
 
     // ---- snapshot, view, summary
