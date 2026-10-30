@@ -327,3 +327,40 @@ describe("lieIntent", () => {
     expect(sitIntent(iLie, 0)).toEqual({ type: "sit", seat: 0 });
   });
 });
+
+// OME-2009 (contract OME-2008, ADR 0057): the queen bed sleeps two. Sleeper `i` holds only the bed's seat `i`; the server
+// picks the side, so the key lies down while any side is free and nobody else sits on its seat.
+describe("lieIntent: the queen bed", () => {
+  const layout: RoomLayout = { furniture: [{ kind: "bed", col: 4, row: 0, facing: "nw" }, { kind: "sofa", col: 2, row: 5, facing: "ne" }] };
+  const me = { id: "a", nickname: "alice", avatar: 0 } as const;
+  const bob = { id: "b", nickname: "bob", avatar: 3 } as const;
+  const cy = { id: "c", nickname: "cy", avatar: 1 } as const;
+  const free = [null, null, null, null, null, null, null, null] as const;
+  const inRoom = (members: RoomState["members"], seats: RoomState["seats"] = [...free]): ViewState =>
+    reduce(initialState, { type: "server", msg: { type: "snapshot", self: "a", room: { ...room, seats, members, layout } }, now: 0 });
+
+  test("a second sleeper can lie down beside the first; a third can't", () => {
+    expect(lieIntent(inRoom([me, { ...bob, lying: 0, sleeper: 0 }]), 0)).toEqual({ type: "lie", piece: 0 });
+    expect(lieIntent(inRoom([me, { ...bob, lying: 0, sleeper: 1 }]), 0)).toEqual({ type: "lie", piece: 0 });
+    expect(lieIntent(inRoom([me, { ...bob, lying: 0, sleeper: 0 }, { ...cy, lying: 0, sleeper: 1 }]), 0)).toBeNull();
+  });
+
+  test("I sleep there: get up", () => {
+    expect(lieIntent(inRoom([{ ...me, lying: 0, sleeper: 1 }, { ...bob, lying: 0, sleeper: 0 }]), 0)).toEqual({ type: "lie", piece: null });
+  });
+
+  test("a sitter blocks only their side: the other side still takes me, unless someone sleeps there", () => {
+    expect(lieIntent(inRoom([me, bob], ["b", null, null, null, null, null, null, null]), 0)).toEqual({ type: "lie", piece: 0 });
+    expect(lieIntent(inRoom([me, bob, cy], ["b", "c", null, null, null, null, null, null]), 0)).toBeNull();
+    expect(lieIntent(inRoom([me, bob, { ...cy, lying: 0, sleeper: 1 }], ["b", null, null, null, null, null, null, null]), 0)).toBeNull();
+    // My own seat on the bed doesn't block me.
+    expect(lieIntent(inRoom([me, bob], ["a", "b", null, null, null, null, null, null]), 0)).toEqual({ type: "lie", piece: 0 });
+  });
+
+  test("a sleeper holds only their own side's seat; the other side's seat stays free to sit on", () => {
+    const bobSleeps = inRoom([me, { ...bob, lying: 0, sleeper: 1 }]);
+    expect(seatViews(bobSleeps).slice(0, 2).map((v) => v.member?.id ?? null)).toEqual([null, "b"]);
+    expect(sitIntent(bobSleeps, 0)).toEqual({ type: "sit", seat: 0 });
+    expect(sitIntent(bobSleeps, 1)).toBeNull();
+  });
+});

@@ -11,7 +11,7 @@ const Point = v.object({ x: v.number(), y: v.number() });
 const sheet = v.parse(
   v.object({
     frames: FramesSchema,
-    meta: v.object({ omega: v.object({ anims: v.record(v.string(), v.object({ frames: v.array(v.string()), ms: v.array(v.number()) })), pieces: v.record(v.string(), v.object({ style: v.string(), dirs: v.record(v.string(), Point) })) }) }),
+    meta: v.object({ omega: v.object({ anims: v.record(v.string(), v.object({ frames: v.array(v.string()), ms: v.array(v.number()) })), pieces: v.record(v.string(), v.object({ style: v.string(), dirs: v.record(v.string(), Point), beside: v.optional(v.record(v.string(), Point)) })) }) }),
   }),
   await Bun.file(new URL("../../../assets/avatars/lying.json", import.meta.url)).json(),
 );
@@ -49,9 +49,15 @@ describe("lie keys", () => {
 
 describe("lie offsets", () => {
   test("each piece's offsets are the sheet's meta.omega.pieces, and a piece without them has none", () => {
+    expect(Object.keys(sheet.meta.omega.pieces)).toContain("bed");
     for (const [kind, piece] of Object.entries(sheet.meta.omega.pieces)) {
-      expect(FURNITURE[kind as FurnitureKind].lie).toBe(piece.style as "lie" | "curl");
-      for (const dir of DIRS) expect(lieOffset(kind as FurnitureKind, dir)).toEqual(piece.dirs[dir]);
+      expect(FURNITURE[kind as FurnitureKind].lie).toBe(piece.style as "lie" | "curl" | "sleep");
+      for (const dir of DIRS) {
+        expect(lieOffset(kind as FurnitureKind, dir)).toEqual(piece.dirs[dir]);
+        expect(lieOffset(kind as FurnitureKind, dir, 0)).toEqual(piece.dirs[dir]);
+        // The bed's second sleeper (OME-2009) lies `beside` the first; a one-lier piece has no second spot.
+        expect(lieOffset(kind as FurnitureKind, dir, 1)).toEqual(piece.beside?.[dir]);
+      }
     }
     expect(lieOffset("lamp", "se")).toBeUndefined();
     expect(lieOffset("cat", "ne")).toBeUndefined();

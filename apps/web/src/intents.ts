@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type MemberId, type PlaybackState, type QueueItemId } from "@omega/shared";
+import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type MemberId, type PlaybackState, type QueueItemId, type RoomLayout } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 import { lieStyleOf, pieceSeats } from "./walk/lie";
@@ -12,11 +12,19 @@ export interface SeatView {
   readonly isSelf: boolean;
 }
 
-/** Someone else lying on the piece that gives seat `seat`: the server holds its seats for them (OME-1691). */
+/** The seats lier `m` holds, [first, end): all their piece's, or on a `sleep` piece only their side's (OME-2008). */
+function heldSeats(layout: RoomLayout, m: Member, piece: number): readonly [number, number] {
+  const [first, end] = pieceSeats(layout, piece);
+  if (lieStyleOf(layout, piece) !== "sleep") return [first, end];
+  const mine = first + (m.sleeper ?? 0);
+  return [mine, Math.min(mine + 1, end)];
+}
+
+/** Someone else lying on the piece that gives seat `seat`: the server holds its seats (a sleeper: their side's) for them (OME-1691). */
 function lierOn(room: NonNullable<ViewState["room"]>, self: MemberId | null, seat: number): Member | null {
   for (const m of room.members) {
     if (m.lying === undefined || m.id === self) continue;
-    const [first, end] = pieceSeats(room.layout ?? DEFAULT_LAYOUT, m.lying);
+    const [first, end] = heldSeats(room.layout ?? DEFAULT_LAYOUT, m, m.lying);
     if (seat >= first && seat < end) return m;
   }
   return null;
@@ -42,18 +50,27 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   return occupant === state.self ? { type: "sit", seat: null } : null;
 }
 
-/** A lie key (OME-1691): lie down on layout piece `piece`, or get up from it if I lie there; null if nobody can lie on it or someone else does. */
+/**
+ * A lie key (OME-1691): lie down on layout piece `piece`, or get up from it if I lie there; null if nobody can lie on it
+ * or someone else does. A `sleep` piece (the queen bed, OME-2008) takes me while a side is free: nobody sleeps there and
+ * its seat is free or mine (the server picks the side).
+ */
 export function lieIntent(state: Pick<ViewState, "status" | "room" | "self">, piece: number): ClientMessage | null {
   const room = state.room;
   if (state.status !== "open" || room === null || !Number.isInteger(piece)) return null;
-  if (lieStyleOf(room.layout ?? DEFAULT_LAYOUT, piece) === undefined) return null;
-  const lier = room.members.find((m) => m.lying === piece);
-  if (lier === undefined) {
-    const [first, end] = pieceSeats(room.layout ?? DEFAULT_LAYOUT, piece);
-    for (let i = first; i < end; i++) if ((room.seats[i] ?? null) !== null && room.seats[i] !== state.self) return null;
-    return { type: "lie", piece };
+  const layout = room.layout ?? DEFAULT_LAYOUT;
+  const style = lieStyleOf(layout, piece);
+  if (style === undefined) return null;
+  if (room.members.some((m) => m.lying === piece && m.id === state.self)) return { type: "lie", piece: null };
+  const sitterOn = (i: number): boolean => (room.seats[i] ?? null) !== null && room.seats[i] !== state.self;
+  const [first, end] = pieceSeats(layout, piece);
+  if (style === "sleep") {
+    for (let i = first; i < end; i++) if (!sitterOn(i) && !room.members.some((m) => m.lying === piece && (m.sleeper ?? 0) === i - first)) return { type: "lie", piece };
+    return null;
   }
-  return lier.id === state.self ? { type: "lie", piece: null } : null;
+  if (room.members.some((m) => m.lying === piece)) return null;
+  for (let i = first; i < end; i++) if (sitterOn(i)) return null;
+  return { type: "lie", piece };
 }
 
 /** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell, or get up; "no-cell" on a seat or a standing spot. */
