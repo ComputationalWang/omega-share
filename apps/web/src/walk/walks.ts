@@ -5,9 +5,9 @@
 // step together, Basic redraws at most once a step, and arrivals are the same on both tiers. A jog (OME-1464) is the same
 // walk at twice the clock: Basic steps every 75 ms, Smooth's frames every 37.5 ms. A path is found once per target change;
 // `sample` allocates nothing.
-import type { MemberId } from "@omega/shared";
+import { FLOOR_CELLS, type MemberId } from "@omega/shared";
 import { standDepth } from "../furniture";
-import { TILE_H, TILE_W, type Point } from "../layout";
+import { TILE_H, TILE_W, TURN, flipPoint, isNorth, type Point } from "../layout";
 import { DOOR, cellAt, centerOf, colOf, findPath, rowOf } from "./path";
 
 export type Dir = "se" | "sw" | "ne" | "nw";
@@ -105,7 +105,11 @@ interface Entry {
 }
 
 /** With no walk seen (OME-1489), standing people face the TV in the back corner: ne left of the aisle, nw right of it (like seats, ADR 0008). */
-const standFacing = (cell: number): Dir => (colOf(cell) < rowOf(cell) ? "ne" : "nw");
+const standFacing = (cell: number): Dir => {
+  // The screen's left of the aisle: the cell's col < row from the south, its mirror from the north (OME-1961).
+  const [c, r] = isNorth() ? [FLOOR_CELLS - 1 - colOf(cell), FLOOR_CELLS - 1 - rowOf(cell)] : [colOf(cell), rowOf(cell)];
+  return c < r ? "ne" : "nw";
+};
 
 function dirOf(dx: number, dy: number): Dir {
   if (dy >= 0) return dx >= 0 ? "se" : "sw";
@@ -278,8 +282,17 @@ export function createWalks(opts: WalksOptions): Walks {
       }
       for (const id of entries.keys()) if (!seen.has(id)) entries.delete(id);
     },
-    // eslint-disable-next-line @typescript-eslint/no-empty-function -- red stub (OME-1961)
-    reflect() {},
+    reflect() {
+      for (const e of entries.values()) {
+        for (let i = 0; i < e.xs.length; i++) {
+          const p = flipPoint({ x: e.xs[i] ?? 0, y: e.ys[i] ?? 0 });
+          e.xs[i] = p.x;
+          e.ys[i] = p.y;
+        }
+        e.target = { ...e.target, at: flipPoint(e.target.at) };
+        if (e.restDir !== null) e.restDir = TURN[e.restDir];
+      }
+    },
     sample(id, now, out) {
       const e = entries.get(id);
       if (e === undefined) return false;

@@ -1,4 +1,4 @@
-import { FLOOR_CELLS, type Provider } from "@omega/shared";
+import { FLOOR_CELLS, type Facing, type Provider } from "@omega/shared";
 
 /** Logical stage size; the DOM stage is CSS-scaled to fit, the canvas matches it 1:1. */
 export const STAGE_W = 960;
@@ -17,16 +17,27 @@ export interface Point {
 }
 
 let north = false;
-/** Which side I see the room from (OME-1961): north maps cell (c, r) to (9 − c, 9 − r). */
+/** Which side I see the room from (OME-1961): north maps cell (c, r) to (9 − c, 9 − r), a point reflection of the screen. */
 export const setNorth = (on: boolean): void => {
   north = on;
 };
 export const isNorth = (): boolean => north;
 
-/** Centre of iso cell (col, row). */
-export function cellCenter(col: number, row: number): Point {
+/** Centre of iso cell (col, row) as seen from the south: the shell's own projection, which never turns. */
+export function rawCenter(col: number, row: number): Point {
   return { x: ORIGIN_X + (col - row) * (TILE_W / 2), y: ORIGIN_Y + (col + row + 1) * (TILE_H / 2) };
 }
+
+/** Centre of iso cell (col, row) in my view. */
+export function cellCenter(col: number, row: number): Point {
+  return north ? rawCenter(FLOOR_CELLS - 1 - col, FLOOR_CELLS - 1 - row) : rawCenter(col, row);
+}
+
+/** A facing seen from the other side: se <-> nw, sw <-> ne. */
+export const TURN: Readonly<Record<Facing, Facing>> = { se: "nw", nw: "se", sw: "ne", ne: "sw" };
+
+/** A screen point turned to the other side's view (the north view is the south view reflected through the floor's centre). */
+export const flipPoint = (p: Point): Point => ({ x: 2 * ORIGIN_X - p.x, y: 2 * ORIGIN_Y + FLOOR_CELLS * TILE_H - p.y });
 
 export interface Rect {
   readonly x: number;
