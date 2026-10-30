@@ -81,12 +81,7 @@ async function frameOf(page: Page): Promise<Frame> {
 async function unlockAndSync(page: Page): Promise<Frame> {
   await page.getByTestId("generic-unlock").click({ timeout: 20_000 });
   const frame = await frameOf(page);
-  // WORKAROUND for the app bug found in OME-1976: frameSync sends no frame-state for a video that already has its metadata,
-  // so a poke (a media event) is needed. Remove when the script reports on attach; the spec then passes without it.
-  await expect.poll(async () => {
-    await frame.evaluate(() => document.querySelector("video")?.dispatchEvent(new Event("durationchange")));
-    return page.getByTestId("synced").count();
-  }, { timeout: 20_000, intervals: [500] }).toBe(1);
+  await expect(page.getByTestId("synced")).toHaveCount(1, { timeout: 20_000 });
   return frame;
 }
 
