@@ -9,11 +9,15 @@
   <button id="load">Load</button>
   <button id="unlock">Unlock with extension</button>
   <button id="relock">Relock</button>
+  <button id="cmd-play">play</button>
+  <button id="cmd-pause">pause</button>
+  <button id="cmd-seek">seek 20</button>
+  <button id="cmd-other">play other host</button>
   <div id="tv"></div>
   <script>
     const params = new URLSearchParams(location.search);
     const host = params.get("host") ?? "xfo.omega-fixture.net";
-    const framePage = params.get("page") === "referer" ? "referer-frame.html" : "xfo-frame.html";
+    const framePage = { referer: "referer-frame.html", video: "video-frame.html" }[params.get("page")] ?? "xfo-frame.html";
     const show = (id, text) => { document.getElementById(id).textContent = text; };
     addEventListener("message", (e) => {
       if (e.source !== window || e.origin !== location.origin || e.data?.source !== "omega-share") return;
@@ -25,10 +29,18 @@
       const frame = document.createElement("iframe");
       frame.sandbox = "allow-scripts allow-same-origin";
       frame.referrerPolicy = "no-referrer";
-      frame.onload = () => show("loads", String(++loads));
+      frame.onload = () => {
+        show("loads", String(++loads));
+        if (framePage === "video-frame.html") postMessage({ source: "omega-share", kind: "attach", host }, location.origin);
+      };
       frame.src = `http://${host}:${location.port}/${framePage}`;
       document.getElementById("tv").replaceChildren(frame);
     };
+    const command = (op, extra = {}, to = host) => postMessage({ source: "omega-share", kind: "frame-command", host: to, op, ...extra }, location.origin);
+    document.getElementById("cmd-play").onclick = () => command("play");
+    document.getElementById("cmd-pause").onclick = () => command("pause");
+    document.getElementById("cmd-seek").onclick = () => command("seek", { value: 20 });
+    document.getElementById("cmd-other").onclick = () => command("play", {}, "other.omega-fixture.net");
     document.getElementById("unlock").onclick = () => postMessage({ source: "omega-share", kind: "unlock", host }, location.origin);
     document.getElementById("relock").onclick = () => postMessage({ source: "omega-share", kind: "relock" }, location.origin);
   </script>
