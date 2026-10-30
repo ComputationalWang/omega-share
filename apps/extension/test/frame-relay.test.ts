@@ -88,7 +88,7 @@ describe("frame → page", () => {
 
   test("Firefox has no sender.origin: the frame's URL gives it", async () => {
     const h = harness();
-    const { origin: _origin, ...noOrigin } = frame();
+    const noOrigin = { ...frame(), origin: undefined };
     await h.relay.onMessage(state(), noOrigin);
     await h.relay.onMessage(state(), { ...noOrigin, url: "https://evil.example/e/1" });
     expect(h.notes).toEqual([[TAB, state()]]);

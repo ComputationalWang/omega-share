@@ -31,7 +31,9 @@ function frame(opts: { top?: boolean; hostname?: string } = {}) {
     return video;
   }
   const fire = (video: HTMLVideoElement, type: string): boolean => video.dispatchEvent(new win.Event(type) as unknown as Event);
-  const command = (m: unknown): void => listeners.forEach((l) => l(m));
+  const command = (m: unknown): void => {
+    for (const l of listeners) l(m);
+  };
   const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
   return { win, env, sent, listeners, addVideo, fire, command, tick, activate: (on = true) => (active = on) };
 }
@@ -51,7 +53,7 @@ describe("frameSync", () => {
     }
   });
 
-  test("reports a valid frame-state for a video already in the frame", async () => {
+  test("reports a valid frame-state for a video already in the frame", () => {
     const f = frame();
     const video = f.addVideo();
     frameSync(HOST, f.env);
@@ -86,7 +88,7 @@ describe("frameSync", () => {
     expect(v.parse(FrameStateMessageSchema, last(f.sent))).toMatchObject({ duration: null, live: true });
   });
 
-  test("clamps a position and rate the room can't carry", async () => {
+  test("clamps a position and rate the room can't carry", () => {
     const f = frame();
     const video = f.addVideo();
     frameSync(HOST, f.env);
@@ -129,7 +131,7 @@ describe("frameSync", () => {
     expect(video.paused).toBe(true);
   });
 
-  test("ignores commands for another host or of an unknown shape", async () => {
+  test("ignores commands for another host or of an unknown shape", () => {
     const f = frame();
     const video = f.addVideo();
     frameSync(HOST, f.env);
@@ -213,10 +215,11 @@ describe("frameSync", () => {
     expect(f.sent).toEqual([]);
   });
 
-  test("is self-contained, as scripting.executeScript serializes it", async () => {
+  test("is self-contained, as scripting.executeScript serializes it", () => {
     const f = frame();
     const video = f.addVideo();
-    const injected = new Function(`return ${frameSync.toString()}`)() as typeof frameSync;
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the point: run it from its source, as the browser does
+    const injected = (new Function(`return ${frameSync.toString()}`) as () => typeof frameSync)();
     injected(HOST, f.env);
     f.fire(video, "pause");
     expect(kinds(f.sent)).toEqual(["frame-state"]);

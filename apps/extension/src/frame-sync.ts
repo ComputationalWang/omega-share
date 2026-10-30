@@ -75,7 +75,10 @@ export function frameSync(host: string, env?: FrameEnv): void {
     if (typeof raw !== "object" || raw === null) return;
     const m = raw as { source?: unknown; kind?: unknown; host?: unknown; op?: unknown; value?: unknown };
     if (m.source !== source) return;
-    if (m.kind === "frame-detach") return stop();
+    if (m.kind === "frame-detach") {
+      stop();
+      return;
+    }
     if (m.kind !== "frame-command" || m.host !== host || video === null) return;
     const value = typeof m.value === "number" && Number.isFinite(m.value) ? m.value : null;
     if (m.op === "play") {
@@ -96,7 +99,9 @@ export function frameSync(host: string, env?: FrameEnv): void {
     }
   };
 
-  const observer = new win.MutationObserver(() => use(win.document.querySelector("video")));
+  const observer = new win.MutationObserver(() => {
+    use(win.document.querySelector("video"));
+  });
   const timer = win.setInterval(() => {
     if (video?.paused === false) report();
   }, 1000);
