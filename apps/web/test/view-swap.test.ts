@@ -114,8 +114,8 @@ describe("sceneOf in the north view (dank-dungeon)", () => {
 
   test("a piece with all four facings draws the turned one, from its own sheet, at its 2×2 far corner", () => {
     const s = north();
-    // The bed at (3, 0) facing nw: far corner (4, 1) → cell (5, 8).
-    expect(at(s, "furniture/bed/velvet/se/back")).toEqual([{ x: 384, y: 444, layer: "object" }]);
+    // The beds at (3, 0) and (5, 0) facing nw: far corners (4, 1) and (6, 1) → cells (5, 8) and (3, 8).
+    expect(at(s, "furniture/bed/velvet/se/back")).toEqual([{ x: 384, y: 444, layer: "object" }, { x: 320, y: 412, layer: "object" }]);
     expect(at(s, "furniture/bed/velvet/nw/back")).toEqual([]);
   });
 
@@ -148,6 +148,6 @@ describe("sceneOf in the north view (dank-dungeon)", () => {
 
   test("seats follow the flip: a wingback's sitter is on the flipped cell", () => {
     const s = north();
-    expect(s.seats.map((x) => x.at)).toContainEqual({ x: 288, y: 348 });
+    expect(s.seats.map((x) => x.at)).toContainEqual({ x: 288, y: 364 });
   });
 });

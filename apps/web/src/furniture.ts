@@ -3,7 +3,7 @@
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
-import { STAGE_W, cellCenter, type Point } from "./layout";
+import { STAGE_W, TURN, cellCenter, isNorth, rawCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { lieOffset } from "./walk/lie";
 import { cellOf, colOf, rowOf } from "./walk/path";
@@ -241,9 +241,8 @@ export function cutaway(layout: RoomLayout, self: number | null, was: boolean): 
 }
 
 /** True if the layout has a partition, i.e. the back-view sheet must load (OME-1961). */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1961)
-export function usesBack(_layout: RoomLayout): boolean {
-  return false;
+export function usesBack(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => f.kind === "partition");
 }
 
 /** My view of a partitioned room (OME-1961): `behind` the wall (cutaway's verdict), `north` (seen from the other side), `cut` (the stubs, the fallback). */
@@ -252,9 +251,11 @@ export interface ViewVerdict {
   readonly north: boolean;
   readonly cut: boolean;
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1961)
-export function viewVerdict(_layout: RoomLayout, _self: number | null, was: boolean, _editing: boolean, _ready: boolean): ViewVerdict {
-  return { behind: was, north: false, cut: false };
+/** Behind the wall I see the room from the north once the back sheet is `ready`, else through phase A's stubs; editing is always south, uncut. */
+export function viewVerdict(layout: RoomLayout, self: number | null, was: boolean, editing: boolean, ready: boolean): ViewVerdict {
+  const behind = cutaway(layout, self, was);
+  const turned = behind && !editing;
+  return { behind, north: turned && ready, cut: turned && !ready };
 }
 
 /** The room a door leads to (OME-1425), if `(col, row)` is the cell in front of one of the layout's doors. */
@@ -337,8 +338,9 @@ interface Colour {
  * sitters sort by their own cell; without the room manifest, so are the floor, walls and room-atlas kinds. Built once per
  * layout change, never per frame.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1961)
-export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null, _back: FurnitureManifest | null = null): Scene {
+export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null, back: FurnitureManifest | null = null): Scene {
+  // From the north (OME-1961) a piece faces the other way, anchored at its far corner, and wall pieces go with the near walls.
+  const north = isNorth();
   // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's colours of older kinds (V7_COLOURS).
   const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour }] as const))));
   const layers = manifests[0]?.meta.omega.layers;
@@ -347,14 +349,21 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
   const lies = new Map<number, readonly LieSpot[]>();
   // The dungeon shell skin needs v7's frames; a layout that asks for it before they load keeps today's shell.
   if (room !== null) pushShell(sprites, layout, room, layout.shell === "dungeon" && manifests.some((m) => m.frames["floor/deck/0"] !== undefined));
-  for (const [i, f] of layout.furniture.entries()) {
-    const spec = FURNITURE[f.kind];
+  for (const [i, source] of layout.furniture.entries()) {
+    const spec = FURNITURE[source.kind];
+    if (north && spec.layer === "wall") continue;
+    const f = north ? { ...source, facing: TURN[source.facing] } : source;
     const id = atlasId(f.kind);
     // A variant its sheets lack (not loaded yet, or a recolour, which draws its source's frames) falls back to the piece's first colour; the tv has none, only its console.
     const found = pieces.get(`${id}/${String(f.variant ?? 0)}`) ?? (f.kind === "tv" ? undefined : pieces.get(`${id}/0`));
     const piece = ROOM_KINDS.has(f.kind) ? undefined : found?.piece;
-    const anchor = cellCenter(f.col, f.row);
-    const sort = piece?.sortByDir[f.facing];
+    const anchor = north ? farCorner(source) : cellCenter(f.col, f.row);
+    // A one-sided piece seen from the north: its source facing's sort point, reflected; its frames come from the back sheet, else its own source frames.
+    const own = piece?.sortByDir[f.facing];
+    const reflected = north && own === undefined ? piece?.sortByDir[source.facing] : undefined;
+    const sort = reflected === undefined ? own : { x: cellCenter(f.col, f.row).x - reflected.x - anchor.x, y: cellCenter(f.col, f.row).y - reflected.y - anchor.y };
+    const backKey = (colour: string): string => `furniture/${id}/${colour}/${f.facing}/back`;
+    const fromBack = reflected !== undefined && found !== undefined && back?.frames[backKey(found.colour)] !== undefined;
     const drawn = piece !== undefined && found !== undefined && sort !== undefined && layers !== undefined ? { piece, colour: found.colour, sort, layers } : null;
     const style = spec.lie;
     if (style !== undefined) {
@@ -369,18 +378,28 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       });
       if (spots.length > 0) lies.set(i, spots);
     }
-    if (drawn !== null) {
-      pushSprites(sprites, f, i, anchor, drawn);
+    if (drawn !== null && fromBack && back !== null) {
+      for (const part of drawn.piece.layersByDir[source.facing] ?? []) {
+        const key = `furniture/${id}/${drawn.colour}/${f.facing}/${part}`;
+        if (back.frames[key] !== undefined) sprites.push({ key, x: anchor.x, y: anchor.y, layer: spec.layer, z: depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers[part]) });
+      }
+    } else if (drawn !== null) {
+      pushSprites(sprites, reflected === undefined ? f : source, i, anchor, drawn, !north);
       // Same rect, anchor and depth as the back frame, pushed after it: the stable sort keeps it on top.
       if (glassAtNight(layout, f)) sprites.push({ key: `furniture/partition/${drawn.colour}/pane/${f.facing}`, x: anchor.x, y: anchor.y, layer: FURNITURE[f.kind].layer, z: depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.back), alpha: PANE_ALPHA });
     }
     // The flat tv (v7, variant 1) takes the console's place: same anchor, layer and depth, its own frame.
-    else if (room !== null) pushRoomPiece(sprites, f, anchor, f.kind === "tv" && found !== undefined ? `furniture/tv/${found.colour}/${f.facing}/back` : "tv/0");
+    else if (north && f.kind === "tv" && back?.frames[backKey(found?.colour ?? "charcoal")] !== undefined) {
+      // The console's back stands near the camera; the one player shows on a flat tv at the far corner (CEO, OME-1961).
+      sprites.push({ key: backKey(found?.colour ?? "charcoal"), x: anchor.x, y: anchor.y, layer: "object", z: depth(anchor.x, anchor.y, BACK_LAYER) });
+      const screen = rawCenter(0, 0);
+      sprites.push({ key: "furniture/tv/flat/se/back", x: screen.x, y: screen.y, layer: "wall", z: depth(screen.x, screen.y, BACK_LAYER) });
+    } else if (room !== null) pushRoomPiece(sprites, f, anchor, f.kind === "tv" && found !== undefined ? `furniture/tv/${found.colour}/${f.facing}/back` : "tv/0");
     if (!spec.seats) continue;
     for (const [c, r] of seatCells(f)) {
       const at = seatAt(f, c, r);
       // Cells further from the anchor are nearer the camera (+col and +row both step down the screen).
-      const near = c - f.col + (r - f.row);
+      const near = (north ? -1 : 1) * (c - f.col + (r - f.row));
       const z = drawn === null ? standDepth(at) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar, near);
       seats.push({ at, z, marker: f.kind === "armchair" && room === null });
     }
@@ -394,6 +413,7 @@ function pushSprites(
   index: number,
   anchor: Point,
   { piece, colour, sort, layers }: { readonly piece: Piece; readonly colour: string; readonly sort: { readonly x: number; readonly y: number }; readonly layers: FurnitureManifest["meta"]["omega"]["layers"] },
+  states = true,
 ): void {
   const variant = f.variant ?? 0;
   // A new colour (OME-1463) draws its source colour's frames from that sheet's recoloured copy.
@@ -411,7 +431,7 @@ function pushSprites(
       // The loop swaps the back frame in place. An open piece (a door) or a cut one (a partition, OME-1960) has one frame: a state.
       ...(part === "back" && piece.use !== undefined
         ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms } }
-        : part === "back" && (piece.open === true || piece.cut === true)
+        : part === "back" && states && (piece.open === true || piece.cut === true)
           ? { use: { piece: index, frames: [frame(`${piece.open === true ? "open" : "cut"}/${f.facing}`)], ms: OPEN_MS } }
           : part === "back" && piece.walk !== undefined
             ? { walker: walkerOf(frame, index, cellOf(f.col, f.row), f.facing, piece.walk) }
@@ -439,34 +459,53 @@ function rugPart(dc: number, dr: number, last: number): string {
  * plain segments: they hang on plain, and garlands on neighbouring segments join into one string.
  */
 function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifest, skin: boolean): void {
+  // The shell is drawn on the raw projection, its back walls always top-left and top-right; from the north (OME-1961) the
+  // drawn cell (x, y) is the room's cell (9 − x, 9 − y), so the walls behind me are the spa's and the near ones are gone.
+  const north = isNorth();
+  const last = FLOOR_CELLS - 1;
   const suggested = room.meta.omega.layout;
   const rugs = layout.furniture.filter((f) => f.kind === "rug");
   const rugSize = FURNITURE.rug.cols;
-  for (let row = 0; row < FLOOR_CELLS; row++) {
-    for (let col = 0; col < FLOOR_CELLS; col++) {
+  for (let y = 0; y < FLOOR_CELLS; y++) {
+    for (let x = 0; x < FLOOR_CELLS; x++) {
+      const [col, row] = north ? [last - x, last - y] : [x, y];
       const rug = rugs.find((f) => col >= f.col && col < f.col + rugSize && row >= f.row && row < f.row + rugSize);
       const plank = suggested.floor[row]?.[col] ?? "";
-      const part = rug === undefined ? "" : `rug/${rugPart(col - rug.col, row - rug.row, rugSize - 1)}`;
+      const [dc, dr] = rug === undefined ? [0, 0] : north ? [rugSize - 1 - (col - rug.col), rugSize - 1 - (row - rug.row)] : [col - rug.col, row - rug.row];
+      const part = rug === undefined ? "" : `rug/${rugPart(dc, dr, rugSize - 1)}`;
       const recoloured = rug !== undefined && recolourOf("rug", rug.variant ?? 0) !== undefined;
-      const base = skin ? `floor/${row < DUNGEON_SPLIT ? "carpet" : row === DUNGEON_SPLIT ? "split" : "deck"}/${String((col + row) % 2)}` : plank.startsWith("floor/") ? plank : "floor/0";
+      const split = north ? "split/north" : "split";
+      const base = skin ? `floor/${row < DUNGEON_SPLIT ? "carpet" : row === DUNGEON_SPLIT ? split : "deck"}/${String((col + row) % 2)}` : plank.startsWith("floor/") ? plank : "floor/0";
       const key = rug === undefined ? base : recoloured ? recolourKey("rug", rug.variant ?? 0, part) : part;
-      out.push(shellSprite(key, col, row, "floor"));
+      out.push(shellSprite(key, x, y, "floor"));
     }
   }
-  const printL = layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "se");
-  const printR = layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "sw");
+  const printL = !north && layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "se");
+  const printR = !north && layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "sw");
   for (let i = 0; i < FLOOR_CELLS; i++) {
+    const row = north ? last - i : i;
     // The skin's segments carry wall pieces as they are, so no plain swap.
-    const l = skin ? `wall/l/${i < DUNGEON_SPLIT ? "oak" : i === DUNGEON_SPLIT ? "split" : "smoke"}` : printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain");
+    const l = skin ? `wall/l/${row < DUNGEON_SPLIT ? "oak" : row === DUNGEON_SPLIT ? (north ? "split/north" : "split") : "smoke"}` : printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain");
     out.push(shellSprite(l, 0, i, "wall"));
-    out.push(shellSprite(skin ? "wall/r/oak" : printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
+    out.push(shellSprite(skin ? `wall/r/${north ? "smoke" : "oak"}` : printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
   }
-  const ends = skin ? ["wall/corner/oak", "wall/l/end/smoke", "wall/r/end/oak"] : ["wall/corner", "wall/l/end", "wall/r/end"];
+  const ends = skin ? (north ? ["wall/corner/smoke", "wall/l/end/oak", "wall/r/end/smoke"] : ["wall/corner/oak", "wall/l/end/smoke", "wall/r/end/oak"]) : ["wall/corner", "wall/l/end", "wall/r/end"];
   out.push(shellSprite(ends[0] ?? "", 0, 0, "wall"), shellSprite(ends[1] ?? "", 0, FLOOR_CELLS - 1, "wall"), shellSprite(ends[2] ?? "", FLOOR_CELLS - 1, 0, "wall"));
 }
 
+/** A piece's far corner from the north: its footprint's largest col and row, the back-most cell once turned. */
+function farCorner(f: Furniture): Point {
+  let col = f.col;
+  let row = f.row;
+  for (const [c, r] of footprintCells(f)) {
+    col = Math.max(col, c);
+    row = Math.max(row, r);
+  }
+  return cellCenter(col, row);
+}
+
 function shellSprite(key: string, col: number, row: number, layer: "floor" | "wall"): FurnitureSprite {
-  const p = cellCenter(col, row);
+  const p = rawCenter(col, row);
   return { key, x: p.x, y: p.y, layer, z: 0 };
 }
 
