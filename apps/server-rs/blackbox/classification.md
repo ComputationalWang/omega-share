@@ -18,17 +18,17 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 
 | owner | A | A* | B | C | D | E | skipped | total |
 |---|---|---|---|---|---|---|---|---|
-| ? | 95 | 0 | 0 | 0 | 0 | 0 | 0 | 95 |
+| ? | 103 | 0 | 0 | 0 | 0 | 0 | 0 | 103 |
 | S1 (ported: config.rs) | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 47 |
 | S1 (ported: log.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/rooms.rs) | 0 | 0 | 0 | 0 | 28 | 0 | 0 | 28 |
 | S4c (room core) | 0 | 0 | 0 | 0 | 18 | 0 | 0 | 18 |
-| S5 | 217 | 1 | 0 | 1 | 50 | 0 | 0 | 269 |
-| S6 | 186 | 0 | 1 | 0 | 17 | 0 | 0 | 204 |
+| S5 | 217 | 1 | 0 | 1 | 50 | 0 | 2 | 271 |
+| S6 | 186 | 0 | 1 | 0 | 17 | 0 | 2 | 206 |
 | S7 | 6 | 0 | 0 | 2 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **504** | **1** | **1** | **3** | **271** | **82** | **1** | **863** |
+| **all** | **512** | **1** | **1** | **3** | **271** | **82** | **5** | **875** |
 
 ## Tests
 
@@ -383,40 +383,42 @@ Owner: S6. 1 tests: B 1.
 
 ### generic-embeds.test.ts
 
-Owner: S5. 30 tests: A 26, D 4.
+Owner: S5. 32 tests: A 26, D 4, skipped 2.
 
 | line | cat | test |
 |---|---|---|
-| 67 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a valid generic URL is shared canonically and broadcast with playback null |
-| 83 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › synced providers still become synced embeds with playback |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "http://videos.example-host.net/embed/abc" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "javascript:alert(1)" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "data:text/html,<p>hi</p>" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://user:pw@videos.example-host.net/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://videos.example-host.net:8443/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://127.0.0.1/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://2130706433/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://[ › 1]/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://localhost/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://router.lan/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://lvh.me/" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://clips.twitch.tv/SomeClip" |
-| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "not a url" |
-| 112 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › our own hosts and their subdomains are refused |
-| 127 | A ✓ | GENERIC_EMBEDS=off (ADR 0024 §5) › a generic URL is refused with unsupported_url; synced providers still work |
-| 138 | A ✓ | host denylist hook (ADR 0024 §6) › a denied host and its subdomains get unsupported_url; other hosts pass |
-| 150 | A ✓ | host denylist hook (ADR 0024 §6) › the denylist applies to the generic tier only |
-| 158 | A ✓ | a generic embed's sync state stays inert (ADR 0024 §7) › control gets error no_embed, even with the embed's exact url, and nothing is broadcast |
-| 168 | A ✓ | a generic embed's sync state stays inert (ADR 0024 §7) › status { catching } is ignored while the embed is generic |
-| 195 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › a late joiner's snapshot no longer shows the member catching |
-| 211 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › the room hears member-status catching false right after embed-changed |
-| 221 | D | switching to a generic embed clears catching (ADR 0024 §7) › back on a synced embed, catching true is published again |
-| 241 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › members who were not catching get no member-status |
-| 255 | D | a generic embed persists like any other (OME-280) › it comes back after a restart, still with playback null |
-| 266 | D | a generic embed persists like any other (OME-280) › with GENERIC_EMBEDS=off it is restored as embed null, and comes back when switched on again |
-| 281 | D | a generic embed persists like any other (OME-280) › a host denied after it was shared is restored as embed null |
-| 319 | A ✓ | CSP frame-src follows the kill switch (ADR 0024 §4) › on: frame-src adds https:, script-src unchanged |
-| 326 | A ✓ | CSP frame-src follows the kill switch (ADR 0024 §4) › off: frame-src drops https:, script-src unchanged |
+| 72 | skipped | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a valid generic URL is shared canonically and broadcast with playback null |
+| 88 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a valid generic URL is shared canonically and broadcast with load playback (ADR 0057 §1) |
+| 104 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › synced providers still become synced embeds with playback |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "http://videos.example-host.net/embed/abc" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "javascript:alert(1)" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "data:text/html,<p>hi</p>" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://user:pw@videos.example-host.net/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://videos.example-host.net:8443/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://127.0.0.1/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://2130706433/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://[ › 1]/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://localhost/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://router.lan/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://lvh.me/" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://clips.twitch.tv/SomeClip" |
+| 126 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "not a url" |
+| 133 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › our own hosts and their subdomains are refused |
+| 148 | A ✓ | GENERIC_EMBEDS=off (ADR 0024 §5) › a generic URL is refused with unsupported_url; synced providers still work |
+| 159 | A ✓ | host denylist hook (ADR 0024 §6) › a denied host and its subdomains get unsupported_url; other hosts pass |
+| 171 | A ✓ | host denylist hook (ADR 0024 §6) › the denylist applies to the generic tier only |
+| 179 | skipped | a generic embed's sync state stays inert (ADR 0024 §7) › control gets error no_embed, even with the embed's exact url, and nothing is broadcast |
+| 189 | A ✓ | a generic embed's sync state stays inert (ADR 0024 §7) › control with the embed's exact url is relayed to everyone; another url gets no_embed (ADR 0057 §1) |
+| 203 | A ✓ | a generic embed's sync state stays inert (ADR 0024 §7) › status { catching } is ignored while the embed is generic |
+| 230 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › a late joiner's snapshot no longer shows the member catching |
+| 246 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › the room hears member-status catching false right after embed-changed |
+| 256 | D | switching to a generic embed clears catching (ADR 0024 §7) › back on a synced embed, catching true is published again |
+| 276 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › members who were not catching get no member-status |
+| 290 | D | a generic embed persists like any other (OME-280) › it comes back after a restart, still with playback null |
+| 301 | D | a generic embed persists like any other (OME-280) › with GENERIC_EMBEDS=off it is restored as embed null, and comes back when switched on again |
+| 316 | D | a generic embed persists like any other (OME-280) › a host denied after it was shared is restored as embed null |
+| 354 | A ✓ | CSP frame-src follows the kill switch (ADR 0024 §4) › on: frame-src adds https:, script-src unchanged |
+| 361 | A ✓ | CSP frame-src follows the kill switch (ADR 0024 §4) › off: frame-src drops https:, script-src unchanged |
 
 ### graceful-restart.test.ts
 
@@ -456,6 +458,21 @@ Owner: S5. 9 tests: A 9.
 | 114 | A ✓ | per-key HTTP request limit › spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08) |
 | 131 | A ✓ | global in-flight HTTP cap › when full, the next request gets 503 with Retry-After; it clears once a request finishes |
 | 160 | A ✓ | global in-flight HTTP cap › the cap holds however many keys the requests come from, loopback included |
+
+### lie.test.ts
+
+Owner: ?. 8 tests: A 8.
+
+| line | cat | test |
+|---|---|---|
+| 55 | A ✓ | lying down (OME-1691) › lie is relayed as lay to everyone and lands in a late joiner's snapshot; null gets up |
+| 66 | A ✓ | lying down (OME-1691) › a lain-on sofa and its seats are taken for everyone else |
+| 79 | A ✓ | lying down (OME-1691) › a piece that is not there or has no lie style is bad_cell; the current piece is a no-op |
+| 91 | A ✓ | lying down (OME-1691) › lying down from a seat sends seat-changed null first |
+| 100 | A ✓ | lying down (OME-1691) › a walk, a sit and a leave get the lier up first (lay null, then the relay) |
+| 116 | A ✓ | lying down (OME-1691) › a layout-set that drops the piece gets the lier up right after layout-changed |
+| 124 | A ✓ | lying down (OME-1691) › a layout-set that keeps the piece leaves the lier lying |
+| 135 | A ✓ | lying down (OME-1691) › a bed takes two sleepers, each keeps their side when the other gets up, a third is seat_taken |
 
 ### log.test.ts
 
@@ -762,55 +779,57 @@ Owner: S5. 38 tests: A 31, D 7.
 
 ### queue.test.ts
 
-Owner: S6. 45 tests: A 43, D 2.
+Owner: S6. 47 tests: A 43, D 2, skipped 2.
 
 | line | cat | test |
 |---|---|---|
-| 151 | A ✓ | queue-add (ADR 0031 §2, §3) › stores only the parsed embed, tells the whole room the whole list, and a joiner's snapshot carries it |
-| 184 | A ✓ | queue-add (ADR 0031 §2, §3) › a URL the share parser refuses: unsupported_url, nothing queued, and it doesn't count toward the 4400 close |
-| 200 | A ✓ | queue-add (ADR 0031 §2, §3) › the generic tier follows the share policy: refused with GENERIC_EMBEDS off, queued (parsed) with it on |
-| 218 | A ✓ | queue-add (ADR 0031 §2, §3) › per member: 3 at once, then rate_limited with retryAfterMs until the bucket refills |
-| 236 | A ✓ | queue-add (ADR 0031 §2, §3) › a refusal by the room's bucket gives the member's add back: other members' traffic can't drain it |
-| 271 | A ✓ | queue-add (ADR 0031 §2, §3) › the buckets come before the parse: refused URLs spend the member's adds |
-| 283 | A ✓ | queue-add (ADR 0031 §2, §3) › per room: 10 at once from everyone together, then rate_limited |
-| 317 | A ✓ | queue-add (ADR 0031 §2, §3) › at 20 upcoming items: queue_full, and nothing is evicted |
-| 336 | A ✓ | queue-add (ADR 0031 §2, §3) › before join: not_joined, nothing queued |
-| 348 | A ✓ | queue-remove (ADR 0031 §2, §3) › drops an upcoming item for everyone; by is the remover |
-| 364 | A ✓ | queue-remove (ADR 0031 §2, §3) › an item that isn't there: ignored, no error and no queue-changed |
-| 381 | A ✓ | queue-move (OME-1249) › reorders Up next for everyone; by is the mover, an unknown item is ignored |
-| 402 | A ✓ | queue-advance (ADR 0031 §2, §5) › from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer |
-| 444 | A ✓ | queue-advance (ADR 0031 §2, §5) › two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored |
-| 462 | A ✓ | queue-advance (ADR 0031 §2, §5) › with an empty queue: nothing changes |
-| 471 | A ✓ | queue-advance (ADR 0031 §2, §5) › onto a generic item: playback null, so it stays click-to-load (ADR 0024) |
-| 484 | A ✓ | shares and item ids (ADR 0031 §1) › every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue |
-| 500 | A ✓ | control policy owner: guests can't change the queue (ADR 0031 §3) › queue-add, queue-remove and queue-advance from a guest: control_owner_only, nothing changes, and the guest's adds aren't spent |
-| 563 | A ✓ | ended (ADR 0031 §4) › the first valid report advances for everyone, by null; later reports for the spent item change nothing |
-| 580 | A ✓ | ended (ADR 0031 §4) › within 3000 ms of becoming current: ignored |
-| 596 | A ✓ | ended (ADR 0031 §4) › a stale itemId, a position far from the room clock, or a sender who hasn't joined: ignored silently |
-| 610 | A ✓ | ended (ADR 0031 §4) › a live current item never advances on ended (only queue-advance) |
-| 622 | A ✓ | ended (ADR 0031 §4) › a generic current item never advances on ended |
-| 636 | A ✓ | ended (ADR 0031 §4) › with an empty queue: a valid ended changes nothing |
-| 647 | A ✓ | ended (ADR 0031 §4) › ended is not subject to the control policy: a guest's valid report advances an owner-only room |
-| 671 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed |
-| 690 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › errors: 401 without a member's token, 400 unsupported_url, 404 unknown room; nothing queued |
-| 716 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › shares the member's add bucket with the WebSocket: 429 with Retry-After once it is spent |
-| 733 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › the control policy is checked again once a slow body has arrived |
-| 771 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › 409 queue_full at 20 |
-| 793 | A ✓ | persistence (ADR 0031 §6) › a restart keeps the queue and the current item: same ids and embeds, by null |
-| 813 | A ✓ | persistence (ADR 0031 §6) › after a restart the restored item is current anew: ended waits out the debounce again |
-| 838 | A ✓ | persistence (ADR 0031 §6) › rows hidden by the policy can't push a restored queue past 20: the oldest are kept and the room stays joinable |
-| 873 | A ✓ | persistence (ADR 0031 §6) › a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart |
-| 910 | A ✓ | persistence (ADR 0031 §6) › an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart |
-| 929 | D | persistence (ADR 0031 §6) › one store write per queue action; control, chat and ignored frames write nothing |
-| 978 | A ✓ | persistence (ADR 0031 §6) › deleting the room deletes its queue rows |
-| 1026 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current |
-| 1068 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › the started item's ended debounce runs from the add, and later adds only queue |
-| 1087 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with playback null: click-to-load (ADR 0024) |
-| 1098 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed) |
-| 1133 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored |
-| 1174 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a failed store write changes nothing: no row, no current item, no frames |
-| 1193 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem) |
-| 1204 | D | starting from an empty room (ADR 0031 §5, OME-543) › one store write for the add that starts an item |
+| 155 | A ✓ | queue-add (ADR 0031 §2, §3) › stores only the parsed embed, tells the whole room the whole list, and a joiner's snapshot carries it |
+| 188 | A ✓ | queue-add (ADR 0031 §2, §3) › a URL the share parser refuses: unsupported_url, nothing queued, and it doesn't count toward the 4400 close |
+| 204 | A ✓ | queue-add (ADR 0031 §2, §3) › the generic tier follows the share policy: refused with GENERIC_EMBEDS off, queued (parsed) with it on |
+| 222 | A ✓ | queue-add (ADR 0031 §2, §3) › per member: 3 at once, then rate_limited with retryAfterMs until the bucket refills |
+| 240 | A ✓ | queue-add (ADR 0031 §2, §3) › a refusal by the room's bucket gives the member's add back: other members' traffic can't drain it |
+| 275 | A ✓ | queue-add (ADR 0031 §2, §3) › the buckets come before the parse: refused URLs spend the member's adds |
+| 287 | A ✓ | queue-add (ADR 0031 §2, §3) › per room: 10 at once from everyone together, then rate_limited |
+| 321 | A ✓ | queue-add (ADR 0031 §2, §3) › at 20 upcoming items: queue_full, and nothing is evicted |
+| 340 | A ✓ | queue-add (ADR 0031 §2, §3) › before join: not_joined, nothing queued |
+| 352 | A ✓ | queue-remove (ADR 0031 §2, §3) › drops an upcoming item for everyone; by is the remover |
+| 368 | A ✓ | queue-remove (ADR 0031 §2, §3) › an item that isn't there: ignored, no error and no queue-changed |
+| 385 | A ✓ | queue-move (OME-1249) › reorders Up next for everyone; by is the mover, an unknown item is ignored |
+| 406 | A ✓ | queue-advance (ADR 0031 §2, §5) › from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer |
+| 448 | A ✓ | queue-advance (ADR 0031 §2, §5) › two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored |
+| 466 | A ✓ | queue-advance (ADR 0031 §2, §5) › with an empty queue: nothing changes |
+| 475 | skipped | queue-advance (ADR 0031 §2, §5) › onto a generic item: playback null, so it stays click-to-load (ADR 0024) |
+| 486 | A ✓ | queue-advance (ADR 0031 §2, §5) › onto a generic item: load playback, like a synced one (ADR 0057 §1) |
+| 499 | A ✓ | shares and item ids (ADR 0031 §1) › every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue |
+| 515 | A ✓ | control policy owner: guests can't change the queue (ADR 0031 §3) › queue-add, queue-remove and queue-advance from a guest: control_owner_only, nothing changes, and the guest's adds aren't spent |
+| 578 | A ✓ | ended (ADR 0031 §4) › the first valid report advances for everyone, by null; later reports for the spent item change nothing |
+| 595 | A ✓ | ended (ADR 0031 §4) › within 3000 ms of becoming current: ignored |
+| 611 | A ✓ | ended (ADR 0031 §4) › a stale itemId, a position far from the room clock, or a sender who hasn't joined: ignored silently |
+| 625 | A ✓ | ended (ADR 0031 §4) › a live current item never advances on ended (only queue-advance) |
+| 637 | A ✓ | ended (ADR 0031 §4) › a generic current item never advances on ended |
+| 651 | A ✓ | ended (ADR 0031 §4) › with an empty queue: a valid ended changes nothing |
+| 662 | A ✓ | ended (ADR 0031 §4) › ended is not subject to the control policy: a guest's valid report advances an owner-only room |
+| 686 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed |
+| 705 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › errors: 401 without a member's token, 400 unsupported_url, 404 unknown room; nothing queued |
+| 731 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › shares the member's add bucket with the WebSocket: 429 with Retry-After once it is spent |
+| 748 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › the control policy is checked again once a slow body has arrived |
+| 786 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › 409 queue_full at 20 |
+| 808 | A ✓ | persistence (ADR 0031 §6) › a restart keeps the queue and the current item: same ids and embeds, by null |
+| 828 | A ✓ | persistence (ADR 0031 §6) › after a restart the restored item is current anew: ended waits out the debounce again |
+| 853 | A ✓ | persistence (ADR 0031 §6) › rows hidden by the policy can't push a restored queue past 20: the oldest are kept and the room stays joinable |
+| 888 | A ✓ | persistence (ADR 0031 §6) › a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart |
+| 925 | A ✓ | persistence (ADR 0031 §6) › an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart |
+| 944 | D | persistence (ADR 0031 §6) › one store write per queue action; control, chat and ignored frames write nothing |
+| 993 | A ✓ | persistence (ADR 0031 §6) › deleting the room deletes its queue rows |
+| 1041 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current |
+| 1083 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › the started item's ended debounce runs from the add, and later adds only queue |
+| 1102 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with load playback (ADR 0057 §1) |
+| 1113 | skipped | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with playback null: click-to-load (ADR 0024) |
+| 1124 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed) |
+| 1159 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored |
+| 1200 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a failed store write changes nothing: no row, no current item, no frames |
+| 1219 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem) |
+| 1230 | D | starting from an empty room (ADR 0031 §5, OME-543) › one store write for the add that starts an item |
 
 ### rate-limit.test.ts
 

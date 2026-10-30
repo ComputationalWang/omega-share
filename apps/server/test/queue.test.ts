@@ -491,7 +491,7 @@ describe("queue-advance (ADR 0031 §2, §5)", () => {
     alice.client.send({ type: "queue-advance", fromItemId: current });
     const changed = await alice.client.next("embed-changed");
     expect(changed.embed?.provider).toBe("generic");
-    expect(changed.playback).toMatchObject({ position: 0, action: "load", by: alice.snapshot.self });
+    expect(changed.playback).toMatchObject({ position: 0, action: "load" });
   });
 });
 

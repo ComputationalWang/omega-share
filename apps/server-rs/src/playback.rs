@@ -1,9 +1,9 @@
 //! Port of `apps/server/src/playback.ts`: the room's shared playback clock, pure. Every function takes
 //! the wall clock (`Date.now()`) as `now_wall` Unix ms; the server stamps `at` with it, not the monotonic clock.
 
-use crate::contract::capabilities::playback_caps;
+use crate::contract::capabilities::any_playback_caps;
 use crate::contract::constants::{COUNTDOWN_MS, MAX_POSITION_S};
-use crate::contract::embed::Embed;
+use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::MemberId;
 use crate::contract::state::{PlaybackAction, PlaybackState, Position, Rate, Rev, ServerTime};
 
@@ -85,11 +85,11 @@ pub fn expected_position(state: &PlaybackState, now_wall: i64) -> f64 {
     }
 }
 
-/// Applies `control` from `by` (last write wins). `None` when there is no embed or `control.url` is not
-/// the current embed's url. On a live embed the position is always 0 and a control is only a play or a pause.
+/// Applies `control` from `by` (last write wins), synced or generic embed alike (ADR 0057 section 1). `None` when
+/// there is no embed or `control.url` is not the current embed's url. On a live embed the position is always 0 and a control is only a play or a pause.
 pub fn apply_control(
     state: Option<&PlaybackState>,
-    embed: Option<&Embed>,
+    embed: Option<&AnyEmbed>,
     control: &Control<'_>,
     by: &MemberId,
     now_wall: i64,
@@ -98,7 +98,7 @@ pub fn apply_control(
     if embed.url() != control.url {
         return None;
     }
-    let live = playback_caps(embed).live;
+    let live = any_playback_caps(embed).live;
     let position = if live { 0.0 } else { clamp(control.position) };
     let action = if !live && (position - expected_position(state, now_wall)).abs() > SEEK_THRESHOLD_S {
         PlaybackAction::Seek
@@ -132,8 +132,8 @@ mod tests {
     const URL: &str = "https://www.youtube.com/embed/dQw4w9WgXcQ";
     const T0: i64 = 1_700_000_000_000;
 
-    fn embed_of(url: &str) -> Embed {
-        canonicalize_embed(url).unwrap()
+    fn embed_of(url: &str) -> AnyEmbed {
+        AnyEmbed::Synced(canonicalize_embed(url).unwrap())
     }
     fn alice() -> MemberId {
         MemberId::parse("11111111-1111-4111-8111-111111111111").unwrap()
