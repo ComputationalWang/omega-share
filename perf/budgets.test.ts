@@ -155,13 +155,13 @@ describe("budgets", () => {
     }
   });
 
-  test("an idle room with every ambient loop visible has a work-per-second (≤ 2 ms) and a renders-per-second (≤ 8) row, desktop and Pixel 7 (OME-2067, ADR 0058)", () => {
-    for (const p of ["desktop", "phone"]) {
+  test("an idle room with every ambient loop visible has a work-per-second (≤ 2 ms desktop, ≤ 4 ms Pixel 7) and a renders-per-second (≤ 8) row (OME-2067, ADR 0058 amendment OME-2079)", () => {
+    for (const [p, ms, pl] of [["desktop", 2, "desktop"], ["phone", 4, "Pixel 7"]] as const) {
       const work = BUDGETS.find((x) => x.id === `idle.workPerS.${p}`);
       const renders = BUDGETS.find((x) => x.id === `idle.rendersPerS.${p}`);
-      expect([work?.area, work?.unit, work?.limit, work?.comparator]).toEqual(["Site", "ms", 2, "<="]);
+      expect([work?.area, work?.unit, work?.limit, work?.comparator]).toEqual(["Site", "ms", ms, "<="]);
       expect([renders?.area, renders?.unit, renders?.limit, renders?.comparator]).toEqual(["Site", "count", 8, "<="]);
-      expect(work?.docMetric).toBe("Main-thread work per second, idle room with every ambient loop visible");
+      expect(work?.docMetric).toBe(`Main-thread work per second, idle room with every ambient loop visible, ${pl}`);
       expect(renders?.docMetric).toBe("Renders per second, idle room with every ambient loop visible");
     }
   });
