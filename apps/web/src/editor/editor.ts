@@ -26,9 +26,11 @@ import { el } from "../controls/dom";
 import { atlasId, coloursOf } from "./colours";
 import { cellCenter } from "../layout";
 import { loadRoomSecrets } from "../room-secrets";
-import { TRAY_TABS, defaultFacing, doorCount, needsSecondPad, padCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
+import { TRAY_TABS, defaultFacing, wallKeys, doorCount, needsSecondPad, padCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { createMoodPicker } from "./mood";
+import v8Url from "../../../../assets/furniture/furniture-v8.png?url";
+import { V8_THUMBS } from "./v8-thumbs";
 import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
@@ -127,6 +129,13 @@ const DELETE_ERRORS: Readonly<Record<DeleteRoomErrorCode, string>> = {
 };
 
 const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
+/** A tray thumb cut from furniture-v8.png (the sheet is 512 px wide), scaled by the kit's pixel size. */
+function v8Thumb(r: { readonly x: number; readonly y: number; readonly w: number; readonly h: number }): HTMLSpanElement {
+  const px = (n: number): string => `calc(${String(n)} * var(--ui-px, 2px))`;
+  const b = el("span", { className: "ui-sprite", ariaHidden: "true" });
+  b.style.cssText = `display:block;width:${px(r.w)};height:${px(r.h)};background:url(${v8Url}) ${px(-r.x)} ${px(-r.y)}/${px(512)} auto;image-rendering:pixelated`;
+  return b;
+}
 
 /** The piece in hand: its kind, colour, and for a door the room it leads to (asked for first, OME-1425). */
 interface Held {
@@ -147,7 +156,9 @@ function candidate({ kind, variant, target }: Held, slot: Slot): Furniture | nul
 /** The placed piece at a slot: on the floor, an object over a rug; on a wall, the print in that slot. */
 function indexAt(layout: RoomLayout, slot: Slot): number | null {
   if (slot.wall === null) return pieceAt(layout, slot.col, slot.row);
-  const i = layout.furniture.findIndex((f) => FURNITURE[f.kind].layer === "wall" && f.col === slot.col && f.row === slot.row && f.facing === slot.wall);
+  // A screen is on every segment it covers, not only its anchor.
+  const here = `${slot.wall === "sw" ? "r" : "l"}${String(slot.wall === "sw" ? slot.col : slot.row)}`;
+  const i = layout.furniture.findIndex((f) => FURNITURE[f.kind].layer === "wall" && f.facing === slot.wall && wallKeys(f).includes(here));
   return i < 0 ? null : i;
 }
 
@@ -342,7 +353,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       const b = el("button", { type: "button", className: "ui-slot", title: NAMES[kind], ariaLabel: NAMES[kind] }, "editor-slot");
       b.dataset["kind"] = kind;
       const colour = coloursOf(kind)[0] ?? TRAY_ONLY_COLOUR[kind];
-      b.append(colour === undefined ? el("span", { className: "editor-slot-name", textContent: NAMES[kind] }) : sprite(`ui-thumb-${atlasId(kind) ?? kind}-${colour}`));
+      const v8 = V8_THUMBS[kind];
+      b.append(v8 !== undefined ? v8Thumb(v8) : colour === undefined ? el("span", { className: "editor-slot-name", textContent: NAMES[kind] }) : sprite(`ui-thumb-${atlasId(kind) ?? kind}-${colour}`));
       b.addEventListener("click", (ev) => {
         if (b.ariaDisabled === "true") return;
         selected = null;

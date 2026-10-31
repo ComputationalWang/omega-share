@@ -23,6 +23,9 @@ for (const p of v.parse(FurnitureManifestSchema, furnitureV7Json).meta.omega.pie
 }
 // The queen bed (OME-1984), the one v6 kind in the tray: its colours inline rather than v6's whole JSON in the editor chunk (pinned by queen-bed.test.ts).
 COLOURS.set("bed", ["velvet"]);
+// The wall screens (OME-2069), v8's two kinds in the tray: colours inline rather than v8's whole JSON in the editor chunk (pinned by wall-screens.test.ts).
+COLOURS.set("wallscreen", ["panel"]);
+COLOURS.set("projector", ["cloth"]);
 export const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;
   return kind === "runner" ? "rug" : kind;
