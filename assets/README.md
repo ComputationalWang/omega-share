@@ -1775,7 +1775,8 @@ These follow the furniture-back rules: keys `furniture/<id>/<colour>/<nw|ne>/bac
 
 ### Proposed layouts (`preview/w2-layouts/<id>.json`, contract-shaped)
 
-The five revamps (`classic`, `living`, `lounge`, `cafe`, `bar`) are the shipped preset minus the corner console, plus the screen and
+Classic's revamp is dropped (OME-2092: Classic stays the TV-table room, equal to `DEFAULT_LAYOUT`), so it has no layout file here; its
+proposal only draws the `w2-screen-*` previews. The other four revamps (`living`, `lounge`, `cafe`, `bar`) shipped as is (OME-2071). They are the shipped preset minus the corner console, plus the screen and
 ambient pieces. Seats are unchanged, so each keeps its 8. The lounge's pull-down screen covers segments 2–4 (5 is a window
 segment), and its print moves to segment 7. Two new presets: `penthouse` (`shell: "penthouse"`) and `studio` (`shell: "studio"`),
 both on OME-1959's grid (partition on row 4, doorway at col 1).
@@ -1803,7 +1804,8 @@ moving pixels).
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
 The total covers every file under `assets/` that ships, eager and lazy. `bun assets/src/build.ts` prints exactly these numbers (its last two lines
-are the lazy/eager split and the total). Previews and `src/` don't ship and aren't counted.
+are the lazy/eager split and the total). Previews and `src/` don't ship and aren't counted. Neither do the preset layouts `presets/<id>.json`:
+only the server reads them (the site loads `presets/presets.json` and the thumbnails), so the build prints them on their own line (OME-2094).
 
 | File | Bytes |
 |---|---|

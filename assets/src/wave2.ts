@@ -611,7 +611,8 @@ export function buildWave2Previews(d: Wave2Deps): void {
   const { all, pieces } = d;
   const lay = join(ROOT, "preview", "w2-layouts");
   mkdirSync(lay, { recursive: true });
-  for (const p of PROPOSALS) writeFileSync(join(lay, `${p.id}.json`), JSON.stringify(p, null, 1) + "\n");
+  // OME-2092: Classic stays the TV-table room (DEFAULT_LAYOUT), so its proposal is a preview only and gets no layout file.
+  for (const p of PROPOSALS) if (p.id !== "classic") writeFileSync(join(lay, `${p.id}.json`), JSON.stringify(p, null, 1) + "\n");
 
   // 1: the screens in the classic room, south and swapped (classic has no partition: this is the swapped-view rule on its own).
   const classic = PROPOSALS.find((p) => p.id === "classic");
