@@ -334,7 +334,7 @@ const createBodies = (): Raw[] => [
   js({ title: "Friday films", visibility: "public" }),
   js({ title: "Friday films", visibility: "private" }),
   js({ title: " Ｆｉｌｍｓ ", visibility: "public", preset: "cinema" }),
-  ...["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"].map((preset) => js({ title: "Room", visibility: "public", preset })),
+  ...["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon", "penthouse", "studio"].map((preset) => js({ title: "Room", visibility: "public", preset })),
   ...["", "Classic", "layout", "default", null, 1, [], {}].map((preset) => js({ title: "Room", visibility: "public", preset })),
   js({ title: "Friday films", visibility: "secret" }), js({ title: "Friday films" }), js({ visibility: "public" }), js({}),
   js({ title: "Friday films", visibility: "public", id: "lobby" }), js({ title: "Friday films", visibility: "public", layout: {} }),

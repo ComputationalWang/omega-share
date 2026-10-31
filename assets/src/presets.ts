@@ -1,7 +1,8 @@
 // Set (n) (OME-906, M10): pre-furnished room presets. A creator picks one when they make a room; each is a plain layout v1
 // (ADR 0021, packages/shared/src/layout.ts), so the server stores it like any owner edit and nothing new ships but the
 // thumbnails. Rules every preset keeps:
-//   - the TV console (or the Theatre's big screen) stays in the back corner (0,0): the picture is page chrome above the room, the console "throws" it;
+//   - exactly one screen: the TV console (or the Theatre's big screen) in the back corner (0,0), or since wave 2 (ADR 0058) a
+//     wall screen or pull-down screen; the picture is page chrome above the room, the screen "throws" it;
 //   - exactly 8 seat cells, all facing the TV corner (ne / nw), seat 0 in the front row so the first guest sits up close;
 //   - a clear walk line down the middle diagonal, so avatars reach every seat;
 //   - nothing on the window / poster / sconce wall segments (5, 6, 8), even wall-backed pieces.
@@ -59,18 +60,19 @@ export const PRESETS: readonly Preset[] = [
     id: "living",
     name: "Living room",
     blurb: "Couches, a reading chair, a bookcase.",
+    // Wave 2 (OME-2071, assets/README.md § "Wave 2"): the hearth takes the TV corner with the wall screen over it; the mugs steam.
     layout: {
       furniture: [
-        TV,
         p("couch", 2, 6, "ne"), p("couch", 6, 2, "nw"),
         p("wingback", 1, 4, "ne"), p("wingback", 4, 1, "nw"),
         p("beanbag", 4, 8, "ne"), p("beanbag", 8, 4, "nw", 1),
         p("runner", 3, 3, "ne"),
-        p("sidetable", 4, 6, "se"), p("sidetable", 6, 4, "sw"),
         p("arclamp", 1, 6, "se"),
         p("bookshelf", 2, 0, "sw"),
         p("frame", 0, 3, "se", 1), p("frame", 0, 4, "se"),
         p("monstera", 9, 0, "sw", 1), p("monstera", 0, 9, "se"),
+        p("fireplace", 0, 0, "sw"), p("wallscreen", 0, 0, "sw"),
+        p("sidetable", 4, 6, "se", 1), p("sidetable", 6, 4, "sw", 1),
       ],
     },
   },
@@ -78,18 +80,21 @@ export const PRESETS: readonly Preset[] = [
     id: "lounge",
     name: "Lounge",
     blurb: "Beanbags and poufs on kilim runners, neon.",
+    // Wave 2: a movie corner. The pull-down screen covers left-wall segments 2–4 (5 is a window), the projector stands behind
+    // the beanbags, lava lamps in place of the arc lamps, the print moves down to 7.
     layout: {
       furniture: [
-        TV,
         p("beanbag", 2, 4, "ne"), p("beanbag", 4, 2, "nw", 1),
         p("pouf", 2, 6, "ne", 1), p("pouf", 6, 2, "nw"),
         p("beanbag", 5, 7, "ne"), p("beanbag", 7, 5, "nw", 1),
         p("couch", 6, 8, "ne", 1),
         p("runner", 1, 4, "ne"), p("runner", 4, 1, "nw", 1), p("runner", 5, 5, "nw"),
         p("coffeetable", 4, 4, "sw"),
-        p("arclamp", 1, 8, "se"), p("arclamp", 8, 1, "sw"),
         p("monstera", 0, 7, "se", 1), p("monstera", 7, 0, "sw"), p("monstera", 9, 9, "se", 1),
-        p("frame", 0, 2, "se"), p("neonsign", 2, 0, "sw", 1),
+        p("neonsign", 2, 0, "sw", 1),
+        p("projector", 0, 2, "se"), p("tripod", 6, 6, "nw"),
+        p("frame", 0, 7, "se"),
+        p("lavalamp", 1, 6, "se"), p("lavalamp", 6, 1, "se"),
       ],
     },
   },
@@ -99,17 +104,18 @@ export const PRESETS: readonly Preset[] = [
     blurb: "Tables for two, books, a snack cart.",
     layout: {
       furniture: [
-        TV,
         // Four tables, each with one chair on its far side (+row, looks ne) and one on its right (+col, looks nw).
         p("sidetable", 2, 4, "se"), p("wingback", 2, 5, "ne"), p("wingback", 3, 4, "nw"),
         p("sidetable", 4, 2, "sw"), p("wingback", 4, 3, "ne"), p("wingback", 5, 2, "nw"),
         p("sidetable", 4, 6, "se"), p("wingback", 4, 7, "ne"), p("wingback", 5, 6, "nw"),
         p("sidetable", 6, 4, "sw"), p("wingback", 6, 5, "ne"), p("wingback", 7, 4, "nw"),
-        p("bookshelf", 0, 2, "se"), p("bookshelf", 2, 0, "sw"),
+        p("bookshelf", 0, 2, "se"),
         p("popcorn", 9, 7, "sw"),
         p("arclamp", 1, 7, "se"),
         p("monstera", 0, 9, "se"), p("monstera", 9, 0, "sw", 1), p("monstera", 0, 7, "se", 1),
         p("frame", 0, 4, "se", 1), p("frame", 4, 0, "sw"),
+        // Wave 2: the espresso bar takes the right wall's bookcase, rain on the windows both sides, a small screen in the corner.
+        p("barcounter", 2, 0, "sw", 1), p("window", 7, 0, "sw", 1), p("window", 0, 7, "se", 1), p("wallscreen", 0, 1, "se"),
       ],
     },
   },
@@ -119,7 +125,6 @@ export const PRESETS: readonly Preset[] = [
     blurb: "Bar stools, hammocks, a piano, a fire.",
     layout: {
       furniture: [
-        TV,
         // Two counters backing onto the walls, two stools at each (they look at the counter, so toward the TV corner).
         p("stool", 3, 1, "ne"), p("stool", 4, 1, "ne", 1),
         p("stool", 1, 3, "nw"), p("stool", 1, 4, "nw", 1),
@@ -130,6 +135,8 @@ export const PRESETS: readonly Preset[] = [
         p("runner", 4, 4, "ne", 1),
         p("monstera", 0, 9, "se", 1), p("monstera", 9, 0, "sw"),
         p("neonsign", 0, 7, "se"),
+        // Wave 2: a jukebox by the left window, the wall screen over the counter.
+        p("speaker", 0, 5, "se", 2), p("wallscreen", 3, 0, "sw"),
       ],
     },
   },
@@ -171,6 +178,45 @@ export const PRESETS: readonly Preset[] = [
         p("wingback", 5, 5, "ne"), p("coffeetable", 6, 5, "sw"),
         // The plant stays off DOOR_CELL (9, 9), where people walk in (OME-2039).
         p("arclamp", 1, 9, "se"), p("monstera", 9, 8, "sw", 1),
+      ],
+    },
+  },
+  {
+    id: "penthouse",
+    name: "Penthouse",
+    blurb: "A lounge with a rooftop terrace behind the glass.",
+    // Wave 2 swap room (OME-2071, assets/README.md § "Wave 2"), on OME-1959's grid: the partition on row 4, a doorway at (1, 4).
+    layout: {
+      shell: "penthouse",
+      furniture: [
+        // Terrace (rows 0–3): loungers, string lights on the open-air rail, plants. The loungers leave col 7–9 walkable.
+        p("lounger", 6, 0, "nw"), p("lounger", 8, 0, "nw"),
+        p("monstera", 0, 0, "se"), p("monstera", 9, 3, "sw", 1),
+        p("garland", 3, 0, "sw"), p("garland", 7, 0, "sw"), p("garland", 0, 2, "se"),
+        ...[0, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => p("partition", c, 4, "sw", c === 0 ? 2 : 3)),
+        // Lounge (rows 5–9): the sofa and couch facing the wall screen, the aquarium, a bar fridge under the neon.
+        p("aquarium", 0, 5, "se"), p("wallscreen", 0, 7, "se"), p("minibar", 0, 9, "se", 1), p("neonsign", 0, 9, "se"),
+        p("sofa", 4, 6, "nw"), p("couch", 6, 6, "nw"), p("coffeetable", 2, 7, "sw"), p("arclamp", 8, 8, "se"), p("monstera", 9, 8, "sw", 1),
+        // The Designer's grid had 6 seats: a third lounger and a pouf make 8.
+        p("lounger", 3, 1, "nw"), p("pouf", 8, 7, "nw", 1),
+      ],
+    },
+  },
+  {
+    id: "studio",
+    name: "Studio flat",
+    blurb: "Kitchen and couch in front, a sleeping nook behind.",
+    layout: {
+      shell: "studio",
+      furniture: [
+        // Nook (rows 0–3): the queen bed, a steaming mug, a rainy window, the cat, a bookcase.
+        p("bed", 4, 1, "nw"), p("sidetable", 6, 1, "sw", 1), p("bookshelf", 0, 1, "se"), p("window", 7, 0, "sw", 1), p("cat", 2, 2, "se"), p("arclamp", 8, 1, "sw"),
+        ...[0, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => p("partition", c, 4, "sw", c >= 3 && c <= 7 ? 1 : 0)),
+        // Kitchen-living room (rows 5–9): the kitchenette, a breakfast table with stools, the couch facing the wall screen.
+        p("barcounter", 0, 5, "se", 2), p("minibar", 0, 7, "se", 1), p("sidetable", 3, 6, "se"), p("stool", 3, 7, "ne", 1), p("stool", 4, 6, "nw"),
+        p("couch", 5, 7, "nw", 1), p("wallscreen", 0, 8, "se"), p("beanbag", 7, 8, "nw", 1), p("monstera", 9, 6, "sw"),
+        // 7 seats on the Designer's grid; a pouf makes 8.
+        p("pouf", 7, 6, "nw", 1),
       ],
     },
   },
@@ -252,8 +298,14 @@ const defOf = (kind: Kind): PieceDef => {
   return d;
 };
 
+/** Renders a piece the catalogue doesn't hold (wave 2's kinds and colours, `wave2Thumb`), or undefined. Injected, as
+ *  wave2.ts reads PRESETS. */
+export type ExtraThumb = (f: Furniture, scale: number, cv: Canvas) => Uint8Array | undefined;
+
 /** One piece at thumbnail scale on CV (origin = its anchor cell centre). */
-function pieceThumb(f: Furniture): Uint8Array {
+function pieceThumb(f: Furniture, extra?: ExtraThumb): Uint8Array {
+  const own = extra?.(f, THUMB_SCALE, CV);
+  if (own) return own;
   const solids = (list: readonly Solid[]): Uint8Array => renderSolids(list, CV.w, CV.h, CV.ax, CV.ay, "all", THUMB_SCALE).img;
   if (f.kind === "tv") return solids(tvSolids());
   if (f.kind === "armchair") {
@@ -305,11 +357,11 @@ function blitCell(dst: Uint8Array, src: Uint8Array, c: number, r: number): void 
 }
 
 /** Painter's order as in the room (assets/README.md): floor pieces, then wall pieces, then objects by sort point y, then x. */
-export function presetThumb(layout: RoomLayout): Uint8Array {
+export function presetThumb(layout: RoomLayout, extra?: ExtraThumb): Uint8Array {
   const img = renderSolids(shell(layout), THUMB.w, THUMB.h, OX, OY, "all", THUMB_SCALE).img;
   const layer = (f: Furniture): string => FURNITURE[f.kind].layer;
-  for (const f of layout.furniture.filter((x) => layer(x) === "floor" && x.kind !== "rug")) blitCell(img, pieceThumb(f), f.col, f.row);
-  for (const f of layout.furniture.filter((x) => layer(x) === "wall")) blitCell(img, pieceThumb(f), f.col, f.row);
+  for (const f of layout.furniture.filter((x) => layer(x) === "floor" && x.kind !== "rug")) blitCell(img, pieceThumb(f, extra), f.col, f.row);
+  for (const f of layout.furniture.filter((x) => layer(x) === "wall")) blitCell(img, pieceThumb(f, extra), f.col, f.row);
   const sortPoint = (f: Furniture): { x: number; y: number } => {
     const cells = footprintCells(f);
     const mc = cells.reduce((a, [c]) => a + c, 0) / cells.length, mr = cells.reduce((a, [, r]) => a + r, 0) / cells.length;
@@ -317,7 +369,7 @@ export function presetThumb(layout: RoomLayout): Uint8Array {
   };
   const objects = layout.furniture.filter((x) => layer(x) === "object").map((f) => ({ f, s: sortPoint(f) }));
   objects.sort((a, b) => a.s.y - b.s.y || a.s.x - b.s.x);
-  for (const { f } of objects) blitCell(img, pieceThumb(f), f.col, f.row);
+  for (const { f } of objects) blitCell(img, pieceThumb(f, extra), f.col, f.row);
   // Pieces carry their own outline; re-run it so a piece's outline over the floor stays one px and nothing is left open.
   addOutline(img, THUMB.w, THUMB.h);
   return img;

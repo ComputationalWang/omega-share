@@ -10,6 +10,8 @@ import dankDungeon from "../../../assets/presets/dank-dungeon.json";
 import empty from "../../../assets/presets/empty.json";
 import living from "../../../assets/presets/living.json";
 import lounge from "../../../assets/presets/lounge.json";
+import penthouse from "../../../assets/presets/penthouse.json";
+import studio from "../../../assets/presets/studio.json";
 
 // Parsed once at startup: a bad asset fails the boot, not a creation.
 const parse = (id: RoomPresetId, json: unknown): RoomLayout => {
@@ -27,6 +29,8 @@ const PRESET_LAYOUTS: Readonly<Record<RoomPresetId, RoomLayout>> = {
   bar: parse("bar", bar),
   empty: parse("empty", empty),
   "dank-dungeon": parse("dank-dungeon", dankDungeon),
+  penthouse: parse("penthouse", penthouse),
+  studio: parse("studio", studio),
 };
 
 export const presetLayout = (id: RoomPresetId): RoomLayout => PRESET_LAYOUTS[id];

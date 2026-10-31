@@ -63,6 +63,20 @@
    "blurb": "Twin beds, a whirlpool for two, lights down.",
    "layout": "dank-dungeon.json",
    "thumb": "thumbs/dank-dungeon.png"
+  },
+  {
+   "id": "penthouse",
+   "name": "Penthouse",
+   "blurb": "A lounge with a rooftop terrace behind the glass.",
+   "layout": "penthouse.json",
+   "thumb": "thumbs/penthouse.png"
+  },
+  {
+   "id": "studio",
+   "name": "Studio flat",
+   "blurb": "Kitchen and couch in front, a sleeping nook behind.",
+   "layout": "studio.json",
+   "thumb": "thumbs/studio.png"
   }
  ]
 }

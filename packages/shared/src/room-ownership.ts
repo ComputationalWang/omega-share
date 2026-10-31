@@ -37,7 +37,7 @@ export const RoomVisibilitySchema = v.picklist(["public", "private"]);
 export type RoomVisibility = v.InferOutput<typeof RoomVisibilitySchema>;
 
 /** Judged D1 ids; layouts are trusted validated data, never create-request JSON. */
-export const ROOM_PRESET_IDS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"] as const;
+export const ROOM_PRESET_IDS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon", "penthouse", "studio"] as const;
 export const RoomPresetIdSchema = v.picklist(ROOM_PRESET_IDS);
 export type RoomPresetId = v.InferOutput<typeof RoomPresetIdSchema>;
 /** Omitted preset means today's DEFAULT_LAYOUT (classic). */

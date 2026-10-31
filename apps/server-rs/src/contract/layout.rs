@@ -767,9 +767,11 @@ pub enum RoomPresetId {
     Empty,
     #[serde(rename = "dank-dungeon")]
     DankDungeon,
+    Penthouse,
+    Studio,
 }
 
-pub const ROOM_PRESET_IDS: [RoomPresetId; 8] = [
+pub const ROOM_PRESET_IDS: [RoomPresetId; 10] = [
     RoomPresetId::Classic,
     RoomPresetId::Cinema,
     RoomPresetId::Living,
@@ -778,6 +780,8 @@ pub const ROOM_PRESET_IDS: [RoomPresetId; 8] = [
     RoomPresetId::Bar,
     RoomPresetId::Empty,
     RoomPresetId::DankDungeon,
+    RoomPresetId::Penthouse,
+    RoomPresetId::Studio,
 ];
 
 /// Omitted preset means today's `DEFAULT_LAYOUT` (classic).
@@ -794,6 +798,8 @@ impl RoomPresetId {
             Self::Bar => "bar",
             Self::Empty => "empty",
             Self::DankDungeon => "dank-dungeon",
+            Self::Penthouse => "penthouse",
+            Self::Studio => "studio",
         }
     }
 }

@@ -299,7 +299,7 @@ const REUSED_LOOPS: Readonly<Record<string, { frames: number; ms: number }>> = {
 /** One frame of `def` on canvas `cv` at scale `s`: loop frame `n`, turned 180° about its anchor for the swapped view. Object pieces
  *  sit on their footprint like pieceFrames does; a wall piece is moved 8 × (span − 1) units along its wall so it hangs centred
  *  on the segments it covers (its anchor stays the anchor segment). */
-function render(def: W2, dir: FurnDir, n: number, turned: boolean, s = 1, cv: Canvas = CV): Uint8Array {
+function render(def: W2, dir: FurnDir, n: number, turned: boolean, s = 1, cv: Canvas = CV, hang = s === 1): Uint8Array {
   const k = new Kit(dir, turned);
   def.build(k, n);
   let du = 0, dv = 0;
@@ -308,7 +308,7 @@ function render(def: W2, dir: FurnDir, n: number, turned: boolean, s = 1, cv: Ca
     const mid = k.world(8 * (def.cols - 1), 8 * (def.rows - 1));
     du = 8 * (fp.c - 1) - mid.u; dv = 8 * (fp.r - 1) - mid.v;
   }
-  if (def.span && s === 1) { const d = 8 * (def.span - 1); if (swaps(dir)) dv += d; else du += d; }
+  if (def.span && hang) { const d = 8 * (def.span - 1); if (swaps(dir)) dv += d; else du += d; }
   const AX = cv.ax + s * 2 * (du - dv), AY = cv.ay + s * (du + dv);
   const img = renderSolids(k.parts.map((p) => p.solid), cv.w, cv.h, AX, AY, "none", s).img;
   addOutline(img, cv.w, cv.h);
@@ -365,6 +365,12 @@ function metas(): PieceMeta[] {
 /** Tray thumbnails, `thumb/<id>/<colour>`, in v8 itself (lazy) so the eager edit CSS doesn't grow. */
 function thumbs(): RoomFrame[] {
   return WAVE2.map((def) => fitThumb(`thumb/${def.id}/${def.colour}`, THUMB_CV, (s) => render(def, def.dirs.includes("se") ? "se" : "ne", 0, false, s, THUMB_CV)));
+}
+
+/** A wave-2 kind or colour as it hangs or stands in a room, at scale `s` (the preset thumbnails), or undefined for a shipped piece. */
+export function wave2Thumb(f: Furniture, s: number, cv: Canvas): Uint8Array | undefined {
+  const def = WAVE2.find((d) => d.id === f.kind && d.variant === (f.variant ?? 0));
+  return def && render(def, f.facing, 0, false, s, cv, true);
 }
 
 const TURNED_SHIPPED: readonly string[] = ["aquarium/teal", "bookshelf/wood"];
@@ -446,9 +452,8 @@ export function buildWave2Shell(): RoomFrame[] {
 interface Item { kind: string; col: number; row: number; facing: FurnDir; variant?: number | undefined }
 interface Proposal { id: string; name: string; blurb: string; layout: { mood?: RoomLayout["mood"]; shell?: string; furniture: Item[] } }
 const it = (kind: string, col: number, row: number, facing: FurnDir, variant = 0): Item => (variant === 0 ? { kind, col, row, facing } : { kind, col, row, facing, variant });
-const ROW = 4, DOOR = 1;
-/** The interior wall on row ROW, a doorway at col DOOR (OME-1959's grid). */
-const partitionRow = (variant: (col: number) => number): Item[] => Array.from({ length: 10 }, (_, col) => col).filter((col) => col !== DOOR).map((col) => it("partition", col, ROW, "sw", variant(col)));
+/** The interior wall's row in the swap rooms (OME-1959's grid). */
+const ROW = 4;
 
 /** A revamp of a shipped preset: its layout without the corner console (and `drop`), plus `add`. */
 function revamp(id: string, drop: readonly (readonly [string, number, number])[], add: readonly Item[]): Proposal {
@@ -458,47 +463,11 @@ function revamp(id: string, drop: readonly (readonly [string, number, number])[]
   return { id, name: pr.name, blurb: pr.blurb, layout: { ...(pr.layout.mood ? { mood: pr.layout.mood } : {}), furniture: [...kept.map((f) => ({ ...f })), ...add] } };
 }
 
+/** Shipped in assets/src/presets.ts (OME-2071); the Classic revamp waits on DEFAULT_LAYOUT (OME-2092). */
+const SHIPPED: readonly string[] = ["living", "lounge", "cafe", "bar", "penthouse", "studio"];
 export const PROPOSALS: readonly Proposal[] = [
   revamp("classic", [], [it("wallscreen", 0, 2, "se"), it("window", 3, 0, "sw"), it("longclock", 7, 0, "sw")]),
-  revamp("living", [["sidetable", 4, 6], ["sidetable", 6, 4]], [it("fireplace", 0, 0, "sw"), it("wallscreen", 0, 0, "sw"), it("sidetable", 4, 6, "se", 1), it("sidetable", 6, 4, "sw", 1)]),
-  // The pull-down screen covers segments 2–4 (not 3–5: 5 is a window segment); the print moves down to 7.
-  revamp("lounge", [["frame", 0, 2], ["arclamp", 1, 8], ["arclamp", 8, 1]], [it("projector", 0, 2, "se"), it("tripod", 6, 6, "nw"), it("frame", 0, 7, "se"), it("lavalamp", 1, 6, "se"), it("lavalamp", 6, 1, "se")]),
-  revamp("cafe", [["bookshelf", 2, 0]], [it("barcounter", 2, 0, "sw", 1), it("window", 7, 0, "sw", 1), it("window", 0, 7, "se", 1), it("wallscreen", 0, 1, "se")]),
-  revamp("bar", [], [it("speaker", 0, 5, "se", 2), it("wallscreen", 3, 0, "sw")]),
-  {
-    id: "penthouse",
-    name: "Penthouse",
-    blurb: "A lounge with a rooftop terrace behind the glass.",
-    layout: {
-      shell: "penthouse",
-      furniture: [
-        // Terrace (rows 0–3): loungers, string lights on the open-air rail, plants.
-        it("lounger", 6, 0, "se"), it("lounger", 6, 2, "se"),
-        it("monstera", 0, 0, "se"), it("monstera", 9, 3, "sw", 1),
-        it("garland", 3, 0, "sw"), it("garland", 7, 0, "sw"), it("garland", 0, 2, "se"),
-        ...partitionRow((col) => (col === 0 ? 2 : 3)),
-        // Lounge (rows 5–9): smoked panelling, the sofa and couch facing the wall screen, the aquarium, a bar fridge under the neon.
-        it("aquarium", 0, 5, "se"), it("wallscreen", 0, 7, "se"), it("minibar", 0, 9, "se", 1), it("neonsign", 0, 9, "se"),
-        it("sofa", 4, 6, "nw"), it("couch", 6, 6, "nw"), it("coffeetable", 2, 7, "sw"), it("arclamp", 8, 8, "se"), it("monstera", 9, 8, "sw", 1),
-      ],
-    },
-  },
-  {
-    id: "studio",
-    name: "Studio flat",
-    blurb: "Kitchen and couch in front, a sleeping nook behind.",
-    layout: {
-      shell: "studio",
-      furniture: [
-        // Nook (rows 0–3): the queen bed, a steaming mug, a rainy window, the cat, a bookcase.
-        it("bed", 4, 1, "nw"), it("sidetable", 6, 1, "sw", 1), it("bookshelf", 0, 1, "se"), it("window", 7, 0, "sw", 1), it("cat", 2, 2, "se"), it("arclamp", 8, 1, "sw"),
-        ...partitionRow((col) => (col >= 3 && col <= 7 ? 1 : 0)),
-        // Kitchen-living room (rows 5–9).
-        it("barcounter", 0, 5, "se", 2), it("minibar", 0, 7, "se", 1), it("sidetable", 3, 6, "se"), it("stool", 3, 7, "ne", 1), it("stool", 4, 6, "nw"),
-        it("couch", 5, 7, "nw", 1), it("wallscreen", 0, 8, "se"), it("beanbag", 7, 8, "nw", 1), it("monstera", 9, 6, "sw"),
-      ],
-    },
-  },
+  ...PRESETS.filter((p) => SHIPPED.includes(p.id)).map((p) => ({ id: p.id, name: p.name, blurb: p.blurb, layout: { ...(p.layout.shell ? { shell: p.layout.shell } : {}), furniture: p.layout.furniture.map((f) => ({ ...f })) } })),
 ];
 
 // ------------------------------------------------------------------ previews

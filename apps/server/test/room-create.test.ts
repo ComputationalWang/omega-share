@@ -125,11 +125,14 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
   });
 
   test("each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT", async () => {
-    t = start({ trustProxy: true });
+    const clock = fakeClock();
+    t = start({ trustProxy: true, now: clock.now });
     const presetLayout = (id: string): RoomLayout => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(join(import.meta.dir, `../../../assets/presets/${id}.json`), "utf8")));
     expect(presetLayout(DEFAULT_ROOM_PRESET)).toEqual(DEFAULT_LAYOUT);
     for (const preset of [...ROOM_PRESET_IDS, undefined]) {
       const body = preset === undefined ? { title: "Den", visibility: "public" } : { title: "Den", visibility: "public", preset };
+      // More ids than the global creation burst (OME-2071): one refill per room keeps the limit as it is.
+      await clock.set({ mono: clock.mono + ROOM_CREATE_GLOBAL_REFILL_MS });
       const { room } = await created(await create(body));
       // A fresh address per join: one address's joins are rate limited.
       const joined = await Client.join(server().ws(room.id), "alice", 0, { "x-forwarded-for": freshAddress() });

@@ -10,6 +10,8 @@
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"bar\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"bar"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"empty\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"empty"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"dank-dungeon\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"dank-dungeon"}},
+{"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"penthouse\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"penthouse"}},
+{"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"studio\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"studio"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"\"}","ok":false},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"Classic\"}","ok":false},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"layout\"}","ok":false},

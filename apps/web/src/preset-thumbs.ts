@@ -8,5 +8,7 @@ import dankDungeon from "../../../assets/presets/thumbs/dank-dungeon.png?url";
 import empty from "../../../assets/presets/thumbs/empty.png?url";
 import living from "../../../assets/presets/thumbs/living.png?url";
 import lounge from "../../../assets/presets/thumbs/lounge.png?url";
+import penthouse from "../../../assets/presets/thumbs/penthouse.png?url";
+import studio from "../../../assets/presets/thumbs/studio.png?url";
 
-export const PRESET_THUMBS: Readonly<Record<RoomPresetId, string>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon };
+export const PRESET_THUMBS: Readonly<Record<RoomPresetId, string>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon, penthouse, studio };
