@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classic } from "./support/preset-layouts";
 import type { ClientMessage } from "@omega/shared";
-import { createPendingApplier, pendingLayoutKey, pendingViaKey, stashVia, takeVia, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
+import { createPendingApplier, pendingLayoutKey, pendingViaKey, stashVia, takeVia, stashPendingEnter, takePendingEnter, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
 
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 const OWN = ["omega.example"];
@@ -206,5 +206,35 @@ describe("via (the room I came through a door from)", () => {
     };
     expect(stashVia(blocked, ROOM, FROM)).toBe(false);
     expect(takeVia(blocked, ROOM)).toBeNull();
+  });
+});
+
+describe("pending enter (the creator goes straight in, OME-2075)", () => {
+  test("stashed once per room, taken once", () => {
+    const s = new MemoryStore();
+    expect(takePendingEnter(s, ROOM)).toBe(false);
+    stashPendingEnter(s, ROOM);
+    expect(takePendingEnter(s, "other")).toBe(false);
+    expect(takePendingEnter(s, ROOM)).toBe(true);
+    expect(s.data.size).toBe(0);
+    expect(takePendingEnter(s, ROOM)).toBe(false);
+  });
+
+  test("a storage that throws reads as no intent", () => {
+    const boom = {
+      getItem: (): string | null => {
+        throw new Error("x");
+      },
+      setItem: (): void => {
+        throw new Error("x");
+      },
+      removeItem: (): void => {
+        throw new Error("x");
+      },
+    };
+    expect(() => {
+      stashPendingEnter(boom, ROOM);
+    }).not.toThrow();
+    expect(takePendingEnter(boom, ROOM)).toBe(false);
   });
 });

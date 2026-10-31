@@ -112,3 +112,9 @@ export function takeVia(store: Pick<PendingStore, "getItem" | "removeItem">, roo
     return null;
   }
 }
+
+export function stashPendingEnter(_store: Pick<PendingStore, "setItem">, _roomId: RoomId): void {}
+
+export function takePendingEnter(_store: Pick<PendingStore, "getItem" | "removeItem">, _roomId: RoomId): boolean {
+  return false;
+}

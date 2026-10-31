@@ -58,7 +58,7 @@ export const SPEC_ROOMS = {
   "m10-portrait": ["360", "390", "people360", "people390"],
   "landscape-phone": ["l932", "l844", "l667", "q932", "q844", "q667", "notch", "twitch", "tvshelf", "tliveshelf", "vshelf", "vhourshelf", "f844", "f740", "w844", "p844", "n844", "v844"],
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
-  "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs", "leavephone", "leavedesk"],
+  "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs", "reopen", "leavephone", "leavedesk"],
   "m10-a11y": ["dock360", "dock390", "fs", "away", "moved", "fullq"],
   "a11y-sweep": ["w1280", "p390", "l844", "n320", "t768", "t1366", "t1024", "d1920"],
   "tablet-layout": ["t768", "t1024"],

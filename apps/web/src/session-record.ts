@@ -45,3 +45,9 @@ export function clearResume(store: ResumeStore, roomId: string): void {
     // Nothing to clear.
   }
 }
+
+export function handOffResume(_local: ResumeStore, _record: ResumeRecord, _now: number): void {}
+
+export function takeHandOff(_local: ResumeStore, _roomId: string, _now: number): ResumeRecord | null {
+  return null;
+}
