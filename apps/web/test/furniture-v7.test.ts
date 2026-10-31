@@ -229,7 +229,8 @@ describe("sceneOf: the generic partition split (OME-2070, ADR 0058)", () => {
     try {
       const n = sceneOf(layout, [art], room);
       expect(keyAt(n, 3, 8, "floor/")).toBe("floor/penthouse/split/north/1");
-      expect(keyAt(n, 3, 0, "wall/r/")).toBe("wall/r/penthouse/front");
+      expect(keyAt(n, 3, 0, "wall/r/")).toBe("wall/r/penthouse/split/north");
+      expect(keyAt(n, 2, 0, "wall/r/")).toBe("wall/r/penthouse/front");
       expect(keyAt(n, 0, 0, "wall/l/")).toBe("wall/l/penthouse/front");
     } finally {
       setNorth(false);
