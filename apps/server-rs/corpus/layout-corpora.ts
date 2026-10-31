@@ -199,11 +199,52 @@ const theatre = (): unknown[] => {
 const pairs = (): unknown[] =>
   [true, false, "true", 1, 0, null, [], {}].flatMap((pairs) => [{ ...(base() as object), pairs }, { ...DEFAULT_LAYOUT, pairs }, { ...DEFAULT_LAYOUT, mood: "night", pairs }]);
 
-/** The shell skin (OME-1989): optional, only "dungeon"; absent stays absent. */
+/** The shell skin (OME-1989, OME-2065): optional, one of ROOM_SHELLS; absent stays absent. */
 const shells = (): unknown[] =>
-  ["dungeon", "Dungeon", "default", "", " dungeon", null, 0, true, [], {}].flatMap((shell) => [{ ...(base() as object), shell }, { ...DEFAULT_LAYOUT, mood: "night", pairs: true, shell }]);
+  ["dungeon", "penthouse", "studio", "Penthouse", "studio ", "Dungeon", "default", "", " dungeon", null, 0, true, [], {}].flatMap((shell) => [{ ...(base() as object), shell }, { ...DEFAULT_LAYOUT, mood: "night", pairs: true, shell }]);
 
-const inputs = (): unknown[] => [...theatre(), ...shapes(), ...doors(), ...moods(), ...pairs(), ...shells(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** Wall screens and partition lines (OME-2065, ADR 0058): a span covers 2 or 3 segments, off fixtures, on the wall; one partition line. */
+const wave2 = (): unknown[] => {
+  const scr = (kind: string, col: number, row: number, facing = row === 0 ? "sw" : "se"): Piece => ({ kind, col, row, facing });
+  const at = (s: Piece, ...more: unknown[]): unknown => layout(s, ...CHAIRS, ...more);
+  const part = (col: number, row: number, facing: string): Piece => ({ kind: "partition", col, row, facing });
+  return [
+    // Every anchor on both walls, and off the wall: the span crossing fixture segments 5, 6, 8 and running past segment 9.
+    ...["wallscreen", "projector"].flatMap((kind) => Array.from({ length: 10 }, (_, i) => [at(scr(kind, i, 0)), at(scr(kind, 0, i)), at(scr(kind, i, 1, "sw")), at(scr(kind, 1, i, "se"))]).flat()),
+    ...["ne", "nw"].map((facing) => at(scr("wallscreen", 0, 1, facing))),
+    at({ ...scr("projector", 0, 1), variant: 1 }),
+    // Span overlap with other wall pieces, with each other, and with a second screen.
+    at(scr("projector", 1, 0), { kind: "frame", col: 3, row: 0, facing: "sw" }),
+    at(scr("projector", 1, 0), { kind: "frame", col: 4, row: 0, facing: "sw" }),
+    at(scr("projector", 1, 0), { kind: "curtain", col: 1, row: 0, facing: "sw" }),
+    at(scr("wallscreen", 0, 2), { kind: "mirror", col: 0, row: 3, facing: "se" }),
+    at(scr("wallscreen", 0, 2), { kind: "mirror", col: 0, row: 1, facing: "se" }),
+    at(scr("wallscreen", 1, 0), scr("projector", 0, 1)),
+    at(scr("wallscreen", 1, 0), TV),
+    at(scr("wallscreen", 1, 0), { kind: "bookshelf", col: 1, row: 0, facing: "sw" }),
+    // Partition lines: one row, one column, two rows, two columns, a row and a column.
+    base(part(8, 9, "sw"), part(9, 9, "sw")),
+    base(part(9, 8, "se"), part(9, 9, "se")),
+    base(part(9, 8, "sw"), part(9, 9, "sw")),
+    base(part(8, 9, "se"), part(9, 9, "se")),
+    base(part(8, 9, "sw"), part(9, 9, "se")),
+    base(part(9, 9, "sw")),
+    base(part(9, 9, "se")),
+  ];
+};
+
+/** Fixtures exist only in the default shell (OME-2085, ADR 0058 amendment): every wall anchor with and without a shell. */
+const fixtures = (): unknown[] =>
+  [undefined, "penthouse", "studio", "dungeon"].flatMap((shell) =>
+    ["frame", "window", "wallscreen", "projector"].flatMap((kind) =>
+      Array.from({ length: 10 }, (_, i) => [
+        { kind, col: i, row: 0, facing: "sw" },
+        { kind, col: 0, row: i, facing: "se" },
+      ]).flatMap((pieces) => pieces.map((p) => ({ furniture: [...(kind === "wallscreen" || kind === "projector" ? [] : [TV]), ...CHAIRS, p], ...(shell === undefined ? {} : { shell }) }))),
+    ),
+  );
+
+const inputs = (): unknown[] => [...fixtures(), ...wave2(),...theatre(), ...shapes(), ...doors(), ...moods(), ...pairs(), ...shells(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));

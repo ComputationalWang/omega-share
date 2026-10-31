@@ -214,6 +214,7 @@
         "perf/soak.perf.ts",
         "perf/sync.perf.ts",
         "perf/theatre.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
         "e2e/view-swap.e2e.ts",
@@ -259,6 +260,7 @@
         "perf/sync.perf.ts",
         "perf/theatre.perf.ts",
         "perf/heap-movie.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -657,7 +659,8 @@
         "e2e/walk.e2e.ts",
         "e2e/emotes.e2e.ts",
         "perf/site.perf.ts",
-        "perf/walk-tiers.perf.ts"
+        "perf/walk-tiers.perf.ts",
+        "perf/join.perf.ts"
       ],
       "why": "procedural sound engine, a lazy chunk fed by the walk poses (OME-1638)"
     },
@@ -691,6 +694,7 @@
         "perf/soak.perf.ts",
         "perf/theatre.perf.ts",
         "perf/heap-movie.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts",
         "e2e/teleport.e2e.ts",
         "e2e/doors.e2e.ts",
@@ -715,6 +719,7 @@
         "perf/chat.perf.ts",
         "perf/phone.perf.ts",
         "perf/site.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts"
       ]
     },
@@ -761,6 +766,7 @@
         "perf/soak.perf.ts",
         "perf/theatre.perf.ts",
         "perf/heap-movie.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ]
@@ -774,6 +780,7 @@
         "e2e/walk.e2e.ts",
         "e2e/emotes.e2e.ts",
         "perf/site.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts"
       ],
       "why": "sound recipes, read by the OME-1638 sound engine (OME-1642)"
@@ -1055,6 +1062,7 @@
         "perf/sync.perf.ts",
         "perf/theatre.perf.ts",
         "perf/heap-movie.perf.ts",
+        "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts"
       ],

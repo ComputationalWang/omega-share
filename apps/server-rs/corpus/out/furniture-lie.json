@@ -49,5 +49,11 @@
 {"input":"partition","ok":true,"output":{"lie":null}},
 {"input":"sauna","ok":true,"output":{"lie":null}},
 {"input":"soaktub","ok":true,"output":{"lie":null}},
-{"input":"lounger","ok":true,"output":{"lie":"lie"}}
+{"input":"lounger","ok":true,"output":{"lie":"lie"}},
+{"input":"wallscreen","ok":true,"output":{"lie":null}},
+{"input":"projector","ok":true,"output":{"lie":null}},
+{"input":"tripod","ok":true,"output":{"lie":null}},
+{"input":"window","ok":true,"output":{"lie":null}},
+{"input":"longclock","ok":true,"output":{"lie":null}},
+{"input":"lavalamp","ok":true,"output":{"lie":null}}
 ]

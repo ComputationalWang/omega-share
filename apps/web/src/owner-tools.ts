@@ -175,7 +175,8 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     b.ariaPressed = "false";
     b.append(el("span", { className: "ui-sprite ui-icon-arrange", ariaHidden: "true" }), "Edit room");
     b.addEventListener("click", () => {
-      if (editor !== null || b.ariaPressed === "true") closeEditor();
+      if (editor !== null) editor.leave(closeEditor);
+      else if (b.ariaPressed === "true") closeEditor();
       else openEditor(b, ownerToken);
     });
     o.bar.append(b);
@@ -193,11 +194,15 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     editing: () => editToggle?.ariaPressed === "true",
     key: (ev) => {
       if (moderation?.key(ev) === true) return true;
-      // Escape in the open editor works like Done, then focus is back on the key (K5).
+      // Escape in the open editor works like Done, then focus is back on the key (K5); unsaved changes ask first (OME-2074).
       const t = editToggle;
       if (ev.key !== "Escape" || t?.ariaPressed !== "true" || !(ev.target instanceof Node) || !(o.panel.contains(ev.target) || o.stage.contains(ev.target) || ev.target === t)) return false;
-      closeEditor();
-      t.focus();
+      const close = (): void => {
+        closeEditor();
+        t.focus();
+      };
+      if (editor === null) close();
+      else editor.leave(close);
       return true;
     },
   };

@@ -56,6 +56,11 @@ export interface EditorContext {
 export interface Editor {
   /** The room's layout or title changed (a save landed, or another tab of the owner's saved). */
   update(): void;
+  /**
+   * Done or Escape (OME-2074): close at once when nothing is unsaved; otherwise ask Save / Discard / Keep editing, and
+   * call `close` after Save or Discard. Asked again while the prompt shows, it keeps editing.
+   */
+  leave(close: () => void): void;
   destroy(): void;
 }
 
@@ -114,6 +119,12 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   sauna: "Sauna",
   soaktub: "Soaking tub",
   lounger: "Lounger",
+  wallscreen: "Wall screen",
+  projector: "Projector screen",
+  tripod: "Projector on a tripod",
+  window: "Window",
+  longclock: "Long-case clock",
+  lavalamp: "Lava lamp",
 };
 
 const DELETED = "Room deleted.";
@@ -169,7 +180,9 @@ const placeOf = (s: Slot): string =>
 export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const atlas: EditAtlas = await loadEditAtlas();
   // Closed (or closed and reopened) while the kit loaded: touch nothing a newer editor may own.
-  if (!ctx.alive()) return { update: () => undefined, destroy: () => undefined };
+  if (!ctx.alive()) return { update: () => undefined, leave: (close) => {
+    close();
+  }, destroy: () => undefined };
 
   let saved = ctx.saved();
   let draft = saved;
@@ -483,6 +496,31 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const savePanel = el("div", { className: "editor-save-row" });
   savePanel.append(count, saveBtn, resetBtn, message);
 
+  // ---- Leaving with unsaved changes (OME-2074): Done asks instead of dropping the draft.
+  const leavePrompt = el("div", { className: "editor-confirm", hidden: true }, "editor-leave");
+  const leaveSave = el("button", { type: "button", className: "ui-button", textContent: "Save" }, "editor-leave-save");
+  const leaveDiscard = el("button", { type: "button", className: "ui-button secondary", textContent: "Discard" }, "editor-leave-discard");
+  const leaveKeep = el("button", { type: "button", className: "ui-button secondary", textContent: "Keep editing" }, "editor-leave-keep");
+  leavePrompt.append(el("p", { textContent: "Save your changes to the room?" }), leaveSave, leaveDiscard, leaveKeep);
+  let closeAfter: (() => void) | null = null;
+  const keepEditing = (): void => {
+    closeAfter = null;
+    // Its buttons are going: hand the keyboard's focus to the room rather than lose it to the page.
+    if (leavePrompt.contains(document.activeElement)) hit.focus({ preventScroll: true });
+    leavePrompt.hidden = true;
+  };
+  leaveSave.addEventListener("click", () => {
+    const close = closeAfter;
+    saveBtn.click();
+    // Not sent (offline or a problem): stay, with the reason in the message line.
+    if (saving && close !== null) close();
+    else keepEditing();
+  });
+  leaveDiscard.addEventListener("click", () => {
+    closeAfter?.();
+  });
+  leaveKeep.addEventListener("click", keepEditing);
+
   // ---- The room itself: rename and delete.
   const settings = el("div", { className: "editor-settings" });
   const titleInput = el("input", { type: "text", id: "editor-title", className: "ui-input", maxLength: ROOM_TITLE_MAX_LENGTH, autocomplete: "off", value: ctx.title() ?? "" }, "editor-title");
@@ -541,7 +579,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   };
 
-  root.append(tabs, tray, doorsLine, picker, piecePanel, mood.el, problemList, savePanel, minePanel, settings);
+  root.append(leavePrompt, tabs, tray, doorsLine, picker, piecePanel, mood.el, problemList, savePanel, minePanel, settings);
   ctx.panel.replaceChildren(root);
 
   function say(text: string): void {
@@ -611,6 +649,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     mood.set(draft.mood ?? "none");
     const dirty = !sameLayout(draft, saved);
     saveBtn.disabled = !dirty || found.length > 0;
+    leaveSave.disabled = saveBtn.disabled;
     resetBtn.disabled = !dirty;
     hit.classList.toggle("holding", held !== null);
     drawMarkers();
@@ -634,6 +673,15 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       const title = ctx.title();
       if (title !== null && document.activeElement !== titleInput && titleInput.value !== title) titleInput.value = title;
       if (title !== null && roomMessage.textContent === "Renaming…" && titleInput.value === title) roomMessage.textContent = "Renamed.";
+    },
+    leave(close) {
+      if (!leavePrompt.hidden) keepEditing();
+      else if (sameLayout(draft, saved)) close();
+      else {
+        closeAfter = close;
+        leavePrompt.hidden = false;
+        leaveKeep.focus();
+      }
     },
     destroy() {
       ctx.preview(null);

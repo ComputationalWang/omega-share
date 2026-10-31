@@ -20,7 +20,7 @@
     },
     "apps/extension": {
       "name": "@omega/extension",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "dependencies": {
         "@omega/shared": "workspace:*",
         "valibot": "^1.5.0",

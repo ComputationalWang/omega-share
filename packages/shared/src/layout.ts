@@ -40,6 +40,8 @@ export interface FurnitureSpec {
    * seat, sleeper `i` blocking seat `i` of the piece (OME-2008). Absent: not a bed for anyone.
    */
   readonly lie?: LieStyle;
+  /** Wall segments a wall piece covers, from its anchor toward +col (right wall) or +row (left wall) (ADR 0058). Absent: 1. */
+  readonly wallSpan?: number;
 }
 
 const ONE = { cols: 1, rows: 1 } as const;
@@ -73,7 +75,7 @@ export const FURNITURE = {
   couch: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2, lie: "lie" }),
   wingback: piece("object", FACINGS, ONE, { seats: true }),
   beanbag: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
-  sidetable: piece("object", CAMERA, ONE),
+  sidetable: piece("object", CAMERA, ONE, { variants: 2 }),
   arclamp: piece("object", CAMERA, ONE, { variants: 3 }),
   monstera: piece("object", CAMERA, ONE, { variants: 4 }),
   popcorn: piece("object", CAMERA, ONE),
@@ -83,7 +85,7 @@ export const FURNITURE = {
   floorcushion: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
   bench: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
   turntable: piece("object", CAMERA, ONE),
-  speaker: piece("object", CAMERA, ONE, { variants: 2 }),
+  speaker: piece("object", CAMERA, ONE, { variants: 3 }),
   /** Curl up beside it; it stays a non-seat, so seat indices don't move (OME-1773). */
   cat: piece("object", CAMERA, ONE, { variants: 2, lie: "curl" }),
   wallshelf: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 3 }),
@@ -99,7 +101,7 @@ export const FURNITURE = {
   // Batch 6 (`assets/furniture/furniture-v4.json`, lazy). The counter and piano may back onto a wall but stand free too.
   hammock: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
   stool: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
-  barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }),
+  barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 3 }),
   piano: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 2 }),
   fireplace: piece("object", CAMERA, ONE, { wallBacked: true }),
   /** A teleport pad (OME-1545): a layout holds 0 or exactly 2, and a `walk` with `teleport` goes from one to the other. */
@@ -129,6 +131,17 @@ export const FURNITURE = {
   soaktub: piece("object", FIXED, { cols: 2, rows: 2 }, { seats: true }),
   /** One seat at its anchor; lie on it full length. */
   lounger: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, seatCells: 1, lie: "lie" }),
+  // Wall screens (OME-2065, ADR 0058): a layout's screen hung on a wall, instead of the `tv`.
+  /** A flat panel over 2 wall segments. */
+  wallscreen: piece("wall", CAMERA, { cols: 0, rows: 0 }, { wallSpan: 2 }),
+  /** A pull-down screen over 3 wall segments. */
+  projector: piece("wall", CAMERA, { cols: 0, rows: 0 }, { wallSpan: 3 }),
+  // Wave 2 (OME-2085, ADR 0058 amendment, `assets/furniture/furniture-v8.json`, lazy). Sidetable, barcounter and speaker take a v8 colourway too.
+  tripod: piece("object", FACINGS, ONE),
+  /** Variant 1 is the rainy one. */
+  window: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
+  longclock: piece("object", CAMERA, ONE, { wallBacked: true }),
+  lavalamp: piece("object", FIXED, ONE),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;
@@ -136,10 +149,11 @@ export const FURNITURE_KINDS = Object.keys(FURNITURE) as [FurnitureKind, ...Furn
 export const FurnitureKindSchema = v.picklist(FURNITURE_KINDS);
 
 /** The kinds that are a room's screen (ADR 0056): a layout holds exactly one of them. Treat them alike (glow, lights-down). */
-export const SCREEN_KINDS = ["tv", "bigscreen"] as const satisfies readonly FurnitureKind[];
-export const isScreen = (kind: FurnitureKind): boolean => kind === "tv" || kind === "bigscreen";
+export const SCREEN_KINDS = ["tv", "bigscreen", "wallscreen", "projector"] as const satisfies readonly FurnitureKind[];
+const screenKinds: readonly FurnitureKind[] = SCREEN_KINDS;
+export const isScreen = (kind: FurnitureKind): boolean => screenKinds.includes(kind);
 
-/** Wall segments with a window, poster or sconce (the same on both walls); frames need a plain one. */
+/** Wall segments with a window, poster or sconce (the same on both walls) in the default shell; frames need a plain one. A `shell` has none (ADR 0058). */
 export const WALL_FIXTURE_SEGMENTS: readonly number[] = [5, 6, 8];
 
 /** A piece's place in `layout.furniture` (OME-1773): an integer in `0..MAX_FURNITURE`. */
@@ -167,17 +181,22 @@ export function footprintCells(f: Placed): [number, number][] {
   return cells;
 }
 
-/** Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se. */
-function wallSegment(f: Placed): string {
-  return f.facing === "sw" ? `r${String(f.col)}` : `l${String(f.row)}`;
+/** The wall segments a wall piece covers: it hangs on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se, over `wallSpan` segments. */
+function wallSegments(f: Placed): number[] {
+  const first = f.facing === "sw" ? f.col : f.row;
+  const spec: FurnitureSpec = FURNITURE[f.kind];
+  return Array.from({ length: spec.wallSpan ?? 1 }, (_, i) => first + i);
 }
 
 function onItsWall(f: Placed): boolean {
   const spec: FurnitureSpec = FURNITURE[f.kind];
   if (spec.layer !== "wall" && !spec.wallBacked) return true;
   if (f.facing === "sw" ? f.row !== 0 : f.col !== 0) return false;
-  return spec.layer !== "wall" || !WALL_FIXTURE_SEGMENTS.includes(f.facing === "sw" ? f.col : f.row);
+  return spec.layer !== "wall" || wallSegments(f).every((i) => i < FLOOR_CELLS);
 }
+
+/** A wall piece over a window, poster or sconce of the default shell (OME-2085): refused in a layout without a `shell`. */
+export const onFixture = (f: Placed): boolean => FURNITURE[f.kind].layer === "wall" && wallSegments(f).some((i) => WALL_FIXTURE_SEGMENTS.includes(i));
 
 const FURNITURE_ENTRIES = {
   kind: FurnitureKindSchema,
@@ -255,7 +274,7 @@ function disjoint(furniture: readonly Placed[], layer: FurnitureSpec["layer"]): 
   const used = new Set<string>();
   for (const f of furniture) {
     if (FURNITURE[f.kind].layer !== layer) continue;
-    const keys = layer === "wall" ? [wallSegment(f)] : footprintCells(f).map(([c, r]) => `${String(c)},${String(r)}`);
+    const keys = layer === "wall" ? wallSegments(f).map((i) => `${f.facing === "sw" ? "r" : "l"}${String(i)}`) : footprintCells(f).map(([c, r]) => `${String(c)},${String(r)}`);
     for (const k of keys) {
       if (used.has(k)) return false;
       used.add(k);
@@ -264,13 +283,36 @@ function disjoint(furniture: readonly Placed[], layer: FurnitureSpec["layer"]): 
   return true;
 }
 
+/** A partition line (ADR 0058): sw partitions stand on one `row`, se ones on one `col`. */
+export interface PartitionLine {
+  readonly axis: "row" | "col";
+  readonly at: number;
+}
+
+const lineOf = (f: Placed): PartitionLine => (f.facing === "sw" ? { axis: "row", at: f.row } : { axis: "col", at: f.col });
+
+/** The layout's partition line, or undefined without partitions. A valid layout has at most one. */
+export function partitionLine(layout: { readonly furniture: readonly Placed[] }): PartitionLine | undefined {
+  const first = layout.furniture.find((f) => f.kind === "partition");
+  return first === undefined ? undefined : lineOf(first);
+}
+
+function onePartitionLine(furniture: readonly Placed[]): boolean {
+  const line = partitionLine({ furniture });
+  return furniture.every((f) => {
+    if (f.kind !== "partition") return true;
+    const l = lineOf(f);
+    return l.axis === line?.axis && l.at === line.at;
+  });
+}
+
 /** The room's lighting mood (OME-1499), set by the owner with `layout-set`. Absent, as on every layout saved before it, means "none". */
 export const ROOM_MOODS = ["none", "warm", "cool", "night"] as const;
 export const RoomMoodSchema = v.picklist(ROOM_MOODS);
 export type RoomMood = v.InferOutput<typeof RoomMoodSchema>;
 
-/** The room's wall and floor skin (OME-1989), set by the dank-dungeon preset. Absent means today's walls and floor. */
-export const ROOM_SHELLS = ["dungeon"] as const;
+/** The room's wall and floor skin (OME-1989, ADR 0058), set by a partitioned preset. Absent means today's walls and floor. */
+export const ROOM_SHELLS = ["dungeon", "penthouse", "studio"] as const;
 export const RoomShellSchema = v.picklist(ROOM_SHELLS);
 export type RoomShell = v.InferOutput<typeof RoomShellSchema>;
 
@@ -295,6 +337,8 @@ const roomLayout = (base: v.ObjectSchema<LayoutEntries, undefined> | v.StrictObj
     v.check((l) => disjoint(l.furniture, "object"), "solid pieces overlap"),
     v.check((l) => disjoint(l.furniture, "floor"), "rugs overlap"),
     v.check((l) => disjoint(l.furniture, "wall"), "wall pieces share a segment"),
+    v.check((l) => onePartitionLine(l.furniture), "more than one partition line"),
+    v.check((l) => l.shell !== undefined || !l.furniture.some(onFixture), "wall piece on a fixture"),
   );
 
 /** Server → client (snapshot, `layout-changed`): unknown keys are stripped so the server can add fields. */

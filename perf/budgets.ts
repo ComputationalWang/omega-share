@@ -71,6 +71,12 @@ const VIEW_SWAP: readonly Budget[] = [
   { id: "viewswap.longFrame.desktop", area: "Site", metric: "Longest frame across the 180° view swap", docMetric: "Longest frame across the 180° view swap", unit: "ms", limit: 50, comparator: "<=" },
 ];
 
+// OME-2072: joining a room, from the Join click until the room has settled (perf/join.perf.ts).
+const JOIN: readonly Budget[] = [
+  { id: "join.longTask.desktop", area: "Site", metric: "Longest task joining a room, desktop", docMetric: "Longest task joining a room", unit: "ms", limit: 50, comparator: "<=" },
+  { id: "join.longTask.phone4x", area: "Site", metric: "Longest task joining a room, Pixel 7 at 4× CPU", docMetric: "Longest task joining a room on a phone at 4× CPU", unit: "ms", limit: 150, comparator: "<=" },
+];
+
 // OME-598 (M7 W3): the same three frame budgets for the room tab with the chat in its pop-out window (perf/popout.perf.ts).
 const POPOUT: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `pop.frameP95.${p}`, area: "Site", metric: `p95 frame time with the chat popped out, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate with the chat popped out, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
@@ -128,6 +134,13 @@ const WALK25_AMBIENCE: readonly Budget[] = [
   { id: "walk25.ambience.missedVsync.phone", area: "Site", metric: "Missed vsyncs with 25 members walking and the night mood's snow, Pixel 7 emulation, Smooth tier", docMetric: "Missed vsyncs with mood ambience while 25 members walk", unit: "%", limit: 1, comparator: "<=" },
 ];
 
+// OME-2067 (ADR 0058): an idle room with every ambient loop visible, observer alone, Smooth tier (perf/idle-ambient.perf.ts).
+const IDLE_PROFILES = { desktop: "desktop Chromium", phone: "Pixel 7 emulation" } as const;
+const IDLE: readonly Budget[] = Object.entries(IDLE_PROFILES).flatMap(([p, pl]): Budget[] => [
+  { id: `idle.workPerS.${p}`, area: "Site", metric: `Main-thread work per second, idle room, every ambient loop visible, ${pl}, Smooth tier`, docMetric: `Main-thread work per second, idle room with every ambient loop visible, ${p === "phone" ? "Pixel 7" : "desktop"}`, unit: "ms", limit: p === "phone" ? 4 : 2, comparator: "<=" },
+  { id: `idle.rendersPerS.${p}`, area: "Site", metric: `Renders per second, idle room, every ambient loop visible, ${pl}, Smooth tier`, docMetric: "Renders per second, idle room with every ambient loop visible", unit: "count", limit: 8, comparator: "<=" },
+]);
+
 // OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
 const LANDING: readonly Budget[] = [
   { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
@@ -152,6 +165,7 @@ export const BUDGETS: readonly Budget[] = [
   ...THEATRE,
   ...FULLSCREEN,
   ...VIEW_SWAP,
+  ...JOIN,
   ...POPOUT,
   ...POPOUT_ROOM,
   ...WALK25,
@@ -159,6 +173,7 @@ export const BUDGETS: readonly Budget[] = [
   ...WALK25_CONGA,
   ...WALK25_REACT,
   ...WALK25_AMBIENCE,
+  ...IDLE,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   // OME-1643 (Movie night Q6): the same soak in a playing room with reactions, the moments strip and the recap card (perf/heap-movie.perf.ts).
   { id: "site.heapMovieNight", area: "Site", metric: "JS heap after 10 min with the moments strip and recap card (after GC)", docMetric: "JS heap after 10 min in room with the moments strip and recap card", unit: "MB", limit: 150, comparator: "<=" },
