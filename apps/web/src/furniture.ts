@@ -307,7 +307,7 @@ export interface FurnitureSprite {
   readonly layer: "floor" | "wall" | "object";
   readonly z: number;
   /** An "in use" loop (OME-1407): the furniture index, the loop's frame keys and its frame time. */
-  readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
+  readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number; readonly ambient?: true };
   /** A piece that wanders (the cat, OME-1520): its furniture index, home cell, walk frames per drawn facing, sit frames, empty bed frame and walk frame time. */
   readonly walker?: CatWalker;
   /** Drawn translucent (the night pane mask); absent is opaque. */

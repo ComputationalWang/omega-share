@@ -939,6 +939,44 @@ describe("animator: furniture loops", () => {
   });
 });
 
+// OME-2068 (ADR 0058 §2): ambient loops (the fireplace, the neon sign) run at rest. While one runs, every wake-up lands on
+// one shared clock, the walkers' 150 ms step, so the loops and breathing together stay under 8 renders a second.
+describe("animator: ambient loops", () => {
+  test("two ambient loops and someone breathing: every render on the 150 ms clock, under 7 a second, loops stepping", () => {
+    const s = setup({ smooth: () => true });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 4, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.anim.setLoops([
+      { frames: 4, ms: 120, ambient: true },
+      { frames: 3, ms: 140, ambient: true },
+    ]);
+    let t = 0;
+    s.frame(t);
+    const before = s.renders();
+    while (t < 4000) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      t += timer.ms;
+      expect(t % 150).toBe(0);
+      s.timers.length = 0;
+      timer.fn();
+      s.frame(t);
+    }
+    expect(t).toBeGreaterThanOrEqual(4000);
+    expect(s.renders() - before).toBeLessThanOrEqual(27);
+    const fire = new Set(s.loopDraws.filter(([i]) => i === 0).map(([, f]) => f));
+    expect(fire).toEqual(new Set([0, 1, 2, 3]));
+  });
+
+  test("an ambient loop in the Basic tier still steps on the 150 ms walkers' clock (the room drops ambient loops there)", () => {
+    const s = setup();
+    s.anim.setLoops([{ frames: 3, ms: 160, ambient: true }]);
+    s.frame(0);
+    expect(s.timers.at(-1)?.ms).toBe(150);
+  });
+});
+
 // OME-1425: a door's open frame is a one-frame loop: a state (someone stands there), not motion.
 describe("animator: one-frame loops", () => {
   test("drawn at frame 0 on Basic and Smooth, with no timer", () => {

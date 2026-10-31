@@ -227,6 +227,11 @@ interface Loop extends FurnitureLoop {
   readonly textures: readonly Texture[];
 }
 
+/** The loops the animator runs: TODO OME-2068. */
+export function runningLoops<L extends { readonly piece: number; readonly ambient?: boolean }>(loops: readonly L[], inUse: ReadonlySet<number>, ambient: boolean): L[] {
+  return ambient ? [] : loops.filter((l) => inUse.has(l.piece));
+}
+
 /** A texture swap keeps the old anchor; a partition's cut stub (OME-1960) has its own. */
 function setLoopFrame(sprite: Sprite, t: Texture): void {
   sprite.texture = t;

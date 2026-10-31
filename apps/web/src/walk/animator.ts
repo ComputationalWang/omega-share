@@ -57,6 +57,8 @@ export interface AnimatorOptions {
 export interface FurnitureLoop {
   readonly frames: number;
   readonly ms: number;
+  /** Runs at rest (ADR 0058 §2, OME-2068): while one runs on Smooth, every wake-up lands on the shared AMBIENT_TICK_MS clock. */
+  readonly ambient?: boolean;
 }
 
 export interface Animator {

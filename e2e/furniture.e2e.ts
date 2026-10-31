@@ -2,6 +2,7 @@
 // socket is routed and its snapshots rewritten: no layout (a pre-M4 server), DEFAULT_LAYOUT, or a test layout with set (g) pieces.
 import type { Browser, Page, Request } from "@playwright/test";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, ROOM_SECRETS_STORAGE_KEY, type RoomLayout } from "@omega/shared";
+import * as v from "valibot";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
@@ -183,13 +184,18 @@ test.describe("furniture in use", () => {
   test.fixme(!available.server, PENDING.server);
 
   /** The furniture loops running now (room-view.ts `loops`): idle key and frame shown. */
-  const loops = (page: Page): Promise<unknown> =>
-    page.evaluate(() => {
-      const debug: unknown = Reflect.get(window, "__omega");
-      const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
-      const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "furnitureLoops") : null;
-      return typeof fn === "function" ? (Reflect.apply(fn, room, []) as unknown) : null;
-    });
+  const allLoops = async (page: Page): Promise<{ key: string; frame: number }[]> =>
+    v.parse(
+      v.array(v.object({ key: v.string(), frame: v.number() })),
+      await page.evaluate(() => {
+        const debug: unknown = Reflect.get(window, "__omega");
+        const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+        const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "furnitureLoops") : null;
+        return typeof fn === "function" ? (Reflect.apply(fn, room, []) as unknown) : [];
+      }),
+    );
+  /** The in-use loops: without the fireplace and neon sign, which also loop at rest (OME-2068, its own test below). */
+  const loops = async (page: Page): Promise<{ key: string; frame: number }[]> => (await allLoops(page)).filter((l) => !/^furniture\/(fireplace|neonsign)\//.test(l.key));
 
   /** Clicks stage point `cellCenter(col, row)` on the floor layer, wherever the stage is scaled to. */
   async function clickCell(page: Page, col: number, row: number): Promise<void> {
@@ -290,6 +296,38 @@ test.describe("furniture in use", () => {
       await context.close();
     }
   });
+
+  // OME-2068 (ADR 0058 §2): the fireplace burns at rest on Smooth, on the shared 8 fps clock; reduced motion keeps it still.
+  for (const still of [false, true]) {
+    test(`at rest the fireplace ${still ? "stays still under reduced motion" : "burns on Smooth"}`, async ({ browser }) => {
+      const context = await watchCsp(await browser.newContext(still ? { reducedMotion: "reduce" } : {}));
+      try {
+        await stubExternalNetwork(context);
+        await context.addInitScript(() => {
+          localStorage.setItem("omega.motion", "smooth");
+        });
+        const page = await context.newPage();
+        await withLayout(page, { layout: BAR });
+        await enter(page, still ? "fire-still" : "fire-1", `${URLS.web}/r/${testRoomId("furniture", still ? "ambientstill" : "ambient")}`);
+        await expect.poll(async () => (await scene(page)).includes("furniture/fireplace/stone/sw/back")).toBe(true);
+        const fire = async (): Promise<number[]> => (await allLoops(page)).filter((l) => l.key === "furniture/fireplace/stone/sw/back").map((l) => l.frame);
+        if (still) {
+          await page.waitForTimeout(600);
+          expect(await fire()).toEqual([]);
+          return;
+        }
+        await expect.poll(fire, { timeout: WALK_SETTLE_MS }).toHaveLength(1);
+        const seen = new Set<number>();
+        for (let i = 0; i < 10; i++) {
+          for (const f of await fire()) seen.add(f);
+          await page.waitForTimeout(100);
+        }
+        expect(seen.size).toBeGreaterThan(1);
+      } finally {
+        await context.close();
+      }
+    });
+  }
 
   // OME-1425: a door opens while anyone stands in front of it; my arrival there offers "Go to <room> · Stay".
   const DOOR_FRONT = [1, 3] as const;
