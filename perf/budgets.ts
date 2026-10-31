@@ -71,6 +71,12 @@ const VIEW_SWAP: readonly Budget[] = [
   { id: "viewswap.longFrame.desktop", area: "Site", metric: "Longest frame across the 180° view swap", docMetric: "Longest frame across the 180° view swap", unit: "ms", limit: 50, comparator: "<=" },
 ];
 
+// OME-2072: joining a room, from the Join click until the room has settled (perf/join.perf.ts).
+const JOIN: readonly Budget[] = [
+  { id: "join.longTask.desktop", area: "Site", metric: "Longest task joining a room, desktop", docMetric: "Longest task joining a room", unit: "ms", limit: 50, comparator: "<=" },
+  { id: "join.longTask.phone4x", area: "Site", metric: "Longest task joining a room, Pixel 7 at 4× CPU", docMetric: "Longest task joining a room on a phone at 4× CPU", unit: "ms", limit: 150, comparator: "<=" },
+];
+
 // OME-598 (M7 W3): the same three frame budgets for the room tab with the chat in its pop-out window (perf/popout.perf.ts).
 const POPOUT: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `pop.frameP95.${p}`, area: "Site", metric: `p95 frame time with the chat popped out, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate with the chat popped out, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
@@ -152,6 +158,7 @@ export const BUDGETS: readonly Budget[] = [
   ...THEATRE,
   ...FULLSCREEN,
   ...VIEW_SWAP,
+  ...JOIN,
   ...POPOUT,
   ...POPOUT_ROOM,
   ...WALK25,

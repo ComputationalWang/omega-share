@@ -657,7 +657,8 @@
         "e2e/walk.e2e.ts",
         "e2e/emotes.e2e.ts",
         "perf/site.perf.ts",
-        "perf/walk-tiers.perf.ts"
+        "perf/walk-tiers.perf.ts",
+        "perf/join.perf.ts"
       ],
       "why": "procedural sound engine, a lazy chunk fed by the walk poses (OME-1638)"
     },
