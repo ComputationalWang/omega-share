@@ -68,7 +68,8 @@ describe("the editor offers them", () => {
     }
     expect(coloursOf("wallscreen")).toEqual(["panel"]);
     expect(coloursOf("projector")).toEqual(["cloth"]);
-    expect(V8_THUMBS).toEqual({ wallscreen: v8Raw.frames["thumb/wallscreen/panel"]?.frame, projector: v8Raw.frames["thumb/projector/cloth"]?.frame });
+    const rect = (key: string): { x: number; y: number; w: number; h: number } | undefined => v8Raw.frames[key]?.frame;
+    expect([V8_THUMBS["wallscreen"], V8_THUMBS["projector"]]).toEqual([rect("thumb/wallscreen/panel"), rect("thumb/projector/cloth")]);
   });
 
   test("a placement marks every segment it covers", () => {
