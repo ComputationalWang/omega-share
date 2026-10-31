@@ -458,3 +458,63 @@ test("the wall pieces' new colours (OME-1503): a meadow print and peach lights s
     await expect.poll(kinds).toEqual([true, true]);
   }
 });
+
+// OME-2074: Done or Escape with unsaved changes used to drop them silently. Now Done asks (Save / Discard / Keep editing)
+// and Escape never discards.
+test("leaving the editor with unsaved changes asks first: Escape keeps editing, Discard drops them, Save keeps them", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("edleave");
+  const owner = await newPage(browser, []);
+  await owner.addInitScript(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })] as const,
+  );
+  await owner.goto(`${URLS.web}/r/${id}`);
+  await enter(owner, "owner");
+  const n = DEFAULT_LAYOUT.furniture.length;
+  const count = owner.locator(site.editorCount);
+  const leave = owner.locator(site.editorLeave);
+  const place = async (): Promise<void> => {
+    await owner.locator(site.editRoom).click();
+    await expect(count).toContainText(`${String(n)} /`);
+    await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
+    await owner.locator(`${site.editorSlot}[data-kind="popcorn"]`).click();
+    await clickCell(owner, 9, 9);
+    await expect(count).toContainText(`${String(n + 1)} /`);
+  };
+
+  await place();
+  // Escape asks rather than discards; Escape again keeps editing.
+  await owner.locator(site.editorHit).focus();
+  await owner.keyboard.press("Escape");
+  await expect(leave).toBeVisible();
+  await expect(owner.locator(site.editorLeaveKeep)).toBeFocused();
+  await owner.keyboard.press("Escape");
+  await expect(leave).toBeHidden();
+  await expect(count).toContainText(`${String(n + 1)} /`);
+
+  // Done asks too; Discard closes the editor and drops the piece.
+  await owner.locator(site.editRoom).click();
+  await expect(leave).toBeVisible();
+  await owner.locator(site.editorLeaveDiscard).click();
+  await expect(owner.locator(site.editorTray)).toBeHidden();
+  await expect(owner.locator(site.editRoom)).toHaveAttribute("aria-pressed", "false");
+  expect(await savedOf(owner)).toHaveLength(n);
+
+  // Save from the prompt keeps it, after a reload too.
+  await place();
+  await owner.locator(site.editRoom).click();
+  await owner.locator(site.editorLeaveSave).click();
+  await expect(owner.locator(site.editorTray)).toBeHidden();
+  await expect.poll(async () => (await savedOf(owner)).length).toBe(n + 1);
+  await owner.reload();
+  await expect(owner.locator(site.room)).toBeVisible();
+  await expect.poll(async () => (await savedOf(owner)).length).toBe(n + 1);
+
+  // Nothing changed: Done closes at once, no prompt.
+  await owner.locator(site.editRoom).click();
+  await expect(count).toBeVisible();
+  await owner.locator(site.editRoom).click();
+  await expect(owner.locator(site.editorTray)).toBeHidden();
+});
