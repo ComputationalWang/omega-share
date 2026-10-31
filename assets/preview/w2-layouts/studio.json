@@ -1,0 +1,166 @@
+{
+ "id": "studio",
+ "name": "Studio flat",
+ "blurb": "Kitchen and couch in front, a sleeping nook behind.",
+ "layout": {
+  "shell": "studio",
+  "furniture": [
+   {
+    "kind": "bed",
+    "col": 4,
+    "row": 1,
+    "facing": "nw"
+   },
+   {
+    "kind": "sidetable",
+    "col": 6,
+    "row": 1,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "bookshelf",
+    "col": 0,
+    "row": 1,
+    "facing": "se"
+   },
+   {
+    "kind": "window",
+    "col": 7,
+    "row": 0,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "cat",
+    "col": 2,
+    "row": 2,
+    "facing": "se"
+   },
+   {
+    "kind": "arclamp",
+    "col": 8,
+    "row": 1,
+    "facing": "sw"
+   },
+   {
+    "kind": "partition",
+    "col": 0,
+    "row": 4,
+    "facing": "sw"
+   },
+   {
+    "kind": "partition",
+    "col": 2,
+    "row": 4,
+    "facing": "sw"
+   },
+   {
+    "kind": "partition",
+    "col": 3,
+    "row": 4,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "partition",
+    "col": 4,
+    "row": 4,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "partition",
+    "col": 5,
+    "row": 4,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "partition",
+    "col": 6,
+    "row": 4,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "partition",
+    "col": 7,
+    "row": 4,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "partition",
+    "col": 8,
+    "row": 4,
+    "facing": "sw"
+   },
+   {
+    "kind": "partition",
+    "col": 9,
+    "row": 4,
+    "facing": "sw"
+   },
+   {
+    "kind": "barcounter",
+    "col": 0,
+    "row": 5,
+    "facing": "se",
+    "variant": 2
+   },
+   {
+    "kind": "minibar",
+    "col": 0,
+    "row": 7,
+    "facing": "se",
+    "variant": 1
+   },
+   {
+    "kind": "sidetable",
+    "col": 3,
+    "row": 6,
+    "facing": "se"
+   },
+   {
+    "kind": "stool",
+    "col": 3,
+    "row": 7,
+    "facing": "ne",
+    "variant": 1
+   },
+   {
+    "kind": "stool",
+    "col": 4,
+    "row": 6,
+    "facing": "nw"
+   },
+   {
+    "kind": "couch",
+    "col": 5,
+    "row": 7,
+    "facing": "nw",
+    "variant": 1
+   },
+   {
+    "kind": "wallscreen",
+    "col": 0,
+    "row": 8,
+    "facing": "se"
+   },
+   {
+    "kind": "beanbag",
+    "col": 7,
+    "row": 8,
+    "facing": "nw",
+    "variant": 1
+   },
+   {
+    "kind": "monstera",
+    "col": 9,
+    "row": 6,
+    "facing": "sw"
+   }
+  ]
+ }
+}

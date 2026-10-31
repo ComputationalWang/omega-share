@@ -2049,6 +2049,10 @@ export interface PieceMeta {
   /** Sleepers side by side (the queen bed, OME-1983): `furniture/<id>/<colour>/cover/<dir>/<0..covers-1>`, the duvet pulled
    *  over that sleeper, in `back`'s rect (same anchor). Draw it right after its sleeper (lying.json `pieces`). */
   covers?: number;
+  /** Wave 2 (OME-2066, ADR 0058): the `use` loop runs always, as ambience (gated by the web), not only while someone uses it. */
+  ambient?: true;
+  /** Wave 2: wall segments covered from the anchor toward +row (se) / +col (sw). Absent = 1. */
+  wallSpan?: number;
 }
 
 export interface PieceDef {

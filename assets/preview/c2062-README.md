@@ -1,8 +1,6 @@
 # OME-2062 concept round: screens without the TV table, livelier old rooms, two swap rooms
 
-Concepts only, nothing shipped changes. Rebuild: `CONCEPTS=2062 bun assets/src/build.ts` (add `CONCEPTS_CACHE=/tmp/x.json`
-to reuse the ~2 min sprite ray-cast between runs). Source: `assets/src/concepts-2062.ts`. Same 67-colour palette (no new
-colours), the same Kit/iso ray-caster, plum outline and top-left light as every shipped piece. Original art, CC BY-SA 4.0.
+Concepts only. **Shipped as wave 2 (OME-2066)**: the source moved to `assets/src/wave2.ts` and the previews are `preview/w2-*`; see the README's "Wave 2" section. The concept generator itself is at commit `33ae728f`.
 
 ## 1 · A screen without the TV table
 

@@ -1,0 +1,3139 @@
+{
+ "frames": {
+  "furniture/aquarium/teal/ne/back": {
+   "frame": {
+    "x": 43,
+    "y": 654,
+    "w": 48,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7735849056603774
+   }
+  },
+  "furniture/aquarium/teal/nw/back": {
+   "frame": {
+    "x": 92,
+    "y": 654,
+    "w": 48,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7735849056603774
+   }
+  },
+  "furniture/barcounter/espresso/se/back": {
+   "frame": {
+    "x": 377,
+    "y": 281,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.7032967032967034,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/sw/back": {
+   "frame": {
+    "x": 184,
+    "y": 298,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.2967032967032967,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/se/0": {
+   "frame": {
+    "x": 377,
+    "y": 281,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.7032967032967034,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/se/1": {
+   "frame": {
+    "x": 92,
+    "y": 299,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.7032967032967034,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/se/2": {
+   "frame": {
+    "x": 0,
+    "y": 300,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.7032967032967034,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/se/3": {
+   "frame": {
+    "x": 377,
+    "y": 359,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.7032967032967034,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/sw/0": {
+   "frame": {
+    "x": 184,
+    "y": 298,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.2967032967032967,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/sw/1": {
+   "frame": {
+    "x": 276,
+    "y": 370,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.2967032967032967,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/sw/2": {
+   "frame": {
+    "x": 184,
+    "y": 376,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.2967032967032967,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/espresso/use/sw/3": {
+   "frame": {
+    "x": 92,
+    "y": 377,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.2967032967032967,
+    "y": 0.6493506493506493
+   }
+  },
+  "furniture/barcounter/kitchen/ne/back": {
+   "frame": {
+    "x": 0,
+    "y": 378,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.3626373626373626,
+    "y": 0.5844155844155844
+   }
+  },
+  "furniture/barcounter/kitchen/nw/back": {
+   "frame": {
+    "x": 368,
+    "y": 437,
+    "w": 91,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 77
+   },
+   "anchor": {
+    "x": 0.6373626373626373,
+    "y": 0.5844155844155844
+   }
+  },
+  "furniture/barcounter/kitchen/se/back": {
+   "frame": {
+    "x": 193,
+    "y": 120,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.7142857142857143,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/sw/back": {
+   "frame": {
+    "x": 0,
+    "y": 122,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.2857142857142857,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/se/0": {
+   "frame": {
+    "x": 193,
+    "y": 120,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.7142857142857143,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/se/1": {
+   "frame": {
+    "x": 285,
+    "y": 192,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.7142857142857143,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/se/2": {
+   "frame": {
+    "x": 377,
+    "y": 192,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.7142857142857143,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/se/3": {
+   "frame": {
+    "x": 193,
+    "y": 209,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.7142857142857143,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/sw/0": {
+   "frame": {
+    "x": 0,
+    "y": 122,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.2857142857142857,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/sw/1": {
+   "frame": {
+    "x": 92,
+    "y": 210,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.2857142857142857,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/sw/2": {
+   "frame": {
+    "x": 0,
+    "y": 211,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.2857142857142857,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/barcounter/kitchen/use/sw/3": {
+   "frame": {
+    "x": 285,
+    "y": 281,
+    "w": 91,
+    "h": 88
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 88
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 0.2857142857142857,
+    "y": 0.6818181818181818
+   }
+  },
+  "furniture/bookshelf/wood/ne/back": {
+   "frame": {
+    "x": 308,
+    "y": 0,
+    "w": 76,
+    "h": 101
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 101
+   },
+   "sourceSize": {
+    "w": 76,
+    "h": 101
+   },
+   "anchor": {
+    "x": 0.40789473684210525,
+    "y": 0.6831683168316832
+   }
+  },
+  "furniture/bookshelf/wood/nw/back": {
+   "frame": {
+    "x": 385,
+    "y": 0,
+    "w": 76,
+    "h": 101
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 101
+   },
+   "sourceSize": {
+    "w": 76,
+    "h": 101
+   },
+   "anchor": {
+    "x": 0.5921052631578947,
+    "y": 0.6831683168316832
+   }
+  },
+  "furniture/lavalamp/lilac/se/back": {
+   "frame": {
+    "x": 490,
+    "y": 581,
+    "w": 22,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 22,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 22,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8461538461538461
+   }
+  },
+  "furniture/lavalamp/lilac/use/se/0": {
+   "frame": {
+    "x": 490,
+    "y": 581,
+    "w": 22,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 22,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 22,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8461538461538461
+   }
+  },
+  "furniture/lavalamp/lilac/use/se/1": {
+   "frame": {
+    "x": 477,
+    "y": 621,
+    "w": 22,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 22,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 22,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8461538461538461
+   }
+  },
+  "furniture/lavalamp/lilac/use/se/2": {
+   "frame": {
+    "x": 403,
+    "y": 647,
+    "w": 22,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 22,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 22,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8461538461538461
+   }
+  },
+  "furniture/lavalamp/lilac/use/se/3": {
+   "frame": {
+    "x": 477,
+    "y": 621,
+    "w": 22,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 22,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 22,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8461538461538461
+   }
+  },
+  "furniture/longclock/wood/se/back": {
+   "frame": {
+    "x": 462,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.6578947368421053,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/sw/back": {
+   "frame": {
+    "x": 462,
+    "y": 90,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.34210526315789475,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/se/0": {
+   "frame": {
+    "x": 462,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.6578947368421053,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/se/1": {
+   "frame": {
+    "x": 308,
+    "y": 102,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.6578947368421053,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/se/2": {
+   "frame": {
+    "x": 347,
+    "y": 102,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.6578947368421053,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/se/3": {
+   "frame": {
+    "x": 308,
+    "y": 102,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.6578947368421053,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/sw/0": {
+   "frame": {
+    "x": 462,
+    "y": 90,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.34210526315789475,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/sw/1": {
+   "frame": {
+    "x": 386,
+    "y": 102,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.34210526315789475,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/sw/2": {
+   "frame": {
+    "x": 154,
+    "y": 120,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.34210526315789475,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/longclock/wood/use/sw/3": {
+   "frame": {
+    "x": 386,
+    "y": 102,
+    "w": 38,
+    "h": 89
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 89
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 89
+   },
+   "anchor": {
+    "x": 0.34210526315789475,
+    "y": 0.9213483146067416
+   }
+  },
+  "furniture/projector/cloth/ne/back": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 121
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 121
+   },
+   "sourceSize": {
+    "w": 76,
+    "h": 121
+   },
+   "anchor": {
+    "x": 0.23684210526315788,
+    "y": 1.2644628099173554
+   }
+  },
+  "furniture/projector/cloth/nw/back": {
+   "frame": {
+    "x": 77,
+    "y": 0,
+    "w": 76,
+    "h": 121
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 121
+   },
+   "sourceSize": {
+    "w": 76,
+    "h": 121
+   },
+   "anchor": {
+    "x": 0.7631578947368421,
+    "y": 1.2644628099173554
+   }
+  },
+  "furniture/projector/cloth/se/back": {
+   "frame": {
+    "x": 154,
+    "y": 0,
+    "w": 76,
+    "h": 119
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 119
+   },
+   "sourceSize": {
+    "w": 76,
+    "h": 119
+   },
+   "anchor": {
+    "x": 1.0789473684210527,
+    "y": 1.3865546218487395
+   }
+  },
+  "furniture/projector/cloth/sw/back": {
+   "frame": {
+    "x": 231,
+    "y": 0,
+    "w": 76,
+    "h": 119
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 76,
+    "h": 119
+   },
+   "sourceSize": {
+    "w": 76,
+    "h": 119
+   },
+   "anchor": {
+    "x": -0.07894736842105263,
+    "y": 1.3865546218487395
+   }
+  },
+  "furniture/sidetable/mug/se/back": {
+   "frame": {
+    "x": 458,
+    "y": 661,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/sw/back": {
+   "frame": {
+    "x": 321,
+    "y": 689,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/se/0": {
+   "frame": {
+    "x": 458,
+    "y": 661,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/se/1": {
+   "frame": {
+    "x": 183,
+    "y": 692,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/se/2": {
+   "frame": {
+    "x": 0,
+    "y": 693,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/se/3": {
+   "frame": {
+    "x": 141,
+    "y": 695,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/sw/0": {
+   "frame": {
+    "x": 321,
+    "y": 689,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/sw/1": {
+   "frame": {
+    "x": 458,
+    "y": 695,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/sw/2": {
+   "frame": {
+    "x": 403,
+    "y": 696,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/sidetable/mug/use/sw/3": {
+   "frame": {
+    "x": 356,
+    "y": 703,
+    "w": 34,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 33
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/ne/back": {
+   "frame": {
+    "x": 244,
+    "y": 592,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.5476190476190477,
+    "y": 0.7818181818181819
+   }
+  },
+  "furniture/speaker/jukebox/nw/back": {
+   "frame": {
+    "x": 63,
+    "y": 598,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.4523809523809524,
+    "y": 0.7818181818181819
+   }
+  },
+  "furniture/speaker/jukebox/se/back": {
+   "frame": {
+    "x": 106,
+    "y": 598,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.5476190476190477,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/sw/back": {
+   "frame": {
+    "x": 149,
+    "y": 598,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.4523809523809524,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/se/0": {
+   "frame": {
+    "x": 106,
+    "y": 598,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.5476190476190477,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/se/1": {
+   "frame": {
+    "x": 192,
+    "y": 598,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.5476190476190477,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/se/2": {
+   "frame": {
+    "x": 0,
+    "y": 599,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.5476190476190477,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/se/3": {
+   "frame": {
+    "x": 434,
+    "y": 603,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.5476190476190477,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/sw/0": {
+   "frame": {
+    "x": 149,
+    "y": 598,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.4523809523809524,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/sw/1": {
+   "frame": {
+    "x": 360,
+    "y": 647,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.4523809523809524,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/sw/2": {
+   "frame": {
+    "x": 235,
+    "y": 648,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.4523809523809524,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/speaker/jukebox/use/sw/3": {
+   "frame": {
+    "x": 278,
+    "y": 648,
+    "w": 42,
+    "h": 55
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 55
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 55
+   },
+   "anchor": {
+    "x": 0.4523809523809524,
+    "y": 0.8181818181818182
+   }
+  },
+  "furniture/tripod/charcoal/ne/back": {
+   "frame": {
+    "x": 453,
+    "y": 540,
+    "w": 36,
+    "h": 62
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 62
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 62
+   },
+   "anchor": {
+    "x": 0.5277777777777778,
+    "y": 0.8387096774193549
+   }
+  },
+  "furniture/tripod/charcoal/nw/back": {
+   "frame": {
+    "x": 323,
+    "y": 587,
+    "w": 36,
+    "h": 62
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 62
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 62
+   },
+   "anchor": {
+    "x": 0.4722222222222222,
+    "y": 0.8387096774193549
+   }
+  },
+  "furniture/tripod/charcoal/se/back": {
+   "frame": {
+    "x": 360,
+    "y": 587,
+    "w": 36,
+    "h": 59
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 59
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 59
+   },
+   "anchor": {
+    "x": 0.5277777777777778,
+    "y": 0.8813559322033898
+   }
+  },
+  "furniture/tripod/charcoal/sw/back": {
+   "frame": {
+    "x": 397,
+    "y": 587,
+    "w": 36,
+    "h": 59
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 59
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 59
+   },
+   "anchor": {
+    "x": 0.4722222222222222,
+    "y": 0.8813559322033898
+   }
+  },
+  "furniture/wallscreen/panel/ne/back": {
+   "frame": {
+    "x": 276,
+    "y": 448,
+    "w": 62,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 62,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 62,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.45161290322580644,
+    "y": 1.647887323943662
+   }
+  },
+  "furniture/wallscreen/panel/nw/back": {
+   "frame": {
+    "x": 184,
+    "y": 454,
+    "w": 62,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 62,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 62,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.5483870967741935,
+    "y": 1.647887323943662
+   }
+  },
+  "furniture/wallscreen/panel/se/back": {
+   "frame": {
+    "x": 76,
+    "y": 527,
+    "w": 62,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 62,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 62,
+    "h": 70
+   },
+   "anchor": {
+    "x": 0.967741935483871,
+    "y": 1.8571428571428572
+   }
+  },
+  "furniture/wallscreen/panel/sw/back": {
+   "frame": {
+    "x": 0,
+    "y": 528,
+    "w": 62,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 62,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 62,
+    "h": 70
+   },
+   "anchor": {
+    "x": 0.03225806451612903,
+    "y": 1.8571428571428572
+   }
+  },
+  "furniture/window/rain/se/back": {
+   "frame": {
+    "x": 469,
+    "y": 180,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/sw/back": {
+   "frame": {
+    "x": 469,
+    "y": 252,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/se/0": {
+   "frame": {
+    "x": 469,
+    "y": 180,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/se/1": {
+   "frame": {
+    "x": 469,
+    "y": 324,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/se/2": {
+   "frame": {
+    "x": 469,
+    "y": 396,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/se/3": {
+   "frame": {
+    "x": 92,
+    "y": 455,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/sw/0": {
+   "frame": {
+    "x": 469,
+    "y": 252,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/sw/1": {
+   "frame": {
+    "x": 130,
+    "y": 455,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/sw/2": {
+   "frame": {
+    "x": 0,
+    "y": 456,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/rain/use/sw/3": {
+   "frame": {
+    "x": 38,
+    "y": 456,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/se/back": {
+   "frame": {
+    "x": 460,
+    "y": 468,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/sw/back": {
+   "frame": {
+    "x": 339,
+    "y": 515,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/se/0": {
+   "frame": {
+    "x": 460,
+    "y": 468,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/se/1": {
+   "frame": {
+    "x": 377,
+    "y": 515,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/se/2": {
+   "frame": {
+    "x": 415,
+    "y": 515,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/se/3": {
+   "frame": {
+    "x": 247,
+    "y": 520,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.8378378378378378,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/sw/0": {
+   "frame": {
+    "x": 339,
+    "y": 515,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/sw/1": {
+   "frame": {
+    "x": 285,
+    "y": 520,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/sw/2": {
+   "frame": {
+    "x": 168,
+    "y": 526,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "furniture/window/sky/use/sw/3": {
+   "frame": {
+    "x": 206,
+    "y": 526,
+    "w": 37,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 71
+   },
+   "anchor": {
+    "x": 0.16216216216216217,
+    "y": 2.0140845070422535
+   }
+  },
+  "thumb/barcounter/espresso": {
+   "frame": {
+    "x": 183,
+    "y": 654,
+    "w": 44,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.4864864864864865
+   }
+  },
+  "thumb/barcounter/kitchen": {
+   "frame": {
+    "x": 141,
+    "y": 654,
+    "w": 41,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 41,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 41,
+    "h": 40
+   },
+   "anchor": {
+    "x": 0.4878048780487805,
+    "y": 0.5
+   }
+  },
+  "thumb/lavalamp/lilac": {
+   "frame": {
+    "x": 493,
+    "y": 693,
+    "w": 12,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 12,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "thumb/longclock/wood": {
+   "frame": {
+    "x": 490,
+    "y": 540,
+    "w": 18,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 18,
+    "h": 40
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "thumb/projector/cloth": {
+   "frame": {
+    "x": 321,
+    "y": 650,
+    "w": 25,
+    "h": 38
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 38
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 38
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 0.5
+   }
+  },
+  "thumb/sidetable/mug": {
+   "frame": {
+    "x": 438,
+    "y": 696,
+    "w": 18,
+    "h": 17
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 17
+   },
+   "sourceSize": {
+    "w": 18,
+    "h": 17
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.47058823529411764
+   }
+  },
+  "thumb/speaker/jukebox": {
+   "frame": {
+    "x": 218,
+    "y": 704,
+    "w": 22,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 22,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 22,
+    "h": 28
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "thumb/tripod/charcoal": {
+   "frame": {
+    "x": 493,
+    "y": 661,
+    "w": 19,
+    "h": 31
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 31
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 31
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 0.4838709677419355
+   }
+  },
+  "thumb/wallscreen/panel": {
+   "frame": {
+    "x": 426,
+    "y": 659,
+    "w": 31,
+    "h": 36
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 31,
+    "h": 36
+   },
+   "sourceSize": {
+    "w": 31,
+    "h": 36
+   },
+   "anchor": {
+    "x": 0.4838709677419355,
+    "y": 0.5
+   }
+  },
+  "thumb/window/rain": {
+   "frame": {
+    "x": 0,
+    "y": 655,
+    "w": 20,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.4864864864864865
+   }
+  },
+  "thumb/window/sky": {
+   "frame": {
+    "x": 21,
+    "y": 655,
+    "w": 20,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.4864864864864865
+   }
+  }
+ },
+ "animations": {
+  "furniture/window/sky/use/se": [
+   "furniture/window/sky/use/se/0",
+   "furniture/window/sky/use/se/1",
+   "furniture/window/sky/use/se/2",
+   "furniture/window/sky/use/se/3"
+  ],
+  "furniture/window/sky/use/sw": [
+   "furniture/window/sky/use/sw/0",
+   "furniture/window/sky/use/sw/1",
+   "furniture/window/sky/use/sw/2",
+   "furniture/window/sky/use/sw/3"
+  ],
+  "furniture/window/rain/use/se": [
+   "furniture/window/rain/use/se/0",
+   "furniture/window/rain/use/se/1",
+   "furniture/window/rain/use/se/2",
+   "furniture/window/rain/use/se/3"
+  ],
+  "furniture/window/rain/use/sw": [
+   "furniture/window/rain/use/sw/0",
+   "furniture/window/rain/use/sw/1",
+   "furniture/window/rain/use/sw/2",
+   "furniture/window/rain/use/sw/3"
+  ],
+  "furniture/longclock/wood/use/se": [
+   "furniture/longclock/wood/use/se/0",
+   "furniture/longclock/wood/use/se/1",
+   "furniture/longclock/wood/use/se/2",
+   "furniture/longclock/wood/use/se/3"
+  ],
+  "furniture/longclock/wood/use/sw": [
+   "furniture/longclock/wood/use/sw/0",
+   "furniture/longclock/wood/use/sw/1",
+   "furniture/longclock/wood/use/sw/2",
+   "furniture/longclock/wood/use/sw/3"
+  ],
+  "furniture/lavalamp/lilac/use/se": [
+   "furniture/lavalamp/lilac/use/se/0",
+   "furniture/lavalamp/lilac/use/se/1",
+   "furniture/lavalamp/lilac/use/se/2",
+   "furniture/lavalamp/lilac/use/se/3"
+  ],
+  "furniture/sidetable/mug/use/se": [
+   "furniture/sidetable/mug/use/se/0",
+   "furniture/sidetable/mug/use/se/1",
+   "furniture/sidetable/mug/use/se/2",
+   "furniture/sidetable/mug/use/se/3"
+  ],
+  "furniture/sidetable/mug/use/sw": [
+   "furniture/sidetable/mug/use/sw/0",
+   "furniture/sidetable/mug/use/sw/1",
+   "furniture/sidetable/mug/use/sw/2",
+   "furniture/sidetable/mug/use/sw/3"
+  ],
+  "furniture/barcounter/espresso/use/se": [
+   "furniture/barcounter/espresso/use/se/0",
+   "furniture/barcounter/espresso/use/se/1",
+   "furniture/barcounter/espresso/use/se/2",
+   "furniture/barcounter/espresso/use/se/3"
+  ],
+  "furniture/barcounter/espresso/use/sw": [
+   "furniture/barcounter/espresso/use/sw/0",
+   "furniture/barcounter/espresso/use/sw/1",
+   "furniture/barcounter/espresso/use/sw/2",
+   "furniture/barcounter/espresso/use/sw/3"
+  ],
+  "furniture/barcounter/kitchen/use/se": [
+   "furniture/barcounter/kitchen/use/se/0",
+   "furniture/barcounter/kitchen/use/se/1",
+   "furniture/barcounter/kitchen/use/se/2",
+   "furniture/barcounter/kitchen/use/se/3"
+  ],
+  "furniture/barcounter/kitchen/use/sw": [
+   "furniture/barcounter/kitchen/use/sw/0",
+   "furniture/barcounter/kitchen/use/sw/1",
+   "furniture/barcounter/kitchen/use/sw/2",
+   "furniture/barcounter/kitchen/use/sw/3"
+  ],
+  "furniture/speaker/jukebox/use/se": [
+   "furniture/speaker/jukebox/use/se/0",
+   "furniture/speaker/jukebox/use/se/1",
+   "furniture/speaker/jukebox/use/se/2",
+   "furniture/speaker/jukebox/use/se/3"
+  ],
+  "furniture/speaker/jukebox/use/sw": [
+   "furniture/speaker/jukebox/use/sw/0",
+   "furniture/speaker/jukebox/use/sw/1",
+   "furniture/speaker/jukebox/use/sw/2",
+   "furniture/speaker/jukebox/use/sw/3"
+  ]
+ },
+ "meta": {
+  "app": "omega-share assets/src/build.ts",
+  "version": "1",
+  "image": "furniture-v8.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 1024
+  },
+  "scale": "1",
+  "omega": {
+   "license": "CC-BY-SA-4.0",
+   "tile": {
+    "w": 64,
+    "h": 32
+   },
+   "seatHeight": 8,
+   "key": "furniture/<id>/<colour>/<dir>/<back|front>",
+   "useKey": "furniture/<id>/<colour>/use/<dir>/<n>",
+   "layers": {
+    "floor": 0,
+    "wall": 1,
+    "back": 2,
+    "avatar": 3,
+    "front": 4
+   },
+   "pieces": [
+    {
+     "id": "wallscreen",
+     "label": "Wall screen",
+     "kind": "fun",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "panel"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "wallSpan": 2
+    },
+    {
+     "id": "projector",
+     "label": "Pull-down screen",
+     "kind": "fun",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "cloth"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "wallSpan": 3
+    },
+    {
+     "id": "tripod",
+     "label": "Projector on a tripod",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "charcoal"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 1,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 1
+      },
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 0,
+       "y": 0
+      },
+      "nw": {
+       "x": 0,
+       "y": 0
+      },
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ],
+      "nw": [
+       "back"
+      ],
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "window",
+     "label": "Window, dusk",
+     "kind": "wall",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "sky",
+      "rain"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 260
+     },
+     "ambient": true
+    },
+    {
+     "id": "longclock",
+     "label": "Long-case clock",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 250
+     },
+     "ambient": true
+    },
+    {
+     "id": "lavalamp",
+     "label": "Lava lamp",
+     "kind": "light",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "lilac"
+     ],
+     "dirs": [
+      "se"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 320
+     },
+     "ambient": true
+    },
+    {
+     "id": "sidetable",
+     "label": "Snack table, steaming mug",
+     "kind": "table",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "mug"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 180
+     },
+     "ambient": true
+    },
+    {
+     "id": "barcounter",
+     "label": "Espresso bar",
+     "kind": "table",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "espresso",
+      "kitchen"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": -16,
+       "y": 8
+      },
+      "sw": {
+       "x": 16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 160
+     },
+     "ambient": true
+    },
+    {
+     "id": "speaker",
+     "label": "Jukebox",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "jukebox"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 150
+     },
+     "ambient": true
+    }
+   ]
+  }
+ }
+}
