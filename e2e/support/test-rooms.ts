@@ -35,6 +35,7 @@ export const SPEC_ROOMS = {
   "phone-perf": ["frames"],
   "touch-home": ["j320", "j844", "aud1024", "aud768", "bub320"],
   "theatre-perf": ["frames"],
+  "idle-perf": ["desktop", "phone"],
   "heap-movie": ["main"],
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle", "peek"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
