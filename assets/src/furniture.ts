@@ -2282,10 +2282,10 @@ const swapsAxes = (d: FurnDir): boolean => d === "nw" || d === "se";
 /** Frames beside a facing's `back`/`front` layers: loops, alternates, the cat's frames, the queen bed's covers. */
 const EXTRA_FRAMES: ReadonlySet<string> = new Set(["use", "open", "cut", "walk", "sit", "bed", "cover"]);
 
-export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
+export function buildFurniture(defs: readonly PieceDef[] = PIECES): { frames: RoomFrame[]; pieces: PieceMeta[] } {
   const frames: RoomFrame[] = [];
   const pieces: PieceMeta[] = [];
-  for (const def of PIECES) {
+  for (const def of defs) {
     const layersByDir: PieceMeta["layersByDir"] = {};
     for (const colour of def.colours) {
       for (const dir of def.dirs) {

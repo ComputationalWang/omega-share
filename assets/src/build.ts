@@ -1511,7 +1511,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
   writeFileSync(join(ROOT, "preview", `${name}-atlas@2x.png`), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
 }
 
-type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
+export type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
 function drawSprite(img: Uint8Array, W: number, H: number, all: FurnSprites, key: string, x: number, y: number): void {
   const f = all.get(key);
   if (!f) throw new Error(`missing ${key}`);
@@ -1583,7 +1583,7 @@ function blitClipped(img: Uint8Array, W: number, H: number, f: { img: Uint8Array
   }
 }
 
-interface Placement {
+export interface Placement {
   id: string;
   colour: string;
   dir: FurnDir;
@@ -1825,7 +1825,7 @@ interface RoomHooks {
   top?: (draw: Draw) => void;
 }
 
-interface RoomPlan {
+export interface RoomPlan {
   placements: Placement[];
   /** Sprites sorted at a cell (standing avatars; set (n): room-atlas armchairs with their sitter, lamp, plant), in this order on a tie. */
   standing: [string, number, number][];
@@ -2129,6 +2129,20 @@ function dungeon2Plan(cut: boolean): RoomPlan {
  *  footprint's min corner, every facing turned (one-sided pieces from furniture-back), wall pieces gone with the near walls they hang
  *  on, the spa's walls at the back. A symmetric piece with no back view (the oval rug, the monstera) keeps its own frame. `pieces` gains the turned facings' layers, sort points and seats, as the web would derive them. */
 function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces: PieceMeta[]; plan: RoomPlan } {
+  const back = 9 - PARTITION_ROW;
+  return northView(pieces, all, dungeon2Plan(false), {
+    floor: (c, r) => `floor/${r < back ? "deck" : r === back ? "split/north" : "carpet"}/${String((c * 3 + r) % 2)}`,
+    l: (i) => (i < back ? "wall/l/smoke" : i === back ? "wall/l/split/north" : "wall/l/oak"),
+    r: () => "wall/r/smoke",
+    corner: "wall/corner/smoke",
+    lEnd: "wall/l/end/oak",
+    rEnd: "wall/r/end/smoke",
+  });
+}
+
+/** Any south plan turned 180° (OME-1997): cell (c, r) → (9 − c, 9 − r) anchored on the turned footprint's min corner, every facing
+ *  turned where a turned frame exists, wall pieces dropped with the near walls, standing avatars turned to nw, on `shell`. */
+export function northView(pieces: readonly PieceMeta[], all: FurnSprites, south: RoomPlan, shell: NonNullable<RoomPlan["shell"]>): { pieces: PieceMeta[]; plan: RoomPlan } {
   const turnedMeta = pieces.map((m): PieceMeta => {
     const out: PieceMeta = { ...m, layersByDir: { ...m.layersByDir }, footprintByDir: { ...m.footprintByDir }, sortByDir: { ...m.sortByDir } };
     if (m.seatsByDir) out.seatsByDir = { ...m.seatsByDir };
@@ -2144,13 +2158,11 @@ function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces
     return out;
   });
   const meta = (id: string): PieceMeta | undefined => turnedMeta.find((m) => m.id === id);
-  const south = dungeon2Plan(false);
   const placements = south.placements.filter((p) => meta(p.id)?.mount !== "wall").map((p): Placement => {
     const fp = meta(p.id)?.footprintByDir[p.dir] ?? { cols: 1, rows: 1 };
     const dir = all.has(`furniture/${p.id}/${p.colour}/${TURN[p.dir]}/back`) ? TURN[p.dir] : p.dir;
     return { ...p, dir, col: 9 - p.col - Math.max(fp.cols - 1, 0), row: 9 - p.row - Math.max(fp.rows - 1, 0) };
   });
-  const back = 9 - PARTITION_ROW;
   return {
     pieces: turnedMeta,
     plan: {
@@ -2158,14 +2170,7 @@ function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces
       standing: south.standing.map(([key, c, r]): [string, number, number] => [key.replace("/se/", "/nw/"), 9 - c, 9 - r]),
       rug: false,
       tv: false,
-      shell: {
-        floor: (c, r) => `floor/${r < back ? "deck" : r === back ? "split/north" : "carpet"}/${String((c * 3 + r) % 2)}`,
-        l: (i) => (i < back ? "wall/l/smoke" : i === back ? "wall/l/split/north" : "wall/l/oak"),
-        r: () => "wall/r/smoke",
-        corner: "wall/corner/smoke",
-        lEnd: "wall/l/end/oak",
-        rEnd: "wall/r/end/smoke",
-      },
+      shell,
     },
   };
 }
@@ -2929,6 +2934,19 @@ function buildHairs(): void {
 mkdirSync(join(ROOT, "preview"), { recursive: true });
 mkdirSync(join(ROOT, "src", "moodboards"), { recursive: true });
 const avatarImages = buildAvatars();
+// OME-2062 concept round: `CONCEPTS=2062 bun assets/src/build.ts` renders the concept previews from the sprite set and stops
+// (nothing shipped is rewritten).
+if (process.env["CONCEPTS"] === "2062") {
+  const { buildConcepts, cachedSprites } = await import("./concepts-2062");
+  const { pieces, all } = cachedSprites(() => {
+    const { frames, pieces: ps } = buildFurniture();
+    return { pieces: ps, frames: [...buildRoomFrames(), ...frames, ...buildPanelShell(), ...buildBackViews()] };
+  });
+  for (const [k, a] of avatarImages) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
+  PIECES_BY_ID = new Map(pieces.map((m) => [m.id, m]));
+  buildConcepts({ pieces, all, compose: composeFurnitureRoom, northView, presetPlan });
+  process.exit(0);
+}
 buildScene(avatarImages);
 buildRoom(avatarImages);
 const furnitureSet = buildFurnitureSet(buildRoomFrames(), avatarImages);
