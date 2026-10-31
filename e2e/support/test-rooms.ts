@@ -39,6 +39,7 @@ export const SPEC_ROOMS = {
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle", "peek"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
+  "join-perf": ["desktop", "phone"],
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
   "popout-perf": ["frames"],
   report: ["send", "states", "gone"],
