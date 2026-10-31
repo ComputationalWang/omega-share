@@ -9,6 +9,7 @@ import {
   footprintCells,
   isScreen,
   layoutSeats,
+  onFixture,
   type Facing,
   type Furniture,
   type FurnitureKind,
@@ -38,7 +39,7 @@ function claims(f: Furniture): string[] {
 
 /** The piece alone is legal and doesn't collide with a same-layer piece (ignoring index `skip`). */
 export function fits(layout: Layout, piece: Furniture, skip?: number): boolean {
-  if (!v.safeParse(FurnitureSchema, piece).success) return false;
+  if (!v.safeParse(FurnitureSchema, piece).success || (layout.shell === undefined && onFixture(piece))) return false;
   const layer = FURNITURE[piece.kind].layer;
   const mine = new Set(claims(piece));
   return layout.furniture.every((other, i) => {
@@ -179,7 +180,7 @@ export interface TrayTab {
 }
 
 // shortcut: the Dank Dungeon v6 kinds but the queen bed (OME-1984) are not in the tray yet; the preset places them, the owner can't add more. Wire the tray when asked.
-export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
+export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["whirlpool", "mirror", "minibar", "desk", "washbasin", "partition", "tripod", "window", "longclock", "lavalamp"]);
 const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => !AWAITING_ART.has(k) && pick(k));
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */

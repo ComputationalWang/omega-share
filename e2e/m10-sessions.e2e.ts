@@ -216,6 +216,34 @@ test("a member kicked while away cannot resume with the stored token", async ({ 
   await expect(tag(owner.page, "kit")).toHaveCount(0);
 });
 
+// OME-2075 (audit OME-2064 #5): closing the tab ends its sessionStorage, but the server still holds the member for the
+// grace window. The closed tab hands its session on, so reopening the link takes the member back instead of "name taken".
+test("close the tab, reopen the link within 10 s: back in as the same member, no Enter form, nothing in chat", async ({ browser }) => {
+  const room = testRoom("m10-sessions", "reopen");
+  const ana = await open(browser, room.url, "ana");
+  const obs = await open(browser, room.url, "obs");
+  await sit(ana.page, 1, "ana");
+  const before = (await seen(ana.page)).self;
+
+  await ana.page.close({ runBeforeUnload: true });
+  await expect.poll(() => ana.page.isClosed()).toBe(true);
+  const again = await ana.context.newPage();
+  await again.goto(room.url);
+  await expect(again.locator(site.room)).toBeVisible();
+  await expect(again.locator(site.nicknameInput)).toBeHidden();
+  await expect(again.locator(site.roomRefused)).toBeHidden();
+  await expect.poll(() => seatOf(again, "ana")).toBe(1);
+  expect((await seen(again)).self).toBe(before);
+  await expect(tag(obs.page, "ana")).toHaveCount(1);
+  await expect(chatLines(obs.page, "left the room")).toHaveCount(0);
+
+  // Taken once: a further tab opened while this one is in the room is a separate visitor, never the same member.
+  const third = await ana.context.newPage();
+  await third.goto(room.url);
+  await expect(third.locator(site.nicknameInput)).toBeVisible();
+  await expect(again.getByTestId("room-replaced")).toBeHidden();
+});
+
 test("two tabs with one token: only one member; the older tab says the session moved and does not fight back", async ({ browser }) => {
   const room = testRoom("m10-sessions", "tabs");
   const ana = await open(browser, room.url, "ana");

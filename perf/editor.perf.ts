@@ -38,13 +38,12 @@ test("editor: owner frames with the editor open, guest frames across a save", as
   const chunks: string[] = [];
   owner.on("response", async (r) => { if (/\/assets\/editor-[\w-]+\.js$/.test(r.url())) chunks.push(`${r.url()} ${String((await r.body()).length)} B raw`); });
   await owner.goto(`${URLS.web}/`);
-  await openDirectory(owner, "Owner");
+  await openDirectory(owner, "owner");
   await owner.locator(site.createRoomTitle).fill("Perf editor");
   await owner.locator(site.createRoomSubmit).click();
   await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
   const id = owner.url().split("/").pop() ?? "";
-  await owner.locator(site.nicknameInput).fill("owner");
-  await owner.locator(site.joinButton).click();
+  // The creator goes straight in with the saved profile (OME-2075).
   await expect(owner.locator(site.room)).toBeVisible();
   await shareVideo(request, id);
   const guests = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}`, count: 7, nicknamePrefix: "ed" });

@@ -68,8 +68,10 @@ test("create a private room, invite a guest by link, then close it with 4004", a
   expect(ownerToken).toMatch(/^[A-Za-z0-9_-]{22}$/);
   expect(inviteKey).toMatch(/^[A-Za-z0-9_-]{22}$/);
   expect(owner.url()).not.toContain(ownerToken);
-  await enter(owner, "owner");
+  // Straight in with the saved profile: no second entry form after Create (OME-2075).
   await expect(owner.locator(site.room)).toBeVisible();
+  await expect(owner.locator(site.nicknameInput)).toBeHidden();
+  await expect(owner.locator(site.nicknameTag).filter({ hasText: "Owner" })).toHaveCount(1);
 
   // The invite link carries the key in the fragment only.
   const link = await owner.locator(site.inviteLink).inputValue();

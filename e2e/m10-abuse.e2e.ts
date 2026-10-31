@@ -1064,8 +1064,7 @@ test.describe("saved layouts: garbage in localStorage (own server and site)", ()
       await s.page.locator(site.createRoomTitle).fill("Abuse room");
       await s.page.locator(site.createRoomSubmit).click();
       await s.page.waitForURL(/\/r\/[a-z2-7]{26}$/);
-      await s.page.locator(site.nicknameInput).fill("owner");
-      await s.page.locator(site.joinButton).click();
+      // The creator goes straight in with the saved profile (OME-2075).
       await expect(s.page.locator(site.room)).toBeVisible();
 
       const chosen = c.choose === undefined ? null : ALL_PRESETS.find((p) => JSON.stringify(p.layout) === JSON.stringify(wantedLayout(c)));

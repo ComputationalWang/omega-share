@@ -152,7 +152,8 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     await page.locator(site.createRoomTitle).fill(title);
     await page.locator(site.createRoomSubmit).click();
     await page.waitForURL(/\/r\/[a-z2-7]{26}$/);
-    await enter(page);
+    // The creator goes straight in with the saved profile (OME-2075).
+    await expect(page.locator(site.room)).toBeVisible();
   }
 
   test("the picker offers every preset with classic checked, and a created room starts from each preset's layout", async ({ browser }) => {
@@ -201,7 +202,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     await page.locator(site.createRoomTitle).fill("Shared");
     await page.locator(site.createRoomSubmit).click();
     await page.waitForURL(/\/r\/[a-z2-7]{26}$/);
-    await enter(page);
+    await expect(page.locator(site.room)).toBeVisible();
     await expect.poll(() => roomField(page, "embed")).toMatchObject({ provider: "youtube", videoId: "dQw4w9WgXcQ" });
     expect(await layoutOf(page)).toEqual(presetLayout("classic"));
     expect(await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("omega.pendingShare.")))).toEqual([]);

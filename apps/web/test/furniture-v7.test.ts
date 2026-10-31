@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, RoomLayoutSchema, layoutSeats, type RoomLayout } from "@omega/shared";
 import { FurnitureManifestSchema, RoomManifestSchema, V7_COLOURS, sceneKey, sceneOf, seatPoints, seatTiles, usesSetG, usesV6, usesV7, type Scene } from "../src/furniture";
-import { cellCenter } from "../src/layout";
+import { cellCenter, rawCenter, setNorth } from "../src/layout";
 import { pieceSeats } from "../src/walk/lie";
 
 // The Dank Dungeon v7 hookup (OME-1991): lazy sheet, variant-to-colour table, shell skin, seats that follow layoutSeats.
@@ -96,7 +96,9 @@ describe("sceneOf: a variant picks its colour across sheets", () => {
 });
 
 describe("sceneOf: the dungeon shell skin", () => {
-  const withShell = (extra: RoomLayout["furniture"] = []): RoomLayout => ({ ...one(...extra), shell: "dungeon" });
+  // The skin splits on the layout's partition line (ADR 0058): the dungeon's row 4.
+  const wall4: RoomLayout["furniture"] = [{ kind: "partition", col: 2, row: 4, facing: "sw" }];
+  const withShell = (extra: RoomLayout["furniture"] = []): RoomLayout => ({ ...one(...wall4, ...extra), shell: "dungeon" });
   const shell = (s: Scene): string[] => keysOf(s).filter((k) => /^(floor|wall)\//.test(k));
   test("floors, walls, corner and ends swap keys, all frames of v7", () => {
     const s = sceneOf(withShell(), [v7], room);
@@ -182,5 +184,63 @@ describe("the night pane mask (OME-1994 art)", () => {
   test("the scene key changes with the mood, so the stage redraws", () => {
     expect(sceneKey(wall(1, "night"))).not.toBe(sceneKey(wall(1)));
     expect(sceneKey(wall(1, "none"))).toBe(sceneKey(wall(1)));
+  });
+});
+
+describe("sceneOf: the generic partition split (OME-2070, ADR 0058)", () => {
+  const shellKeys = (s: Scene): string[] => keysOf(s).filter((k) => /^(floor|wall)\//.test(k));
+  const keyAt = (s: Scene, x: number, y: number, prefix: string): string | undefined => {
+    const p = rawCenter(x, y);
+    return s.sprites.find((k) => k.x === p.x && k.y === p.y && k.key.startsWith(prefix) && !k.key.includes("/end/"))?.key;
+  };
+
+  test("Dank Dungeon draws exactly as before, from the south and the north", () => {
+    expect(sceneOf(dungeon, [manifest, v5, v6, v7], room)).toMatchSnapshot();
+    setNorth(true);
+    try {
+      expect(sceneOf(dungeon, [manifest, v5, v6, v7], room)).toMatchSnapshot();
+    } finally {
+      setNorth(false);
+    }
+  });
+
+  test("the split row comes from the partitions, not a constant", () => {
+    const s = sceneOf({ ...one({ kind: "partition", col: 3, row: 6, facing: "sw" }), shell: "dungeon" }, [v7], room);
+    expect(keyAt(s, 2, 5, "floor/")).toBe("floor/carpet/1");
+    expect(keyAt(s, 2, 6, "floor/")).toBe("floor/split/0");
+    expect(keyAt(s, 2, 7, "floor/")).toBe("floor/deck/1");
+    expect(keyAt(s, 0, 6, "wall/l/")).toBe("wall/l/split");
+    expect(keyAt(s, 0, 5, "wall/l/")).toBe("wall/l/oak");
+  });
+
+  test("a column of partitions splits on its col: the right wall carries the split, the shell's frames are named by its value", () => {
+    const layout: RoomLayout = { ...one({ kind: "partition", col: 6, row: 2, facing: "se" }, { kind: "partition", col: 6, row: 4, facing: "se" }), shell: "penthouse" };
+    const frame = { frame: { x: 0, y: 0, w: 1, h: 1 }, anchor: { x: 0, y: 0 } };
+    const art = { ...v7, frames: { ...v7.frames, "floor/penthouse/front/0": frame } };
+    const s = sceneOf(layout, [art], room);
+    expect(keyAt(s, 5, 8, "floor/")).toBe("floor/penthouse/back/1");
+    expect(keyAt(s, 6, 8, "floor/")).toBe("floor/penthouse/split/0");
+    expect(keyAt(s, 7, 8, "floor/")).toBe("floor/penthouse/front/1");
+    expect(keyAt(s, 6, 0, "wall/r/")).toBe("wall/r/penthouse/split");
+    expect(keyAt(s, 7, 0, "wall/r/")).toBe("wall/r/penthouse/front");
+    expect(keyAt(s, 0, 9, "wall/l/")).toBe("wall/l/penthouse/back");
+    for (const k of ["wall/corner/penthouse/back", "wall/l/end/penthouse/back", "wall/r/end/penthouse/front"]) expect(shellKeys(s)).toContain(k);
+    setNorth(true);
+    try {
+      const n = sceneOf(layout, [art], room);
+      expect(keyAt(n, 3, 8, "floor/")).toBe("floor/penthouse/split/north/1");
+      expect(keyAt(n, 3, 0, "wall/r/")).toBe("wall/r/penthouse/split/north");
+      expect(keyAt(n, 2, 0, "wall/r/")).toBe("wall/r/penthouse/front");
+      expect(keyAt(n, 0, 0, "wall/l/")).toBe("wall/l/penthouse/front");
+    } finally {
+      setNorth(false);
+    }
+  });
+
+  test("a shell without its frames, or without a partition line, draws today's shell", () => {
+    const plain = shellKeys(sceneOf(one(), [v7], room));
+    expect(shellKeys(sceneOf({ ...one(), shell: "dungeon" }, [v7], room))).toEqual(plain);
+    const col = one({ kind: "partition", col: 6, row: 2, facing: "se" });
+    expect(shellKeys(sceneOf({ ...col, shell: "studio" }, [v7], room))).toEqual(shellKeys(sceneOf(col, [v7], room)));
   });
 });

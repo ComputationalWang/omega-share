@@ -233,7 +233,18 @@ const wave2 = (): unknown[] => {
   ];
 };
 
-const inputs = (): unknown[] => [...wave2(), ...theatre(), ...shapes(), ...doors(), ...moods(), ...pairs(), ...shells(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** Fixtures exist only in the default shell (OME-2085, ADR 0058 amendment): every wall anchor with and without a shell. */
+const fixtures = (): unknown[] =>
+  [undefined, "penthouse", "studio", "dungeon"].flatMap((shell) =>
+    ["frame", "window", "wallscreen", "projector"].flatMap((kind) =>
+      Array.from({ length: 10 }, (_, i) => [
+        { kind, col: i, row: 0, facing: "sw" },
+        { kind, col: 0, row: i, facing: "se" },
+      ]).flatMap((pieces) => pieces.map((p) => ({ furniture: [...(kind === "wallscreen" || kind === "projector" ? [] : [TV]), ...CHAIRS, p], ...(shell === undefined ? {} : { shell }) }))),
+    ),
+  );
+
+const inputs = (): unknown[] => [...fixtures(), ...wave2(),...theatre(), ...shapes(), ...doors(), ...moods(), ...pairs(), ...shells(), ...pads(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));
