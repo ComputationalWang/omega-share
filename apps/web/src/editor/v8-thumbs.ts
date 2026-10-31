@@ -1,8 +1,11 @@
-/** The wall screens' tray thumbs: rects in furniture-v8.png (`thumb/<id>/<colour>`, not in ui/edit.png; pinned to the sheet by wall-screens.test.ts, OME-2069). */
+/**
+ * Tray art for pieces with no `thumb/<id>/<colour>` in ui/edit.png (OME-2095, assets/README.md "Budget levers"): the piece's `se` frame
+ * in furniture-v8.png, scaled down at runtime (pinned to the sheet by wall-screens.test.ts).
+ */
 export const V8_THUMBS: Readonly<Record<string, { readonly x: number; readonly y: number; readonly w: number; readonly h: number }>> = {
-  wallscreen: { x: 426, y: 659, w: 31, h: 36 },
-  projector: { x: 321, y: 650, w: 25, h: 38 },
+  wallscreen: { x: 76, y: 527, w: 62, h: 70 },
+  projector: { x: 154, y: 0, w: 76, h: 119 },
 };
 
-/** Stub (red, OME-2095). */
-export const trayScale = (_r: { readonly w: number; readonly h: number }): number => 1;
+/** The divisor n (≥ 2, so at most half size) that fits a frame in the slot's 44×40 cubby; whole, so pixels stay even. */
+export const trayScale = (r: { readonly w: number; readonly h: number }): number => Math.max(2, Math.ceil(r.w / 44), Math.ceil(r.h / 40));
