@@ -117,12 +117,23 @@ describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => 
     expect(clip.dataset["keys"]).toBe("row");
   });
 
+  test("a wide window shorter than the portrait floor (Pixel 7 landscape, 863×360, OME-2103) still shows the room beside its key row", async () => {
+    const { win, clip } = await setup();
+    win.set(true, 540, 90);
+    expect(clip.dataset["keys"]).toBe("side");
+    expect(clip.style.visibility).toBe("");
+    win.set(true, 540, 40);
+    expect(clip.style.visibility).toBe("hidden");
+  });
+
   test("windowH: a wide window takes what the column leaves if the room shows in it, else the keys' column and the column scrolls", async () => {
     const { windowH, KEYS_COLUMN_H } = await import("../src/room-window");
     expect(windowH(540, 120)).toBe(120);
     expect(windowH(540, 40)).toBe(KEYS_COLUMN_H);
     expect(windowH(395, 105)).toBe(KEYS_COLUMN_H);
     expect(windowH(540, 200)).toBe(200);
+    // Its keys in a row beside it need one key's height, not the portrait floor (OME-2103: 90 px at 863×360).
+    expect(windowH(540, 90)).toBe(90);
   });
 });
 
