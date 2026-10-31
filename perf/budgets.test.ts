@@ -155,8 +155,8 @@ describe("budgets", () => {
     }
   });
 
-  test("an idle room with every ambient loop visible has a work-per-second (≤ 2 ms desktop, ≤ 4 ms Pixel 7) and a renders-per-second (≤ 8) row (OME-2067, ADR 0058 amendment OME-2079)", () => {
-    for (const [p, ms, pl] of [["desktop", 2, "desktop"], ["phone", 4, "Pixel 7"]] as const) {
+  test("an idle room with every ambient loop visible has a work-per-second (≤ 16 ms desktop, ≤ 36 ms Pixel 7 with the loops) and a renders-per-second (≤ 8) row (OME-2067, ADR 0058 amendment OME-2079, OME-2068)", () => {
+    for (const [p, ms, pl] of [["desktop", 16, "desktop"], ["phone", 36, "Pixel 7"]] as const) {
       const work = BUDGETS.find((x) => x.id === `idle.workPerS.${p}`);
       const renders = BUDGETS.find((x) => x.id === `idle.rendersPerS.${p}`);
       expect([work?.area, work?.unit, work?.limit, work?.comparator]).toEqual(["Site", "ms", ms, "<="]);
