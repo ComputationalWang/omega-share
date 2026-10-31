@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Container, Sprite, Texture, Ticker } from "pixi.js";
-import { bakeShell, quietSystemTicker, sceneSprite } from "../src/room-view";
+import { bakeShell, quietSystemTicker, runningLoops, sceneSprite } from "../src/room-view";
 
 // OME-185: the room renders on demand, but Pixi's SchedulerSystem (texture GC timers) and EventsTicker sit on
 // Ticker.system, which auto-starts a requestAnimationFrame loop that ran every frame for nothing (trace: ~0.06 ms/frame).
@@ -89,5 +89,24 @@ describe("sceneSprite", () => {
 
   test("a sprite without alpha is opaque", () => {
     expect(sceneSprite(Texture.WHITE, solid).alpha).toBe(1);
+  });
+});
+
+// OME-2068 (ADR 0058 §2): the loops handed to the animator. An ambient loop runs at rest while ambience is on (Smooth, no
+// reduced motion, stage on screen, editor shut); any loop runs while its piece is in use.
+describe("runningLoops", () => {
+  const fire = { piece: 0, ambient: true };
+  const neon = { piece: 1, ambient: true };
+  const arcade = { piece: 2 };
+  const all = [fire, neon, arcade];
+
+  test("ambience on: every ambient loop, plus the pieces in use", () => {
+    expect(runningLoops(all, new Set<number>(), true)).toEqual([fire, neon]);
+    expect(runningLoops(all, new Set([2]), true)).toEqual([fire, neon, arcade]);
+  });
+
+  test("ambience off: only the pieces in use, ambient or not", () => {
+    expect(runningLoops(all, new Set<number>(), false)).toEqual([]);
+    expect(runningLoops(all, new Set([1, 2]), false)).toEqual([neon, arcade]);
   });
 });

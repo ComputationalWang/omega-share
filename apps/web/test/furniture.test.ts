@@ -496,7 +496,7 @@ describe("sceneOf: in-use loops (OME-1407)", () => {
 
   test("a piece with a loop carries its frames, frame time and furniture index; others none", () => {
     expect(sprite(scene, "furniture/arcade/night/se/back").use).toEqual({ piece: 1, frames: ["furniture/arcade/night/use/se/0", "furniture/arcade/night/use/se/1", "furniture/arcade/night/use/se/2"], ms: 160 });
-    expect(sprite(scene, "furniture/neonsign/teal/se/back").use).toEqual({ piece: 2, frames: ["furniture/neonsign/teal/use/se/0", "furniture/neonsign/teal/use/se/1", "furniture/neonsign/teal/use/se/2"], ms: 140 });
+    expect(sprite(scene, "furniture/neonsign/teal/se/back").use).toEqual({ piece: 2, frames: ["furniture/neonsign/teal/use/se/0", "furniture/neonsign/teal/use/se/1", "furniture/neonsign/teal/use/se/2"], ms: 140, ambient: true });
     expect(sprite(scene, "furniture/speaker/wood/se/back").use).toBeUndefined();
   });
 
@@ -607,7 +607,9 @@ describe("batch 6: hammock, stool, bar counter, piano, fireplace", () => {
     expect(sprite(s, "furniture/stool/teal/ne/back")).toMatchObject(cellCenter(3, 1));
     expect(sprite(s, "furniture/hammock/rust/ne/back").use).toMatchObject({ piece: 1, ms: 260 });
     expect(sprite(s, "furniture/piano/charcoal/se/back").use?.frames).toHaveLength(2);
-    expect(sprite(s, "furniture/fireplace/stone/sw/back").use?.ms).toBe(120);
+    expect(sprite(s, "furniture/fireplace/stone/sw/back").use).toMatchObject({ ms: 120, ambient: true });
+    // OME-2068 (ADR 0058 §2): the fireplace and the neon sign loop at rest too; a hammock only while someone sits in it.
+    expect(sprite(s, "furniture/hammock/rust/ne/back").use?.ambient).toBeUndefined();
     expect(sprite(s, "furniture/barcounter/wood/se/back").use).toBeUndefined();
   });
 

@@ -1,7 +1,7 @@
 // OME-2067 (ADR 0058 §2): what an idle room costs once ambient loops end its 0 fps idle. The observer alone, forced
 // Smooth tier, no video, holiday themes off, on desktop Chromium and a Pixel 7 (room fitted, so every piece is on
-// screen), shown the cafe preset (OMEGA_PERF_IDLE_LAYOUT=<preset id> picks another; the ambient loops PR puts every
-// looping piece in it). After the room settles, one 10 s window: idle.workPerS.<profile> is the renderer's main-thread
+// screen), shown the bar preset: it has every ambient loop, the fireplace and the neon sign (OME-2068;
+// OMEGA_PERF_IDLE_LAYOUT=<preset id> picks another). After the room settles, one 10 s window: idle.workPerS.<profile> is the renderer's main-thread
 // TaskDuration (CDP Performance.getMetrics) per second, idle.rendersPerS.<profile> the room canvas's renders per second.
 import { devices, expect, test } from "@playwright/test";
 import type { BrowserContextOptions, Page } from "@playwright/test";
@@ -15,7 +15,7 @@ import { presetFile, showLayout } from "./show-layout";
 
 const WINDOW_MS = 10_000;
 const SETTLE_MS = 3000;
-const LAYOUT_PRESET = process.env["OMEGA_PERF_IDLE_LAYOUT"] ?? "cafe";
+const LAYOUT_PRESET = process.env["OMEGA_PERF_IDLE_LAYOUT"] ?? "bar";
 const PROFILES = ["desktop", "phone"] as const;
 
 /** A `window.__omega.room` getter (apps/web/src/main.ts), e.g. `roomRenders` or `furnitureLoops`. */

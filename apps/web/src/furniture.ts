@@ -210,6 +210,8 @@ const FRONT_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", 
 const ON_KINDS: ReadonlySet<FurnitureKind> = new Set(["pad"]);
 const SEATED_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock"]);
 const PLAYING_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
+/** Their loop also runs at rest (ADR 0058 §2, OME-2068), gated by the room (room-view.ts `runningLoops`). */
+const AMBIENT_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
 /** A one-frame "loop" never steps; the frame time only has to be a valid one. */
 const OPEN_MS = 3_600_000;
 /** From a piece's cell to the one at its front: +col is se, +row is sw on screen (cellCenter). */
@@ -307,7 +309,7 @@ export interface FurnitureSprite {
   readonly layer: "floor" | "wall" | "object";
   readonly z: number;
   /** An "in use" loop (OME-1407): the furniture index, the loop's frame keys and its frame time. */
-  readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
+  readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number; readonly ambient?: true };
   /** A piece that wanders (the cat, OME-1520): its furniture index, home cell, walk frames per drawn facing, sit frames, empty bed frame and walk frame time. */
   readonly walker?: CatWalker;
   /** Drawn translucent (the night pane mask); absent is opaque. */
@@ -452,7 +454,7 @@ function pushSprites(
       z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
       // The loop swaps the back frame in place. An open piece (a door) or a cut one (a partition, OME-1960) has one frame: a state.
       ...(part === "back" && piece.use !== undefined
-        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms } }
+        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms, ...(AMBIENT_KINDS.has(f.kind) ? { ambient: true as const } : {}) } }
         : part === "back" && states && (piece.open === true || piece.cut === true)
           ? { use: { piece: index, frames: [frame(`${piece.open === true ? "open" : "cut"}/${f.facing}`)], ms: OPEN_MS } }
           : part === "back" && piece.walk !== undefined

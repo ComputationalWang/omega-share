@@ -6,6 +6,8 @@
 // above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock; a conga
 // member (OME-1690) walks in it.
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
+// Ambient loops (ADR 0058 §2, OME-2068) are loops too; while one runs, every wake-up at rest snaps to the walkers' 150 ms
+// clock, so loops and breathing share their renders.
 import type { LieStyle, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
 import { LIE_MS, lieKeys } from "./lie";
@@ -14,6 +16,10 @@ import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, 
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
 export const BREATHE_TICK_MS = 400;
+
+/** The ambient loops' shared clock, the walkers' step: with one running, a room at rest renders under 7 times a second.
+ * Not 8 fps: 81 ticks fit a 10 s window, and the ≤ 8 renders/s row (OME-2067) measured 8.3–8.4 (ADR 0058, OME-2068). */
+const AMBIENT_TICK_MS = WALK_FRAME_MS;
 
 /** How far above the floor point a sticker's bottom sits: just over the head, standing or seated. */
 export const EMOTE_LIFT = { idle: 60, sit: 50 } as const;
@@ -57,6 +63,8 @@ export interface AnimatorOptions {
 export interface FurnitureLoop {
   readonly frames: number;
   readonly ms: number;
+  /** Runs at rest (ADR 0058 §2, OME-2068): while one runs, every wake-up at rest lands on the shared AMBIENT_TICK_MS clock. */
+  readonly ambient?: boolean;
 }
 
 export interface Animator {
@@ -96,6 +104,8 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let nextEmote = Infinity;
   /** Furniture "in use" loops running now (OME-1407). */
   let loops: readonly FurnitureLoop[] = [];
+  /** One of `loops` is ambient. */
+  let ambient = false;
   /** Set by drawAll: ms until the next loop frame change (Infinity if none). */
   let nextLoop = Infinity;
   /** Set by drawAll: someone danced in it, so the next frame is on the walkers' clock. */
@@ -274,9 +284,9 @@ export function createAnimator(o: AnimatorOptions): Animator {
       const ms = o.walks.jogging(now) ? WALK_FRAME_MS / 2 : WALK_FRAME_MS;
       const at = (Math.floor(now / ms) + 1) * ms;
       wait = Math.min(wait, at - now);
-    } else if (nextBreath !== Infinity) {
-      const at = Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS;
-      wait = Math.min(wait, at - now);
+    } else {
+      if (nextBreath !== Infinity) wait = Math.min(wait, Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS - now);
+      if (ambient && wait !== Infinity) wait = Math.ceil((now + wait) / AMBIENT_TICK_MS) * AMBIENT_TICK_MS - now;
     }
     if (wait !== Infinity) timer = o.setTimer(onTimer, wait);
   }
@@ -293,6 +303,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     },
     setLoops(next) {
       loops = next;
+      ambient = next.some((l) => l.ambient === true);
       requestFrame();
     },
     setFrames(f) {

@@ -91,7 +91,7 @@ export interface RoomView {
   catCells(): number[];
   /** The cat on `cell` shows a heart for one play (OME-1669); nothing under reduced motion. */
   petCat(cell: number): void;
-  /** Where members stand (walk cells: a cat waits rather than walk into one), and the owner editor's freeze (cats home). Per change. */
+  /** Where members stand (walk cells: a cat waits rather than walk into one), and the owner editor's freeze (cats home, ambient loops still). Per change. */
   setCatRules(taken: ReadonlySet<number>, frozen: boolean): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
@@ -225,6 +225,11 @@ interface Loop extends FurnitureLoop {
   readonly piece: number;
   readonly idle: Texture;
   readonly textures: readonly Texture[];
+}
+
+/** The loops the animator runs: the pieces in use, and the ambient loops while ambience is on (ADR 0058 §2, OME-2068). */
+export function runningLoops<L extends { readonly piece: number; readonly ambient?: boolean }>(loops: readonly L[], inUse: ReadonlySet<number>, ambient: boolean): L[] {
+  return loops.filter((l) => inUse.has(l.piece) || (ambient && l.ambient === true));
 }
 
 /** A texture swap keeps the old anchor; a partition's cut stub (OME-1960) has its own. */
@@ -606,6 +611,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       lastWorkMs = performance.now() - start;
       probe.rendered(start, frameTs, walking);
       showTier();
+      // The tier may have settled Basic: ambience goes off with it.
+      syncAmbient();
     },
     draw(id, avatar, pose, frame) {
       const entry = pool.get(id);
@@ -1074,11 +1081,30 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     render();
   };
 
-  /** Hand the in-use loops to the animator; pieces no longer in use go back to their idle frame. */
+  // Ambient loops (ADR 0058 §2, OME-2068) run where the theme effect may (no reduced motion, not Basic), while the stage
+  // is on screen and the editor is shut. They ride the animator, so a paused room or a hidden tab (rAF) draws none.
+  let stageInView = false;
+  let editing = false;
+  let ambientOn = false;
+  const syncAmbient = (): void => {
+    const on = stageInView && !editing && effectAllowed();
+    if (on === ambientOn) return;
+    ambientOn = on;
+    applyLoops();
+  };
+  const stageObserver = new IntersectionObserver((entries) => {
+    const e = entries.at(-1);
+    if (e === undefined) return;
+    stageInView = e.isIntersecting;
+    syncAmbient();
+  });
+  stageObserver.observe(app.canvas);
+
+  /** Hand the running loops to the animator; the rest go back to their idle frame. */
   const applyLoops = (): void => {
     const was = running.length;
-    running = looping.filter((l) => inUse.has(l.piece));
-    for (const l of looping) if (!inUse.has(l.piece) && l.sprite.texture !== l.idle) setLoopFrame(l.sprite, l.idle);
+    running = runningLoops(looping, inUse, ambientOn);
+    for (const l of looping) if (!running.includes(l) && l.sprite.texture !== l.idle) setLoopFrame(l.sprite, l.idle);
     // Nothing looped and nothing does: no frame to ask for (a scene build in a room without loops costs no render).
     if (was > 0 || running.length > 0) animator.setLoops(running);
   };
@@ -1118,7 +1144,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           // A loop runs only with all its frames in a loaded sheet; otherwise the piece stays still.
           const textures = f.use.frames.flatMap((k) => sheets.map((sheet) => sheet?.texture(k)).find((t) => t !== undefined) ?? []);
           live = textures.length === f.use.frames.length;
-          if (live) looping.push({ sprite: s, piece: f.use.piece, idle: texture, textures, frames: textures.length, ms: f.use.ms });
+          if (live) looping.push({ sprite: s, piece: f.use.piece, idle: texture, textures, frames: textures.length, ms: f.use.ms, ambient: f.use.ambient === true });
         }
         // The cat's bed swaps to empty while it's out (OME-1520): drawn live, like a loop.
         if (f.walker !== undefined) {
@@ -1190,6 +1216,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     setCatRules(taken, frozen) {
       catTaken = taken;
+      editing = frozen;
+      syncAmbient();
       if (frozen === catsFrozen) return;
       catsFrozen = frozen;
       moveCats(!wanders());
@@ -1395,6 +1423,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       clearTimeout(catTimer);
       stopClocks?.();
       fxObserver.disconnect();
+      stageObserver.disconnect();
       fxCanvas.remove();
       sparkle.remove();
       for (const b of spotSparkles.values()) b.remove();
