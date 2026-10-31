@@ -155,6 +155,17 @@ describe("budgets", () => {
     }
   });
 
+  test("an idle room with every ambient loop visible has a work-per-second (≤ 2 ms desktop, ≤ 4 ms Pixel 7) and a renders-per-second (≤ 8) row (OME-2067, ADR 0058 amendment OME-2079)", () => {
+    for (const [p, ms, pl] of [["desktop", 2, "desktop"], ["phone", 4, "Pixel 7"]] as const) {
+      const work = BUDGETS.find((x) => x.id === `idle.workPerS.${p}`);
+      const renders = BUDGETS.find((x) => x.id === `idle.rendersPerS.${p}`);
+      expect([work?.area, work?.unit, work?.limit, work?.comparator]).toEqual(["Site", "ms", ms, "<="]);
+      expect([renders?.area, renders?.unit, renders?.limit, renders?.comparator]).toEqual(["Site", "count", 8, "<="]);
+      expect(work?.docMetric).toBe(`Main-thread work per second, idle room with every ambient loop visible, ${pl}`);
+      expect(renders?.docMetric).toBe("Renders per second, idle room with every ambient loop visible");
+    }
+  });
+
   test("the movie-night heap row (moments strip + recap card) holds the 10 min heap budget (OME-1643)", () => {
     const plain = BUDGETS.find((x) => x.id === "site.heapAfterSoak");
     const b = BUDGETS.find((x) => x.id === "site.heapMovieNight");
@@ -222,8 +233,8 @@ describe("budgets", () => {
         expect(b.limit).toBe(0);
         continue;
       }
-      // A score (CLS, OME-763) has no unit in the doc.
-      const m = (b.unit === "score" ? /([≤<])\s*([\d.]+)()(?![\d.A-Za-z])/ : /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/).exec(cell);
+      // A score (CLS, OME-763) or a count (renders per second, OME-2067) has no unit in the doc.
+      const m = (b.unit === "score" || b.unit === "count" ? /([≤<])\s*([\d.]+)()(?![\d.A-Za-z])/ : /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/).exec(cell);
       expect(m, `numeric budget in "${cell}"`).not.toBeNull();
       const [, op, num, unit] = m ?? [];
       const limit = Number(num) * (unit === "s" ? 1000 : 1);

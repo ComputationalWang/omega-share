@@ -1697,6 +1697,103 @@ rigid block lying flat on the armrest. Previews: `preview/lying.html` (every fac
 - **Bytes:** `lying.png` 6 457 + `lying.json` 1 308 gz (level 9, as `build.ts` measures) = **7 765 B** of the 12 KB (12 288 B) allowance, all lazy; no other shipped
   file changes. Measured art total (after merging main, OME-1670/1631): **367 992 B of 409 600**.
 
+## Wave 2: wall screens, ambient loops, penthouse + studio (OME-2066, ADR 0058, lazy)
+
+The shipped version of the OME-2062 concepts the board passed (`preview/c2062-README.md`). Source: `src/wave2.ts`. It uses the same
+67-colour palette (no new colours), the same Kit / iso ray-caster, the plum outline and the top-left light. Two new lazy sheets, PixiJS
+v8 atlases in the v4 schema (`meta.omega.pieces`, `animations`). Everything else under `assets/` is byte-identical.
+
+| file | what | bytes |
+|---|---|---|
+| `furniture/furniture-v8.png` + `.json` | the new pieces, their loops, their back views, 2 turned shipped pieces, tray thumbnails | 30 569 + 3 213 gz |
+| `furniture/furniture-v8-shell.png` + `.json` | penthouse and studio shell skin, split floors, the near-wall stubs | 9 468 + 844 gz |
+| **total** | `main` 415 398 → **459 492 B of 460 800** (+44 094, all lazy; eager unchanged at 109 617) | |
+
+**Load:** `furniture-v8` when a layout uses one of its kinds or colours. `furniture-v8-shell` with `shell: "penthouse"` or `"studio"`
+(together with v7 and furniture-back, like the dungeon).
+
+### Pieces (`furniture/<id>/<colour>/<dir>/back`)
+
+| id / colour | variant | label | layer | facings | footprint | loop (`use`) |
+|---|---|---|---|---|---|---|
+| `wallscreen/panel` | 0 (new kind) | Wall screen: a 56 × 36 px panel on a bracket, soundbar | wall | se sw | wall, **span 2** | none |
+| `projector/cloth` | 0 (new kind) | Pull-down screen: a lit cloth, black border, pull tab, case | wall | se sw | wall, **span 3** | none |
+| `tripod/charcoal` | 0 (new kind) | Projector on a tripod | object | ne nw se sw | 1×1 | none |
+| `window/sky`, `window/rain` | 0, 1 (new kind) | Window: dusk clouds drift and a star blinks / rain streaks and drops | wall | se sw | wall | 4 × 260 ms |
+| `longclock/wood` | 0 (new kind) | Long-case clock: the pendulum swings | object (backs onto a wall) | se sw | 1×1 | 4 × 250 ms |
+| `lavalamp/lilac` | 0 (new kind) | Lava lamp: two blobs rise and sink | object | se | 1×1 | 4 × 320 ms |
+| `sidetable/mug` | **1** | Snack table, the mug steaming | object | se sw | 1×1 | 4 × 180 ms |
+| `barcounter/espresso` | **1** | Espresso bar: two cups steaming | object | se sw | 2×1 | 4 × 160 ms |
+| `barcounter/kitchen` | **2** | Kitchenette: the pot steaming | object (backs onto a wall) | se sw | 2×1 | 4 × 160 ms |
+| `speaker/jukebox` | **2** | Jukebox: light tubes chase round the arch | object | se sw | 1×1 | 4 × 150 ms |
+
+- **Colours of older kinds** follow v7's pattern. v8's `meta.omega.pieces` lists only its own colours, and the variant is fixed
+  (`V8_COLOURS` in `src/wave2.ts`): `sidetable/mug` 1, `barcounter/espresso` 1, `barcounter/kitchen` 2, `speaker/jukebox` 2. The
+  web needs a `V8_COLOURS` table beside `V7_COLOURS`.
+- **Ambient loops** use the shipped `use` schema: `furniture/<id>/<colour>/use/<dir>/<n>`, n = 0..3, frame time in
+  `pieces[].use.ms`. Frame 0 equals `back` and shares its rect. Each loop's frames share one rect (the union of the frames), so they
+  share one anchor and a loop is a texture swap. The new flag **`pieces[].ambient: true`** means "run the loop always (gated, ADR 0058
+  §2)", not only while the piece is in use. ADR 0058 proposes `…/<dir>/loop/<n>`. I kept `use/` so that the shipped loops the
+  revamps reuse cost 0 bytes: **fireplace** (4 × 120), **neonsign** (3 × 140) and **aquarium** (3 × 220). The web marks those
+  three as ambient by kind.
+- **Wall span** (`pieces[].wallSpan`, ADR 0058 §1): the frame's anchor is the anchor segment, as for `frame`. The art hangs centred on
+  the covered segments, 8 × (span − 1) units toward +row (se, left wall) or +col (sw, right wall). Draw it at the anchor cell like
+  any wall piece, with no extra offset.
+- **Projector beam** (lounge): not a sprite. It is a sparse dither of `glow` 0 (every 4th pixel, `(x + 2y) % 4 == 0`) over the hull from the
+  tripod's lens to the cloth's four corners, outside the cloth. Draw it once as a cached `Graphics`. The reference is `beam()` in
+  `src/wave2.ts`.
+- **Tray thumbnails** `thumb/<id>/<colour>` are in v8 itself, not in `ui/edit.png`, so the eager `reference.css` doesn't grow.
+  Same fit rules as set (h): ≤ 44×40, anchored on the visual centre.
+
+### Back views (swapped view)
+
+These follow the furniture-back rules: keys `furniture/<id>/<colour>/<nw|ne>/back`, anchored on the turned footprint's min corner.
+- `wallscreen/panel`, `projector/cloth` (wall): the panel's matte back with the VESA plate and vents, and the cloth's blank back under its
+  case. A wall piece at segment `s` with span `n` turns to segment `9 − s − (n − 1)` on the **near** wall: col 9 for se → nw,
+  row 9 for sw → ne. Draw it there as a ghost: every other pixel, or ~50% alpha, over `wall/stub/patch/<u|v>/<n>` at the same
+  anchor (the x-rayed patch of the near wall). This is the swapped-view rule (`preview/w2-screen-*-north`).
+- `barcounter/kitchen`, `speaker/jukebox`: turned objects.
+- Turned shipped pieces for the swap rooms, in v8 because furniture-back is at its 12 KB allowance: `aquarium/teal`, `bookshelf/wood`.
+  Round pieces (`sidetable` in both colours, `coffeetable`) have no back view: draw the source facing.
+
+### Shell skin (`furniture-v8-shell`, the room atlas's rects and anchors, as v7's skin)
+
+- Penthouse terrace: `wall/l/sky/{0,1}`, `wall/r/sky/{0,1}` (alternate by segment: `i % 2`), `wall/l/sky/split` (sky behind the
+  partition's midline, smoked panel in front), `wall/l/sky/split/north`, `wall/corner/sky`, `wall/l/end/sky`, `wall/r/end/sky`. The
+  lounge uses v7's `wall/l/smoke`, `wall/l/end/smoke`. North: v7/back's `wall/r/smoke`, `wall/corner/smoke`, `wall/r/end/smoke`.
+- Floors: `floor/pent/{0,1}` (deck behind, planks in front), `floor/pent/north/{0,1}`, `floor/nook/{0,1}` (carpet | planks),
+  `floor/nook/north/{0,1}`. The rest are v7's `floor/deck/*`, `floor/carpet/*` and the room's planks.
+- The studio keeps the room's papered walls, and its glass stripe is v6's papered `partition/glass` (variant 1). The penthouse uses
+  v7's `panelglass` (3) with a `panel` (2) end.
+- Near-wall stubs: `wall/stub/u` (one segment of the +u edge, drawn at `(9, i)`) and `wall/stub/v` (at `(i, 9)`). This is the partition's 16 px cut
+  stub run along both near edges in a swapped view.
+
+### Proposed layouts (`preview/w2-layouts/<id>.json`, contract-shaped)
+
+The five revamps (`classic`, `living`, `lounge`, `cafe`, `bar`) are the shipped preset minus the corner console, plus the screen and
+ambient pieces. Seats are unchanged, so each keeps its 8. The lounge's pull-down screen covers segments 2–4 (5 is a window
+segment), and its print moves to segment 7. Two new presets: `penthouse` (`shell: "penthouse"`) and `studio` (`shell: "studio"`),
+both on OME-1959's grid (partition on row 4, doorway at col 1).
+
+**Open contract points for the Lead** (these are proposals, nothing is wired):
+1. New kinds `wallscreen`, `projector` (screens, ADR 0058), `tripod`, `window`, `longclock`, `lavalamp`, and variant counts
+   `sidetable` 2, `barcounter` 3, `speaker` 3.
+2. **Fixture segments in a skinned shell.** In both swap rooms the front room has only left-wall segments 5–9, and 5, 6 and 8 are
+   `WALL_FIXTURE_SEGMENTS`. A span-2 screen can't hang there. The skin draws no window, poster or sconce, so I propose fixtures only
+   for the default shell. The proposals hang the screen at (0, 7) (penthouse) and (0, 8) (studio) on that basis.
+3. One screen per room stays. From the far side of the partition the screen shows as its ghosted back on the near wall. The concept's
+   "a screen per side" would need either a second screen or the web repeating the screen's front on the far wall. That decision
+   is the web's (ADR 0058 §1), and no new art is needed for either option.
+
+Previews: `w2-<preset>@1x/@2x.png` + `@1x.apng` (every loop on its own clock), `w2-penthouse-{south,north}`,
+`w2-studio-{south,north}`, `w2-screen-{wallscreen,projector}-{south,north}`, `w2-ambient-strip@4x.png`, and
+`furniture-v8-atlas@2x.png` / `furniture-v8-shell-atlas@2x.png`.
+
+**Budget levers, if the next set needs room:** move the tray thumbnails to a runtime-scaled `se` frame (−2.3 KB); make the espresso
+and jukebox one facing (about −2.8 KB, but needs per-variant facings); a single skyline (−0.6 KB); or loops as small overlay sprites
+in place of whole-piece frames (an engineering change: the espresso, kitchenette and jukebox loops repeat the whole piece for a few
+moving pixels).
+
 ## Budget
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
@@ -1738,7 +1835,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 376 550 B** after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 459 492 B** after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

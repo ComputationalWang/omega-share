@@ -58,7 +58,7 @@ function tileUV(px: number, py: number): { u: number; v: number } | null {
   return u >= -8 && u < 8 && v >= -8 && v < 8 ? { u, v } : null;
 }
 
-function floorTile(key: string, paint: (u: number, v: number) => Paint): RoomFrame {
+export function floorTile(key: string, paint: (u: number, v: number) => Paint): RoomFrame {
   const img = new Uint8Array(TILE.w * TILE.h);
   for (let py = 0; py < TILE.h; py++) {
     for (let px = 0; px < TILE.w; px++) {
@@ -246,7 +246,7 @@ export function rightWall(variant: WallVariant): Solid {
 const CANVAS = { w: 400, h: 340, ax: 200, ay: 290 } as const;
 
 /** `keepOutline(x, y)` (anchor-relative) can drop outline pixels that would land on a neighbour frame. */
-function solidsFrame(key: string, solids: readonly Solid[], outline: "all" | "top" | "none" = "all", keepOutline?: (x: number, y: number) => boolean): RoomFrame {
+export function solidsFrame(key: string, solids: readonly Solid[], outline: "all" | "top" | "none" = "all", keepOutline?: (x: number, y: number) => boolean): RoomFrame {
   const r = renderSolids(solids, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, outline);
   if (keepOutline) {
     for (let i = 0; i < r.img.length; i++) {
@@ -692,7 +692,7 @@ export function panelPaint(skin: PanelSkin, s: number, z: number, lit: boolean):
 
 /** Bedroom carpet (OME-1977: one step lighter and warmer than the concept's): a taupe tweed (charcoal flecked with brown) with
  *  thin gold veins. Periodic in 16, so any tile joins any other; the variant only moves the tweed. */
-function carpetTile(variant: number): (u: number, v: number) => Paint {
+export function carpetTile(variant: number): (u: number, v: number) => Paint {
   return (u, v) => {
     const a = (((u + 2.2 * Math.sin((v * Math.PI) / 8)) % 16) + 16) % 16;
     const b = (((v + 8 + 2 * Math.sin((u * Math.PI) / 8 + 1)) % 16) + 16) % 16;
@@ -702,7 +702,7 @@ function carpetTile(variant: number): (u: number, v: number) => Paint {
 }
 
 /** Spa deck: wood slats along the col axis with dark gaps, staggered butt joints, a lighter slat here and there. */
-function deckTile(variant: number): (u: number, v: number) => Paint {
+export function deckTile(variant: number): (u: number, v: number) => Paint {
   return (u, v) => {
     if ((((v + 8) % 4) + 4) % 4 < 0.6) return ["charcoal", 2];
     const lane = Math.floor((v + 8) / 4);

@@ -2049,6 +2049,10 @@ export interface PieceMeta {
   /** Sleepers side by side (the queen bed, OME-1983): `furniture/<id>/<colour>/cover/<dir>/<0..covers-1>`, the duvet pulled
    *  over that sleeper, in `back`'s rect (same anchor). Draw it right after its sleeper (lying.json `pieces`). */
   covers?: number;
+  /** Wave 2 (OME-2066, ADR 0058): the `use` loop runs always, as ambience (gated by the web), not only while someone uses it. */
+  ambient?: true;
+  /** Wave 2: wall segments covered from the anchor toward +row (se) / +col (sw). Absent = 1. */
+  wallSpan?: number;
 }
 
 export interface PieceDef {
@@ -2282,10 +2286,10 @@ const swapsAxes = (d: FurnDir): boolean => d === "nw" || d === "se";
 /** Frames beside a facing's `back`/`front` layers: loops, alternates, the cat's frames, the queen bed's covers. */
 const EXTRA_FRAMES: ReadonlySet<string> = new Set(["use", "open", "cut", "walk", "sit", "bed", "cover"]);
 
-export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
+export function buildFurniture(defs: readonly PieceDef[] = PIECES): { frames: RoomFrame[]; pieces: PieceMeta[] } {
   const frames: RoomFrame[] = [];
   const pieces: PieceMeta[] = [];
-  for (const def of PIECES) {
+  for (const def of defs) {
     const layersByDir: PieceMeta["layersByDir"] = {};
     for (const colour of def.colours) {
       for (const dir of def.dirs) {

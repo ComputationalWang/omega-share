@@ -118,6 +118,12 @@ export const site = {
   editorCursor: id("editor-cursor"),
   editorMessage: id("editor-message"),
   editorSave: id("editor-save"),
+  editorCount: id("editor-count"),
+  // OME-2074: Done or Escape with unsaved changes asks first.
+  editorLeave: id("editor-leave"),
+  editorLeaveSave: id("editor-leave-save"),
+  editorLeaveDiscard: id("editor-leave-discard"),
+  editorLeaveKeep: id("editor-leave-keep"),
   // OME-1502: the room mood radios (data-mood) and the one layer that shows the mood and the cinema dim.
   editorMood: id("editor-mood"),
   roomTint: ".cinema-dim",

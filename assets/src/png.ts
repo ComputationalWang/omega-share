@@ -75,8 +75,9 @@ export function encodeIndexedPng(width: number, height: number, pixels: Uint8Arr
   return out;
 }
 
-/** Animated PNG (APNG) of equal-size indexed frames, looping forever. Preview use only. */
-export function encodeIndexedApng(width: number, height: number, frames: readonly Uint8Array[], delaysMs: readonly number[], palette: readonly RGBA[]): Uint8Array {
+/** Animated PNG (APNG) of equal-size indexed frames, looping forever. Preview use only. `over`: frames after the first blend over
+ *  the previous one, so a frame can leave unchanged pixels transparent (index 0) and compress to its changes. */
+export function encodeIndexedApng(width: number, height: number, frames: readonly Uint8Array[], delaysMs: readonly number[], palette: readonly RGBA[], over = false): Uint8Array {
   const still = encodeIndexedPng(width, height, frames[0] ?? new Uint8Array(width * height), palette);
   // Reuse the still's IHDR/PLTE/tRNS: walk its chunks and keep everything before IDAT.
   const head: Uint8Array[] = [still.subarray(0, 8)];
@@ -103,6 +104,7 @@ export function encodeIndexedApng(width: number, height: number, frames: readonl
     f.setUint32(8, height);
     f.setUint16(20, delaysMs[i] ?? 100);
     f.setUint16(22, 1000);
+    if (over && i > 0) fctl[25] = 1;
     parts.push(chunk("fcTL", fctl));
     const raw = new Uint8Array((width + 1) * height);
     for (let y = 0; y < height; y++) raw.set(px.subarray(y * width, (y + 1) * width), y * (width + 1) + 1);

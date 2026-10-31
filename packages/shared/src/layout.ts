@@ -75,7 +75,7 @@ export const FURNITURE = {
   couch: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2, lie: "lie" }),
   wingback: piece("object", FACINGS, ONE, { seats: true }),
   beanbag: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
-  sidetable: piece("object", CAMERA, ONE),
+  sidetable: piece("object", CAMERA, ONE, { variants: 2 }),
   arclamp: piece("object", CAMERA, ONE, { variants: 3 }),
   monstera: piece("object", CAMERA, ONE, { variants: 4 }),
   popcorn: piece("object", CAMERA, ONE),
@@ -85,7 +85,7 @@ export const FURNITURE = {
   floorcushion: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
   bench: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
   turntable: piece("object", CAMERA, ONE),
-  speaker: piece("object", CAMERA, ONE, { variants: 2 }),
+  speaker: piece("object", CAMERA, ONE, { variants: 3 }),
   /** Curl up beside it; it stays a non-seat, so seat indices don't move (OME-1773). */
   cat: piece("object", CAMERA, ONE, { variants: 2, lie: "curl" }),
   wallshelf: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 3 }),
@@ -101,7 +101,7 @@ export const FURNITURE = {
   // Batch 6 (`assets/furniture/furniture-v4.json`, lazy). The counter and piano may back onto a wall but stand free too.
   hammock: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
   stool: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
-  barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }),
+  barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 3 }),
   piano: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 2 }),
   fireplace: piece("object", CAMERA, ONE, { wallBacked: true }),
   /** A teleport pad (OME-1545): a layout holds 0 or exactly 2, and a `walk` with `teleport` goes from one to the other. */
@@ -136,6 +136,12 @@ export const FURNITURE = {
   wallscreen: piece("wall", CAMERA, { cols: 0, rows: 0 }, { wallSpan: 2 }),
   /** A pull-down screen over 3 wall segments. */
   projector: piece("wall", CAMERA, { cols: 0, rows: 0 }, { wallSpan: 3 }),
+  // Wave 2 (OME-2085, ADR 0058 amendment, `assets/furniture/furniture-v8.json`, lazy). Sidetable, barcounter and speaker take a v8 colourway too.
+  tripod: piece("object", FACINGS, ONE),
+  /** Variant 1 is the rainy one. */
+  window: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
+  longclock: piece("object", CAMERA, ONE, { wallBacked: true }),
+  lavalamp: piece("object", FIXED, ONE),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;
@@ -147,7 +153,7 @@ export const SCREEN_KINDS = ["tv", "bigscreen", "wallscreen", "projector"] as co
 const screenKinds: readonly FurnitureKind[] = SCREEN_KINDS;
 export const isScreen = (kind: FurnitureKind): boolean => screenKinds.includes(kind);
 
-/** Wall segments with a window, poster or sconce (the same on both walls); frames need a plain one. */
+/** Wall segments with a window, poster or sconce (the same on both walls) in the default shell; frames need a plain one. A `shell` has none (ADR 0058). */
 export const WALL_FIXTURE_SEGMENTS: readonly number[] = [5, 6, 8];
 
 /** A piece's place in `layout.furniture` (OME-1773): an integer in `0..MAX_FURNITURE`. */
@@ -186,8 +192,11 @@ function onItsWall(f: Placed): boolean {
   const spec: FurnitureSpec = FURNITURE[f.kind];
   if (spec.layer !== "wall" && !spec.wallBacked) return true;
   if (f.facing === "sw" ? f.row !== 0 : f.col !== 0) return false;
-  return spec.layer !== "wall" || wallSegments(f).every((i) => i < FLOOR_CELLS && !WALL_FIXTURE_SEGMENTS.includes(i));
+  return spec.layer !== "wall" || wallSegments(f).every((i) => i < FLOOR_CELLS);
 }
+
+/** A wall piece over a window, poster or sconce of the default shell (OME-2085): refused in a layout without a `shell`. */
+export const onFixture = (f: Placed): boolean => FURNITURE[f.kind].layer === "wall" && wallSegments(f).some((i) => WALL_FIXTURE_SEGMENTS.includes(i));
 
 const FURNITURE_ENTRIES = {
   kind: FurnitureKindSchema,
@@ -329,6 +338,7 @@ const roomLayout = (base: v.ObjectSchema<LayoutEntries, undefined> | v.StrictObj
     v.check((l) => disjoint(l.furniture, "floor"), "rugs overlap"),
     v.check((l) => disjoint(l.furniture, "wall"), "wall pieces share a segment"),
     v.check((l) => onePartitionLine(l.furniture), "more than one partition line"),
+    v.check((l) => l.shell !== undefined || !l.furniture.some(onFixture), "wall piece on a fixture"),
   );
 
 /** Server → client (snapshot, `layout-changed`): unknown keys are stripped so the server can add fields. */

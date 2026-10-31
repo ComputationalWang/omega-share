@@ -111,6 +111,11 @@ pub enum Kind {
     Lounger,
     Wallscreen,
     Projector,
+    // Wave 2 (OME-2085, ADR 0058 amendment).
+    Tripod,
+    Window,
+    Longclock,
+    Lavalamp,
 }
 
 impl Kind {
@@ -275,11 +280,10 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Beanbag | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(4),
         Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
         Kind::Arclamp => Spec::new(Object, CAMERA, 1, 1).variants(3),
-        Kind::Sidetable | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
-            Spec::new(Object, CAMERA, 1, 1)
-        }
+        Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => Spec::new(Object, CAMERA, 1, 1),
         Kind::Monstera => Spec::new(Object, CAMERA, 1, 1).variants(4),
-        Kind::Speaker => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        Kind::Sidetable => Spec::new(Object, CAMERA, 1, 1).variants(2),
+        Kind::Speaker => Spec::new(Object, CAMERA, 1, 1).variants(3),
         // A non-seat, so seat indices don't move (OME-1773).
         Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2).lie(LieStyle::Curl),
         Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).variants(3).backed(),
@@ -292,7 +296,7 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
         Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
         Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(4),
-        Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1),
+        Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1).variants(3),
         Kind::Piano => Spec::new(Object, CAMERA, 2, 1).variants(2),
         Kind::Fireplace => Spec::new(Object, CAMERA, 1, 1).backed(),
         Kind::Pad => Spec::new(Floor, FIXED, 1, 1).variants(2),
@@ -319,10 +323,16 @@ pub const fn spec(kind: Kind) -> Spec {
         // Wall screens (ADR 0058): a flat panel over 2 wall segments, a pull-down screen over 3.
         Kind::Wallscreen => Spec::new(Wall, CAMERA, 0, 0).wall_span(2),
         Kind::Projector => Spec::new(Wall, CAMERA, 0, 0).wall_span(3),
+        Kind::Tripod => Spec::new(Object, ALL, 1, 1),
+        // Variant 1 is the rainy one.
+        Kind::Window => Spec::new(Wall, CAMERA, 0, 0).variants(2),
+        Kind::Longclock => Spec::new(Object, CAMERA, 1, 1).backed(),
+        Kind::Lavalamp => Spec::new(Object, FIXED, 1, 1),
     }
 }
 
-/// Wall segments with a window, poster or sconce (the same on both walls); frames need a plain one.
+/// Wall segments with a window, poster or sconce (the same on both walls) in the default shell; frames need a plain
+/// one. A `shell` has none (ADR 0058).
 pub const WALL_FIXTURE_SEGMENTS: [u32; 3] = [5, 6, 8];
 
 /// A placed piece. `variant` absent means 0. `target` is a door's room (ADR 0054), set on a door and nothing else.
@@ -434,7 +444,12 @@ fn on_its_wall(f: &Furniture, s: &Spec) -> bool {
     if off {
         return false;
     }
-    s.layer != Layer::Wall || wall_segments(f).all(|(_, i)| i < FLOOR_CELLS as u32 && !WALL_FIXTURE_SEGMENTS.contains(&i))
+    s.layer != Layer::Wall || wall_segments(f).all(|(_, i)| i < FLOOR_CELLS as u32)
+}
+
+/// `onFixture` (OME-2085): a wall piece over a fixture segment, refused in a layout without a shell.
+fn on_fixture(f: &Furniture) -> bool {
+    spec(f.kind).layer == Layer::Wall && wall_segments(f).any(|(_, i)| WALL_FIXTURE_SEGMENTS.contains(&i))
 }
 
 /// One piece's rules on top of its fields (the `v.check`s of `furniture` in layout.ts).
@@ -472,7 +487,7 @@ fn one_partition_line(furniture: &[Furniture]) -> bool {
 }
 
 /// The layout's rules on top of its pieces' (ADR 0021 §3).
-fn layout_ok(furniture: &[Furniture]) -> bool {
+fn layout_ok(furniture: &[Furniture], shell: Option<Shell>) -> bool {
     furniture.len() <= MAX_FURNITURE
         && furniture.iter().filter(|f| f.kind.is_screen()).count() == 1
         && furniture.iter().filter(|f| f.kind == Kind::Door).count() <= MAX_DOORS
@@ -482,6 +497,7 @@ fn layout_ok(furniture: &[Furniture]) -> bool {
         && disjoint(furniture, Layer::Floor)
         && disjoint(furniture, Layer::Wall)
         && one_partition_line(furniture)
+        && (shell.is_some() || !furniture.iter().any(on_fixture))
 }
 
 fn refuse(code: &'static str) -> Result<(), ValidationError> {
@@ -565,15 +581,22 @@ wire!(StrictPiece, StrictLayout, serde(deny_unknown_fields));
 
 trait WireLayout {
     fn pieces(&self) -> Vec<Furniture>;
+    fn shell(&self) -> Option<Shell>;
 }
 impl WireLayout for LooseLayout {
     fn pieces(&self) -> Vec<Furniture> {
         self.furniture.iter().map(|p| p.0.furniture()).collect()
     }
+    fn shell(&self) -> Option<Shell> {
+        self.shell
+    }
 }
 impl WireLayout for StrictLayout {
     fn pieces(&self) -> Vec<Furniture> {
         self.furniture.iter().map(|p| p.0.furniture()).collect()
+    }
+    fn shell(&self) -> Option<Shell> {
+        self.shell
     }
 }
 
@@ -581,10 +604,17 @@ impl<T: WireLayout> WireLayout for &T {
     fn pieces(&self) -> Vec<Furniture> {
         (**self).pieces()
     }
+    fn shell(&self) -> Option<Shell> {
+        (**self).shell()
+    }
 }
 
 fn check_layout<L: WireLayout>(l: &L) -> Result<(), ValidationError> {
-    if layout_ok(&l.pieces()) { Ok(()) } else { refuse("layout") }
+    if layout_ok(&l.pieces(), l.shell()) {
+        Ok(())
+    } else {
+        refuse("layout")
+    }
 }
 
 /// `RoomLayoutInputSchema` as a wire type, for a layout nested in another message (`layout-set`):
@@ -1163,8 +1193,6 @@ mod tests {
             ("a bookcase away from its wall", p("bookshelf", 3, 1, "sw")),
             ("a left-wall bookcase away from its wall", p("bookshelf", 1, 3, "se")),
             ("a frame off the wall", p("frame", 2, 1, "sw")),
-            ("a frame on a window segment", p("frame", 0, 5, "se")),
-            ("a frame on a sconce segment", p("frame", 8, 0, "sw")),
             ("a missing facing", json!({"kind":"tv","col":0,"row":0})),
             ("a third floor cushion colour", pv("floorcushion", 0, 0, "ne", 2)),
             ("a bench hanging off the floor", p("bench", 9, 0, "ne")),
@@ -1174,18 +1202,14 @@ mod tests {
             ("a speaker facing the TV", p("speaker", 0, 0, "nw")),
             ("a cat facing the TV", p("cat", 0, 0, "ne")),
             ("a wall shelf off the wall", p("wallshelf", 3, 2, "sw")),
-            ("a wall shelf on a window segment", p("wallshelf", 0, 6, "se")),
             ("a fourth wall shelf colour", pv("wallshelf", 2, 0, "sw", 3)),
             ("a garland off the wall", p("garland", 1, 3, "se")),
-            ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),
             ("a coffee table facing the TV", p("coffeetable", 4, 4, "ne")),
             ("a fifth pouf colour", pv("pouf", 5, 5, "se", 4)),
             ("a neon sign off the wall", p("neonsign", 1, 3, "se")),
-            ("a neon sign on a sconce segment", p("neonsign", 8, 0, "sw")),
             ("a second aquarium colour", pv("aquarium", 6, 6, "sw", 1)),
             ("an arcade cabinet facing the TV", p("arcade", 2, 7, "nw")),
-            ("a wall clock on a window segment", p("wallclock", 0, 6, "se")),
             ("a hammock hanging off the floor", p("hammock", 9, 0, "ne")),
             ("a second hammock colour", pv("hammock", 4, 4, "ne", 1)),
             ("a fifth stool colour", pv("stool", 3, 3, "ne", 4)),
@@ -1374,6 +1398,42 @@ mod tests {
         assert!(!accepts(vec![p("wallscreen", 1, 0, "sw"), tv()]), "two screens");
         assert!(!accepts(vec![p("projector", 1, 0, "sw"), p("frame", 3, 0, "sw")]), "span overlap");
         assert!(accepts(vec![p("projector", 1, 0, "sw"), p("frame", 4, 0, "sw")]));
+    }
+
+    // packages/shared/test/wave2-kinds-contract.test.ts (OME-2085, ADR 0058 amendment): the four wave 2 kinds.
+    #[test]
+    fn the_wave_2_kinds_and_colourways() {
+        let ok = |more: Vec<Value>| accepts_input(&base(more));
+        assert!(ok(vec![p("tripod", 8, 8, "nw"), p("lavalamp", 9, 9, "se")]));
+        assert!(!ok(vec![p("lavalamp", 9, 9, "sw")]), "one facing");
+        assert!(ok(vec![pv("window", 2, 0, "sw", 1)]));
+        assert!(!ok(vec![pv("window", 2, 0, "sw", 2)]), "two colourways");
+        assert!(!ok(vec![p("window", 2, 1, "sw")]), "off its wall");
+        assert!(ok(vec![p("longclock", 0, 3, "se")]));
+        assert!(!ok(vec![p("longclock", 3, 3, "se")]), "backs onto a wall");
+        for (kind, n) in [("sidetable", 2), ("barcounter", 3), ("speaker", 3)] {
+            assert!(piece_accepts(&pv(kind, 4, 4, "se", n - 1)), "{kind} {}", n - 1);
+            assert!(!piece_accepts(&pv(kind, 4, 4, "se", n)), "{kind} {n}");
+        }
+    }
+
+    // packages/shared/test/wave2-kinds-contract.test.ts (OME-2085): fixtures exist only in the default shell.
+    #[test]
+    fn wall_fixtures_apply_only_without_a_shell() {
+        let room = |more: Value, shell: Option<&str>| {
+            let mut f = chairs();
+            f.push(more);
+            let mut v = layout(f);
+            if let Some(s) = shell {
+                v["shell"] = json!(s);
+            }
+            accepts_input(&v) && accepts(&v)
+        };
+        assert!(!room(p("wallscreen", 5, 0, "sw"), None));
+        assert!(room(p("wallscreen", 5, 0, "sw"), Some("penthouse")));
+        assert!(room(p("projector", 0, 4, "se"), Some("studio")));
+        assert!(!room(p("wallscreen", 9, 0, "sw"), Some("penthouse")), "off the wall");
+        assert!(piece_accepts(&p("frame", 5, 0, "sw")), "a layout rule, not a piece rule");
     }
 
     // packages/shared/test/wall-screens-contract.test.ts (OME-2065, ADR 0058): partitions form at most one line.

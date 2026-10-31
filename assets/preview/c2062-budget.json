@@ -1,0 +1,97 @@
+{
+ "pieces": {
+  "wallscreen/panel": {
+   "frames": 4,
+   "png": 1656,
+   "json": 247
+  },
+  "projector/stand": {
+   "frames": 4,
+   "png": 1351,
+   "json": 225
+  },
+  "projector/ceiling": {
+   "frames": 4,
+   "png": 997,
+   "json": 201
+  },
+  "rollscreen/cloth": {
+   "frames": 4,
+   "png": 1792,
+   "json": 250
+  },
+  "window/sky": {
+   "frames": 8,
+   "png": 1810,
+   "json": 215
+  },
+  "window/rain": {
+   "frames": 8,
+   "png": 2104,
+   "json": 215
+  },
+  "ceilingfan/wood": {
+   "frames": 3,
+   "png": 1177,
+   "json": 175
+  },
+  "longclock/wood": {
+   "frames": 8,
+   "png": 1340,
+   "json": 229
+  },
+  "teatable/wood": {
+   "frames": 8,
+   "png": 859,
+   "json": 198
+  },
+  "lavalamp/lilac": {
+   "frames": 4,
+   "png": 606,
+   "json": 175
+  },
+  "espresso/rust": {
+   "frames": 8,
+   "png": 2836,
+   "json": 214
+  },
+  "jukebox/wood": {
+   "frames": 16,
+   "png": 2728,
+   "json": 276
+  },
+  "kitchenette/cream": {
+   "frames": 16,
+   "png": 3951,
+   "json": 298
+  }
+ },
+ "shellUnpacked": {
+  "skyWalls": 8988,
+  "splitFloors": 4147,
+  "nearStubs": 1707
+ },
+ "turnedShipped": {
+  "keys": [
+   "furniture/aquarium/teal/nw/back",
+   "furniture/coffeetable/wood/ne/back",
+   "furniture/bookshelf/wood/nw/back",
+   "furniture/sidetable/wood/nw/back"
+  ],
+  "pngBytesUnpacked": 2330
+ },
+ "reusedLoops": {
+  "fireplace": {
+   "frames": 4,
+   "ms": 120
+  },
+  "neonsign": {
+   "frames": 3,
+   "ms": 140
+  },
+  "aquarium": {
+   "frames": 3,
+   "ms": 220
+  }
+ }
+}

@@ -44,6 +44,7 @@ import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { buildWave2Pieces, buildWave2Previews, buildWave2Shell } from "./wave2";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -1402,6 +1403,12 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   writeFurnitureAtlas("furniture-back", backs, [], 512, true);
   const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
   for (const f of [...roomFrames, ...frames, ...shell, ...backs]) all.set(f.key, f);
+  // OME-2066 (ADR 0058): wave 2's pieces, loops and back views, and the swap rooms' shell skin, two lazy sheets of their own.
+  const w2 = buildWave2Pieces(), w2Shell = buildWave2Shell();
+  writeFurnitureAtlas("furniture-v8", w2.frames, w2.pieces, 512, true);
+  writeFurnitureAtlas("furniture-v8-shell", w2Shell, [], 512, true);
+  for (const f of [...w2.frames, ...w2Shell]) all.set(f.key, f);
+  WAVE2_PIECES = w2.pieces;
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
   buildFurnitureSheet(pieces, all);
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
@@ -1511,7 +1518,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
   writeFileSync(join(ROOT, "preview", `${name}-atlas@2x.png`), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
 }
 
-type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
+export type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
 function drawSprite(img: Uint8Array, W: number, H: number, all: FurnSprites, key: string, x: number, y: number): void {
   const f = all.get(key);
   if (!f) throw new Error(`missing ${key}`);
@@ -1583,7 +1590,7 @@ function blitClipped(img: Uint8Array, W: number, H: number, f: { img: Uint8Array
   }
 }
 
-interface Placement {
+export interface Placement {
   id: string;
   colour: string;
   dir: FurnDir;
@@ -1825,7 +1832,7 @@ interface RoomHooks {
   top?: (draw: Draw) => void;
 }
 
-interface RoomPlan {
+export interface RoomPlan {
   placements: Placement[];
   /** Sprites sorted at a cell (standing avatars; set (n): room-atlas armchairs with their sitter, lamp, plant), in this order on a tie. */
   standing: [string, number, number][];
@@ -1906,6 +1913,7 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
 
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
 
+const WAVE2_FILES = ["furniture/furniture-v8.png", "furniture/furniture-v8.json", "furniture/furniture-v8-shell.png", "furniture/furniture-v8-shell.json"];
 const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "furniture/furniture-v7.png", "furniture/furniture-v7.json", "furniture/furniture-back.png", "furniture/furniture-back.json", "avatars/dungeon.png", "avatars/dungeon.json"];
 const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
 
@@ -2129,6 +2137,20 @@ function dungeon2Plan(cut: boolean): RoomPlan {
  *  footprint's min corner, every facing turned (one-sided pieces from furniture-back), wall pieces gone with the near walls they hang
  *  on, the spa's walls at the back. A symmetric piece with no back view (the oval rug, the monstera) keeps its own frame. `pieces` gains the turned facings' layers, sort points and seats, as the web would derive them. */
 function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces: PieceMeta[]; plan: RoomPlan } {
+  const back = 9 - PARTITION_ROW;
+  return northView(pieces, all, dungeon2Plan(false), {
+    floor: (c, r) => `floor/${r < back ? "deck" : r === back ? "split/north" : "carpet"}/${String((c * 3 + r) % 2)}`,
+    l: (i) => (i < back ? "wall/l/smoke" : i === back ? "wall/l/split/north" : "wall/l/oak"),
+    r: () => "wall/r/smoke",
+    corner: "wall/corner/smoke",
+    lEnd: "wall/l/end/oak",
+    rEnd: "wall/r/end/smoke",
+  });
+}
+
+/** Any south plan turned 180° (OME-1997): cell (c, r) → (9 − c, 9 − r) anchored on the turned footprint's min corner, every facing
+ *  turned where a turned frame exists, wall pieces dropped with the near walls, standing avatars turned to nw, on `shell`. */
+export function northView(pieces: readonly PieceMeta[], all: FurnSprites, south: RoomPlan, shell: NonNullable<RoomPlan["shell"]>): { pieces: PieceMeta[]; plan: RoomPlan } {
   const turnedMeta = pieces.map((m): PieceMeta => {
     const out: PieceMeta = { ...m, layersByDir: { ...m.layersByDir }, footprintByDir: { ...m.footprintByDir }, sortByDir: { ...m.sortByDir } };
     if (m.seatsByDir) out.seatsByDir = { ...m.seatsByDir };
@@ -2144,13 +2166,11 @@ function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces
     return out;
   });
   const meta = (id: string): PieceMeta | undefined => turnedMeta.find((m) => m.id === id);
-  const south = dungeon2Plan(false);
   const placements = south.placements.filter((p) => meta(p.id)?.mount !== "wall").map((p): Placement => {
     const fp = meta(p.id)?.footprintByDir[p.dir] ?? { cols: 1, rows: 1 };
     const dir = all.has(`furniture/${p.id}/${p.colour}/${TURN[p.dir]}/back`) ? TURN[p.dir] : p.dir;
     return { ...p, dir, col: 9 - p.col - Math.max(fp.cols - 1, 0), row: 9 - p.row - Math.max(fp.rows - 1, 0) };
   });
-  const back = 9 - PARTITION_ROW;
   return {
     pieces: turnedMeta,
     plan: {
@@ -2158,14 +2178,7 @@ function dungeon2North(pieces: readonly PieceMeta[], all: FurnSprites): { pieces
       standing: south.standing.map(([key, c, r]): [string, number, number] => [key.replace("/se/", "/nw/"), 9 - c, 9 - r]),
       rug: false,
       tv: false,
-      shell: {
-        floor: (c, r) => `floor/${r < back ? "deck" : r === back ? "split/north" : "carpet"}/${String((c * 3 + r) % 2)}`,
-        l: (i) => (i < back ? "wall/l/smoke" : i === back ? "wall/l/split/north" : "wall/l/oak"),
-        r: () => "wall/r/smoke",
-        corner: "wall/corner/smoke",
-        lEnd: "wall/l/end/oak",
-        rEnd: "wall/r/end/smoke",
-      },
+      shell,
     },
   };
 }
@@ -2495,6 +2508,14 @@ function presetPlan(layout: RoomLayout): RoomPlan {
   return plan;
 }
 let PIECES_BY_ID = new Map<string, PieceMeta>();
+let WAVE2_PIECES: PieceMeta[] = [];
+
+/** OME-2066: wave 2's previews and proposed layouts, on the shipped set plus the v8 pieces (new ids only: v8's colours of older
+ *  kinds are drawn by key with the older kind's meta). */
+function buildWave2(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
+  const pieces = [...set.pieces, ...WAVE2_PIECES.filter((m) => !set.pieces.some((p) => p.id === m.id))];
+  buildWave2Previews({ pieces, all: set.all, compose: composeFurnitureRoom, northView, presetPlan });
+}
 
 /** presets/: one layout JSON per preset, presets.json (names, blurbs, files), thumbs/*.png; previews: a 3× thumbnail sheet and
  *  every preset at full size with a few people seated (preview/presets@1x.png). */
@@ -2825,12 +2846,12 @@ function buildReactions(): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -2935,6 +2956,7 @@ const furnitureSet = buildFurnitureSet(buildRoomFrames(), avatarImages);
 const uiFrames = buildUi(avatarImages, furnitureSet.frames);
 buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);
+buildWave2(furnitureSet);
 buildMotion(avatarImages);
 buildExpressions(avatarImages);
 buildWatching(avatarImages, furnitureSet);
