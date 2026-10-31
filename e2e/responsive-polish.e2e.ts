@@ -8,7 +8,7 @@
 // POLISH_SHOTS=<dir> also saves each case's screenshot there (the PR's before/after pictures).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOM_SECRETS_STORAGE_KEY, RoomLayoutSchema } from "@omega/shared";
+import { ROOM_PRESET_IDS, ROOM_SECRETS_STORAGE_KEY, RoomLayoutSchema } from "@omega/shared";
 import type { BrowserContextOptions, Page } from "@playwright/test";
 import * as v from "valibot";
 import { shareVideo, waitPlaying } from "../perf/sync";
@@ -64,7 +64,7 @@ const smallText = (page: Page, root: string): Promise<{ text: string; cls: strin
     .filter((t) => t.px > 0 && t.px < 12), root);
 
 for (const [w, h] of [[1024, 768], [1280, 800], [1920, 1080], [2560, 1440]] as const) {
-  test(`${String(w)}×${String(h)}: the create card is ≥ 360 px, its presets a 4×2 grid with no sideways scroll, 12 px blurbs`, async ({ browser }) => {
+  test(`${String(w)}×${String(h)}: the create card is ≥ 360 px, its presets a grid 4 across with no sideways scroll, 12 px blurbs`, async ({ browser }) => {
     const context = await watchCsp(await browser.newContext(DESKTOP(w, h)));
     const page = await context.newPage();
     await page.goto(URLS.web);
@@ -79,8 +79,9 @@ for (const [w, h] of [[1024, 768], [1280, 800], [1920, 1080], [2560, 1440]] as c
     await expect(list).toHaveCSS("display", "grid");
     expect(await list.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
     const tops = await page.locator(".preset").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-    expect(tops).toHaveLength(8);
-    expect(new Set(tops).size).toBe(2);
+    // 4 across; 10 presets since OME-2071 make rows of 4, 4 and 2.
+    expect(tops).toHaveLength(ROOM_PRESET_IDS.length);
+    expect(new Set(tops).size).toBe(Math.ceil(ROOM_PRESET_IDS.length / 4));
     expect(tops.filter((t) => t === tops[0])).toHaveLength(4);
     // 12 px (13 from 1600 px, the --text-xs token), line-height 1.45.
     const blurb = await page.locator(".preset-blurb").first().evaluate((el) => { const s = getComputedStyle(el); return { size: Number.parseFloat(s.fontSize), lead: Number.parseFloat(s.lineHeight) / Number.parseFloat(s.fontSize) }; });
