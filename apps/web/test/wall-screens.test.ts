@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, type Furniture, type RoomLayout } from "@omega/shared";
-import { coloursOf } from "../src/editor/colours";
+import { atlasId, coloursOf } from "../src/editor/colours";
 import { AWAITING_ART, TRAY_TABS, fits, place, problems, remove } from "../src/editor/draft";
 import { markerKeys } from "../src/editor/pick";
-import { V8_THUMBS } from "../src/editor/v8-thumbs";
+import { V8_THUMBS, trayScale } from "../src/editor/v8-thumbs";
 import { FurnitureManifestSchema, sceneOf, standDepth, usesSetG, usesV8, type Scene } from "../src/furniture";
 import { cellCenter, rawCenter, setNorth } from "../src/layout";
 
@@ -73,7 +73,7 @@ describe("the north view (swapped-view rule)", () => {
 });
 
 describe("the editor offers them", () => {
-  test("they are in the tray with a v8 thumb that matches the sheet", () => {
+  test("they are in the tray with their se frame from the v8 sheet, no thumb frame needed (OME-2095)", () => {
     for (const k of ["wallscreen", "projector"] as const) {
       expect(AWAITING_ART.has(k)).toBe(false);
       expect(TRAY_TABS.flatMap((t) => [...t.kinds])).toContain(k);
@@ -81,7 +81,28 @@ describe("the editor offers them", () => {
     expect(coloursOf("wallscreen")).toEqual(["panel"]);
     expect(coloursOf("projector")).toEqual(["cloth"]);
     const rect = (key: string): { x: number; y: number; w: number; h: number } | undefined => v8Raw.frames[key]?.frame;
-    expect([V8_THUMBS["wallscreen"], V8_THUMBS["projector"]]).toEqual([rect("thumb/wallscreen/panel"), rect("thumb/projector/cloth")]);
+    expect([V8_THUMBS["wallscreen"], V8_THUMBS["projector"]]).toEqual([rect("furniture/wallscreen/panel/se/back"), rect("furniture/projector/cloth/se/back")]);
+  });
+
+  test("every tray kind with a colour has an edit.png thumb or an se fallback (OME-2095)", async () => {
+    const edit = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), await load("ui/edit.json")).frames;
+    const bare = TRAY_TABS.flatMap((t) => [...t.kinds]).filter((k) => {
+      const c = coloursOf(k)[0];
+      return c !== undefined && edit[`thumb/${atlasId(k) ?? k}/${c}`] === undefined && V8_THUMBS[k] === undefined;
+    });
+    expect(bare).toEqual([]);
+  });
+
+  test("the se frame is scaled by 1/n, n >= 2, to fit the 44x40 cubby (OME-2095)", () => {
+    expect(trayScale({ w: 62, h: 70 })).toBe(2);
+    expect(trayScale({ w: 76, h: 119 })).toBe(3);
+    expect(trayScale({ w: 20, h: 10 })).toBe(2);
+    expect(trayScale({ w: 100, h: 30 })).toBe(3);
+    for (const r of Object.values(V8_THUMBS)) {
+      const n = trayScale(r);
+      expect(r.w / n).toBeLessThanOrEqual(44);
+      expect(r.h / n).toBeLessThanOrEqual(40);
+    }
   });
 
   test("a placement marks every segment it covers", () => {

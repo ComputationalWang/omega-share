@@ -3,3 +3,6 @@ export const V8_THUMBS: Readonly<Record<string, { readonly x: number; readonly y
   wallscreen: { x: 426, y: 659, w: 31, h: 36 },
   projector: { x: 321, y: 650, w: 25, h: 38 },
 };
+
+/** Stub (red, OME-2095). */
+export const trayScale = (_r: { readonly w: number; readonly h: number }): number => 1;
