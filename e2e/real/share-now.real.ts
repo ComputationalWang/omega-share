@@ -26,12 +26,20 @@ const CASES = [
 
 /** The room's player time once it plays content (not an ad), sampled in its frame. */
 /** The room player's first playing sample, then how long until it reaches `from` (the room's sync seeks after load). */
-async function roomStart(frame: Frame, from: number): Promise<{ first: number; at: number; reachedMs: number | null }> {
+async function roomStart(frame: Frame, from: number): Promise<{ first: number; at: number; reachedMs: number | null; nudged: boolean }> {
   let first = Number.NaN;
   let at = Number.NaN;
   let firstAtMs = 0;
+  const since = Date.now();
+  let nudged = false;
   await expect.poll(async () => {
     const s = await sampleMedia(frame);
+    // OME-2057: about 1 in 10 the Vimeo room player stays paused (cause unconfirmed: third-party autoplay / rate limits).
+    // After 20 s, click play once in the provider frame, as watchAt does on the watch page; then keep polling.
+    if (s?.paused === true && !nudged && Date.now() - since > 20_000) {
+      nudged = true;
+      await frame.locator("video").first().click({ force: true, timeout: 2_000 }).catch(() => undefined);
+    }
     if (s === null || s.paused || s.ad || s.currentTime <= 0.5) return false;
     at = s.currentTime;
     if (Number.isNaN(first)) [first, firstAtMs] = [at, Date.now()];
@@ -41,7 +49,7 @@ async function roomStart(frame: Frame, from: number): Promise<{ first: number; a
     at = (await sampleMedia(frame))?.currentTime ?? at;
     return at >= from;
   }, { timeout: 30_000, intervals: [250] }).toBe(true).then(() => true, () => false);
-  return { first, at, reachedMs: reached ? Date.now() - firstAtMs : null };
+  return { first, at, reachedMs: reached ? Date.now() - firstAtMs : null, nudged };
 }
 
 let dir = "";
