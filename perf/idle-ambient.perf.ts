@@ -9,6 +9,7 @@ import * as v from "valibot";
 import { PENDING, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll, testRoom } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
+import { BUDGETS } from "./budgets";
 import { recordMetric } from "./metrics";
 import { presetFile, showLayout } from "./show-layout";
 
@@ -78,8 +79,10 @@ for (const profile of PROFILES) {
       const what = `${profile === "phone" ? "Pixel 7 emulation, room fitted" : "desktop Chromium"}, forced Smooth tier, observer alone, no video, ${LAYOUT_PRESET} layout, ${seconds.toFixed(1)} s window after ${String(SETTLE_MS)} ms settle, loops ${JSON.stringify(loops)}`;
       recordMetric({ id: `idle.workPerS.${profile}`, value: workPerS, note: `${((t1 - t0) * 1000).toFixed(1)} ms TaskDuration; ${what}` });
       recordMetric({ id: `idle.rendersPerS.${profile}`, value: rendersPerS, note: `${String(r1 - r0)} renders; ${what}` });
-      expect(workPerS).toBeLessThanOrEqual(2);
-      expect(rendersPerS).toBeLessThanOrEqual(8);
+      // The limits come from the rows: the phone work row (4 ms/s) differs from desktop (2 ms/s).
+      const limit = (id: string): number => v.parse(v.number(), BUDGETS.find((b) => b.id === id)?.limit);
+      expect(workPerS).toBeLessThanOrEqual(limit(`idle.workPerS.${profile}`));
+      expect(rendersPerS).toBeLessThanOrEqual(limit(`idle.rendersPerS.${profile}`));
     } finally {
       await leaveAll(clients);
     }
