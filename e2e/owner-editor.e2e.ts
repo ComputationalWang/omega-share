@@ -462,7 +462,7 @@ test("the wall pieces' new colours (OME-1503): a meadow print and peach lights s
 // OME-2074: Done or Escape with unsaved changes used to drop them silently. Now Done asks (Save / Discard / Keep editing)
 // and Escape never discards.
 test("leaving the editor with unsaved changes asks first: Escape keeps editing, Discard drops them, Save keeps them", async ({ browser }) => {
-  const { id, ownerToken, inviteKey } = ownedRoom("editorleave");
+  const { id, ownerToken, inviteKey } = ownedRoom("edleave");
   const owner = await newPage(browser, []);
   await owner.addInitScript(
     ([key, value]) => {
