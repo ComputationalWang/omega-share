@@ -5,7 +5,7 @@ import { coloursOf } from "../src/editor/colours";
 import { AWAITING_ART, TRAY_TABS, fits, place, problems, remove } from "../src/editor/draft";
 import { markerKeys } from "../src/editor/pick";
 import { V8_THUMBS } from "../src/editor/v8-thumbs";
-import { FurnitureManifestSchema, sceneOf, usesSetG, usesV8, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, sceneOf, standDepth, usesSetG, usesV8, type Scene } from "../src/furniture";
 import { cellCenter, rawCenter, setNorth } from "../src/layout";
 
 // OME-2069: the wall screen (span 2) and the pull-down screen (span 3), from furniture-v8 (assets/README.md "Wave 2").
@@ -47,10 +47,22 @@ describe("the north view (swapped-view rule)", () => {
     setNorth(true);
     const s = sceneOf(withWall(wallscreen, projector), [v8]);
     // se, segment 2, span 2 -> col 9, segment 6; sw, segment 2, span 3 -> row 9, segment 5.
-    expect(wallSprites(s).map((x) => [x.key, x.x, x.y, x.alpha])).toEqual([
+    expect(s.sprites.filter((x) => x.alpha === 0.5).map((x) => [x.key, x.x, x.y, x.alpha])).toEqual([
       ["furniture/wallscreen/panel/nw/back", rawCenter(9, 6).x, rawCenter(9, 6).y, 0.5],
       ["furniture/projector/cloth/ne/back", rawCenter(5, 9).x, rawCenter(5, 9).y, 0.5],
     ]);
+  });
+
+  test("the ghost sorts above every piece and any avatar in the room, so the front row cannot hide it (QA OME-2091)", () => {
+    setNorth(true);
+    const s = sceneOf(withWall(wallscreen, projector), [v8]);
+    const ghosts = s.sprites.filter((x) => x.alpha === 0.5);
+    const others = s.sprites.filter((x) => x.alpha !== 0.5).map((x) => x.z);
+    const floor = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => standDepth(rawCenter(i % FLOOR_CELLS, Math.floor(i / FLOOR_CELLS))));
+    expect(ghosts).toHaveLength(2);
+    // The wall layer is drawn under every object (room-view.ts), whatever its z: the ghost sorts with the objects.
+    for (const g of ghosts) expect(g.layer).toBe("object");
+    for (const g of ghosts) expect(g.z).toBeGreaterThan(Math.max(...others, ...floor, ...s.seats.map((x) => x.z)));
   });
 
   test("other wall pieces are still dropped from the north", () => {

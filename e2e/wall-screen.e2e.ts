@@ -107,4 +107,17 @@ test("walking into the bedroom turns the view north, where the wall screen shows
   // Let the swapped scene settle, then keep the picture for the anchor review against assets/preview/w2-screen-wallscreen-north@2x.png.
   await a.page.waitForTimeout(500);
   await a.page.locator(site.room).screenshot({ path: testInfo.outputPath("wall-screen-north.png") });
+  // Drawn last, over the beds, the partition end and every avatar (QA OME-2091): the scene's draw order ends with the ghost.
+  await expect.poll(async () => (await drawOrder(a.page)).at(-1)).toBe("furniture/wallscreen/panel/nw/back");
 });
+
+/** The scene's draw order, bottom first (apps/web/src/room.ts `scene`, through the dev handle `window.__omega.room`). */
+async function drawOrder(page: Page): Promise<string[]> {
+  const order = await page.evaluate(() => {
+    const debug: unknown = Reflect.get(window, "__omega");
+    const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+    const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "scene") : null;
+    return typeof get === "function" ? (Reflect.apply(get, room, []) as unknown) : null;
+  });
+  return v.parse(v.array(v.string()), order);
+}
