@@ -278,27 +278,36 @@ export function createSound(o: SoundOptions): Sound {
     };
   }
 
+  /** One one-shot per task, the first after this one: each noise layer copies a 2 s buffer, ~60 ms for them all (OME-2072). */
   function bakeAll(sampleRate: number): void {
     const make = o.makeOffline;
     if (make === undefined) return;
-    for (const [name, r] of Object.entries(o.recipes.sounds)) {
-      if (r.loop === true) continue;
-      const seconds = Math.max(...r.layers.map((l) => (l.env.delay ?? 0) + layerLength(l.env)));
-      for (let i = 0; i < TAKES; i++) {
-        try {
-          const off = make(Math.ceil((seconds + CUT_S) * sampleRate), sampleRate);
-          start(off, off.destination, name, r, false, 0);
-          off.startRendering().then(
-            (b) => {
-              const takes = baked.get(name);
-              if (takes === undefined) baked.set(name, [b]);
-              else takes.push(b);
-            },
-            () => undefined,
-          );
-        } catch {
-          // No offline rendering here: this sound stays live.
-        }
+    const todo = Object.entries(o.recipes.sounds).filter(([, r]) => r.loop !== true);
+    const next = (): void => {
+      const item = todo.shift();
+      if (item === undefined) return;
+      bake(make, sampleRate, ...item);
+      setTimeout(next, 0);
+    };
+    setTimeout(next, 0);
+  }
+
+  function bake(make: NonNullable<SoundOptions["makeOffline"]>, sampleRate: number, name: string, r: Recipe): void {
+    const seconds = Math.max(...r.layers.map((l) => (l.env.delay ?? 0) + layerLength(l.env)));
+    for (let i = 0; i < TAKES; i++) {
+      try {
+        const off = make(Math.ceil((seconds + CUT_S) * sampleRate), sampleRate);
+        start(off, off.destination, name, r, false, 0);
+        off.startRendering().then(
+          (b) => {
+            const takes = baked.get(name);
+            if (takes === undefined) baked.set(name, [b]);
+            else takes.push(b);
+          },
+          () => undefined,
+        );
+      } catch {
+        // No offline rendering here: this sound stays live.
       }
     }
   }
