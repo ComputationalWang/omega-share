@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import * as v from "valibot";
-import { DOOR_CELL, RoomLayoutInputSchema, SEAT_COUNT, footprintCells, layoutSeats } from "@omega/shared";
+import { DOOR_CELL, RoomLayoutInputSchema, SEAT_COUNT, footprintCells, isScreen, layoutSeats } from "@omega/shared";
 import { PRESETS } from "./presets";
 
 const DIR = join(import.meta.dir, "..", "presets");
@@ -19,9 +19,9 @@ const manifest = v.parse(Manifest, JSON.parse(readFileSync(join(DIR, "presets.js
 const pngSize = (buf: Buffer): { w: number; h: number } => ({ w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) });
 
 describe("room presets", () => {
-  test("five to eight, unique ids, the default among them", () => {
+  test("five to ten, unique ids, the default among them", () => {
     expect(manifest.presets.length).toBeGreaterThanOrEqual(5);
-    expect(manifest.presets.length).toBeLessThanOrEqual(8);
+    expect(manifest.presets.length).toBeLessThanOrEqual(10);
     const ids = manifest.presets.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain(manifest.default);
@@ -60,9 +60,29 @@ describe("room presets", () => {
     expect(dd?.layout.mood).toBe("night");
     expect(dd?.layout.pairs).toBe(true);
     expect(PRESETS.filter((p) => p.layout.pairs === true).map((p) => p.id)).toEqual(["dank-dungeon"]);
-    // OME-1989: the dungeon shell skin, on this preset only.
-    expect(PRESETS.filter((p) => p.layout.shell !== undefined).map((p) => [p.id, p.layout.shell])).toEqual([["dank-dungeon", "dungeon"]]);
+    // OME-1989: the dungeon shell skin, on this preset only; wave 2's swap rooms wear their own (OME-2071).
+    expect(PRESETS.filter((p) => p.layout.shell !== undefined).map((p) => [p.id, p.layout.shell])).toEqual([["dank-dungeon", "dungeon"], ["penthouse", "penthouse"], ["studio", "studio"]]);
   });
+
+  // OME-2071 (ADR 0058): the wave 2 rooms. Four revamps hang a wall screen and drop the TV table, the lounge pulls a screen down;
+  // the swap rooms are split on OME-1959's grid (partition on row 4, doorway at (1, 4)) with the screen in the front room.
+  test("wave 2: every room has one screen, on the wall in the revamps and swap rooms", () => {
+    const screens = Object.fromEntries(PRESETS.map((p) => [p.id, p.layout.furniture.filter((f) => isScreen(f.kind)).map((f) => f.kind)]));
+    expect(screens).toEqual({
+      classic: ["tv"], cinema: ["bigscreen"], living: ["wallscreen"], lounge: ["projector"], cafe: ["wallscreen"], bar: ["wallscreen"],
+      empty: ["tv"], "dank-dungeon": ["tv"], penthouse: ["wallscreen"], studio: ["wallscreen"],
+    });
+  });
+
+  for (const id of ["penthouse", "studio"]) {
+    test(`${id} (OME-2071): split on row 4 with a doorway at (1, 4), the screen in front, nothing on the way in`, () => {
+      const f = PRESETS.find((p) => p.id === id)?.layout.furniture ?? [];
+      expect(f.filter((x) => x.kind === "partition").map((w) => [w.col, w.row, w.facing])).toEqual([0, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => [c, 4, "sw"]));
+      expect(f.find((x) => x.kind === "wallscreen")?.row).toBeGreaterThan(4);
+      const keep = new Set([[1, 3], [1, 4], [1, 5], [DOOR_CELL.x, DOOR_CELL.y]].map(([c, r]) => `${String(c)},${String(r)}`));
+      expect(f.flatMap((x) => footprintCells(x).filter(([c, r]) => keep.has(`${String(c)},${String(r)}`)).map(() => x.kind))).toEqual([]);
+    });
+  }
 
   test("Dank Dungeon (OME-1960): two rooms split by row 4, solid and glass with a doorway at (1, 4); beds behind, the spa in front", () => {
     const f = PRESETS.find((p) => p.id === "dank-dungeon")?.layout.furniture ?? [];

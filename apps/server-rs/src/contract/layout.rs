@@ -1607,7 +1607,18 @@ mod tests {
         let ids: Vec<&str> = ROOM_PRESET_IDS.iter().map(|i| i.as_str()).collect();
         assert_eq!(
             ids,
-            ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"]
+            [
+                "classic",
+                "cinema",
+                "living",
+                "lounge",
+                "cafe",
+                "bar",
+                "empty",
+                "dank-dungeon",
+                "penthouse",
+                "studio"
+            ]
         );
         assert_eq!(DEFAULT_ROOM_PRESET.as_str(), "classic");
         for id in ROOM_PRESET_IDS {
