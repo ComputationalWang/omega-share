@@ -176,6 +176,9 @@ describe("fits", () => {
     expect(fits(L, { kind: "frame", col: 5, row: 0, facing: "sw" })).toBe(false);
     expect(fits(L, { kind: "frame", col: 0, row: 6, facing: "se" })).toBe(false);
   });
+  test("a shell has no fixtures, so a frame fits on any segment (OME-2085)", () => {
+    expect(fits({ ...L, shell: "penthouse" }, { kind: "frame", col: 5, row: 0, facing: "sw" })).toBe(true);
+  });
   test("a frame on a plain segment fits", () => {
     expect(fits(L, { kind: "frame", col: 3, row: 0, facing: "sw" })).toBe(true);
   });

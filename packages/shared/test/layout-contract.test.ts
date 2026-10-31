@@ -237,8 +237,6 @@ describe("FurnitureSchema", () => {
     ["a bookcase away from its wall", { kind: "bookshelf", col: 3, row: 1, facing: "sw" }],
     ["a left-wall bookcase away from its wall", { kind: "bookshelf", col: 1, row: 3, facing: "se" }],
     ["a frame off the wall", { kind: "frame", col: 2, row: 1, facing: "sw" }],
-    ["a frame on a window segment", { kind: "frame", col: 0, row: 5, facing: "se" }],
-    ["a frame on a sconce segment", { kind: "frame", col: 8, row: 0, facing: "sw" }],
     ["a missing facing", { kind: "tv", col: 0, row: 0 }],
     ["a third floor cushion colour", { kind: "floorcushion", col: 0, row: 0, facing: "ne", variant: 2 }],
     ["a bench hanging off the floor", { kind: "bench", col: 9, row: 0, facing: "ne" }],
@@ -248,10 +246,8 @@ describe("FurnitureSchema", () => {
     ["a speaker facing the TV", { kind: "speaker", col: 0, row: 0, facing: "nw" }],
     ["a cat facing the TV", { kind: "cat", col: 0, row: 0, facing: "ne" }],
     ["a wall shelf off the wall", { kind: "wallshelf", col: 3, row: 2, facing: "sw" }],
-    ["a wall shelf on a window segment", { kind: "wallshelf", col: 0, row: 6, facing: "se" }],
     ["a fourth wall shelf colour", { kind: "wallshelf", col: 2, row: 0, facing: "sw", variant: 3 }],
     ["a garland off the wall", { kind: "garland", col: 1, row: 3, facing: "se" }],
-    ["a garland on a sconce segment", { kind: "garland", col: 8, row: 0, facing: "sw" }],
     ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],
     ["a hammock hanging off the floor", { kind: "hammock", col: 9, row: 0, facing: "ne" }],
     ["a second hammock colour", { kind: "hammock", col: 4, row: 4, facing: "ne", variant: 1 }],
@@ -291,7 +287,9 @@ describe("the catalogue matches the art", () => {
   const atlasId = (kind: string): string => (kind === "runner" ? "rug" : kind);
   /** The extra colours by PLTE swap (OME-1462, assets/furniture/recolours.json), per contract kind. */
   const recolours = v.parse(v.object({ kinds: v.record(v.string(), v.object({ variants: v.array(v.object({ variant: v.number() })) })) }), readJson("furniture/recolours.json")).kinds;
-  const extra = (kind: string): number => recolours[kind]?.variants.length ?? 0;
+  /** And the v8 colourways of older kinds (OME-2085): v8's own kinds are pinned in wave2-kinds-contract.test.ts. */
+  const v8 = new Map(v.parse(AtlasSchema, readJson("furniture/furniture-v8.json")).meta.omega.pieces.map((p) => [p.id, p.colours.length]));
+  const extra = (kind: string): number => (recolours[kind]?.variants.length ?? 0) + (pieces.some((p) => p.id === atlasId(kind)) ? (v8.get(atlasId(kind)) ?? 0) : 0);
 
   test("the recolours extend the shipped colours: variant numbers follow on, and the room's rug, lamp and plant (one shipped look) take their own (OME-1463, OME-1688)", () => {
     for (const [kind, r] of Object.entries(recolours)) {

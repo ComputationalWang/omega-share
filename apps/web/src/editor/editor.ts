@@ -121,6 +121,10 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   lounger: "Lounger",
   wallscreen: "Wall screen",
   projector: "Projector screen",
+  tripod: "Projector on a tripod",
+  window: "Window",
+  longclock: "Long-case clock",
+  lavalamp: "Lava lamp",
 };
 
 const DELETED = "Room deleted.";
