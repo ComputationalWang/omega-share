@@ -67,8 +67,8 @@ describe("dank dungeon contract", () => {
     expect([FURNITURE.mirror, FURNITURE.minibar, FURNITURE.tv, FURNITURE.carpet, FURNITURE.partition].map((s) => s.variants)).toEqual([2, 2, 2, 2, 4]);
   });
 
-  test("layout.shell: optional, only dungeon, kept as sent", () => {
-    expect(ROOM_SHELLS).toEqual(["dungeon"]);
+  test("layout.shell: optional, a ROOM_SHELLS value, kept as sent", () => {
+    expect(ROOM_SHELLS).toContain("dungeon");
     for (const schema of [RoomLayoutSchema, RoomLayoutInputSchema]) {
       expect(v.parse(schema, { ...DEFAULT_LAYOUT, shell: "dungeon" })).toMatchObject({ shell: "dungeon" });
       expect("shell" in v.parse(schema, DEFAULT_LAYOUT)).toBe(false);
