@@ -1,0 +1,172 @@
+{
+ "id": "penthouse",
+ "name": "Penthouse",
+ "blurb": "A lounge with a rooftop terrace behind the glass.",
+ "layout": {
+  "shell": "penthouse",
+  "furniture": [
+   {
+    "kind": "lounger",
+    "col": 6,
+    "row": 0,
+    "facing": "se"
+   },
+   {
+    "kind": "lounger",
+    "col": 6,
+    "row": 2,
+    "facing": "se"
+   },
+   {
+    "kind": "monstera",
+    "col": 0,
+    "row": 0,
+    "facing": "se"
+   },
+   {
+    "kind": "monstera",
+    "col": 9,
+    "row": 3,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "garland",
+    "col": 3,
+    "row": 0,
+    "facing": "sw"
+   },
+   {
+    "kind": "garland",
+    "col": 7,
+    "row": 0,
+    "facing": "sw"
+   },
+   {
+    "kind": "garland",
+    "col": 0,
+    "row": 2,
+    "facing": "se"
+   },
+   {
+    "kind": "partition",
+    "col": 0,
+    "row": 4,
+    "facing": "sw",
+    "variant": 2
+   },
+   {
+    "kind": "partition",
+    "col": 2,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 3,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 4,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 5,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 6,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 7,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 8,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "partition",
+    "col": 9,
+    "row": 4,
+    "facing": "sw",
+    "variant": 3
+   },
+   {
+    "kind": "aquarium",
+    "col": 0,
+    "row": 5,
+    "facing": "se"
+   },
+   {
+    "kind": "wallscreen",
+    "col": 0,
+    "row": 7,
+    "facing": "se"
+   },
+   {
+    "kind": "minibar",
+    "col": 0,
+    "row": 9,
+    "facing": "se",
+    "variant": 1
+   },
+   {
+    "kind": "neonsign",
+    "col": 0,
+    "row": 9,
+    "facing": "se"
+   },
+   {
+    "kind": "sofa",
+    "col": 4,
+    "row": 6,
+    "facing": "nw"
+   },
+   {
+    "kind": "couch",
+    "col": 6,
+    "row": 6,
+    "facing": "nw"
+   },
+   {
+    "kind": "coffeetable",
+    "col": 2,
+    "row": 7,
+    "facing": "sw"
+   },
+   {
+    "kind": "arclamp",
+    "col": 8,
+    "row": 8,
+    "facing": "se"
+   },
+   {
+    "kind": "monstera",
+    "col": 9,
+    "row": 8,
+    "facing": "sw",
+    "variant": 1
+   }
+  ]
+ }
+}
