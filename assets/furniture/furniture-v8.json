@@ -627,7 +627,7 @@
   "furniture/lavalamp/lilac/se/back": {
    "frame": {
     "x": 490,
-    "y": 581,
+    "y": 540,
     "w": 22,
     "h": 39
    },
@@ -651,7 +651,7 @@
   "furniture/lavalamp/lilac/use/se/0": {
    "frame": {
     "x": 490,
-    "y": 581,
+    "y": 540,
     "w": 22,
     "h": 39
    },
@@ -674,8 +674,8 @@
   },
   "furniture/lavalamp/lilac/use/se/1": {
    "frame": {
-    "x": 477,
-    "y": 621,
+    "x": 490,
+    "y": 580,
     "w": 22,
     "h": 39
    },
@@ -698,8 +698,8 @@
   },
   "furniture/lavalamp/lilac/use/se/2": {
    "frame": {
-    "x": 403,
-    "y": 647,
+    "x": 477,
+    "y": 620,
     "w": 22,
     "h": 39
    },
@@ -722,8 +722,8 @@
   },
   "furniture/lavalamp/lilac/use/se/3": {
    "frame": {
-    "x": 477,
-    "y": 621,
+    "x": 490,
+    "y": 580,
     "w": 22,
     "h": 39
    },
@@ -1082,8 +1082,8 @@
   },
   "furniture/sidetable/mug/se/back": {
    "frame": {
-    "x": 458,
-    "y": 661,
+    "x": 321,
+    "y": 650,
     "w": 34,
     "h": 33
    },
@@ -1106,8 +1106,8 @@
   },
   "furniture/sidetable/mug/sw/back": {
    "frame": {
-    "x": 321,
-    "y": 689,
+    "x": 141,
+    "y": 654,
     "w": 34,
     "h": 33
    },
@@ -1130,8 +1130,8 @@
   },
   "furniture/sidetable/mug/use/se/0": {
    "frame": {
-    "x": 458,
-    "y": 661,
+    "x": 321,
+    "y": 650,
     "w": 34,
     "h": 33
    },
@@ -1154,8 +1154,8 @@
   },
   "furniture/sidetable/mug/use/se/1": {
    "frame": {
-    "x": 183,
-    "y": 692,
+    "x": 176,
+    "y": 654,
     "w": 34,
     "h": 33
    },
@@ -1179,7 +1179,7 @@
   "furniture/sidetable/mug/use/se/2": {
    "frame": {
     "x": 0,
-    "y": 693,
+    "y": 655,
     "w": 34,
     "h": 33
    },
@@ -1202,8 +1202,8 @@
   },
   "furniture/sidetable/mug/use/se/3": {
    "frame": {
-    "x": 141,
-    "y": 695,
+    "x": 403,
+    "y": 659,
     "w": 34,
     "h": 33
    },
@@ -1226,8 +1226,8 @@
   },
   "furniture/sidetable/mug/use/sw/0": {
    "frame": {
-    "x": 321,
-    "y": 689,
+    "x": 141,
+    "y": 654,
     "w": 34,
     "h": 33
    },
@@ -1250,8 +1250,8 @@
   },
   "furniture/sidetable/mug/use/sw/1": {
    "frame": {
-    "x": 458,
-    "y": 695,
+    "x": 438,
+    "y": 659,
     "w": 34,
     "h": 33
    },
@@ -1274,8 +1274,8 @@
   },
   "furniture/sidetable/mug/use/sw/2": {
    "frame": {
-    "x": 403,
-    "y": 696,
+    "x": 473,
+    "y": 660,
     "w": 34,
     "h": 33
    },
@@ -1298,8 +1298,8 @@
   },
   "furniture/sidetable/mug/use/sw/3": {
    "frame": {
-    "x": 356,
-    "y": 703,
+    "x": 321,
+    "y": 684,
     "w": 34,
     "h": 33
    },
@@ -2279,270 +2279,6 @@
     "x": 0.16216216216216217,
     "y": 2.0140845070422535
    }
-  },
-  "thumb/barcounter/espresso": {
-   "frame": {
-    "x": 183,
-    "y": 654,
-    "w": 44,
-    "h": 37
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 44,
-    "h": 37
-   },
-   "sourceSize": {
-    "w": 44,
-    "h": 37
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.4864864864864865
-   }
-  },
-  "thumb/barcounter/kitchen": {
-   "frame": {
-    "x": 141,
-    "y": 654,
-    "w": 41,
-    "h": 40
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 41,
-    "h": 40
-   },
-   "sourceSize": {
-    "w": 41,
-    "h": 40
-   },
-   "anchor": {
-    "x": 0.4878048780487805,
-    "y": 0.5
-   }
-  },
-  "thumb/lavalamp/lilac": {
-   "frame": {
-    "x": 493,
-    "y": 693,
-    "w": 12,
-    "h": 20
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 12,
-    "h": 20
-   },
-   "sourceSize": {
-    "w": 12,
-    "h": 20
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "thumb/longclock/wood": {
-   "frame": {
-    "x": 490,
-    "y": 540,
-    "w": 18,
-    "h": 40
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 18,
-    "h": 40
-   },
-   "sourceSize": {
-    "w": 18,
-    "h": 40
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "thumb/projector/cloth": {
-   "frame": {
-    "x": 321,
-    "y": 650,
-    "w": 25,
-    "h": 38
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 25,
-    "h": 38
-   },
-   "sourceSize": {
-    "w": 25,
-    "h": 38
-   },
-   "anchor": {
-    "x": 0.48,
-    "y": 0.5
-   }
-  },
-  "thumb/sidetable/mug": {
-   "frame": {
-    "x": 438,
-    "y": 696,
-    "w": 18,
-    "h": 17
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 18,
-    "h": 17
-   },
-   "sourceSize": {
-    "w": 18,
-    "h": 17
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.47058823529411764
-   }
-  },
-  "thumb/speaker/jukebox": {
-   "frame": {
-    "x": 218,
-    "y": 704,
-    "w": 22,
-    "h": 28
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 22,
-    "h": 28
-   },
-   "sourceSize": {
-    "w": 22,
-    "h": 28
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "thumb/tripod/charcoal": {
-   "frame": {
-    "x": 493,
-    "y": 661,
-    "w": 19,
-    "h": 31
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 19,
-    "h": 31
-   },
-   "sourceSize": {
-    "w": 19,
-    "h": 31
-   },
-   "anchor": {
-    "x": 0.47368421052631576,
-    "y": 0.4838709677419355
-   }
-  },
-  "thumb/wallscreen/panel": {
-   "frame": {
-    "x": 426,
-    "y": 659,
-    "w": 31,
-    "h": 36
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 31,
-    "h": 36
-   },
-   "sourceSize": {
-    "w": 31,
-    "h": 36
-   },
-   "anchor": {
-    "x": 0.4838709677419355,
-    "y": 0.5
-   }
-  },
-  "thumb/window/rain": {
-   "frame": {
-    "x": 0,
-    "y": 655,
-    "w": 20,
-    "h": 37
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 20,
-    "h": 37
-   },
-   "sourceSize": {
-    "w": 20,
-    "h": 37
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.4864864864864865
-   }
-  },
-  "thumb/window/sky": {
-   "frame": {
-    "x": 21,
-    "y": 655,
-    "w": 20,
-    "h": 37
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 20,
-    "h": 37
-   },
-   "sourceSize": {
-    "w": 20,
-    "h": 37
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.4864864864864865
-   }
   }
  },
  "animations": {
@@ -2644,7 +2380,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 736
+   "h": 717
   },
   "scale": "1",
   "omega": {
