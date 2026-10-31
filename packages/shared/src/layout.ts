@@ -189,6 +189,9 @@ function onItsWall(f: Placed): boolean {
   return spec.layer !== "wall" || wallSegments(f).every((i) => i < FLOOR_CELLS && !WALL_FIXTURE_SEGMENTS.includes(i));
 }
 
+/** A wall piece over a window, poster or sconce of the default shell (OME-2085). Stub. */
+export const onFixture = (_f: Placed): boolean => false;
+
 const FURNITURE_ENTRIES = {
   kind: FurnitureKindSchema,
   col: CellSchema,

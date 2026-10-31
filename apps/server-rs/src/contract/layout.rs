@@ -1376,6 +1376,42 @@ mod tests {
         assert!(accepts(vec![p("projector", 1, 0, "sw"), p("frame", 4, 0, "sw")]));
     }
 
+    // packages/shared/test/wave2-kinds-contract.test.ts (OME-2085, ADR 0058 amendment): the four wave 2 kinds.
+    #[test]
+    fn the_wave_2_kinds_and_colourways() {
+        let ok = |more: Vec<Value>| accepts_input(&base(more));
+        assert!(ok(vec![p("tripod", 8, 8, "nw"), p("lavalamp", 9, 9, "se")]));
+        assert!(!ok(vec![p("lavalamp", 9, 9, "sw")]), "one facing");
+        assert!(ok(vec![pv("window", 2, 0, "sw", 1)]));
+        assert!(!ok(vec![pv("window", 2, 0, "sw", 2)]), "two colourways");
+        assert!(!ok(vec![p("window", 2, 1, "sw")]), "off its wall");
+        assert!(ok(vec![p("longclock", 0, 3, "se")]));
+        assert!(!ok(vec![p("longclock", 3, 3, "se")]), "backs onto a wall");
+        for (kind, n) in [("sidetable", 2), ("barcounter", 3), ("speaker", 3)] {
+            assert!(piece_accepts(&pv(kind, 4, 4, "se", n - 1)), "{kind} {}", n - 1);
+            assert!(!piece_accepts(&pv(kind, 4, 4, "se", n)), "{kind} {n}");
+        }
+    }
+
+    // packages/shared/test/wave2-kinds-contract.test.ts (OME-2085): fixtures exist only in the default shell.
+    #[test]
+    fn wall_fixtures_apply_only_without_a_shell() {
+        let room = |more: Value, shell: Option<&str>| {
+            let mut f = chairs();
+            f.push(more);
+            let mut v = layout(f);
+            if let Some(s) = shell {
+                v["shell"] = json!(s);
+            }
+            accepts_input(&v) && accepts(&v)
+        };
+        assert!(!room(p("wallscreen", 5, 0, "sw"), None));
+        assert!(room(p("wallscreen", 5, 0, "sw"), Some("penthouse")));
+        assert!(room(p("projector", 0, 4, "se"), Some("studio")));
+        assert!(!room(p("wallscreen", 9, 0, "sw"), Some("penthouse")), "off the wall");
+        assert!(piece_accepts(&p("frame", 5, 0, "sw")), "a layout rule, not a piece rule");
+    }
+
     // packages/shared/test/wall-screens-contract.test.ts (OME-2065, ADR 0058): partitions form at most one line.
     #[test]
     fn partitions_form_one_line() {
