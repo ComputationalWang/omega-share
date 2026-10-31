@@ -104,11 +104,12 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
     if (typeof f.payload === "string" && f.payload.includes('"title-set"')) titleSets.push(f.payload);
   }));
   await owner.goto(`${URLS.web}/`);
-  await openDirectory(owner, "Owner");
+  await openDirectory(owner, "owner");
   await owner.locator(site.createRoomTitle).fill("Edit me");
   await owner.locator(site.createRoomSubmit).click();
   await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
-  await enter(owner, "owner");
+  // The creator goes straight in with the saved profile (OME-2075).
+  await expect(owner.locator(site.room)).toBeVisible();
   const guest = await newPage(browser, guestReq);
   await guest.goto(owner.url());
   await enter(guest, "guest");
