@@ -41,6 +41,8 @@ pub enum Mood {
 #[serde(rename_all = "lowercase")]
 pub enum Shell {
     Dungeon,
+    Penthouse,
+    Studio,
 }
 
 pub const FACINGS: [Facing; 4] = [Facing::Ne, Facing::Nw, Facing::Se, Facing::Sw];
@@ -107,16 +109,18 @@ pub enum Kind {
     Sauna,
     Soaktub,
     Lounger,
+    Wallscreen,
+    Projector,
 }
 
 impl Kind {
-    /// `isScreen` (ADR 0056): a layout holds exactly one screen, a `tv` or a `bigscreen`.
+    /// `isScreen` (ADR 0056, ADR 0058): a layout holds exactly one screen, a `tv`, `bigscreen`, `wallscreen` or `projector`.
     pub const fn is_screen(self) -> bool {
-        matches!(self, Self::Tv | Self::Bigscreen)
+        matches!(self, Self::Tv | Self::Bigscreen | Self::Wallscreen | Self::Projector)
     }
 }
 
-pub const KINDS: [Kind; 51] = [
+pub const KINDS: [Kind; 53] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -168,6 +172,8 @@ pub const KINDS: [Kind; 51] = [
     Kind::Sauna,
     Kind::Soaktub,
     Kind::Lounger,
+    Kind::Wallscreen,
+    Kind::Projector,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,6 +214,8 @@ pub struct Spec {
     pub wall_backed: bool,
     /// A member may lie on it (`lie`), blocking its seats (OME-1773).
     pub lie: Option<LieStyle>,
+    /// `wallSpan` (ADR 0058): wall segments covered from the anchor toward +col/+row.
+    pub wall_span: u32,
 }
 
 impl Spec {
@@ -222,6 +230,7 @@ impl Spec {
             variants: 1,
             wall_backed: false,
             lie: None,
+            wall_span: 1,
         }
     }
     const fn lie(mut self, style: LieStyle) -> Self {
@@ -242,6 +251,10 @@ impl Spec {
     }
     const fn backed(mut self) -> Self {
         self.wall_backed = true;
+        self
+    }
+    const fn wall_span(mut self, n: u32) -> Self {
+        self.wall_span = n;
         self
     }
 }
@@ -303,6 +316,9 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Soaktub => Spec::new(Object, FIXED, 2, 2).seated(),
         // One seat at its anchor.
         Kind::Lounger => Spec::new(Object, ALL, 2, 1).seated().seat_cells(1).lie(LieStyle::Lie),
+        // Wall screens (ADR 0058): a flat panel over 2 wall segments, a pull-down screen over 3.
+        Kind::Wallscreen => Spec::new(Wall, CAMERA, 0, 0).wall_span(2),
+        Kind::Projector => Spec::new(Wall, CAMERA, 0, 0).wall_span(3),
     }
 }
 
@@ -402,13 +418,12 @@ pub fn piece_seats(furniture: &[Furniture], piece: usize) -> Option<std::ops::Ra
     Some(before..before.saturating_add(seat_cells(f).count()))
 }
 
-/// Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se.
-fn wall_segment(f: &Furniture) -> (bool, u32) {
-    if f.facing == Facing::Sw {
-        (true, u32::from(f.col))
-    } else {
-        (false, u32::from(f.row))
-    }
+/// The wall segments a wall piece covers: it hangs on the right wall at (col, 0) facing sw, on the left wall at
+/// (0, row) facing se, over `wall_span` segments. The bool is "right wall".
+fn wall_segments(f: &Furniture) -> impl Iterator<Item = (bool, u32)> {
+    let right = f.facing == Facing::Sw;
+    let first = u32::from(if right { f.col } else { f.row });
+    (first..first.saturating_add(spec(f.kind).wall_span)).map(move |i| (right, i))
 }
 
 fn on_its_wall(f: &Furniture, s: &Spec) -> bool {
@@ -419,7 +434,7 @@ fn on_its_wall(f: &Furniture, s: &Spec) -> bool {
     if off {
         return false;
     }
-    s.layer != Layer::Wall || !WALL_FIXTURE_SEGMENTS.contains(&wall_segment(f).1)
+    s.layer != Layer::Wall || wall_segments(f).all(|(_, i)| i < FLOOR_CELLS as u32 && !WALL_FIXTURE_SEGMENTS.contains(&i))
 }
 
 /// One piece's rules on top of its fields (the `v.check`s of `furniture` in layout.ts).
@@ -438,8 +453,7 @@ fn disjoint(furniture: &[Furniture], layer: Layer) -> bool {
     let mut used = HashSet::new();
     for f in furniture.iter().filter(|f| spec(f.kind).layer == layer) {
         let keys: Vec<(u32, u32)> = if layer == Layer::Wall {
-            let (right, i) = wall_segment(f);
-            vec![(u32::from(right), i)]
+            wall_segments(f).map(|(right, i)| (u32::from(right), i)).collect()
         } else {
             footprint_cells(f)
         };
@@ -448,6 +462,13 @@ fn disjoint(furniture: &[Furniture], layer: Layer) -> bool {
         }
     }
     true
+}
+
+/// `onePartitionLine` (ADR 0058): sw partitions stand on one row, se ones on one column, and not both.
+fn one_partition_line(furniture: &[Furniture]) -> bool {
+    let line = |f: &Furniture| if f.facing == Facing::Sw { (true, f.row) } else { (false, f.col) };
+    let mut lines = furniture.iter().filter(|f| f.kind == Kind::Partition).map(line);
+    lines.next().is_none_or(|first| lines.all(|l| l == first))
 }
 
 /// The layout's rules on top of its pieces' (ADR 0021 §3).
@@ -460,6 +481,7 @@ fn layout_ok(furniture: &[Furniture]) -> bool {
         && disjoint(furniture, Layer::Object)
         && disjoint(furniture, Layer::Floor)
         && disjoint(furniture, Layer::Wall)
+        && one_partition_line(furniture)
 }
 
 fn refuse(code: &'static str) -> Result<(), ValidationError> {
@@ -1324,6 +1346,53 @@ mod tests {
             };
             assert!(doc(n - 1), "{kind} {}", n - 1);
             assert!(!doc(n), "{kind} {n}");
+        }
+    }
+
+    // packages/shared/test/wall-screens-contract.test.ts (OME-2065, ADR 0058): wall screens span 2 or 3 segments.
+    #[test]
+    fn wall_screens_are_wall_screen_kinds_with_a_span() {
+        for (kind, span) in [(Kind::Wallscreen, 2), (Kind::Projector, 3)] {
+            let s = spec(kind);
+            assert_eq!(
+                (s.layer, s.facings, s.cols, s.rows, s.seats, s.variants, s.wall_span),
+                (Layer::Wall, CAMERA, 0, 0, false, 1, span)
+            );
+            assert!(kind.is_screen());
+        }
+        assert_eq!(spec(Kind::Frame).wall_span, 1);
+        let accepts = |more: Vec<Value>| {
+            let mut f = chairs();
+            f.extend(more);
+            RoomLayout::parse_input(layout(f).to_string().as_bytes()).is_ok()
+        };
+        assert!(accepts(vec![p("wallscreen", 3, 0, "sw")]));
+        assert!(accepts(vec![p("projector", 0, 1, "se")]));
+        assert!(!accepts(vec![p("wallscreen", 4, 0, "sw")]), "crosses fixture 5");
+        assert!(!accepts(vec![p("projector", 0, 3, "se")]), "crosses fixture 5");
+        assert!(!accepts(vec![p("wallscreen", 9, 0, "sw")]), "off the wall");
+        assert!(!accepts(vec![p("wallscreen", 1, 0, "sw"), tv()]), "two screens");
+        assert!(!accepts(vec![p("projector", 1, 0, "sw"), p("frame", 3, 0, "sw")]), "span overlap");
+        assert!(accepts(vec![p("projector", 1, 0, "sw"), p("frame", 4, 0, "sw")]));
+    }
+
+    // packages/shared/test/wall-screens-contract.test.ts (OME-2065, ADR 0058): partitions form at most one line.
+    #[test]
+    fn partitions_form_one_line() {
+        let ok = |a: Value, b: Value| RoomLayout::parse_input(base(vec![a, b]).to_string().as_bytes()).is_ok();
+        assert!(ok(p("partition", 8, 9, "sw"), p("partition", 9, 9, "sw")));
+        assert!(ok(p("partition", 9, 8, "se"), p("partition", 9, 9, "se")));
+        assert!(!ok(p("partition", 9, 8, "sw"), p("partition", 9, 9, "sw")));
+        assert!(!ok(p("partition", 8, 9, "se"), p("partition", 9, 9, "se")));
+        assert!(!ok(p("partition", 8, 9, "sw"), p("partition", 9, 9, "se")));
+    }
+
+    #[test]
+    fn the_shells_are_dungeon_penthouse_studio() {
+        for shell in ["dungeon", "penthouse", "studio"] {
+            let mut v = base(vec![]);
+            v["shell"] = json!(shell);
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_ok(), "{shell}");
         }
     }
 
