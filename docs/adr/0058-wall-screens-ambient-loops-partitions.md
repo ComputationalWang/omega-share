@@ -45,3 +45,10 @@
 - Stored layouts stay valid. No migration.
 - If ambient loops fail the idle row, set the default to off and let the owner turn it on per room, or drop to 4 fps. The timer design allows both without new code paths.
 - Reversing: remove the kinds (rooms that use them would fail to load, as in ADR 0057, so a rollback first checks `SELECT count(*) FROM rooms WHERE layout LIKE '%wallscreen%' OR layout LIKE '%projector%'`).
+
+## Amendment (2026-10-31, [OME-2079](/OME/issues/OME-2079), from the idle row [OME-2067](/OME/issues/OME-2067))
+
+- **The §2 CPU number was wrong.** An idle room is not at 0 renders: avatar breathing redraws on its 400 ms clock (`BREATHE_TICK_MS`, ~0.8 renders/s for one seated observer), and each render redraws the whole stage, ~1.5 ms on desktop and ~3.4 ms on Pixel 7 emulation (DPR 2.625, no CPU throttle). With 0 loops, `main` measures 1.2–1.4 ms/s desktop and 2.6–2.9 ms/s Pixel 7. At that cost, ≤ 8 renders/s means ~12 ms/s desktop and ~27 ms/s Pixel 7, so "≤ 8 renders/s" and "≤ 2 ms/s" can't both hold.
+- **Per-profile work budgets.** The idle row lands at 0 loops as a guard on today's baseline: **≤ 2 ms/s desktop, ≤ 4 ms/s Pixel 7**. The ambient loops PR moves the work rows to **≤ 16 ms/s desktop, ≤ 36 ms/s Pixel 7** (8 loop renders plus breathing at today's per-render cost, about 1.3× headroom) and must show its measured numbers in the PR. Renders stay **≤ 8/s** on both.
+- **Not a delta.** A delta over a no-loop run doubles the runs and subtracts two noisy numbers, and it would not catch a baseline regression. Absolute rows per profile do both.
+- **Cheaper renders are welcome, not required.** If the loops PR or a later issue makes a loop frame cheaper than a full stage render (e.g. a cached static layer), the rows tighten in that PR.
