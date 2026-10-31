@@ -1405,8 +1405,8 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   for (const f of [...roomFrames, ...frames, ...shell, ...backs]) all.set(f.key, f);
   // OME-2066 (ADR 0058): wave 2's pieces, loops and back views, and the swap rooms' shell skin, two lazy sheets of their own.
   const w2 = buildWave2Pieces(), w2Shell = buildWave2Shell();
-  writeFurnitureAtlas("furniture-v8", w2.frames, w2.pieces, 512, true);
-  writeFurnitureAtlas("furniture-v8-shell", w2Shell, [], 512, true);
+  writeFurnitureAtlas("furniture-v8", w2.frames, w2.pieces, 512, true, true);
+  writeFurnitureAtlas("furniture-v8-shell", w2Shell, [], 512, true, true);
   for (const f of [...w2.frames, ...w2Shell]) all.set(f.key, f);
   WAVE2_PIECES = w2.pieces;
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
@@ -1446,7 +1446,7 @@ function paneMasks(frames: readonly RoomFrame[]): RoomFrame[] {
 }
 
 /** `furniture/<name>.png` + `.json` (PixiJS v8 atlas, `meta.omega.pieces`) and its `preview/<name>-atlas@2x.png`. */
-function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces: readonly PieceMeta[], maxW: number, dedupe = false): void {
+function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces: readonly PieceMeta[], maxW: number, dedupe = false, lean = false): void {
   // With `dedupe`, identical frames (a loop's frame that equals the idle one, say) share one rect: same pixels, size and anchor.
   // shortcut: off for v1/v2, whose shipped packing it would reshuffle; turn it on there at their next repack.
   const firstOf = new Map<string, RoomFrame>();
@@ -1457,7 +1457,9 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
     if (first && dedupe) alias.set(f.key, first.key);
     else firstOf.set(dedupe ? sig : f.key, f);
   }
-  const { placed: packed, w: sheetW, h: sheetH } = pack([...firstOf.values()], maxW);
+  // `lean` (OME-2078, the lazy v8 sheets): the packed height, not the next power of two, and PNG filter Up.
+  const { placed: packed, w: sheetW, h: potH } = pack([...firstOf.values()], maxW);
+  const sheetH = lean ? Math.max(...packed.map((p) => p.y + p.h)) : potH;
   const at = new Map(packed.map((p) => [p.key, p]));
   const placed = [...packed, ...[...alias].flatMap(([key, to]) => { const p = at.get(to); return p ? [{ ...p, key }] : []; })];
   const sheet = new Uint8Array(sheetW * sheetH);
@@ -1475,7 +1477,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
   }
   const dir = join(ROOT, "furniture");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, `${name}.png`), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  writeFileSync(join(dir, `${name}.png`), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE, lean ? 2 : 0));
   // Pixi's own `animations`: one "in use" loop per piece, colour and dir (frame time in `meta.omega.pieces[].use.ms`).
   const animations: Record<string, string[]> = {};
   for (const p of pieces) {

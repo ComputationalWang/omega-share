@@ -35,7 +35,8 @@ export interface RGBA {
 }
 
 /** Encode an indexed image. `pixels[i]` indexes `palette`; index 0 should be transparent. */
-export function encodeIndexedPng(width: number, height: number, pixels: Uint8Array, palette: readonly RGBA[]): Uint8Array {
+/** `filter` 2 (Up) packs tall sheets of stacked look-alike frames smaller (the v8 sheets, OME-2078); 0 (None) everywhere else. */
+export function encodeIndexedPng(width: number, height: number, pixels: Uint8Array, palette: readonly RGBA[], filter: 0 | 2 = 0): Uint8Array {
   const ihdr = new Uint8Array(13);
   const v = new DataView(ihdr.buffer);
   v.setUint32(0, width);
@@ -57,8 +58,11 @@ export function encodeIndexedPng(width: number, height: number, pixels: Uint8Arr
   });
   const raw = new Uint8Array((width + 1) * height);
   for (let y = 0; y < height; y++) {
-    raw[y * (width + 1)] = 0; // filter: none (best for flat pixel art)
-    raw.set(pixels.subarray(y * width, (y + 1) * width), y * (width + 1) + 1);
+    raw[y * (width + 1)] = filter;
+    for (let x = 0; x < width; x++) {
+      const v = pixels[y * width + x] ?? 0, up = filter === 2 && y > 0 ? (pixels[(y - 1) * width + x] ?? 0) : 0;
+      raw[y * (width + 1) + 1 + x] = (v - up) & 255;
+    }
   }
   const idat = deflateSync(raw, { level: 9 });
   const sig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
