@@ -75,6 +75,9 @@ const VIEW_SWAP: readonly Budget[] = [
 const JOIN: readonly Budget[] = [
   { id: "join.longTask.desktop", area: "Site", metric: "Longest task joining a room, desktop", docMetric: "Longest task joining a room", unit: "ms", limit: 50, comparator: "<=" },
   { id: "join.longTask.phone4x", area: "Site", metric: "Longest task joining a room, Pixel 7 at 4× CPU", docMetric: "Longest task joining a room on a phone at 4× CPU", unit: "ms", limit: 150, comparator: "<=" },
+  // OME-2073: from the Join click, a Pixel 7 at 4× CPU on Slow 4G (perf/join.perf.ts).
+  { id: "join.open.slow4g", area: "Site", metric: "Join to the room's first frame, Pixel 7 on Slow 4G at 4× CPU", docMetric: "Join to the room on a phone on Slow 4G", unit: "ms", limit: 1000, comparator: "<=" },
+  { id: "join.loading.slow4g", area: "Site", metric: "Join to a visible loading state, Pixel 7 on Slow 4G at 4× CPU", docMetric: "Join to a visible loading state on a phone on Slow 4G", unit: "ms", limit: 100, comparator: "<=" },
 ];
 
 // OME-598 (M7 W3): the same three frame budgets for the room tab with the chat in its pop-out window (perf/popout.perf.ts).
