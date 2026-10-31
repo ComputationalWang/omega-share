@@ -44,7 +44,7 @@ import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
-import { buildWave2Pieces, buildWave2Previews, buildWave2Shell } from "./wave2";
+import { WAVE2, buildWave2Pieces, buildWave2Previews, buildWave2Shell, wave2Thumb } from "./wave2";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -2492,6 +2492,8 @@ function presetPlan(layout: RoomLayout): RoomPlan {
     const spec = FURNITURE[f.kind];
     const sitters = spec.seats ? footprintCells(f).map(() => PRESET_SITTERS[seat++]) : [];
     if (f.kind === "tv" || f.kind === "rug") continue; // the console and the big rug are part of the room shell
+    // shortcut: wave 2's kinds and colours are left out of this sheet; preview/w2-* draws those rooms in full (OME-2071).
+    if (WAVE2.some((d) => d.id === f.kind && d.variant === (f.variant ?? 0))) continue;
     if (f.kind === "lamp" || f.kind === "plant") { plan.standing.push([`${f.kind}/0`, f.col, f.row]); continue; }
     if (f.kind === "armchair") {
       plan.standing.push([`armchair/${f.facing}/back`, f.col, f.row]);
@@ -2534,7 +2536,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
     const parsed = v.safeParse(RoomLayoutInputSchema, pr.layout);
     if (!parsed.success) throw new Error(`preset ${pr.id}: ${parsed.issues.map((i) => i.message).join("; ")}`);
     writeFileSync(join(dir, `${pr.id}.json`), JSON.stringify(pr.layout) + "\n");
-    const small = compactPalette(presetThumb(pr.layout));
+    const small = compactPalette(presetThumb(pr.layout, wave2Thumb));
     const png = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette);
     writeFileSync(join(dir, "thumbs", `${pr.id}.png`), png);
     bytes += png.length;
@@ -2549,7 +2551,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   const tw = cols * THUMB.w + (cols + 1) * G, th = rows * THUMB.h + (rows + 1) * G;
   const sheet = new Uint8Array(tw * th).fill(colorIndex("night", 2));
   PRESETS.forEach((pr, i) => {
-    const img = presetThumb(pr.layout);
+    const img = presetThumb(pr.layout, wave2Thumb);
     blitAt(sheet, tw, th, img, THUMB.w, THUMB.h, G + (i % cols) * (THUMB.w + G), G + Math.floor(i / cols) * (THUMB.h + G));
   });
   writeFileSync(join(ROOT, "preview", "presets-thumbs@3x.png"), encodeIndexedPng(tw * 3, th * 3, upscale(sheet, tw, th, 3), PALETTE));
@@ -2854,7 +2856,7 @@ function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
   const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
-  files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
+  files.push("presets/presets.json", ...PRESETS.map((p) => `presets/thumbs/${p.id}.png`));
   let total = 0, lazy = 0;
   for (const f of files) {
     const buf = readFileSync(join(ROOT, f));
@@ -2866,6 +2868,9 @@ function report(): void {
   }
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
   console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 460800 (ADR 0056, amended 2026-10-29)`);
+  // OME-2094: only the server reads presets/<id>.json (apps/web loads presets.json and the thumbs), so they're reported apart.
+  const layouts = PRESETS.map((p) => gzipSync(readFileSync(join(ROOT, "presets", `${p.id}.json`)), { level: 9 }).length);
+  console.log(`preset layouts (server only, not in the art budget): ${String(layouts.reduce((a, b) => a + b, 0))} B gz`);
   // Set (j): the extension icons ship in the extension package, not the site, so they're reported apart from the art budget.
   const icons = readdirSync(join(ROOT, "store")).filter((n) => /^(icon|found)-\d+\.png$/.test(n)).sort();
   const iconBytes = icons.map((n) => readFileSync(join(ROOT, "store", n)).length);

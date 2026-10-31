@@ -1776,7 +1776,8 @@ These follow the furniture-back rules: keys `furniture/<id>/<colour>/<nw|ne>/bac
 
 ### Proposed layouts (`preview/w2-layouts/<id>.json`, contract-shaped)
 
-The five revamps (`classic`, `living`, `lounge`, `cafe`, `bar`) are the shipped preset minus the corner console, plus the screen and
+Classic's revamp is dropped (OME-2092: Classic stays the TV-table room, equal to `DEFAULT_LAYOUT`), so it has no layout file here; its
+proposal only draws the `w2-screen-*` previews. The other four revamps (`living`, `lounge`, `cafe`, `bar`) shipped as is (OME-2071). They are the shipped preset minus the corner console, plus the screen and
 ambient pieces. Seats are unchanged, so each keeps its 8. The lounge's pull-down screen covers segments 2–4 (5 is a window
 segment), and its print moves to segment 7. Two new presets: `penthouse` (`shell: "penthouse"`) and `studio` (`shell: "studio"`),
 both on OME-1959's grid (partition on row 4, doorway at col 1).
@@ -1804,7 +1805,8 @@ moving pixels).
 
 **One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
 The total covers every file under `assets/` that ships, eager and lazy. `bun assets/src/build.ts` prints exactly these numbers (its last two lines
-are the lazy/eager split and the total). Previews and `src/` don't ship and aren't counted.
+are the lazy/eager split and the total). Previews and `src/` don't ship and aren't counted. Neither do the preset layouts `presets/<id>.json`:
+only the server reads them (the site loads `presets/presets.json` and the thumbnails), so the build prints them on their own line (OME-2094).
 
 | File | Bytes |
 |---|---|
@@ -1841,7 +1843,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 452 618 B** after OME-2096 (v8 tray thumbnails dropped, −2 616 lazy); 455 234 B after OME-2078 (wave 2 polish, −4 258); 459 492 B after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 459 844 B** after OME-2071 merged on OME-2096 (penthouse + studio thumbnails, regenerated preset thumbs; preset layouts no longer counted, OME-2094); 452 618 B after OME-2096 (v8 tray thumbnails dropped, −2 616 lazy); 455 234 B after OME-2078 (wave 2 polish, −4 258); 459 492 B after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +

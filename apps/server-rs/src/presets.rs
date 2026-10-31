@@ -30,6 +30,8 @@ pub struct Presets {
     bar: RoomLayout,
     empty: RoomLayout,
     dank_dungeon: RoomLayout,
+    penthouse: RoomLayout,
+    studio: RoomLayout,
 }
 
 impl Presets {
@@ -43,6 +45,8 @@ impl Presets {
             RoomPresetId::Bar => include_str!("../../../assets/presets/bar.json"),
             RoomPresetId::Empty => include_str!("../../../assets/presets/empty.json"),
             RoomPresetId::DankDungeon => include_str!("../../../assets/presets/dank-dungeon.json"),
+            RoomPresetId::Penthouse => include_str!("../../../assets/presets/penthouse.json"),
+            RoomPresetId::Studio => include_str!("../../../assets/presets/studio.json"),
         })
     }
 
@@ -58,6 +62,8 @@ impl Presets {
             bar: parse(RoomPresetId::Bar)?,
             empty: parse(RoomPresetId::Empty)?,
             dank_dungeon: parse(RoomPresetId::DankDungeon)?,
+            penthouse: parse(RoomPresetId::Penthouse)?,
+            studio: parse(RoomPresetId::Studio)?,
         })
     }
 
@@ -71,6 +77,8 @@ impl Presets {
             RoomPresetId::Bar => &self.bar,
             RoomPresetId::Empty => &self.empty,
             RoomPresetId::DankDungeon => &self.dank_dungeon,
+            RoomPresetId::Penthouse => &self.penthouse,
+            RoomPresetId::Studio => &self.studio,
         }
     }
 }
@@ -113,6 +121,31 @@ mod tests {
         }
         let l = presets.preset_layout(ROOM_PRESET_IDS[7]);
         assert!(l.to_json().contains(r#""mood":"night""#));
+    }
+
+    // assets/src/presets.test.ts (OME-2071, ADR 0058): wave 2 hangs the screen on a wall in four revamps, the lounge pulls a
+    // projector screen down, and the two swap rooms wear their own shells.
+    #[test]
+    fn wave2_screens_and_shells() {
+        let presets = Presets::load().unwrap();
+        let screen = |id: &str| match id {
+            "living" | "cafe" | "bar" | "penthouse" | "studio" => "wallscreen",
+            "lounge" => "projector",
+            "cinema" => "bigscreen",
+            _ => "tv",
+        };
+        for (want, shell) in [("penthouse", "penthouse"), ("studio", "studio")] {
+            let id = ROOM_PRESET_IDS.into_iter().find(|i| i.as_str() == want);
+            let json = id.map(|i| presets.preset_layout(i).to_json()).unwrap_or_default();
+            assert!(json.contains(&format!(r#""shell":"{shell}""#)), "{want}");
+        }
+        for id in ROOM_PRESET_IDS {
+            let json = presets.preset_layout(id).to_json();
+            for kind in ["tv", "bigscreen", "wallscreen", "projector"] {
+                let has = json.contains(&format!(r#""kind":"{kind}""#));
+                assert_eq!(has, screen(id.as_str()) == kind, "{} {kind}", id.as_str());
+            }
+        }
     }
 
     #[test]

@@ -24,7 +24,7 @@ const parsed = (schema: v.GenericSchema, inputs: readonly unknown[]): Case[] =>
   });
 
 const preset = (id: string): unknown => JSON.parse(readFileSync(new URL(`../../../assets/presets/${id}.json`, import.meta.url), "utf8"));
-const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon"].map(preset);
+const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon", "penthouse", "studio"].map(preset);
 
 const POSITIONS = [[0, 0], [0, 9], [9, 0], [9, 9], [4, 4], [5, 0], [0, 5], [8, 0], [0, 8], [2, 0], [0, 2], [9, 5], [3, 9]] as const;
 const everyKindEveryFacing = (): unknown[] =>

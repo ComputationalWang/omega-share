@@ -5,7 +5,7 @@
 // This spec owns its server and site (own ports, a temp DB), like persistence.e2e.ts: POST /rooms is rate limited to 2
 // per client key, and the shared lobby server has no TRUST_PROXY, so every create from the browser would share one key.
 // Here the server trusts a loopback X-Forwarded-For and every create gets an address of its own (the global bucket of
-// 10 still covers this file's 9 creates). CSP here is index.html's meta policy only, as in persistence.e2e.ts.
+// 10 still covers this file's 10 creates). CSP here is index.html's meta policy only, as in persistence.e2e.ts.
 import { spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -166,9 +166,10 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     expect([...values].sort()).toEqual([...ROOM_PRESET_IDS].sort());
     await expect(page.locator(radio("classic"))).toBeChecked();
     // The untouched default (classic) is created by the #share= test below and empty by the garbage test: this file's
-    // creates fill the global bucket (ROOM_CREATE_GLOBAL_BURST, 10), so neither is created here as well.
+    // creates fill the global bucket (ROOM_CREATE_GLOBAL_BURST, 10), so neither is created here as well. Living and café
+    // hang a wall screen like the bar (OME-2071); the server tests check every id's layout (apps/server/test/room-create.test.ts).
     let theatreUrl = "";
-    for (const preset of ROOM_PRESET_IDS.filter((p) => p !== "classic" && p !== "empty")) {
+    for (const preset of ROOM_PRESET_IDS.filter((p) => !["classic", "empty", "living", "cafe"].includes(p))) {
       await createRoom(page, `Room ${preset}`, radio(preset));
       expect(await layoutOf(page), preset).toEqual(presetLayout(preset));
       if (preset === "cinema") theatreUrl = page.url();

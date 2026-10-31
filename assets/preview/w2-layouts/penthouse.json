@@ -9,13 +9,13 @@
     "kind": "lounger",
     "col": 6,
     "row": 0,
-    "facing": "se"
+    "facing": "nw"
    },
    {
     "kind": "lounger",
-    "col": 6,
-    "row": 2,
-    "facing": "se"
+    "col": 8,
+    "row": 0,
+    "facing": "nw"
    },
    {
     "kind": "monstera",
@@ -165,6 +165,19 @@
     "col": 9,
     "row": 8,
     "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "lounger",
+    "col": 3,
+    "row": 1,
+    "facing": "nw"
+   },
+   {
+    "kind": "pouf",
+    "col": 8,
+    "row": 7,
+    "facing": "nw",
     "variant": 1
    }
   ]

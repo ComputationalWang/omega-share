@@ -160,6 +160,13 @@
     "col": 9,
     "row": 6,
     "facing": "sw"
+   },
+   {
+    "kind": "pouf",
+    "col": 7,
+    "row": 6,
+    "facing": "nw",
+    "variant": 1
    }
   ]
  }
