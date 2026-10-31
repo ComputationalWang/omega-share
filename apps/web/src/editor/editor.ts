@@ -30,7 +30,7 @@ import { TRAY_TABS, defaultFacing, wallKeys, doorCount, needsSecondPad, padCount
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { createMoodPicker } from "./mood";
 import v8Url from "../../../../assets/furniture/furniture-v8.png?url";
-import { V8_THUMBS } from "./v8-thumbs";
+import { V8_THUMBS, trayScale } from "./v8-thumbs";
 import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
@@ -138,9 +138,10 @@ const DELETE_ERRORS: Readonly<Record<DeleteRoomErrorCode, string>> = {
 };
 
 const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
-/** A tray thumb cut from furniture-v8.png (the sheet is 512 px wide), scaled by the kit's pixel size. */
+/** A piece's se frame cut from furniture-v8.png (the sheet is 512 px wide), at 1/n of the kit's pixel size (OME-2095). */
 function v8Thumb(r: { readonly x: number; readonly y: number; readonly w: number; readonly h: number }): HTMLSpanElement {
-  const px = (n: number): string => `calc(${String(n)} * var(--ui-px, 2px))`;
+  const n = trayScale(r);
+  const px = (v: number): string => `calc(${String(v / n)} * var(--ui-px, 2px))`;
   const b = el("span", { className: "ui-sprite", ariaHidden: "true" });
   b.style.cssText = `display:block;width:${px(r.w)};height:${px(r.h)};background:url(${v8Url}) ${px(-r.x)} ${px(-r.y)}/${px(512)} auto;image-rendering:pixelated`;
   return b;
