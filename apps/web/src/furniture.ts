@@ -442,7 +442,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
 
 /**
  * A wall screen seen from the north (assets/README.md "Back views"): its span turns to segment 9 - s - (span - 1) of the near wall (raw col 9 for
- * a left-wall se piece, raw row 9 for a right-wall sw one), drawn as its ne/nw back frame at half alpha, with nothing behind it.
+ * a left-wall se piece, raw row 9 for a right-wall sw one), drawn as its ne/nw back frame at half alpha over everything, with nothing behind it.
  */
 function pushGhost(out: FurnitureSprite[], f: Furniture, manifests: readonly FurnitureManifest[]): void {
   const left = f.facing === "se";
@@ -451,7 +451,8 @@ function pushGhost(out: FurnitureSprite[], f: Furniture, manifests: readonly Fur
   const key = `furniture/${f.kind}/${colour ?? ""}/${TURN[f.facing]}/back`;
   if (!manifests.some((m) => m.frames[key] !== undefined)) return;
   const at = left ? rawCenter(FLOOR_CELLS - 1, s) : rawCenter(s, FLOOR_CELLS - 1);
-  out.push({ key, x: at.x, y: at.y, layer: "wall", z: depth(at.x, at.y, BACK_LAYER), alpha: GHOST_ALPHA });
+  // An object over every piece and avatar (stage y < 4096): the wall layer sits under all objects, so the front row hid it (QA OME-2091).
+  out.push({ key, x: at.x, y: at.y, layer: "object", z: depth(0, 4096, 0), alpha: GHOST_ALPHA });
 }
 
 function pushSprites(
