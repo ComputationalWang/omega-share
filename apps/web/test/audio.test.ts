@@ -244,7 +244,29 @@ describe("footfalls close together", () => {
   });
 });
 
+/** Every bake has run: unlock bakes one one-shot per task (OME-2072). */
+const bakesDone = async (): Promise<void> => {
+  for (let i = 0; i < Object.keys(RECIPES.sounds).length + 1; i++) await new Promise((r) => setTimeout(r, 0));
+};
+
 describe("baked one-shots", () => {
+  test("unlock bakes nothing in its own task and then one one-shot per task, so joining a room has no long task (OME-2072)", async () => {
+    let made = 0;
+    const offline = fakeOffline([]);
+    const t = setup({
+      makeOffline: (length, rate) => {
+        made++;
+        return offline(length, rate);
+      },
+    });
+    t.sound.unlock();
+    expect(made).toBe(0);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(made).toBe(4);
+    await bakesDone();
+    expect(made).toBe(6 * 4);
+  });
+
   test("each one-shot is rendered after unlock; then a play is one buffer source, not a node graph per layer", async () => {
     const rendered: number[] = [];
     const t = setup({ makeOffline: fakeOffline(rendered) });
@@ -252,7 +274,7 @@ describe("baked one-shots", () => {
     // Before the renders land it still plays, live.
     t.sound.play("ui.tick");
     expect(t.fake.started.map((s) => s.kind)).toEqual(["osc"]);
-    await new Promise((r) => setTimeout(r, 0));
+    await bakesDone();
     // Every one-shot, not the looping tones, in 4 takes each (OME-1659).
     expect(rendered.sort()).toEqual([101, 102, 103, 201, 202, 301].flatMap((f) => [f, f, f, f]));
     t.fake.ctx.currentTime = 1;
@@ -263,7 +285,7 @@ describe("baked one-shots", () => {
   test("plays cycle through the takes, so a long walk isn't one sample over and over (OME-1659)", async () => {
     const t = setup({ makeOffline: fakeOffline([]) });
     t.sound.unlock();
-    await new Promise((r) => setTimeout(r, 0));
+    await bakesDone();
     for (let i = 0; i < 4; i++) {
       t.fake.ctx.currentTime = 1 + i;
       t.sound.play("step.wood");
