@@ -38,13 +38,19 @@ const KEYS_ROW_W = 3 * 44 + 4 * 4;
 /** From this width a short window has its keys beside the room, not under it (a phone held sideways, OME-1841); a portrait
  * phone's window (≤ 430 px) keeps them under it. */
 const KEYS_SIDE_MIN_W = 480;
+/** Such a window needs only its key row's height to show the room beside it (OME-2103: 863×360 left it 90 px under the
+ * TV's ADR 0012 minimum, and the portrait floor sent it 58 px past the screen). */
+const SIDE_ROOM_MIN_H = 64;
+
+/** The shortest window that shows the room: beside a row of keys, or above one (a portrait phone). */
+export const windowMinH = (w: number): number => (w >= KEYS_SIDE_MIN_W ? SIDE_ROOM_MIN_H : PHONE_ROOM_MIN_H);
 
 /**
  * The window's height in a wide column with `avail` px left under the shelf (OME-1841): all of it if the room shows there
  * beside its keys, so the column never scrolls; else the keys' column height, scrolled to (Twitch's taller TV, QA OME-1330 R1).
  */
 export function windowH(w: number, avail: number): number {
-  return w >= KEYS_SIDE_MIN_W && avail >= PHONE_ROOM_MIN_H ? avail : Math.max(KEYS_COLUMN_H, avail);
+  return w >= KEYS_SIDE_MIN_W && avail >= SIDE_ROOM_MIN_H ? avail : Math.max(KEYS_COLUMN_H, avail);
 }
 /** How far inside the pane a tag's box must sit to be whole to the finger: its 52 px ::before less its 20 px height, halved. */
 const TAG_CROP = 16;
@@ -464,7 +470,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       clip.dataset["keys"] = keysAt;
       clip.classList.toggle("is-phone", on);
       // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).
-      clip.style.visibility = on && h < PHONE_ROOM_MIN_H ? "hidden" : "";
+      clip.style.visibility = on && h < windowMinH(w) ? "hidden" : "";
       keys.hidden = !on;
       if (on) {
         apply();

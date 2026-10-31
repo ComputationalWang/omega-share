@@ -584,6 +584,9 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   .room-side { gap: 4px; }
   .room-side .queue-head { flex-wrap: wrap; }
   .room-side .queue-head > :first-child { display: none; }
+  /* "Up next" keeps one line beside Play next now (OME-2103: it wrapped to two in the 288 px column, so the panel took a
+   * chat line). */
+  .room-side .queue-head > h3 { flex: none; white-space: nowrap; }
   /* The log takes what's left but keeps three lines (QA OME-1309); past that Up next shrinks, its list scrolling. */
   .room-side > .chat-log { flex: 1 1 0; min-height: 60px; }
   .room-side .queue-panel > .queue-content { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; }
@@ -624,6 +627,10 @@ body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--
   .room-side > .editor-panel:empty { display: none; }
   body.room-editing .room-side > :not(.edit-bar, .editor-panel) { display: none; }
   body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+  /* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
+  body.room-editing .room-side > .edit-bar { display: contents; }
+  body.room-editing .room-side > .edit-bar > * { flex: none; }
+  body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
   .room-side > .editor-panel { flex: none; }
   .room-side > .editor-panel :is(.ui-tabs, .ui-tray, .editor-mood-options) { flex-wrap: wrap; }
   /* The tray scrolls in half the screen, so the piece's keys, Mood and Save are a short scroll away. */
