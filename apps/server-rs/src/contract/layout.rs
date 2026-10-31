@@ -107,6 +107,8 @@ pub enum Kind {
     Sauna,
     Soaktub,
     Lounger,
+    Wallscreen,
+    Projector,
 }
 
 impl Kind {
@@ -116,7 +118,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 51] = [
+pub const KINDS: [Kind; 53] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -168,6 +170,8 @@ pub const KINDS: [Kind; 51] = [
     Kind::Sauna,
     Kind::Soaktub,
     Kind::Lounger,
+    Kind::Wallscreen,
+    Kind::Projector,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,6 +212,8 @@ pub struct Spec {
     pub wall_backed: bool,
     /// A member may lie on it (`lie`), blocking its seats (OME-1773).
     pub lie: Option<LieStyle>,
+    /// `wallSpan` (ADR 0058): wall segments covered from the anchor toward +col/+row.
+    pub wall_span: u32,
 }
 
 impl Spec {
@@ -222,6 +228,7 @@ impl Spec {
             variants: 1,
             wall_backed: false,
             lie: None,
+            wall_span: 1,
         }
     }
     const fn lie(mut self, style: LieStyle) -> Self {
@@ -303,6 +310,7 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Soaktub => Spec::new(Object, FIXED, 2, 2).seated(),
         // One seat at its anchor.
         Kind::Lounger => Spec::new(Object, ALL, 2, 1).seated().seat_cells(1).lie(LieStyle::Lie),
+        Kind::Wallscreen | Kind::Projector => Spec::new(Wall, CAMERA, 0, 0),
     }
 }
 
@@ -1324,6 +1332,50 @@ mod tests {
             };
             assert!(doc(n - 1), "{kind} {}", n - 1);
             assert!(!doc(n), "{kind} {n}");
+        }
+    }
+
+    // packages/shared/test/wall-screens-contract.test.ts (OME-2065, ADR 0058): wall screens span 2 or 3 segments.
+    #[test]
+    fn wall_screens_are_wall_screen_kinds_with_a_span() {
+        for (kind, span) in [(Kind::Wallscreen, 2), (Kind::Projector, 3)] {
+            let s = spec(kind);
+            assert_eq!((s.layer, s.facings, s.cols, s.rows, s.seats, s.variants, s.wall_span), (Layer::Wall, CAMERA, 0, 0, false, 1, span));
+            assert!(kind.is_screen());
+        }
+        assert_eq!(spec(Kind::Frame).wall_span, 1);
+        let accepts = |more: Vec<Value>| {
+            let mut f = chairs();
+            f.extend(more);
+            RoomLayout::parse_input(layout(f).to_string().as_bytes()).is_ok()
+        };
+        assert!(accepts(vec![p("wallscreen", 3, 0, "sw")]));
+        assert!(accepts(vec![p("projector", 0, 1, "se")]));
+        assert!(!accepts(vec![p("wallscreen", 4, 0, "sw")]), "crosses fixture 5");
+        assert!(!accepts(vec![p("projector", 0, 3, "se")]), "crosses fixture 5");
+        assert!(!accepts(vec![p("wallscreen", 9, 0, "sw")]), "off the wall");
+        assert!(!accepts(vec![p("wallscreen", 1, 0, "sw"), tv()]), "two screens");
+        assert!(!accepts(vec![p("projector", 1, 0, "sw"), p("frame", 3, 0, "sw")]), "span overlap");
+        assert!(accepts(vec![p("projector", 1, 0, "sw"), p("frame", 4, 0, "sw")]));
+    }
+
+    // packages/shared/test/wall-screens-contract.test.ts (OME-2065, ADR 0058): partitions form at most one line.
+    #[test]
+    fn partitions_form_one_line() {
+        let ok = |a: Value, b: Value| RoomLayout::parse_input(base(vec![a, b]).to_string().as_bytes()).is_ok();
+        assert!(ok(p("partition", 8, 9, "sw"), p("partition", 9, 9, "sw")));
+        assert!(ok(p("partition", 9, 8, "se"), p("partition", 9, 9, "se")));
+        assert!(!ok(p("partition", 9, 8, "sw"), p("partition", 9, 9, "sw")));
+        assert!(!ok(p("partition", 8, 9, "se"), p("partition", 9, 9, "se")));
+        assert!(!ok(p("partition", 8, 9, "sw"), p("partition", 9, 9, "se")));
+    }
+
+    #[test]
+    fn the_shells_are_dungeon_penthouse_studio() {
+        for shell in ["dungeon", "penthouse", "studio"] {
+            let mut v = base(vec![]);
+            v["shell"] = json!(shell);
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_ok(), "{shell}");
         }
     }
 
