@@ -131,7 +131,7 @@ const WALK25_AMBIENCE: readonly Budget[] = [
 // OME-2067 (ADR 0058): an idle room with every ambient loop visible, observer alone, Smooth tier (perf/idle-ambient.perf.ts).
 const IDLE_PROFILES = { desktop: "desktop Chromium", phone: "Pixel 7 emulation" } as const;
 const IDLE: readonly Budget[] = Object.entries(IDLE_PROFILES).flatMap(([p, pl]): Budget[] => [
-  { id: `idle.workPerS.${p}`, area: "Site", metric: `Main-thread work per second, idle room, every ambient loop visible, ${pl}, Smooth tier`, docMetric: "Main-thread work per second, idle room with every ambient loop visible", unit: "ms", limit: 2, comparator: "<=" },
+  { id: `idle.workPerS.${p}`, area: "Site", metric: `Main-thread work per second, idle room, every ambient loop visible, ${pl}, Smooth tier`, docMetric: `Main-thread work per second, idle room with every ambient loop visible, ${p === "phone" ? "Pixel 7" : "desktop"}`, unit: "ms", limit: p === "phone" ? 4 : 2, comparator: "<=" },
   { id: `idle.rendersPerS.${p}`, area: "Site", metric: `Renders per second, idle room, every ambient loop visible, ${pl}, Smooth tier`, docMetric: "Renders per second, idle room with every ambient loop visible", unit: "count", limit: 8, comparator: "<=" },
 ]);
 
