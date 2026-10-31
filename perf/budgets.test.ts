@@ -155,6 +155,17 @@ describe("budgets", () => {
     }
   });
 
+  test("an idle room with every ambient loop visible has a work-per-second (≤ 2 ms) and a renders-per-second (≤ 8) row, desktop and Pixel 7 (OME-2067, ADR 0058)", () => {
+    for (const p of ["desktop", "phone"]) {
+      const work = BUDGETS.find((x) => x.id === `idle.workPerS.${p}`);
+      const renders = BUDGETS.find((x) => x.id === `idle.rendersPerS.${p}`);
+      expect([work?.area, work?.unit, work?.limit, work?.comparator]).toEqual(["Site", "ms", 2, "<="]);
+      expect([renders?.area, renders?.unit, renders?.limit, renders?.comparator]).toEqual(["Site", "count", 8, "<="]);
+      expect(work?.docMetric).toBe("Main-thread work per second, idle room with every ambient loop visible");
+      expect(renders?.docMetric).toBe("Renders per second, idle room with every ambient loop visible");
+    }
+  });
+
   test("the movie-night heap row (moments strip + recap card) holds the 10 min heap budget (OME-1643)", () => {
     const plain = BUDGETS.find((x) => x.id === "site.heapAfterSoak");
     const b = BUDGETS.find((x) => x.id === "site.heapMovieNight");
