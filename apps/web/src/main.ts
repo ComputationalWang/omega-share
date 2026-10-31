@@ -162,6 +162,12 @@ let roomModule: Promise<typeof RoomModule> | null = null;
 const loadRoom = (): Promise<typeof RoomModule> => (roomModule ??= import("./room"));
 const intent: HTMLElement = pathRoom === null ? enter : form;
 for (const type of ["focusin", "pointerover", "input"]) intent.addEventListener(type, () => void loadRoom(), { once: true });
+// A room link has no other way on, so it fetches the room at the first idle moment, while the nickname is typed (OME-2073).
+// Not on `/`: the landing budget counts anything fetched before interaction.
+if (pathRoom !== null) {
+  if ("requestIdleCallback" in window) requestIdleCallback(() => void loadRoom());
+  else setTimeout(() => void loadRoom());
+}
 
 /** Checks the nickname field; on failure says why and puts focus back in it. */
 const checkedNickname = (): Nickname | null => {
@@ -179,7 +185,9 @@ const checkedNickname = (): Nickname | null => {
 
 /** Into the room: from Enter, or straight from this tab's stored session for the room (ADR 0043). */
 const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): void => {
+  const label = enter.textContent;
   enter.disabled = true;
+  enter.textContent = "Opening the room…";
   void loadRoom()
     .then(({ startRoom }) => {
       show("room");
@@ -207,6 +215,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
       console.error(e);
       show("entry");
       enter.disabled = false;
+      enter.textContent = label;
       error.textContent = "Could not open the room. Try again.";
     });
 };
