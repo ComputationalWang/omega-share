@@ -106,6 +106,5 @@ test("walking into the bedroom turns the view north, where the wall screen shows
   await expect(a.page.locator(site.room)).toHaveAttribute("data-view", "north", { timeout: 15_000 });
   // Let the swapped scene settle, then keep the picture for the anchor review against assets/preview/w2-screen-wallscreen-north@2x.png.
   await a.page.waitForTimeout(500);
-  const dir = process.env["PAPERCLIP_RUN_SCRATCH_DIR"] ?? testInfo.outputDir;
-  await a.page.locator(site.room).screenshot({ path: `${dir}/wall-screen-north.png` });
+  await a.page.locator(site.room).screenshot({ path: testInfo.outputPath("wall-screen-north.png") });
 });
