@@ -424,8 +424,6 @@ const split = (name: string, back: (n: number) => (u: number, v: number) => Pain
 
 /** The near-wall stub's paint: the partition's 16 px cut stub (OME-1959), wood with a charcoal skirting. */
 const stubPaint = (p: { z: number }, f: string): Paint => (f === "top" ? ["wood", 0] : p.z < 3 ? ["charcoal", 2] : ["wood", f === "sw" ? 1 : 2]);
-/** X-rayed wall patch behind a ghosted wall piece: paper over the wainscot, as tall as the room's wall up to the piece's top. */
-const patchPaint = (p: { z: number }, f: string): Paint => (f === "top" ? ["wall", 0] : p.z < 36 ? ["wood", 2] : p.z < 38 ? ["wood", 0] : ["wall", 2]);
 
 export function buildWave2Shell(): RoomFrame[] {
   const out: RoomFrame[] = [
@@ -439,12 +437,6 @@ export function buildWave2Shell(): RoomFrame[] {
   // Swapped view: the near walls drawn as the stub, one segment each, along the +u edge (col 9) and the +v edge (row 9).
   out.push(solidsFrame("wall/stub/u", [box(8, 8 + WALL_T, -8, 8, 0, 16, "wood", { paint: stubPaint })], "top"));
   out.push(solidsFrame("wall/stub/v", [box(-8, 8, 8, 8 + WALL_T, 0, 16, "wood", { paint: stubPaint })], "top"));
-  // The x-ray patch behind a ghosted screen: span + 1 segments, centred on the screen (anchor = the screen's turned anchor).
-  for (const span of [2, 3]) {
-    const a = -16, b = 16 * span;
-    out.push(solidsFrame(`wall/stub/patch/u/${String(span)}`, [box(8, 8 + WALL_T, a, b, 16, 160, "wall", { paint: patchPaint })], "all"));
-    out.push(solidsFrame(`wall/stub/patch/v/${String(span)}`, [box(a, b, 8, 8 + WALL_T, 16, 160, "wall", { paint: patchPaint })], "all"));
-  }
   out.push(...split("pent", deckTile, planks), ...split("pent/north", planks, deckTile), ...split("nook", carpetTile, planks), ...split("nook/north", planks, carpetTile));
   return out;
 }
@@ -557,9 +549,10 @@ const SHELLS: Readonly<Record<string, { south: Shell; north: Shell }>> = {
 const cellAt = (c0: number, r: number): { x: number; y: number } => ({ x: 480 + (c0 - r) * 32, y: 220 + (c0 + r + 1) * 16 });
 const screenXY = (u: number, v: number, z: number): { x: number; y: number } => ({ x: 480 + 2 * (u - v), y: 236 + u + v - z });
 
-/** The projector's light: a sparse dither of the glow highlight from the lens to the cloth's four corners (not over the cloth).
- *  The web draws it once as a cached Graphics (or this overlay baked), never per frame. */
-function beam(img: Uint8Array, W: number, H: number, pj: Placement, screen: { col: number; row: number; dir: FurnDir }): void {
+/** The projector's light: a sparse dither of the glow highlight from the lens to the cloth's four corners (not over the cloth),
+ *  only where `bare` (the room without its standing pieces and avatars) shows, so it starts at the lens and passes behind seats and
+ *  sitters. The web draws it once as a cached Graphics under the object layer, never per frame. */
+function beam(img: Uint8Array, bare: Uint8Array, W: number, H: number, pj: Placement, screen: { col: number; row: number; dir: FurnDir }): void {
   const k = new Kit(pj.dir);
   const lw = k.world(-1.5, PJ.lensY - 0.5);
   const lens = screenXY(16 * pj.col + lw.u, 16 * pj.row + lw.v, PJ.Zb + 2.5);
@@ -588,13 +581,16 @@ function beam(img: Uint8Array, W: number, H: number, pj: Placement, screen: { co
     if (p === hull[0]) break;
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if ((x + 2 * y) % 4 !== 0 || !inside(hull, x + 0.5, y + 0.5) || inside(quad, x + 0.5, y + 0.5)) continue;
+    if ((x + 2 * y) % 4 !== 0 || img[y * W + x] !== bare[y * W + x] || !inside(hull, x + 0.5, y + 0.5) || inside(quad, x + 0.5, y + 0.5)) continue;
     img[y * W + x] = c("glow", 0);
   }
 }
-function beamFor(plan: RoomPlan): ((img: Uint8Array, W: number, H: number) => void) | undefined {
+function beamFor(d: Wave2Deps, pieces: readonly PieceMeta[], plan: RoomPlan): ((img: Uint8Array, W: number, H: number) => void) | undefined {
   const pj = plan.placements.find((p) => p.id === "tripod"), sc = plan.placements.find((p) => p.id === "projector");
-  return pj && sc ? (img, W, H) => { beam(img, W, H, pj, sc); } : undefined;
+  if (!pj || !sc) return undefined;
+  const flat = (p: Placement): boolean => pieces.find((m) => m.id === p.id)?.layer !== "object"; // rugs and wall pieces take the light
+  const bare = d.compose(pieces, d.all, { ...plan, placements: plan.placements.filter(flat), standing: [] }).img;
+  return (img, W, H) => { beam(img, bare, W, H, pj, sc); };
 }
 
 function blit(img: Uint8Array, W: number, H: number, all: FurnSprites, key: string, c0: number, r: number, ghost = false): void {
@@ -606,15 +602,15 @@ function blit(img: Uint8Array, W: number, H: number, all: FurnSprites, key: stri
     if (v && px >= 0 && py >= 0 && px < W && py < H && (!ghost || (px + py) % 2 === 0)) img[py * W + px] = v;
   }
 }
-/** Swapped view: the near walls as their stub, a screen on them as its back on an x-ray patch, at its turned anchor. */
+/** Swapped view: the near walls as their stub, a screen on them as its back, ghosted at its turned anchor (no wall patch behind
+ *  it: a solid patch hid the sitters in front of it, OME-2078). */
 function nearWalls(img: Uint8Array, W: number, H: number, all: FurnSprites, screens: readonly Placement[]): void {
   for (let i = 0; i < 10; i++) { blit(img, W, H, all, "wall/stub/v", i, 9); blit(img, W, H, all, "wall/stub/u", 9, i); }
   for (const s of screens) {
     const span = WAVE2.find((d) => d.id === s.id)?.span ?? 1;
     const se = s.dir === "se";
     const col = se ? 9 : 9 - s.col - (span - 1), row = se ? 9 - s.row - (span - 1) : 9;
-    blit(img, W, H, all, `wall/stub/patch/${se ? "u" : "v"}/${String(span)}`, col, row, true);
-    blit(img, W, H, all, `furniture/${s.id}/${s.colour}/${TURN[s.dir]}/back`, col, row);
+    blit(img, W, H, all, `furniture/${s.id}/${s.colour}/${TURN[s.dir]}/back`, col, row, true);
   }
 }
 
@@ -656,7 +652,7 @@ export function buildWave2Previews(d: Wave2Deps): void {
     const add = kind === "wallscreen" ? [it("wallscreen", 0, 3, "se")] : [it("projector", 0, 2, "se"), it("tripod", 4, 4, "nw")];
     const plan = planOf(d, { ...classic, layout: { furniture: [...items, ...add] } });
     const south = d.compose(pieces, all, plan);
-    beamFor(plan)?.(south.img, south.W, south.H);
+    beamFor(d, pieces, plan)?.(south.img, south.W, south.H);
     write(`w2-screen-${kind}-south`, south);
     const walls = (side: "l" | "r") => (i: number) => `wall/${side}/${["plain", "plain", "plain", "plain", "plain", side === "l" ? "window0" : "poster0", side === "l" ? "window1" : "poster1", "plain", "sconce", "plain"][i] ?? "plain"}`;
     const nv = d.northView(pieces, all, plan, { floor: plank, l: walls("l"), r: walls("r"), corner: "wall/corner", lEnd: "wall/l/end", rEnd: "wall/r/end" });
@@ -671,7 +667,7 @@ export function buildWave2Previews(d: Wave2Deps): void {
     const plan = planOf(d, p);
     const sh = p.layout.shell ? SHELLS[p.layout.shell] : undefined;
     if (sh) plan.shell = sh.south;
-    const after = beamFor(plan);
+    const after = beamFor(d, pieces, plan);
     const r = d.compose(pieces, all, plan);
     after?.(r.img, r.W, r.H);
     write(`w2-${p.id}${sh ? "-south" : ""}`, r);

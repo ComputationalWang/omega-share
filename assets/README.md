@@ -1705,9 +1705,13 @@ v8 atlases in the v4 schema (`meta.omega.pieces`, `animations`). Everything else
 
 | file | what | bytes |
 |---|---|---|
-| `furniture/furniture-v8.png` + `.json` | the new pieces, their loops, their back views, 2 turned shipped pieces, tray thumbnails | 30 569 + 3 213 gz |
-| `furniture/furniture-v8-shell.png` + `.json` | penthouse and studio shell skin, split floors, the near-wall stubs | 9 468 + 844 gz |
-| **total** | `main` 415 398 → **459 492 B of 460 800** (+44 094, all lazy; eager unchanged at 109 617) | |
+| `furniture/furniture-v8.png` + `.json` | the new pieces, their loops, their back views, 2 turned shipped pieces, tray thumbnails | 29 303 + 3 215 gz |
+| `furniture/furniture-v8-shell.png` + `.json` | penthouse and studio shell skin, split floors, the near-wall stubs | 6 623 + 695 gz |
+| **total** | `main` 415 398 → **455 234 B of 460 800** (+39 836, all lazy; eager unchanged at 109 617) | |
+
+**Both v8 sheets are packed tight (OME-2078):** their height is the packed height, not the next power of two (512×736 and 512×233;
+Pixi v8 takes non-power-of-two textures, and nothing mipmaps them), and their PNG rows use filter Up, which suits stacked loop frames.
+That freed 4 258 B (v8 −1 264, v8-shell −2 994 with the x-ray patches gone). Other sheets keep their power-of-two size and filter None.
 
 **Load:** `furniture-v8` when a layout uses one of its kinds or colours. `furniture-v8-shell` with `shell: "penthouse"` or `"studio"`
 (together with v7 and furniture-back, like the dungeon).
@@ -1740,7 +1744,8 @@ v8 atlases in the v4 schema (`meta.omega.pieces`, `animations`). Everything else
   the covered segments, 8 × (span − 1) units toward +row (se, left wall) or +col (sw, right wall). Draw it at the anchor cell like
   any wall piece, with no extra offset.
 - **Projector beam** (lounge): not a sprite. It is a sparse dither of `glow` 0 (every 4th pixel, `(x + 2y) % 4 == 0`) over the hull from the
-  tripod's lens to the cloth's four corners, outside the cloth. Draw it once as a cached `Graphics`. The reference is `beam()` in
+  tripod's lens to the cloth's four corners, outside the cloth. Draw it once as a cached `Graphics` between the floor/wall layers and
+  the object layer, so seats, the tripod and avatars cover it and it starts at the lens. The reference is `beam()` in
   `src/wave2.ts`.
 - **Tray thumbnails** `thumb/<id>/<colour>` are in v8 itself, not in `ui/edit.png`, so the eager `reference.css` doesn't grow.
   Same fit rules as set (h): ≤ 44×40, anchored on the visual centre.
@@ -1750,8 +1755,8 @@ v8 atlases in the v4 schema (`meta.omega.pieces`, `animations`). Everything else
 These follow the furniture-back rules: keys `furniture/<id>/<colour>/<nw|ne>/back`, anchored on the turned footprint's min corner.
 - `wallscreen/panel`, `projector/cloth` (wall): the panel's matte back with the VESA plate and vents, and the cloth's blank back under its
   case. A wall piece at segment `s` with span `n` turns to segment `9 − s − (n − 1)` on the **near** wall: col 9 for se → nw,
-  row 9 for sw → ne. Draw it there as a ghost: every other pixel, or ~50% alpha, over `wall/stub/patch/<u|v>/<n>` at the same
-  anchor (the x-rayed patch of the near wall). This is the swapped-view rule (`preview/w2-screen-*-north`).
+  row 9 for sw → ne. Draw it there as a ghost: every other pixel, or ~50% alpha, with nothing behind it (OME-2078 dropped the x-ray
+  wall patch: it hid the sitters in front of it). This is the swapped-view rule (`preview/w2-screen-*-north`).
 - `barcounter/kitchen`, `speaker/jukebox`: turned objects.
 - Turned shipped pieces for the swap rooms, in v8 because furniture-back is at its 12 KB allowance: `aquarium/teal`, `bookshelf/wood`.
   Round pieces (`sidetable` in both colours, `coffeetable`) have no back view: draw the source facing.
@@ -1835,7 +1840,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 459 492 B** after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 455 234 B** after OME-2078 (wave 2 polish, −4 258); 459 492 B after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
