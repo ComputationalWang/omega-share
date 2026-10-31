@@ -117,6 +117,11 @@ export function usesV4(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V4_KINDS.has(f.kind));
 }
 
+/** True if the layout needs the v8 sheet (stub). */
+export function usesV8(_layout: RoomLayout): boolean {
+  return false;
+}
+
 /** True if the layout holds a Dank Dungeon piece, i.e. the v6 sheet must load. */
 export function usesV6(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V6_KINDS.has(f.kind));
