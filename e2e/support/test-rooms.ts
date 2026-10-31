@@ -41,6 +41,7 @@ export const SPEC_ROOMS = {
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
   "join-perf": ["desktop", "phone"],
+  "join-open": ["phone"],
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
   "popout-perf": ["frames"],
   report: ["send", "states", "gone"],
