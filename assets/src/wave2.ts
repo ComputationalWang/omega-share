@@ -1,13 +1,13 @@
 // Wave 2 asset set (OME-2066, from the OME-2062 concepts the board passed; ADR 0058): screens without the TV table, ambient loops
 // for the five older presets, and the two partitioned swap rooms (penthouse, studio). Same 67-colour palette, the same Kit / iso
 // ray-caster, plum outline and top-left light as every shipped piece. Ships two lazy sheets:
-//   furniture/furniture-v8.{png,json}       the new pieces, their loops and back views, tray thumbnails
+//   furniture/furniture-v8.{png,json}       the new pieces, their loops and back views (tray: the se frame scaled by the web)
 //   furniture/furniture-v8-shell.{png,json} the swap rooms' shell skin (sky walls, split floors) and the near-wall stubs
 // plus 3 turned shipped pieces in furniture-back (BACK_VIEWS). Previews: preview/w2-*, proposed layouts: preview/w2-layouts/.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Furniture, RoomLayout } from "@omega/shared";
-import { Kit, PIECES, TURN, fitThumb, pieceFrames, type Canvas, type FurnDir, type PieceMeta } from "./furniture";
+import { Kit, PIECES, TURN, pieceFrames, type Canvas, type FurnDir, type PieceMeta } from "./furniture";
 import { addOutline, box, renderSolids } from "./iso";
 import { PALETTE, colorIndex, type RampName, type Tone } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng } from "./png";
@@ -35,7 +35,6 @@ const hash = (a: number, b: number): number => {
 };
 const ALL: readonly FurnDir[] = ["ne", "nw", "se", "sw"];
 const CV: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
-const THUMB_CV: Canvas = { w: 240, h: 200, ax: 110, ay: 150 };
 /** se/nw hang on (or back onto) the left wall, whose segments run along +row (v); sw/ne on the right wall, along +col (u). */
 const swaps = (d: FurnDir): boolean => d === "nw" || d === "se";
 
@@ -362,11 +361,6 @@ function metas(): PieceMeta[] {
   return out;
 }
 
-/** Tray thumbnails, `thumb/<id>/<colour>`, in v8 itself (lazy) so the eager edit CSS doesn't grow. */
-function thumbs(): RoomFrame[] {
-  return WAVE2.map((def) => fitThumb(`thumb/${def.id}/${def.colour}`, THUMB_CV, (s) => render(def, def.dirs.includes("se") ? "se" : "ne", 0, false, s, THUMB_CV)));
-}
-
 const TURNED_SHIPPED: readonly string[] = ["aquarium/teal", "bookshelf/wood"];
 
 export function buildWave2Pieces(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
@@ -382,7 +376,7 @@ export function buildWave2Pieces(): { frames: RoomFrame[]; pieces: PieceMeta[] }
     if (!def) throw new Error(`no piece ${id}`);
     for (const dir of SE_SW) out.push(...pieceFrames(def, colour, dir, true));
   }
-  return { frames: [...out, ...thumbs()], pieces: metas() };
+  return { frames: out, pieces: metas() };
 }
 
 // ------------------------------------------------------------------ shell skin (sky terrace, split floors, near-wall stubs)
@@ -695,4 +689,24 @@ export function buildWave2Previews(d: Wave2Deps): void {
     }
   });
   writeFileSync(join(ROOT, "preview", "w2-ambient-strip@4x.png"), encodeIndexedPng(SW * 4, SH * 4, upscale(strip, SW, SH, 4), PALETTE));
+
+  // Tray (OME-2096): no thumbs in v8; the web draws each piece's se frame at 1/n (n = trayScale, apps/web/src/editor/v8-thumbs.ts),
+  // nearest-sampled, centred in the 44×40 cubby. @1x = --ui-px 1, @2x = --ui-px 2 (the browser's sampling, not an upscale of @1x).
+  const tray = WAVE2.map((x) => all.get(`furniture/${x.id}/${x.colour}/${x.dirs.includes("se") ? "se" : (x.dirs[0] ?? "se")}/back`));
+  for (const k of [1, 2]) {
+    const CW = 44 * k, CH = 40 * k, G = 4 * k, TW = G + tray.length * (CW + G), TH = CH + 2 * G;
+    const img = new Uint8Array(TW * TH).fill(c("night", 1));
+    tray.forEach((f, i) => {
+      const cx = G + i * (CW + G);
+      for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) img[(G + y) * TW + cx + x] = y === CH - 1 || x === CW - 1 ? c("night", 0) : c("night", 2); // sunken well, lit lower edge
+      if (!f) return;
+      const n = Math.max(2, Math.ceil(f.w / 44), Math.ceil(f.h / 40));
+      const w = Math.floor((f.w * k) / n), h = Math.floor((f.h * k) / n), ox = cx + Math.floor((CW - w) / 2), oy = G + Math.floor((CH - h) / 2);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const v = f.img[Math.floor(((y + 0.5) * n) / k) * f.w + Math.floor(((x + 0.5) * n) / k)] ?? 0;
+        if (v) img[(oy + y) * TW + ox + x] = v;
+      }
+    });
+    writeFileSync(join(ROOT, "preview", `w2-tray@${String(k)}x.png`), encodeIndexedPng(TW, TH, img, PALETTE));
+  }
 }

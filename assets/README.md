@@ -1705,11 +1705,11 @@ v8 atlases in the v4 schema (`meta.omega.pieces`, `animations`). Everything else
 
 | file | what | bytes |
 |---|---|---|
-| `furniture/furniture-v8.png` + `.json` | the new pieces, their loops, their back views, 2 turned shipped pieces, tray thumbnails | 29 303 + 3 215 gz |
+| `furniture/furniture-v8.png` + `.json` | the new pieces, their loops, their back views, 2 turned shipped pieces (no tray thumbnails since OME-2096) | 27 017 + 2 885 gz |
 | `furniture/furniture-v8-shell.png` + `.json` | penthouse and studio shell skin, split floors, the near-wall stubs | 6 623 + 695 gz |
-| **total** | `main` 415 398 → **455 234 B of 460 800** (+39 836, all lazy; eager unchanged at 109 617) | |
+| **total** | `main` 415 398 → **452 618 B of 460 800** (+37 220, all lazy; eager unchanged at 109 617) | |
 
-**Both v8 sheets are packed tight (OME-2078):** their height is the packed height, not the next power of two (512×736 and 512×233;
+**Both v8 sheets are packed tight (OME-2078):** their height is the packed height, not the next power of two (512×717 and 512×233;
 Pixi v8 takes non-power-of-two textures, and nothing mipmaps them), and their PNG rows use filter Up, which suits stacked loop frames.
 That freed 4 258 B (v8 −1 264, v8-shell −2 994 with the x-ray patches gone). Other sheets keep their power-of-two size and filter None.
 
@@ -1747,8 +1747,9 @@ That freed 4 258 B (v8 −1 264, v8-shell −2 994 with the x-ray patches gone).
   tripod's lens to the cloth's four corners, outside the cloth. Draw it once as a cached `Graphics` between the floor/wall layers and
   the object layer, so seats, the tripod and avatars cover it and it starts at the lens. The reference is `beam()` in
   `src/wave2.ts`.
-- **Tray thumbnails** `thumb/<id>/<colour>` are in v8 itself, not in `ui/edit.png`, so the eager `reference.css` doesn't grow.
-  Same fit rules as set (h): ≤ 44×40, anchored on the visual centre.
+- **Tray art:** v8 has no `thumb/<id>/<colour>` frames (dropped in OME-2096, −2 616 B; no other rect moved). The editor draws the
+  piece's `se` frame at 1/n, n = max(2, ⌈w/44⌉, ⌈h/40⌉), centred in the 44×40 cubby (OME-2095, `apps/web/src/editor/v8-thumbs.ts`).
+  Preview: `preview/w2-tray@1x.png` / `@2x.png` (every v8 piece at `--ui-px` 1 and 2, nearest-sampled like the browser).
 
 ### Back views (swapped view)
 
@@ -1794,7 +1795,7 @@ Previews: `w2-<preset>@1x/@2x.png` + `@1x.apng` (every loop on its own clock), `
 `w2-studio-{south,north}`, `w2-screen-{wallscreen,projector}-{south,north}`, `w2-ambient-strip@4x.png`, and
 `furniture-v8-atlas@2x.png` / `furniture-v8-shell-atlas@2x.png`.
 
-**Budget levers, if the next set needs room:** move the tray thumbnails to a runtime-scaled `se` frame (−2.3 KB); make the espresso
+**Budget levers, if the next set needs room** (the tray-thumbnail lever is spent, OME-2096): make the espresso
 and jukebox one facing (about −2.8 KB, but needs per-variant facings); a single skyline (−0.6 KB); or loops as small overlay sprites
 in place of whole-piece frames (an engineering change: the espresso, kitchenette and jukebox loops repeat the whole piece for a few
 moving pixels).
@@ -1840,7 +1841,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 455 234 B** after OME-2078 (wave 2 polish, −4 258); 459 492 B after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
+**Cap: 460 800 B (450 KB) since the ADR 0056 amendment of 2026-10-29** (OME-2001: 415 711 B with the queen bed; 409 600 B / 400 KB from ADR 0056 until then; 300 KB / 307 200 B before; older rows below say "of 307 200"). **Measured total now: 452 618 B** after OME-2096 (v8 tray thumbnails dropped, −2 616 lazy); 455 234 B after OME-2078 (wave 2 polish, −4 258); 459 492 B after OME-2066 (wave 2, +44 094 lazy on 415 398); 376 550 B after OME-1959 (partition, +2 722 lazy; main was 373 828, the rows since OME-1688 not all logged here); 352 244 B after OME-1688 (lamp, plant and shelf colourways, +223 lazy); 352 021 B after OME-1685's Dank Dungeon polish (+2 926) merged with main's later art; 337 639 B after OME-1670 (Dank Dungeon, +17 010); 320 629 B after OME-1639's theatre set (+11 841 on top of 308 788 after OME-1641 and its OME-1657 polish); was 304 093 B (≈ 297.0 KB) of 300 KB, eager 104 314, lazy 199 779 (OME-1530: +9 286 lazy; 3 107 B left) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
