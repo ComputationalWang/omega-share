@@ -28,12 +28,13 @@ export type Layout = RoomLayout;
 
 const cellKey = (c: number, r: number): string => `${String(c)},${String(r)}`;
 
-/** Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se. */
-const wallKey = (f: Furniture): string => (f.facing === "sw" ? `r${String(f.col)}` : `l${String(f.row)}`);
+/** Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se, over `wallSpan` segments toward +col / +row. */
+export const wallKeys = (f: Furniture): string[] =>
+  Array.from({ length: FURNITURE[f.kind].wallSpan ?? 1 }, (_, i) => (f.facing === "sw" ? `r${String(f.col + i)}` : `l${String(f.row + i)}`));
 
-/** The keys a piece occupies within its own layer: floor cells, or a wall segment. */
+/** The keys a piece occupies within its own layer: floor cells, or wall segments. */
 function claims(f: Furniture): string[] {
-  return FURNITURE[f.kind].layer === "wall" ? [wallKey(f)] : footprintCells(f).map(([c, r]) => cellKey(c, r));
+  return FURNITURE[f.kind].layer === "wall" ? wallKeys(f) : footprintCells(f).map(([c, r]) => cellKey(c, r));
 }
 
 /** The piece alone is legal and doesn't collide with a same-layer piece (ignoring index `skip`). */
@@ -179,7 +180,7 @@ export interface TrayTab {
 }
 
 // shortcut: the Dank Dungeon v6 kinds but the queen bed (OME-1984) are not in the tray yet; the preset places them, the owner can't add more. Wire the tray when asked.
-export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["whirlpool", "mirror", "minibar", "desk", "washbasin", "partition", "wallscreen", "projector", "tripod", "window", "longclock", "lavalamp"]);
+export const AWAITING_ART: ReadonlySet<FurnitureKind> = new Set(["whirlpool", "mirror", "minibar", "desk", "washbasin", "partition", "tripod", "window", "longclock", "lavalamp"]);
 const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => !AWAITING_ART.has(k) && pick(k));
 
 /** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */

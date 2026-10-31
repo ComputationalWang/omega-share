@@ -20,6 +20,7 @@ export const SPEC_ROOMS = {
   "room-view": ["main"],
   "view-swap": ["main"],
   "view-swap-perf": ["frames"],
+  "wall-screen": ["north"],
   walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over", "follow", "jog", "floor", "conga", "conga-late"],
   reactions: ["bar", "burst"],
   emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash", "action", "thinker", "dancer", "applause", "palette"],

@@ -75,7 +75,11 @@ const RINGS: ReadonlySet<string> = new Set(["1x1", "2x1", "1x2", "3x2", "2x3"]);
 export function markerKeys(f: Pick<Furniture, "kind" | "col" | "row" | "facing">, state: MarkerState): Marker[] {
   const spec = FURNITURE[f.kind];
   // The kit has no selected wall ring; a picked print shows its ok ring.
-  if (spec.layer === "wall") return [{ key: `place/${state === "no" ? "no" : "ok"}/wall-${f.facing}`, col: f.col, row: f.row }];
+  if (spec.layer === "wall") {
+    const key = `place/${state === "no" ? "no" : "ok"}/wall-${f.facing}`;
+    // A screen covers `wallSpan` segments from its anchor toward +col (sw) or +row (se); the part past the last segment has nowhere to ring.
+    return Array.from({ length: spec.wallSpan ?? 1 }, (_, i) => ({ key, col: f.col + (f.facing === "sw" ? i : 0), row: f.row + (f.facing === "sw" ? 0 : i) })).filter((m) => m.col < FLOOR_CELLS && m.row < FLOOR_CELLS);
+  }
   const turned = f.facing === "nw" || f.facing === "se";
   const size = `${String(turned ? spec.rows : spec.cols)}x${String(turned ? spec.cols : spec.rows)}`;
   if (RINGS.has(size)) return [{ key: `place/${state}/${size}`, col: f.col, row: f.row }];
