@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { classic } from "./support/preset-layouts";
 import type { ClientMessage } from "@omega/shared";
-import { createPendingApplier, pendingLayoutKey, pendingViaKey, stashVia, takeVia, stashPendingEnter, takePendingEnter, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
+import { createPendingApplier, pendingLayoutKey, pendingViaKey, stashVia, takeVia, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
+import { stashPendingEnter, takePendingEnter } from "../src/session-record";
 
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 const OWN = ["omega.example"];

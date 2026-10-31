@@ -12,6 +12,7 @@ import {
 } from "@omega/shared";
 import { el } from "./controls/dom";
 import { shareableLink, stashPendingLayout, stashPendingShare, type PendingStore } from "./pending-layout";
+import { stashPendingEnter } from "./session-record";
 import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "./presets";
 import { forgetRoom, loadRoomSecrets, rememberRoom, type SecretsStore } from "./room-secrets";
 import { deleteSavedLayout, loadSavedLayouts, type LayoutStore } from "./saved-layouts";
@@ -217,6 +218,8 @@ export function mountHome(opts: HomeOptions): Home {
         if (pending !== null) stashPendingLayout(opts.session, res.room.id, pending);
         // Likewise the shared link: the owner's first join queues it (lost only if the tab's storage is blocked).
         if (shared !== null) stashPendingShare(opts.session, res.room.id, shared);
+        // And the creator goes in with the profile they made the room under: no second entry form (OME-2075).
+        stashPendingEnter(opts.session, res.room.id);
         opts.navigate(`/r/${res.room.id}`);
       })
       .catch(() => {

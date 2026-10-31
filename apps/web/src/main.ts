@@ -9,7 +9,7 @@ import { bindRadioRow, bindTintRow } from "./controls/tint-row";
 import { loadProfile, saveAccessory, saveHair, saveProfile, saveTint, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
-import { loadResume } from "./session-record";
+import { loadResume, takeHandOff, takePendingEnter } from "./session-record";
 import { takeShareLink } from "./share-link";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import type * as RoomModule from "./room";
@@ -147,13 +147,18 @@ input.addEventListener("input", () => {
 
 // Back in a room this tab was in (reload, restore, return): no Enter form, the stored session rejoins the same member.
 // sessionStorage, not localStorage, so a second tab never shares it (ADR 0043). Blocked storage reads as no record.
-const resumed =
-  pathRoom === null
-    ? null
-    : loadResume({ getItem: (k) => sessionStorage.getItem(k), setItem: (k, value) => { sessionStorage.setItem(k, value); }, removeItem: (k) => { sessionStorage.removeItem(k); } }, pathRoom);
+// The getters themselves throw when storage is blocked: go through them lazily, session-record.ts catches it.
+const session = { getItem: (k: string) => sessionStorage.getItem(k), setItem: (k: string, value: string) => { sessionStorage.setItem(k, value); }, removeItem: (k: string) => { sessionStorage.removeItem(k); } };
+const local = { getItem: (k: string) => localStorage.getItem(k), setItem: (k: string, value: string) => { localStorage.setItem(k, value); }, removeItem: (k: string) => { localStorage.removeItem(k); } };
+// A tab closed within the grace window handed its session on: reopening the link takes the member back (OME-2075).
+// Taken on every boot of the room, so it never outlives the next visit.
+const handedOff = pathRoom === null ? null : takeHandOff(local, pathRoom, Date.now());
+const resumed = pathRoom === null ? null : (loadResume(session, pathRoom) ?? handedOff);
+// Just created this room from the home page: in with the saved profile, no second entry form (OME-2075).
+const creating = pathRoom !== null && resumed === null && takePendingEnter(session, pathRoom) && profile.nickname !== null ? profile.nickname : null;
 // Desktop: the entry form is the page's one task, so its field starts focused. Not on touch (the keyboard would pop up),
 // and before the intent listeners below, so arriving is not intent (OME-1280).
-if (resumed === null && (pathRoom !== null || profile.nickname === null) && matchMedia("(pointer: fine)").matches) input.focus();
+if (resumed === null && creating === null && (pathRoom !== null || profile.nickname === null) && matchMedia("(pointer: fine)").matches) input.focus();
 
 // Warm the room chunk once the user shows intent, without competing with first paint. On a room link that is anything in
 // the entry form (the room is the only way on). On the home page only Enter lobby is: a nickname typed on the way to the
@@ -229,6 +234,12 @@ if (resumed !== null) {
   input.value = resumed.nickname;
   selectAvatar(resumed.avatar);
   enterRoom(resumed.nickname, resumed.avatar, resumed.token);
+} else if (creating !== null) {
+  document.documentElement.dataset["view"] = "room";
+  welcome.hidden = true;
+  form.hidden = true;
+  input.value = creating;
+  enterRoom(creating, avatar);
 }
 
 // The home page (not a room link) also gets the directory: create, your rooms, open rooms. A lazy chunk, with the preset
@@ -290,6 +301,6 @@ if (pathRoom === null) {
       for (const type of ["focusin", "pointerover", "input"]) target.addEventListener(type, mountHome, { once: true });
     }
   }
-} else if (resumed === null) show("entry");
+} else if (resumed === null && creating === null) show("entry");
 
 performance.mark("omega:interactive");

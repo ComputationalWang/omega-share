@@ -462,7 +462,8 @@ describe("room presets in the create form (OME-910)", () => {
     radio(root, "cinema").click();
     await submit(root, "Movie night", false);
     expect(postedBody()).toEqual({ title: "Movie night", visibility: "public", preset: "cinema" });
-    expect(session.data.size).toBe(0);
+    // No layout or link waits for the room page; only the creator's go-straight-in intent does (OME-2075).
+    expect([...session.data.keys()].every((k) => k.startsWith("omega.pendingEnter."))).toBe(true);
   });
 });
 

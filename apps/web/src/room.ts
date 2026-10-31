@@ -7,7 +7,7 @@ import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
 import { trackShareToken } from "./share-token";
-import { clearResume, saveResume, type ResumeStore } from "./session-record";
+import { clearResume, handOffResume, loadResume, saveResume, takeHandOff, type ResumeStore } from "./session-record";
 import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { inviteLink, joinMessage, loadRoomSecrets, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
@@ -1180,6 +1180,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       sessionStorage.removeItem(k);
     },
   };
+  const localResume: ResumeStore = {
+    getItem: (k) => localStorage.getItem(k),
+    setItem: (k, value) => {
+      localStorage.setItem(k, value);
+    },
+    removeItem: (k) => {
+      localStorage.removeItem(k);
+    },
+  };
   /** The last presence hint sent on this socket; the server clears away on a (re)join. */
   let sentAway = false;
   /** Send the away hint this tab owes, if any (on a visibility change, and after each rejoin). */
@@ -1459,6 +1468,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Leaving the page is not leaving the room (ADR 0043): close the socket, keep the session and share records. The
   // server holds the seat for the grace window; a reload, a bfcache restore or coming back resumes it.
   window.addEventListener("pagehide", () => {
+    // Closing the tab ends sessionStorage, not the server's hold: hand the session to the room's next tab (OME-2075).
+    const kept = loadResume(resumeStore, opts.roomId);
+    if (kept !== null) handOffResume(localResume, kept, Date.now());
     relay?.close();
     c.close();
     clock.stop();
@@ -1466,6 +1478,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   window.addEventListener("pageshow", (ev) => {
     if (!ev.persisted) return;
+    // Back from the bfcache: this tab keeps its session, so no other tab may take the hand-off.
+    takeHandOff(localResume, opts.roomId, 0);
     c.ensureConnected();
     relay?.resume();
   });

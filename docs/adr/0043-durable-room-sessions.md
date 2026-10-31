@@ -85,3 +85,15 @@ This does not undo a kick in production: the server's kick cooldown (ADR 0030) b
 The stored record is not cleared on that fresh rejoin; its snapshot overwrites it. Clearing first would leave a window in which a killed tab reloads to the Enter form while its old member still holds the name.
 
 **Duplicated tabs (accepted).** "Duplicate tab" and an opener-linked `window.open` copy `sessionStorage`, so the copy resumes the same token and the original gets 4007 and the "open in another tab" card with Return here. This keeps one member per token, as required, and is recoverable from either tab, so no per-load nonce is added.
+
+## Amendment 2 — hand-off on tab close, and the creator goes straight in (2026-10-31, Lead Engineer, [OME-2075](/OME/issues/OME-2075))
+
+Audit [OME-2064](/OME/issues/OME-2064#document-audit) items 4 and 5. Closing a tab ends its `sessionStorage`, but the server keeps the member (and the nickname) for the grace window: reopening the invite within it ended in "That name is taken". And the person who just created a room met the entry form a second time.
+
+Decision:
+
+- **Hand-off.** On `pagehide` the room page copies its stored resume record to `localStorage["omega.handoff.<roomId>"]` as `{ record, until }`, `until` = now + `RESUME_GRACE_MS`. Every boot of `/r/<roomId>` takes (reads and removes) that key; the tab's own `sessionStorage` record wins over it, and a valid unexpired one starts the usual automatic resume. A bfcache restore takes it back too. So while a tab is in the room there is no hand-off for a second tab to pick up, and the "never shared between independent tabs" rule above holds for live tabs. Explicit Leave, kick, expiry and replacement clear the session record first, so they hand nothing off. Parsed with Valibot at read; anything invalid, foreign or past `until` is dropped.
+- Accepted: a tab that navigates away (bfcache) and is not restored leaves a hand-off that a new tab may take within the window; returning the old tab then replaces it with 4007 and Return here, as for duplicated tabs. A bearer token now sits in `localStorage` for at most one grace window after a close, or until the room's next boot; after that it is revoked server-side and a stale copy is only removed at that room's next boot.
+- **Creator.** A successful create from the home page sets `sessionStorage["omega.pendingEnter.<roomId>"]`, the same hop as the pending layout; the room page takes it and, with a saved profile and no resume record, enters at once with that profile.
+
+No contract, server or dependency change; the entry chunk grows by about 240 B gzip.
