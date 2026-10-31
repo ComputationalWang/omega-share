@@ -76,10 +76,11 @@ test("the v8 atlas pins the wave 2 kinds and colourways", () => {
   const extra: Record<string, number> = { sidetable: 1, barcounter: 2, speaker: 1 };
   for (const p of atlas.meta.omega.pieces) {
     const s = spec(p.id) as { facings: string[]; variants: number; wallSpan?: number };
-    if (extra[p.id] === undefined) {
+    const more = extra[p.id];
+    if (more === undefined) {
       expect(s.variants, p.id).toBe(p.colours.length);
       expect(s.facings, p.id).toEqual(p.dirs);
-    } else expect(p.colours.length, p.id).toBe(extra[p.id]);
+    } else expect(p.colours.length, p.id).toBe(more);
     expect(s.wallSpan, p.id).toBe(p.wallSpan);
   }
 });
