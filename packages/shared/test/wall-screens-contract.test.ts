@@ -5,7 +5,7 @@ import { FURNITURE, ROOM_SHELLS, RoomLayoutInputSchema, RoomLayoutSchema, SCREEN
 // Rooms wave 2 contract (OME-2065, ADR 0058): wall screens with a wall span, one partition line, the new shells.
 
 const CHAIRS = ([[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]] as const).map(([col, row]) => ({ kind: "armchair", col, row, facing: "ne" }));
-const TV = { kind: "tv", col: 0, row: 0, facing: "se" };
+const TV = { kind: "tv", col: 0, row: 0, facing: "se" } as const;
 const room = (...furniture: unknown[]): unknown => ({ furniture: [...CHAIRS, ...furniture] });
 const ok = (input: unknown): boolean => v.safeParse(RoomLayoutInputSchema, input).success && v.safeParse(RoomLayoutSchema, input).success;
 const screen = (kind: "wallscreen" | "projector", col: number, row: number, facing = row === 0 ? "sw" : "se"): unknown => ({ kind, col, row, facing });
@@ -66,8 +66,8 @@ describe("partitions", () => {
 
   test("partitionLine names the line, or undefined without partitions", () => {
     expect(partitionLine({ furniture: [TV] })).toBeUndefined();
-    expect(partitionLine({ furniture: [TV, { kind: "partition", col: 3, row: 4, facing: "sw" }] })).toEqual({ axis: "row", at: 4 });
-    expect(partitionLine({ furniture: [TV, { kind: "partition", col: 6, row: 2, facing: "se" }] })).toEqual({ axis: "col", at: 6 });
+    expect(partitionLine({ furniture: [TV, { kind: "partition", col: 3, row: 4, facing: "sw" } as const] })).toEqual({ axis: "row", at: 4 });
+    expect(partitionLine({ furniture: [TV, { kind: "partition", col: 6, row: 2, facing: "se" } as const] })).toEqual({ axis: "col", at: 6 });
   });
 });
 

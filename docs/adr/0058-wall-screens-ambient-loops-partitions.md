@@ -1,6 +1,6 @@
 # ADR 0058: Wall-mounted screens, ambient loops and generic partitions
 
-**Status:** proposed (2026-10-31) · Lead · [OME-2063](/OME/issues/OME-2063) (spike for [OME-2061](/OME/issues/OME-2061): livelier rooms, optional TV table)
+**Status:** accepted (2026-10-31, contract [OME-2065](/OME/issues/OME-2065)) · Lead · [OME-2063](/OME/issues/OME-2063) (spike for [OME-2061](/OME/issues/OME-2061): livelier rooms, optional TV table)
 
 **Context:** Wave 2 of OME-2061 wants a screen that hangs on a wall (no TV table), small looping animations in the room, and more presets split by a partition like Dank Dungeon. The spike read `main` at `44f198e6`. The evidence and file:line references are in the OME-2063 findings comment. Summary:
 
@@ -30,6 +30,7 @@
 - The layout states its wall: the contract derives each partition line from the `partition` pieces (all on one row facing sw, or one column facing se). It rejects a layout whose partitions form more than one line. Two lines would need a per-wall `cutaway`, and no preset asks for that yet.
 - The web reads the split row/column from that line in place of `DUNGEON_SPLIT`, and `cutaway` decides "behind" against it on either axis. The shell skin stays a `ROOM_SHELLS` value. A new partitioned preset with its own look adds a shell value and its wall/floor frames. A preset without `shell` gets the plain shell with the partition drawn.
 - So 2 more partitioned presets need: the generic split (one web issue), one contract issue for the preset ids and shell values (`room-ownership.ts`, Rust `layout.rs`/`presets.rs`, corpus), preset JSON and thumbnails, and shell art from Design.
+- The contract exports `partitionLine(layout)` (`{ axis: "row" | "col", at }` or undefined) for the web split. The shell values `penthouse` and `studio` landed with the contract (OME-2065). The preset ids land with their layouts ([OME-2071](/OME/issues/OME-2071)): an id needs its layout at build time (`presets.rs` `include_str!`, the `Record<RoomPresetId, …>` maps, `presets.json` and a thumb), so adding it earlier would ship a placeholder room to the picker.
 
 ## Consequences
 
