@@ -595,6 +595,19 @@ describe("shown k× their size (phone zoom, OME-1184)", () => {
     floats.scale(1);
     expect(push("left")).toBe("0px");
   });
+
+  test("a fractional scale still settles: an overlap left by float rounding (≈1e-14 px) is no overlap (QA OME-2156)", async () => {
+    const { floats, frame, shown } = await setup();
+    // The band at 1280×800 under a video fits at 0.602, so its labels show 0.85 / 0.602×. These seven, sent in turn
+    // (found by search), left one bubble 2.8e-14 px into its neighbour, below its push's ulp: resolve() never returned.
+    floats.scale(0.85 / 0.602);
+    const sent: [string, number, number][] = [["m6", 374, 452], ["m1", 451, 475], ["m2", 496, 389], ["m3", 447, 366], ["m4", 509, 339], ["m5", 493, 371], ["m6", 409, 336]];
+    sent.forEach(([id, x, y], i) => {
+      floats.say(say(id, `line ${String(i)}`, x, y));
+      frame();
+    });
+    expect(shown().length).toBeGreaterThan(0);
+  });
 });
 
 test("an all-caps line (4+ letters) is a shout: the bubble and its twin wear .is-shout; the next line in that node doesn't (OME-1349)", async () => {
