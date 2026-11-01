@@ -14,7 +14,7 @@ import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
-import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
+import { ROOM_VIEW, SYSLINE_RAIL, TAG_H, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
@@ -28,6 +28,7 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
+import { stackTags, type TagBox } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -101,8 +102,8 @@ export interface Stage {
   petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
-  /** Bubbles keep inside stage x `x0`–`x1`: the phone's room window as it settled (OME-1945), or the whole stage. */
-  bubbleSides(x0: number, x1: number): void;
+  /** Bubbles keep inside stage x `x0`–`x1` and stacked tags above `y1`: the phone's room window as it settled (OME-1945, OME-2118), or the whole stage. */
+  bubbleSides(x0: number, x1: number, y1: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
@@ -157,6 +158,59 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const padEls = new Map<MemberId, HTMLElement>();
   /** Members I hid (OME-769): their tags are made dimmed too. */
   const hiddenIds = new Set<MemberId>();
+  /** Overlapping tags stack (OME-2118): each tag's width (layout px, from a ResizeObserver) and how far it was moved down. */
+  const tagW = new Map<Element, number>();
+  /** Who is mid-walk: their tag hangs right under them (dy 0) and the others stack again once they stop. */
+  const walkers = new Set<MemberId>();
+  const tagDy = new Map<MemberId, number>();
+  /** The phone's readable-zoom label scale (room.css --label-scale): tags show this many times their layout size. */
+  let labelK = 1;
+  /** The phone window's bottom (stage px; Infinity off the phone): a stacked tag never drops past it or the room's. */
+  let shownBottom = Infinity;
+  /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
+  // The stack's drop is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
+  const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
+    const at = { x, y: y + TAG_OFFSET_Y };
+    const drop = `${String(tagDy.get(id) ?? 0)}px`;
+    const tag = tagEls.get(id);
+    if (tag !== undefined) {
+      place(tag, at);
+      tag.style.marginTop = drop;
+    }
+    const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
+    if (padEl !== undefined) {
+      place(padEl, at);
+      padEl.style.marginTop = drop;
+    }
+  };
+  /** Stack the tags of everyone standing still and place every tag. */
+  const restack = (): void => {
+    const ids: MemberId[] = [];
+    const at: Point[] = [];
+    const boxes: TagBox[] = [];
+    for (const [id, tag] of tagEls) {
+      const p = view.position(id) ?? placedAt.get(id);
+      if (p === undefined) continue;
+      ids.push(id);
+      at.push(p);
+      // A walker's tag isn't stacked: a zero-width box overlaps nothing.
+      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK });
+    }
+    const dy = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom));
+    ids.forEach((id, i) => {
+      const p = at[i];
+      tagDy.set(id, dy[i] ?? 0);
+      if (p !== undefined) placeTag(id, p.x, p.y, true);
+    });
+  };
+  // A tag's text is set once, so this fires when it's added, and when an hourglass or "Away" changes its width.
+  const tagSizes = new ResizeObserver((entries) => {
+    for (const e of entries) {
+      const w = e.borderBoxSize[0]?.inlineSize;
+      if (w !== undefined) tagW.set(e.target, w);
+    }
+    restack();
+  });
   const timers = {
     setTimer: (fn: () => void, ms: number): unknown => setTimeout(fn, ms),
     clearTimer: (h: unknown): void => {
@@ -194,15 +248,17 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const head = y - liftOf(id);
       badges.move(id, x, head);
       floats.move(id, x, head);
-      const tag = tagEls.get(id);
-      if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
-      // A pad shows only on the host's pickable tags; elsewhere it's `display: none` and the render places it (OME-2135).
-      const pad = tags.classList.contains("pickable") ? padEls.get(id) : undefined;
-      if (pad !== undefined) place(pad, { x, y: y + TAG_OFFSET_Y });
+      if (!walkers.has(id)) {
+        walkers.add(id);
+        tagDy.delete(id);
+      }
+      placeTag(id, x, y, false);
       o.onMove?.(id);
     },
     onStop: (id, x, y) => {
       floats.settle(id, x, y - liftOf(id));
+      walkers.delete(id);
+      restack();
       o.onStop?.(id);
     },
   });
@@ -589,6 +645,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     for (const [id, e] of tagEls) {
       if (members.has(id)) continue;
       e.remove();
+      tagSizes.unobserve(e);
+      tagW.delete(e);
+      tagDy.delete(id);
+      walkers.delete(id);
       tagEls.delete(id);
       padEls.get(id)?.remove();
       padEls.delete(id);
@@ -605,6 +665,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         if (hiddenIds.has(m.id)) e.classList.add("is-hidden");
         tagEls.set(m.id, e);
         tags.append(e);
+        tagSizes.observe(e, { box: "border-box" });
         const pad = el("span", { className: "tag-pad", ariaHidden: "true" });
         pad.dataset["pad"] = m.id;
         padEls.set(m.id, pad);
@@ -622,13 +683,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         if (isAway) e.append(el("span", { className: "sr-only tag-away", textContent: " (Away)" }));
         else e.querySelector(".tag-away")?.remove();
       }
-      const p = view.position(m.id) ?? placedAt.get(m.id);
-      if (p !== undefined) {
-        place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
-        const pad = padEls.get(m.id);
-        if (pad !== undefined) place(pad, { x: p.x, y: p.y + TAG_OFFSET_Y });
-      }
     }
+    restack();
 
     // The state says whose bubbles show (a speaker who left, or a reconnect, takes theirs along). Every line the floats
     // haven't had yet goes to them, oldest first, even when several landed since the last render (OME-809).
@@ -690,9 +746,17 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     labelScale: (k) => {
       floats.scale(k);
+      if (k !== labelK) {
+        labelK = k;
+        restack();
+      }
     },
-    bubbleSides: (x0, x1) => {
+    bubbleSides: (x0, x1, y1) => {
       floats.sides(x0, x1);
+      if (y1 !== shownBottom) {
+        shownBottom = y1;
+        restack();
+      }
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),

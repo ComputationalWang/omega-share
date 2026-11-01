@@ -561,7 +561,7 @@ export function stageToPage(l: RoomLayout, r: Rect): Rect {
 /** Name tags hang below the avatar's feet; `style.css` caps them at this box. */
 export const TAG_OFFSET_Y = 10;
 const TAG_MAX_W = 160;
-const TAG_H = 20;
+export const TAG_H = 20;
 /** Bubbles float above the head, bottom-anchored; `style.css` caps them at this box. */
 const BUBBLE_OFFSET_Y = -48;
 const BUBBLE_MAX_W = 220;

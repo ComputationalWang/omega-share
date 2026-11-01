@@ -43,8 +43,8 @@ export interface RoomLayoutOptions {
   readonly stage: HTMLElement;
   /** The phone window's label scale changed (OME-1184): the bubbles are shown that much bigger (Stage.labelScale). */
   readonly labelScale?: (k: number) => void;
-  /** The phone window settled on stage x `x0`–`x1` (OME-1945): the bubbles keep inside it (Stage.bubbleSides). */
-  readonly bubbleSides?: (x0: number, x1: number) => void;
+  /** The phone window settled on stage x `x0`–`x1` and bottom `y1` (OME-1945, OME-2118): bubbles and tags keep inside it (Stage.bubbleSides). */
+  readonly bubbleSides?: (x0: number, x1: number, y1: number) => void;
   /** The TV and its shelf (room-tv.ts). */
   readonly tv: {
     readonly tv: HTMLElement;
