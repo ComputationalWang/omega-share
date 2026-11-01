@@ -36,7 +36,7 @@ export interface HintsOptions {
   readonly anchor: (step: number) => HTMLElement | null;
   /** While the TV shows anything (a player, a Load card), no chip covers it: Twitch's player doesn't start covered
    * (OME-1778). One that would goes under the picture (the TV and the stage), or out of sight if that's on the TV too. */
-  readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement };
+  readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement; readonly message: HTMLElement };
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
 }

@@ -706,7 +706,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The floor chip sits on an empty TV just above its player bar, next to the floor without covering it; with a video
     // there it goes under the picture instead (hints.ts, OME-1778).
     anchor: (step) => (step === 0 ? controls : step === 1 ? chatForm : people.key),
-    tv: { box: tv, empty: tvBox.empty, picture: wrap },
+    tv: { box: tv, empty: tvBox.empty, picture: wrap, message: tvBox.message },
     next: () => (help.key.hidden ? null : help.key),
   });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");

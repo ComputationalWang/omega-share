@@ -39,6 +39,8 @@ export interface RoomTv {
   readonly provider: () => Embed["provider"] | null;
   /** The TV shows its closed curtain: no player, no Load card (the tour's chip may sit on it, OME-1778). */
   readonly empty: () => boolean;
+  /** The curtain's message: the chip may sit on the curtain, never on this (OME-2104). */
+  readonly message: HTMLElement;
   /** Swap the TV for the room's embed. */
   readonly sync: (s: ViewState) => void;
   /** The shelf follows the player. */
@@ -293,6 +295,7 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     hint: tvHint,
     provider: () => tvProvider,
     empty: () => tv.firstChild === tvEmpty,
+    message: curtainKey,
     sync: syncTv,
     show,
     setFullscreen: (on) => {
