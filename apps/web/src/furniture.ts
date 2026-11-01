@@ -5,7 +5,7 @@ import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, partitionLine, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type PartitionLine, type RoomLayout, type RoomShell, type RoomState } from "@omega/shared";
 import { STAGE_W, TURN, cellCenter, isNorth, rawCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
-import { lieOffset } from "./walk/lie";
+import { lieOffset, seatLie } from "./walk/lie";
 import { cellOf, colOf, rowOf } from "./walk/path";
 
 /**
@@ -330,6 +330,8 @@ export interface SceneSeat {
   readonly z: number;
   /** Draw the placeholder seat marker (room-atlas armchairs before the room atlas loads); otherwise the seat is its piece. */
   readonly marker: boolean;
+  /** A lounger's sitter lies back on it (OME-2123): drawn in this style at `at`, not sitting at the seat point. */
+  readonly lie?: { readonly style: LieStyle; readonly at: Point };
 }
 
 const SLEEPERS = [0, 1] as const;
@@ -436,7 +438,8 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       // Cells further from the anchor are nearer the camera (+col and +row both step down the screen).
       const near = (north ? -1 : 1) * (c - f.col + (r - f.row));
       const z = drawn === null ? standDepth(at) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar, near);
-      seats.push({ at, z, marker: f.kind === "armchair" && room === null });
+      const lie = seatLie(f.kind, f.facing);
+      seats.push({ at, z, marker: f.kind === "armchair" && room === null, ...(lie === undefined ? {} : { lie: { style: lie.style, at: { x: anchor.x + lie.off.x, y: anchor.y + lie.off.y } } }) });
     }
   }
   return { lies, sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };

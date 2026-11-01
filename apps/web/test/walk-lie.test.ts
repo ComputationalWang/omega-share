@@ -3,7 +3,7 @@ import * as v from "valibot";
 import { AVATAR_COUNT, FURNITURE, type FurnitureKind } from "@omega/shared";
 import { FramesSchema } from "../src/walk/motion";
 import { AVATAR_IDS } from "../src/walk/avatar-ids";
-import { LIE_MS, isLieFrame, lieKeyPoint, lieKeys, lieOffset } from "../src/walk/lie";
+import { LIE_MS, isLieFrame, lieKeyPoint, lieKeys, lieOffset, seatLie } from "../src/walk/lie";
 import { seatPoints, seatTiles } from "../src/furniture";
 import type { Dir } from "../src/walk/walks";
 
@@ -12,7 +12,7 @@ const Point = v.object({ x: v.number(), y: v.number() });
 const sheet = v.parse(
   v.object({
     frames: FramesSchema,
-    meta: v.object({ omega: v.object({ anims: v.record(v.string(), v.object({ frames: v.array(v.string()), ms: v.array(v.number()) })), pieces: v.record(v.string(), v.object({ style: v.string(), dirs: v.record(v.string(), Point), beside: v.optional(v.record(v.string(), Point)) })) }) }),
+    meta: v.object({ omega: v.object({ anims: v.record(v.string(), v.object({ frames: v.array(v.string()), ms: v.array(v.number()) })), pieces: v.record(v.string(), v.object({ style: v.string(), dirs: v.record(v.string(), Point), beside: v.optional(v.record(v.string(), Point)) })), seatLie: v.record(v.string(), v.object({ style: v.string(), dirs: v.record(v.string(), Point) })) }) }),
   }),
   await Bun.file(new URL("../../../assets/avatars/lying.json", import.meta.url)).json(),
 );
@@ -62,6 +62,19 @@ describe("lie offsets", () => {
     }
     expect(lieOffset("lamp", "se")).toBeUndefined();
     expect(lieOffset("cat", "ne")).toBeUndefined();
+  });
+});
+
+// OME-2123: a lounger's sitter lies back on it (`meta.omega.seatLie`), not in `pieces`: no lie key, the seat itself.
+describe("seat lie", () => {
+  test("each seat piece's style and offsets are the sheet's meta.omega.seatLie, and other pieces have none", () => {
+    expect(Object.keys(sheet.meta.omega.seatLie)).toContain("lounger");
+    for (const [kind, piece] of Object.entries(sheet.meta.omega.seatLie)) {
+      expect(FURNITURE[kind as FurnitureKind].seats).toBe(true);
+      for (const dir of DIRS) expect(seatLie(kind as FurnitureKind, dir)).toEqual({ style: piece.style as "sleep", off: piece.dirs[dir] ?? { x: NaN, y: NaN } });
+    }
+    expect(seatLie("sofa", "se")).toBeUndefined();
+    expect(seatLie("armchair", "sw")).toBeUndefined();
   });
 });
 

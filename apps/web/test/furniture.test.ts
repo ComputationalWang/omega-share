@@ -117,6 +117,23 @@ describe("scene: DEFAULT_LAYOUT looks like today", () => {
 });
 
 // OME-1691: where someone lies on a sofa, couch or cat bed: the piece's anchor plus the lying art's offset, drawn like a sitter.
+// OME-2123: someone seated on a lounger lies back on it (lying.json `seatLie.lounger`, the `sleep` frames), at its sort point like a sitter.
+describe("scene: a lounger's sitter lies", () => {
+  const OFF = { ne: { x: 22, y: 1 }, nw: { x: -22, y: 1 }, se: { x: -22, y: 1 }, sw: { x: 22, y: 1 } } as const;
+  for (const facing of ["se", "sw", "ne", "nw"] as const) {
+    test(`facing ${facing}: its one seat lies at the anchor plus the facing's offset`, () => {
+      const scene = sceneOf({ furniture: [{ kind: "lounger", col: 4, row: 4, facing }] }, []);
+      const anchor = cellCenter(4, 4);
+      expect(scene.seats).toHaveLength(1);
+      expect(scene.seats[0]?.lie).toEqual({ style: "sleep", at: { x: anchor.x + OFF[facing].x, y: anchor.y + OFF[facing].y } });
+    });
+  }
+
+  test("other seats sit", () => {
+    expect(sceneOf(DEFAULT_LAYOUT, []).seats.every((s) => s.lie === undefined)).toBe(true);
+  });
+});
+
 describe("scene: lie spots", () => {
   const scene = sceneOf(SET_G, [manifest]);
 

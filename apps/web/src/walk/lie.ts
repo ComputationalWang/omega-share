@@ -25,7 +25,7 @@ const OFFSETS: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Di
   couch: SOFA,
   cat: { se: { x: 12, y: -2 }, sw: { x: -12, y: -2 } },
   bed: { ne: { x: 16, y: 1 }, nw: { x: -16, y: 1 }, se: { x: 16, y: 17 }, sw: { x: -16, y: 17 } },
-  // shortcut: the v7 lounger (`lie: "lie"`) has no entry, so no lie spot: lying.json has no lounger art yet; it seats only. Add its offsets with the art.
+  // The lounger has no lie key: its sitter lies instead (seatLie, OME-2123).
 };
 
 /** The bed's second sleeper (OME-2009), across the bed from the first: lying.json `pieces.bed.beside`. */
@@ -38,6 +38,18 @@ const BESIDE: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Dir
  * none for a facing the art lacks, or a second lier on a piece that takes one.
  */
 export const lieOffset = (kind: FurnitureKind, dir: Dir, sleeper: Sleeper = 0): Point | undefined => (sleeper === 0 ? OFFSETS : BESIDE)[kind]?.[dir];
+
+const SEAT_LIE: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Dir, { readonly style: LieStyle; readonly off: Point }>>>>>> = {
+  lounger: {
+    ne: { style: "sleep", off: { x: 22, y: 1 } },
+    nw: { style: "sleep", off: { x: -22, y: 1 } },
+    se: { style: "sleep", off: { x: -22, y: 1 } },
+    sw: { style: "sleep", off: { x: 22, y: 1 } },
+  },
+};
+
+/** A seat whose sitter is drawn lying (OME-2123): its style and the screen px from the piece's anchor to the lier's floor point (lying.json `meta.omega.seatLie`). */
+export const seatLie = (kind: FurnitureKind, dir: Dir): { readonly style: LieStyle; readonly off: Point } | undefined => SEAT_LIE[kind]?.[dir];
 
 /** Stage px a lie key sits above the lier's floor point. */
 export const LIE_KEY_LIFT = 40;
