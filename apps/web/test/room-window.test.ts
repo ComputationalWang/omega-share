@@ -17,8 +17,9 @@ beforeEach(() => {
 // Off the phone nothing changes: no keys, and a pinch does nothing.
 
 const VIEW = { w: 390, h: 270 };
-/** The room shows beside the zoom keys' 52 px column (OME-1302): fit is that pane's width. */
-const FIT = (390 - 52) / 960;
+/** The room shows beside the zoom keys' 52 px column (OME-1302): Fit is the room's walls (660×532 stage px, OME-2148)
+ * whole in that 338×270 pane, so here its height. */
+const FIT = 270 / 532;
 
 async function setup() {
   const { createRoomWindow } = await import("../src/room-window");
@@ -95,7 +96,7 @@ describe("on a phone", () => {
   });
 
   // OME-2118: a stacked name tag that would drop past the window's bottom rises instead, so the stage needs that bottom.
-  test("the window's settled sides carry its bottom edge in stage px; off the phone, none", async () => {
+  test("the window's settled sides carry its bottom edge in stage px", async () => {
     const { win, key, zoom, sides } = await setup();
     win.set(true, VIEW.w, VIEW.h);
     key("in").click();
@@ -103,8 +104,6 @@ describe("on a phone", () => {
     expect(x0).toBeCloseTo(win.pan().x, 5);
     expect(x1).toBeCloseTo(win.pan().x + (VIEW.w - 52) / zoom(), 5);
     expect(y1).toBeCloseTo(win.pan().y + VIEW.h / zoom(), 5);
-    win.set(false, VIEW.w, VIEW.h);
-    expect(sides.at(-1)?.[2]).toBe(Infinity);
   });
 });
 
@@ -362,5 +361,50 @@ describe("on a computer", () => {
     expect(wheel(clip, -100).defaultPrevented).toBe(false);
     await frame();
     expect(zoom()).toBe(1);
+  });
+
+  // OME-2148: at 1280×800 the band fits the room below 1×; its names and bubbles stay readable, as the phone's do.
+  test("fitted below 1×, names and bubbles get the phone's counter-scale; at 1× none", async () => {
+    const { win, clip, stage, labels } = await setup();
+    win.desk(FIT);
+    expect(Number(stage.style.getPropertyValue("--label-scale"))).toBeCloseTo(0.85 / FIT, 5);
+    expect(labels.at(-1)).toBeCloseTo(0.85 / FIT, 5);
+    expect(clip.classList.contains("is-fit")).toBe(true);
+    win.desk(1);
+    expect(labels.at(-1)).toBe(1);
+    expect(clip.classList.contains("is-fit")).toBe(false);
+  });
+
+  // OME-2160: the band's stacked name tags dropped past its foot (0.41 px at 1920×1080): it hands the stage its edges too,
+  // once it settles (never mid-drag), and a refit at the same view tells nothing new.
+  test("the band's settled sides are what it shows, in stage px", async () => {
+    const { win, clip, sides } = await setup();
+    win.set(false, 0, 0);
+    win.desk(1, { w: 900, h: 300 });
+    expect(sides.at(-1)).toEqual([30, 930, 450]);
+    const told = sides.length;
+    win.set(false, 0, 0);
+    win.desk(1, { w: 900, h: 300 });
+    expect(sides.length).toBe(told);
+    const mouse = (type: string, x: number, y: number): void => {
+      clip.dispatchEvent(new PointerEvent(type, { pointerId: 7, clientX: x, clientY: y, isPrimary: true, button: 0, bubbles: true, pointerType: "mouse" }));
+    };
+    mouse("pointerdown", 400, 200);
+    mouse("pointermove", 400, 160);
+    await frame();
+    expect(sides.length).toBe(told);
+    mouse("pointerup", 400, 160);
+    expect(sides.at(-1)).toEqual([30, 930, 490]);
+  });
+
+  // OME-2148 CI: every refit (set, then desk) told the bubbles 1, then the fit's scale: a restack each time, which hung chat.
+  test("a refit at the same fit tells the labels nothing new", async () => {
+    const { win, labels } = await setup();
+    win.set(false, 0, 0);
+    win.desk(FIT);
+    const told = labels.length;
+    win.set(false, 0, 0);
+    win.desk(FIT);
+    expect(labels.length).toBe(told);
   });
 });

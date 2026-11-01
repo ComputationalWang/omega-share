@@ -114,8 +114,10 @@ describe("panTo: where the cropped window looks", () => {
     expect(Number.isInteger(p.y)).toBe(true);
   });
 
-  test("a window wider than the stage sits at 0", () => {
-    expect(panTo({ w: 1200, h: 700 }, { x: 480, y: 300 })).toEqual({ x: 0, y: 0 });
+  // OME-2148: a window that holds the room's walls (660×532 stage px) shows them centred, never the stage's empty side.
+  test("a window wider than the walls centres them", () => {
+    expect(panTo({ w: 1200, h: 700 }, { x: 900, y: 500 })).toEqual({ x: -120, y: -24 });
+    expect(panTo({ w: 900, h: 270 }, { x: 900, y: 500 }).x).toBe(30);
   });
 
   test.each(SEATS.map((s, i) => [i, s] as const))("centred on seat %p, that seat is inside the window", (_, seat) => {

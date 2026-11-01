@@ -13,6 +13,7 @@ import { stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { ROOM_WALLS } from "../apps/web/src/layout";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -234,11 +235,14 @@ test("a two-finger pinch zooms the room around the fingers; the keys zoom out to
   // The page itself didn't zoom: the browser's pinch-zoom is off over the room.
   expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
 
-  // The keys, for people who can't pinch: fit shows the whole 960 px stage in the window, zoom in brings it closer.
+  // The keys, for people who can't pinch: fit shows the room's walls across the window (OME-2148), not the whole 960 px
+  // stage with its empty sides; zoom in brings it closer.
   const fit = page.getByTestId("room-zoom-fit");
   await fit.tap();
   await frames(page);
-  expect((await stageTransform(page)).scale * 960).toBeLessThanOrEqual(box.width + 0.5);
+  const fitScale = (await stageTransform(page)).scale;
+  expect(fitScale * ROOM_WALLS.w).toBeLessThanOrEqual(box.width + 0.5);
+  expect(fitScale * 960).toBeGreaterThan(box.width);
   // Zoomed all the way out, a name tag is still readable: at least 10 px of text on screen.
   const tagPx = await page.locator(site.nicknameTag).first().evaluate((el) => el.getBoundingClientRect().height);
   expect(tagPx).toBeGreaterThanOrEqual(15);

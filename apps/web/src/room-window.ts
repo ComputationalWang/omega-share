@@ -111,6 +111,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   const applyDesk = (fit: number, v: DeskView): void => {
     deskView = wheelView(fit, v, { x: 0, y: 0 }, v.zoom, deskBox);
     showDesk(fit);
+    // The band's edges too (OME-2160): a stacked tag dropped past its foot.
+    const k = fit * deskView.zoom;
+    if (down === null) settleSides(deskView.pan.x, deskView.pan.x + deskBox.w / k, deskView.pan.y + deskBox.h / k);
   };
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
@@ -215,8 +218,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   /** The label scale the stage has now (null: unset, off the phone). */
   let labels: number | null = null;
   /** Restyle the labels for the zoom (one style pass, not per frame), and tell the bubbles (floats.ts `scale`). */
-  const settleLabels = (): void => {
-    const k = labelScale(zoom);
+  const settleLabels = (k = labelScale(zoom)): void => {
     if (k === labels) return;
     labels = k;
     stage.style.setProperty("--label-scale", String(k));
@@ -368,6 +370,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     down = null;
     clip.classList.remove("is-dragging");
     if (active) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
+    else if (desk !== null) applyDesk(desk, deskView);
     // A mouse drag's click comes in this same task, right after pointerup; a finger drag sends none. Either way the drop
     // ends here, so it can never eat a later click (a keyboard Enter on a seat, a switch or screen-reader activation).
     if (dragged) setTimeout(() => {
@@ -460,7 +463,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   return {
     set(on, w, h) {
       desk = null;
-      clip.classList.remove("is-band");
+      clip.classList.remove("is-band", "is-fit");
       const was = active;
       active = on;
       if (on !== was) for (const e of cropped) crop(e);
@@ -480,10 +483,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
         dragged = false;
         pinch = null;
         fingers.clear();
-        stage.style.removeProperty("--label-scale");
-        if (labels !== null && labels !== 1) onLabels(1);
-        labels = null;
-        settleSides(0, STAGE_W, Infinity);
+        // The labels and sides are desk()'s to settle, which always follows: a reset here told the bubbles twice per refit (OME-2148).
       }
     },
     centre,
@@ -495,6 +495,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     desk(fit, box = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }) {
       desk = fit;
       deskBox = box;
+      // A band fitted below 1× (OME-2148) keeps its names and bubbles readable, as the phone's window does.
+      clip.classList.toggle("is-fit", fit < 1);
+      settleLabels(labelScale(fit));
       clip.classList.toggle("is-band", deskPans());
       applyDesk(fit, deskMoved ? deskView : deskHome(fit, deskView.zoom));
     },
