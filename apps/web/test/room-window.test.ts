@@ -17,8 +17,9 @@ beforeEach(() => {
 // Off the phone nothing changes: no keys, and a pinch does nothing.
 
 const VIEW = { w: 390, h: 270 };
-/** The room shows beside the zoom keys' 52 px column (OME-1302): fit is that pane's width. */
-const FIT = (390 - 52) / 960;
+/** The room shows beside the zoom keys' 52 px column (OME-1302): Fit is the room's walls (660×532 stage px, OME-2148)
+ * whole in that 338×270 pane, so here its height. */
+const FIT = 270 / 532;
 
 async function setup() {
   const { createRoomWindow } = await import("../src/room-window");
@@ -362,5 +363,17 @@ describe("on a computer", () => {
     expect(wheel(clip, -100).defaultPrevented).toBe(false);
     await frame();
     expect(zoom()).toBe(1);
+  });
+
+  // OME-2148: at 1280×800 the band fits the room below 1×; its names and bubbles stay readable, as the phone's do.
+  test("fitted below 1×, names and bubbles get the phone's counter-scale; at 1× none", async () => {
+    const { win, clip, stage, labels } = await setup();
+    win.desk(FIT);
+    expect(Number(stage.style.getPropertyValue("--label-scale"))).toBeCloseTo(0.85 / FIT, 5);
+    expect(labels.at(-1)).toBeCloseTo(0.85 / FIT, 5);
+    expect(clip.classList.contains("is-fit")).toBe(true);
+    win.desk(1);
+    expect(labels.at(-1)).toBe(1);
+    expect(clip.classList.contains("is-fit")).toBe(false);
   });
 });

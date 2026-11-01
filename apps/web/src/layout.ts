@@ -52,6 +52,9 @@ export interface Rect {
  */
 export const ROOM_VIEW: Rect = { x: 0, y: 60, w: STAGE_W, h: 532 };
 
+/** The room's walls in ROOM_VIEW (OME-2148): the wall ends (room.json `wall/l/end`, `wall/r/end`) are 660 px apart. */
+export const ROOM_WALLS: Rect = { x: 150, y: ROOM_VIEW.y, w: 660, h: ROOM_VIEW.h };
+
 /** The scaled stage's CSS transform (`transform-origin: 0 0`): ROOM_VIEW's top-left lands on its clip's. */
 export function stageTransform(scale: number): string {
   return `translate(${String(-ROOM_VIEW.x * scale)}px, ${String(-ROOM_VIEW.y * scale)}px) scale(${String(scale)})`;
@@ -451,6 +454,13 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
  * don't fit either, it's OME-1843's home. Standing (`me`), I'm whole in it, head to name tag, wherever I stand: a swap
  * room's far side had me under the band's foot (OME-2117).
  */
+/** The top of the tallest wall art (ROOM_VIEW): the band shows the back wall from here (OME-2148). */
+export const BAND_WALL_TOP = 113;
+
+export function bandFit(scale: number, _bandH: number, _audience: readonly Point[], _me: Point | null): number {
+  return scale;
+}
+
 export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
   const c = audienceHome(seats, standing, view.h);
   if (me === null) return c;

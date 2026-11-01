@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { FLOOR_CELLS, RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { AVATAR_TOP, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
+import { AVATAR_TOP, BAND_WALL_TOP, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
 
 const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
 const SIDES = ["south", "north"] as const;
@@ -111,5 +111,57 @@ describe("the seats stay whole while the band looks down (OME-1864)", () => {
         }
       }
     }
+  });
+});
+
+// OME-2148 (design judge round 2 on OME-2122, QA OME-2146 finding 1): at 1× the 266 px band can't hold the back wall's
+// art and the audience (377 to 442 stage px), so the cinema's empty standing spots by the door put the back row's heads
+// under the TV. The band fits the room instead: the largest whole scale that holds the back wall's art to the lowest
+// name tag (and mine), else the fraction that does.
+describe("1280×800 with a video: the room fits the band (OME-2148)", () => {
+  /** The band's view as room-layout.ts opens it: fitted, its box no wider than the room at that fit, centred on bandHome. */
+  function fittedView(name: string, me: Point | null) {
+    const l = wideLayout(COLUMN.w, COLUMN.h, "youtube");
+    const room = preset(name);
+    const fit = bandFit(l.scale, l.stage.h, [...seatPoints(room), ...standingPoints(room)], me);
+    const box = { w: Math.min(l.stage.w, ROOM_VIEW.w * fit), h: l.stage.h };
+    const shown = { w: box.w / fit, h: box.h / fit };
+    const c = bandHome(seatPoints(room), standingPoints(room), shown, me);
+    const view = wheelView(fit, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, box);
+    return { room, fit, pan: view.pan, shown };
+  }
+
+  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the back wall's art, every seated head and every name tag, and me wherever I stand", (name, side) => {
+    setNorth(side === "north");
+    for (const me of [null, ...Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => cellCenter(i % FLOOR_CELLS, Math.floor(i / FLOOR_CELLS)))]) {
+      const { room, fit, pan, shown } = fittedView(name, me);
+      const at = me === null ? "seated" : `me at ${String(me.x)},${String(me.y)}`;
+      expect(fit, at).toBeLessThanOrEqual(1);
+      expect(fit, at).toBeGreaterThanOrEqual(0.5);
+      expect(pan.y, at).toBeLessThanOrEqual(BAND_WALL_TOP);
+      for (const p of [...seatPoints(room), ...standingPoints(room), ...(me === null ? [] : [me])]) {
+        expect(p.y - AVATAR_TOP, at).toBeGreaterThanOrEqual(pan.y);
+        expect(p.y + TAG_FOOT, at).toBeLessThanOrEqual(pan.y + shown.h);
+        expect(p.x, at).toBeGreaterThanOrEqual(pan.x);
+        expect(p.x, at).toBeLessThanOrEqual(pan.x + shown.w);
+      }
+    }
+  });
+
+  test("the wall's art is the tallest wall art's top", () => {
+    expect(BAND_WALL_TOP).toBe(113);
+  });
+
+  test("a band that holds it all keeps its whole scale, 2× included; the fraction is only for a band 1× can't fill", () => {
+    const audience = [cellCenter(9, 9)];
+    // The back wall's art (y 113) to the front cell's name tag foot (524 + 30) is 442 stage px.
+    expect(bandFit(1, 442, audience, null)).toBe(1);
+    expect(bandFit(2, 884, audience, null)).toBe(2);
+    expect(bandFit(2, 600, audience, null)).toBe(1);
+    expect(bandFit(1, 221, audience, null)).toBe(0.5);
+    // Never under half: a band that short keeps the seats whole as before (OME-1864), at half size.
+    expect(bandFit(1, 150, audience, null)).toBe(0.5);
+    // No audience yet (the layout hasn't come): the whole scale.
+    expect(bandFit(1, 266, [], null)).toBe(1);
   });
 });
