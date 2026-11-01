@@ -48,6 +48,16 @@ describe("stackTags", () => {
     for (const d of stackTags(tags, H)) expect(d).toBeGreaterThanOrEqual(0);
   });
 
+  // OME-2118 CI (landscape-phone): two members at the front edge; the second tag dropped out of the room window.
+  test("a tag that would drop past the bottom stacks up over the one it hits instead", () => {
+    const tags = [{ x: 200, y: 560, w: 40 }, { x: 205, y: 562, w: 40 }];
+    const dy = stackTags(tags, H, 592);
+    expect(overlaps(tags, dy, H)).toEqual([]);
+    tags.forEach((t, i) => {
+      expect(t.y + (dy[i] ?? 0) + H).toBeLessThanOrEqual(592);
+    });
+  });
+
   test("the same tags stack the same way whatever their order (a render and a stop agree)", () => {
     const a = { x: 200, y: 300, w: 40 };
     const b = { x: 210, y: 300, w: 40 };
