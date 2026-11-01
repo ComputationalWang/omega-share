@@ -69,6 +69,7 @@ export const site = {
   createRoomSubmit: id("create-room-submit"),
   createRoomError: id("create-room-error"),
   publicRoomLink: id("public-room-link"),
+  publicRooms: id("public-rooms"),
   // Dusk doorstep (OME-935): the landing's directory action, the directory screen's Edit profile key, the public
   // list's status line and Retry key.
   findRoom: id("find-room"),
@@ -183,8 +184,9 @@ export const site = {
   helpTips: id("help-tips"),
   helpKey: id("help-key"),
   // "Hide for me" (OME-769, M9 W3): the room bar's People key, its list, each row's toggle and the status line.
-  // The room bar's Leave key (OME-1967): out of the room for good, back to the landing.
+  // The room bar's Leave key (OME-1967), back to the landing; there the Rejoin chip undoes it for 10 s (OME-2105).
   leaveKey: id("leave-key"),
+  rejoinChip: id("rejoin-chip"),
   peopleKey: id("people-key"),
   snapKey: id("snap-key"),
   peoplePanel: id("people-panel"),

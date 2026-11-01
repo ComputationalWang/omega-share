@@ -9,7 +9,7 @@ import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
 import { trackShareToken } from "./share-token";
-import { clearResume, handOffResume, loadResume, saveResume, takeHandOff, type ResumeStore } from "./session-record";
+import { clearResume, handOffResume, loadResume, saveResume, stashLeft, takeHandOff, type ResumeStore } from "./session-record";
 import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { inviteLink, joinMessage, loadRoomSecrets, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
@@ -687,7 +687,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   snapKey.addEventListener("click", snap);
   // Leave (OME-1967): top-left of the room bar, the same explicit leave as the report dialog's.
   const leaveKey = el("button", { type: "button", className: "ui-button secondary leave-key", textContent: "Leave", title: "Leave the room", hidden: true }, "leave-key");
-  leaveKey.addEventListener("click", leaveForGood);
+  leaveKey.addEventListener("click", leaveForNow);
   roomTop.append(leaveKey, soundKey.root, title, popRoomKey, snapKey, people.key, help.key);
   // The first-visit tour (OME-1587): fixed chips beside the floor, the message field and People.
   const firstHint = createHints({
@@ -1465,6 +1465,23 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     c.close();
     clearResume(resumeStore, opts.roomId);
     shareToken.clear();
+    location.assign("/");
+  }
+  /**
+   * The Leave key (OME-2105, ADR 0043 amendment 3): undoable for a few seconds, so no `leave` frame. The socket closes
+   * as for a closed tab and the server holds the seat; the session goes to the landing's Rejoin chip, not the hand-off.
+   * Without a stored session there is nothing to rejoin with: that is the explicit leave.
+   */
+  function leaveForNow(): void {
+    const kept = loadResume(resumeStore, opts.roomId);
+    if (kept === null) {
+      leaveForGood();
+      return;
+    }
+    c.close();
+    clearResume(resumeStore, opts.roomId);
+    shareToken.clear();
+    stashLeft(resumeStore, kept, state.title, Date.now());
     location.assign("/");
   }
   // Leaving the page is not leaving the room (ADR 0043): close the socket, keep the session and share records. The

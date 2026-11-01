@@ -236,7 +236,10 @@ legend { padding: 0; margin-bottom: 6px; }
 .home .share-url { overflow-wrap: anywhere; }
 .home .preset { background: var(--dusk-canvas); }
 .home .preset:has(input:checked) { border-color: var(--dusk-honey); }
-.home .rooms-public .note { margin-top: 24px; }
+.home .rooms-public .note { margin-bottom: 12px; }
+/* The Rejoin chip after Leave (OME-2105): fixed, so it shifts nothing; over the page's bottom edge, clear of the notch. */
+.rejoin-chip { position: fixed; z-index: 10; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; width: fit-content; align-items: center; gap: 12px; margin: 0 auto; padding: 8px 8px 8px 16px; border: 1px solid var(--dusk-border); border-radius: 4px; background: var(--dusk-surface); color: var(--dusk-text); overflow-wrap: anywhere; box-shadow: 0 4px 16px rgb(0 0 0 / 40%); }
+.rejoin-chip button { flex: none; min-height: 44px; padding: 8px 16px; border: 0; border-radius: 4px; background: var(--dusk-honey); color: #1d1a2b; font-weight: 600; cursor: pointer; }
 .home .room-list { gap: 0; border-top: 1px solid var(--dusk-divider); }
 .home .room-list li { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--dusk-divider); }
 .home .room-info { flex: 1; min-width: 0; }

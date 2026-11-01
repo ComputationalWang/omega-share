@@ -291,7 +291,8 @@ export function mountHome(opts: HomeOptions): Home {
   const listedStatus = el("p", { className: "list-note", role: "status" }, "public-rooms-status");
   const retry = el("button", { type: "button", className: "link retry", textContent: "Retry" }, "public-rooms-retry");
   const listedSection = el("section", { className: "rooms-public" });
-  listedSection.append(listedHeading, listed, listedStatus, el("p", { className: "note", textContent: "Have an invite? Open its link to join a private room." }));
+  // The note above the list: the list settling from its loading height moves nothing below it (landing CLS, OME-2105).
+  listedSection.append(listedHeading, el("p", { className: "note", textContent: "Have an invite? Open its link to join a private room." }), listed, listedStatus);
   const renderListed = (rooms: readonly RoomSummary[]): void => {
     listed.replaceChildren(
       ...rooms.map((r) => {

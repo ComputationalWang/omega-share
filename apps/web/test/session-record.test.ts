@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { RESUME_GRACE_MS, RESUME_STORAGE_KEY_PREFIX, type ResumeRecord } from "@omega/shared";
-import { clearResume, handOffResume, loadResume, saveResume, takeHandOff, type ResumeStore } from "../src/session-record";
+import { REJOIN_CHIP_MS, clearResume, handOffResume, loadResume, saveResume, stashLeft, takeHandOff, takeLeft, type ResumeStore } from "../src/session-record";
 
 function memStore(): ResumeStore & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -106,5 +106,51 @@ describe("hand-off", () => {
       handOffResume(s, record, T);
     }).not.toThrow();
     expect(takeHandOff(s, "lobby", T)).toBeNull();
+  });
+});
+
+// The Leave key hands the session to the landing for a few seconds, for its Rejoin chip (OME-2105).
+describe("left", () => {
+  const T = 1_000_000;
+
+  test("the landing takes it once, with the room's title, until the chip's time is up", () => {
+    const s = memStore();
+    stashLeft(s, record, "Film night", T);
+    expect(takeLeft(s, T + 1000)).toEqual({ record, title: "Film night", until: T + REJOIN_CHIP_MS });
+    expect(s.data.size).toBe(0);
+    expect(takeLeft(s, T + 1000)).toBeNull();
+  });
+
+  test("an untitled room keeps a null title", () => {
+    const s = memStore();
+    stashLeft(s, record, null, T);
+    expect(takeLeft(s, T)?.title).toBeNull();
+  });
+
+  test("past the chip's time it is dropped, not used", () => {
+    const s = memStore();
+    stashLeft(s, record, "Film night", T);
+    expect(takeLeft(s, T + REJOIN_CHIP_MS)).toBeNull();
+    expect(s.data.size).toBe(0);
+  });
+
+  test("garbage, a bad record and extra keys are dropped", () => {
+    for (const raw of ["{x", "null", JSON.stringify({ record: { ...record, token: "x" }, title: null, until: T + 1 }), JSON.stringify({ record, title: null, until: T + 1, extra: 1 }), JSON.stringify({ record, title: 5, until: T + 1 })]) {
+      const s = memStore();
+      s.setItem("omega.left", raw);
+      expect(takeLeft(s, T)).toBeNull();
+      expect(s.data.size).toBe(0);
+    }
+  });
+
+  test("a throwing store degrades to null and no-ops", () => {
+    const boom = (): never => {
+      throw new Error("denied");
+    };
+    const s: ResumeStore = { getItem: boom, setItem: boom, removeItem: boom };
+    expect(() => {
+      stashLeft(s, record, null, T);
+    }).not.toThrow();
+    expect(takeLeft(s, T)).toBeNull();
   });
 });
