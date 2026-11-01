@@ -375,6 +375,8 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
    rule here would cost every chat line a walk over its previous siblings: the room marks its root room-fs instead. */
 .room-fs > :not(.stage-wrap, dialog) { visibility: hidden; }
 .room-fs dialog { visibility: visible; }
+/* A hidden live region is never announced (OME-2136): they stay visible but clipped to nothing, so no shift either. */
+.room-fs [role=status]:not(.stage-wrap *), .room-fs [role=alert]:not(.stage-wrap *) { visibility: visible; clip-path: inset(50%); }
 /* Keep the provider intact on very short screens; scroll to reach picture or controls, with no overlay.
  * Hidden scrollbars keep clientWidth stable when this fallback switches on. */
 .stage-wrap.is-fs[data-fs-scroll="true"] { overflow-y: auto; scrollbar-width: none; }
