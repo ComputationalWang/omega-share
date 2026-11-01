@@ -320,6 +320,14 @@ for (const phone of [true, false]) {
     await expect(ana.page.locator(site.publicRooms)).toHaveAttribute("aria-busy", "false");
     await ana.page.waitForTimeout(1000);
     expect(await ana.page.evaluate(() => (window as { __shifts?: number }).__shifts)).toBe(0);
+    if (phone) {
+      // OME-2111: a 32-character title keeps the chip near full width, not shrunk to the half right of `left: 50%`.
+      await chip.evaluate((el) => {
+        if (el.firstChild) el.firstChild.textContent = "You left Friday film night with friends! ";
+      });
+      const chipBox = await chip.boundingBox();
+      expect(chipBox?.width ?? 0).toBeGreaterThan(300);
+    }
     // Meanwhile the others see ana away, not gone.
     await expect(obs.page.locator(`${site.peopleRow}.is-away`).filter({ hasText: "ana" })).toHaveCount(1);
 
