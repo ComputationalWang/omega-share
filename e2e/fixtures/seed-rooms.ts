@@ -9,7 +9,7 @@ import { openDatabase } from "../../apps/server/src/store/db";
 import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
 import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
-import { TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
+import { SPEC_ROOMS, TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
 import { PADS, SET_G, doorTo } from "./layouts";
 
 const [path, flag] = process.argv.slice(2);
@@ -21,7 +21,10 @@ const db = openDatabase(path);
 const store = new RoomStore(db);
 // Rooms whose layout the test needs on the server itself, not only in the snapshot: teleport pads, two doors to each other.
 const DUNGEON = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")));
+const preset = (file: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../assets/presets/${file}`, import.meta.url), "utf8")));
 const SEEDED_LAYOUTS = new Map([
+  // Every shipped preset as created from the form, for the room-art bytes row (OME-2152).
+  ...SPEC_ROOMS["art-perf"].map((p) => [testRoomId("art-perf", p), preset(`${p}.json`)] as const),
   [testRoomId("teleport", "pads"), PADS],
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],
