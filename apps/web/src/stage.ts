@@ -196,7 +196,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       floats.move(id, x, head);
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
-      const pad = padEls.get(id);
+      // A pad shows only on the host's pickable tags; elsewhere it's `display: none` and the render places it (OME-2135).
+      const pad = tags.classList.contains("pickable") ? padEls.get(id) : undefined;
       if (pad !== undefined) place(pad, { x, y: y + TAG_OFFSET_Y });
       o.onMove?.(id);
     },
