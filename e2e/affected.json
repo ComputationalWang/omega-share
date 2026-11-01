@@ -200,6 +200,7 @@
         "perf/chat.perf.ts",
         "perf/editor.perf.ts",
         "perf/fullscreen.perf.ts",
+        "perf/room-cls.perf.ts",
         "perf/heap-movie.perf.ts",
         "perf/landing.perf.ts",
         "perf/load.perf.ts",
@@ -561,7 +562,8 @@
       ],
       "specs": [
         "e2e/emotes.e2e.ts",
-        "e2e/reactions.e2e.ts"
+        "e2e/reactions.e2e.ts",
+        "perf/room-cls.perf.ts"
       ],
       "why": "reaction bar and glyph bursts, OME-1631"
     },
@@ -1050,6 +1052,7 @@
         "perf/extension-firefox.perf.ts",
         "perf/extension.perf.ts",
         "perf/fullscreen.perf.ts",
+        "perf/room-cls.perf.ts",
         "perf/landing.perf.ts",
         "perf/load.perf.ts",
         "perf/moderation.perf.ts",

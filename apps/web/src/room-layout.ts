@@ -285,6 +285,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
     const restoreScroll = holdScroll();
     wrap.classList.toggle("is-fs", on);
+    root.classList.toggle("room-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
     document.body.classList.toggle("room-is-pseudo-fs", mode === "pseudo");
     tvBox.setFullscreen(on);

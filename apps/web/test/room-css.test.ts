@@ -101,3 +101,11 @@ test("room.css keys no rule on .room-side:has()", () => {
   const src = readFileSync(join(web, "src", "room.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   expect(src.match(/\.room-side(?::not\()?:has\(/g) ?? []).toEqual([]);
 });
+
+// OME-2106: a later-sibling rule whose subject is any element (`.stage-wrap.is-fs ~ *`) is tried on every element
+// Chromium re-styles, walking back through all its previous siblings: ~20× the recalc per chat line, even outside full
+// screen (QA, PR #809). The room marks its root room-fs instead and hides children with a one-step parent check.
+test("room.css has no ~ or + rule whose subject is any element", () => {
+  const src = readFileSync(join(web, "src", "room.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  expect(src.match(/[~+]\s*(?:\*|:(?:is|where|not)\()[^{]*\{/g) ?? []).toEqual([]);
+});
