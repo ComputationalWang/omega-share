@@ -45,15 +45,15 @@ export const PRESETS: readonly Preset[] = [
       furniture: [
         // The theatre set (OME-1639's judged theatre room, OME-1630): the big screen in the TV corner between two
         // curtains, two tiers of rows on carpet (front on the floor, back one riser up), aisle lights down the middle.
-        // OME-2150: the back tier stands a free row behind the front one, straight behind it: offset a col, each back sitter
-        // landed right under a front one on screen and the two stacked.
+        // OME-2150: the back tier stands a free row behind the front one (one row back, each back sitter landed right under a
+        // front one on screen); one col in, so its outer seat stays in a phone's room window, clear of the zoom keys.
         p("bigscreen", 0, 0, "se"),
         p("curtain", 2, 0, "sw"), p("curtain", 0, 2, "se"),
         p("carpet", 1, 1, "se"), p("carpet", 3, 1, "se"), p("carpet", 5, 1, "se"), p("carpet", 1, 3, "se"),
         p("carpet", 3, 3, "se"), p("carpet", 5, 3, "se"), p("carpet", 1, 5, "se"), p("carpet", 3, 5, "se"),
         p("aislelight", 5, 5, "nw"), p("aislelight", 6, 6, "nw"), p("aislelight", 7, 7, "nw"), p("aislelight", 8, 8, "nw"),
         p("theatrerow", 1, 4, "ne"), p("theatrerow", 4, 1, "nw"),
-        p("theatrerow", 1, 6, "ne", 1), p("theatrerow", 6, 1, "nw", 1),
+        p("theatrerow", 2, 6, "ne", 1), p("theatrerow", 6, 2, "nw", 1),
         p("popcorn", 0, 8, "se"), p("monstera", 9, 0, "sw", 1),
       ],
     },

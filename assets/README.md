@@ -1968,10 +1968,10 @@ eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are 
 
 ## Seat footprints, wave 4 round 2 (OME-2150)
 
-- **Theatre (preset `cinema`):** the back tier stands a free row behind the front one and straight behind it: `theatrerow (1,6) ne` and
-  `(6,1) nw`, `step` (were `(2,5)` / `(5,2)`, offset a col, so each back sitter landed right under a front one on screen and the two stacked).
-  At 1× a back sitter is now 64 px left and 22 px down from the front sitter in its line, 32 px left and 38 px down from the next: no pixel
-  overlap. Row 5 between the tiers is the aisle to the front row.
+- **Theatre (preset `cinema`):** the back tier stands a free row behind the front one: `theatrerow (2,6) ne` and `(6,2) nw`, `step` (were
+  `(2,5)` / `(5,2)`: one row back, each back sitter landed right under a front one on screen and the two stacked). At 1× each back sitter
+  is 32 px aside and 38 px down from the nearest front sitter, 54 px straight down from the other: no pixel overlap. Not `(1,6)`/`(6,1)`:
+  their outer seat leaves a Pixel 7's room window or sits under the zoom keys (e2e `room-presets`). Row 5 is the aisle to the front row.
 - **Snack table (`sidetable`, both colours) is café height:** top at z 9 (was 15), the bowl, popcorn and mug drop with it (heap top z 16, was 22;
   the mug's steam at z 13, was 19). From the chair beside it the table shows under the sitter's chin, not between two heads. Frame 34×26 (was
   34×32), anchor y 20/26; same keys. furniture.png −49 B, v8 −153 B, edit.png −101 B.
@@ -1983,4 +1983,4 @@ eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are 
 - **Judging cast:** evidence runs give the two extra guests looks no default (tint 0, hair 0, no hat) and no other guest wears: Obs =
   `{ avatar: 2 (mo), tint: 3, hair: 2, accessory: 5 (cap) }`, Pip = `{ avatar: 1 (pip), tint: 4, hair: 4, accessory: 6 (flower) }`.
 
-Net art bytes −332 B gz (all files under `assets/` except `src/` and `preview/`).
+Net art bytes −326 B gz (all files under `assets/` except `src/`, `preview/` and this README).
