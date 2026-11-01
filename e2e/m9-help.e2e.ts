@@ -150,6 +150,39 @@ for (const [name, options] of [
   });
 }
 
+// OME-2104 (audit item 7): with nothing on, the floor chip never sits on the empty TV's message.
+for (const [name, options] of [
+  ["emw", { viewport: { width: 1280, height: 800 } }],
+  ["emp", { ...devices["Pixel 7"], viewport: { width: 412, height: 915 } }],
+  ["eml", { ...devices["Pixel 7"], viewport: { width: 915, height: 412 } }],
+] as const) {
+  const { width, height } = options.viewport;
+  test(`${String(width)}×${String(height)}: the floor chip never covers the empty TV's message`, async ({ browser }) => {
+    const page = await join(name, browser, false, options);
+    const hint = page.locator(site.firstHint);
+    await expect(hint).toContainText("Click the floor");
+    await expect(page.locator(site.tvEmpty)).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(await overlaps(hint, page.locator(site.tvEmpty))).toBe(false);
+  });
+}
+
+// OME-2104: on a phone held upright the paste field is behind the Up next key; the empty TV's message takes you there.
+test("412×915: one tap on the empty TV's message puts focus in the paste field; it's a named key, reachable by keyboard", async ({ browser }) => {
+  const page = await join("emtap", browser, false, { ...devices["Pixel 7"], viewport: { width: 412, height: 915 } });
+  const empty = page.locator(site.tvEmpty);
+  await expect(empty).toHaveRole("button");
+  await expect(empty).toHaveAccessibleName(/Paste a link/);
+  await page.locator(site.hintSkip).tap();
+  await empty.tap();
+  await expect(page.locator(site.queueUrl)).toBeFocused();
+  await page.keyboard.press("Escape");
+  await empty.focus();
+  await expect(empty).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(site.queueUrl)).toBeFocused();
+});
+
 test("the hint goes with Esc", async ({ browser }) => {
   const page = await join("hintesc", browser);
   const hint = page.locator(site.firstHint);

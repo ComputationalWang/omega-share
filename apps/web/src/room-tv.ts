@@ -20,6 +20,8 @@ export interface RoomTvOptions {
   readonly fullscreen: () => boolean;
   /** The shown provider changed: Twitch needs a larger TV (layout.ts). */
   readonly onProvider: () => void;
+  /** The empty TV's message was pressed: take the viewer to the paste field (OME-2104). */
+  readonly onCurtain: () => void;
 }
 
 export interface RoomTv {
@@ -37,6 +39,8 @@ export interface RoomTv {
   readonly provider: () => Embed["provider"] | null;
   /** The TV shows its closed curtain: no player, no Load card (the tour's chip may sit on it, OME-1778). */
   readonly empty: () => boolean;
+  /** The curtain's message: the chip may sit on the curtain, never on this (OME-2104). */
+  readonly message: HTMLElement;
   /** Swap the TV for the room's embed. */
   readonly sync: (s: ViewState) => void;
   /** The shelf follows the player. */
@@ -58,7 +62,10 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
   const controls = el("div", { className: "controls ui-tv-shelf", role: "group", ariaLabel: "Playback controls" });
   // Nothing on: the theatre's curtain, closed (OME-1812, design OME-1799 §5). Only ever in the box without a player (ADR 0012).
   const tvEmpty = el("div", { className: "tv-curtain" });
-  tvEmpty.append(el("p", { className: "tv-empty", textContent: "Nothing on yet. Paste a link in Up next to raise the curtain." }));
+  // A key, not a line: on a phone held upright the paste field is behind Up next, so the message takes you there.
+  const curtainKey = el("button", { type: "button", className: "tv-empty", textContent: "Nothing on yet. Paste a link in Up next to raise the curtain." }, "tv-empty");
+  curtainKey.addEventListener("click", o.onCurtain);
+  tvEmpty.append(curtainKey);
   tv.append(tvEmpty);
   const syncNotice = el("p", { className: "notice sync-notice", role: "status", hidden: true }, "sync-notice");
   const tvHint = el("p", { className: "notice tv-hint", hidden: true }, "tv-hint");
@@ -288,6 +295,7 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     hint: tvHint,
     provider: () => tvProvider,
     empty: () => tv.firstChild === tvEmpty,
+    message: curtainKey,
     sync: syncTv,
     show,
     setFullscreen: (on) => {

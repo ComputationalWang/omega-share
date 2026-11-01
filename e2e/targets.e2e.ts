@@ -10,6 +10,7 @@ import { site } from "./support/selectors";
 import { ownedRoom } from "./support/owned-rooms";
 import { GENERIC_HOST, GENERIC_PAGE, shareProvider } from "../perf/providers";
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { cellCenter } from "../apps/web/src/layout";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -153,4 +154,62 @@ test("crowded (8 in the room): no tag's hit area takes a click from another tag'
   await expect.poll(() => stolen(host), { timeout: 10_000 }).toEqual([]);
   // What perf/moderation.perf.ts does: md-1's tag takes the click and opens md-1's menu.
   await host.locator(site.nicknameTag).filter({ hasText: "md-1" }).click({ timeout: 10_000 });
+});
+
+/** Cell (x, y)'s centre in page px, wherever the stage is scaled to (as desk-zoom.e2e.ts). */
+async function cellOnPage(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
+  const box = await page.locator(site.walkFloor).evaluate((el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, k: r.width / el.offsetWidth };
+  });
+  const p = cellCenter(x, y);
+  return { x: box.left + p.x * box.k, y: box.top + p.y * box.k };
+}
+
+/** Counts style writes to a member's tag and to its hit pad on `page` from now on. */
+function countStyleWrites(page: Page, member: string): Promise<void> {
+  return page.evaluate((m) => {
+    const counts = { tag: 0, pad: 0 };
+    Reflect.set(window, "__writes", counts);
+    const watch = (sel: string, key: "tag" | "pad"): void => {
+      const e = document.querySelector(sel);
+      if (e === null) throw new Error(`no ${sel}`);
+      new MutationObserver((records) => {
+        counts[key] += records.length;
+      }).observe(e, { attributeFilter: ["style"] });
+    };
+    watch(`.tags [data-member="${m}"]`, "tag");
+    watch(`.tag-pad[data-pad="${m}"]`, "pad");
+  }, member);
+}
+const styleWrites = (page: Page): Promise<{ tag: number; pad: number }> => page.evaluate(() => Reflect.get(window, "__writes") as { tag: number; pad: number });
+
+// OME-2135: a hit pad shows only on the host's pickable tags. Elsewhere it is `display: none`, so moving it with its tag
+// on every frame of a walk was a style recalc per walker per frame for nothing; the host's pads still follow their tags.
+test("a walking member's tag moves every frame, its hidden hit pad doesn't; on the host's page the pad follows the tag", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("tagpads");
+  const secrets = JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } });
+  const guest = `${URLS.web}/r/${id}#k=${inviteKey}`;
+  const host = await open(browser, `${URLS.web}/r/${id}`, "host", DESK, secrets);
+  const watcher = await open(browser, guest, "watcher", DESK);
+  const kit = await open(browser, guest, "kit", DESK);
+  await expect(host.locator(`.tags.pickable ${site.nicknameTag}[role=button]`)).toHaveCount(2);
+  await kit.waitForTimeout(3000); // walked in from the door
+  const member = await watcher.locator(site.nicknameTag).filter({ hasText: "kit" }).getAttribute("data-member");
+  if (member === null) throw new Error("no kit tag");
+  await countStyleWrites(watcher, member);
+  // Across the room and back: two walks of several cells each.
+  await kit.locator(site.walkFloor).scrollIntoViewIfNeeded();
+  for (const [x, y] of [[1, 8], [8, 1]] as const) {
+    const p = await cellOnPage(kit, x, y);
+    await kit.mouse.click(p.x, p.y);
+    await kit.waitForTimeout(3000);
+  }
+  const writes = await styleWrites(watcher);
+  expect(writes.tag, "the tag rode along with the walk").toBeGreaterThan(20);
+  // A render (a state change: each `walked`) may still place it; frames don't.
+  expect(writes.pad, "the hidden pad stayed put while the tag moved").toBeLessThanOrEqual(4);
+  // The host's pickable pad sits where its tag does once the walk is over.
+  const at = (sel: string) => host.locator(sel).evaluate((el: HTMLElement) => el.style.translate);
+  await expect.poll(async () => (await at(`.tag-pad[data-pad="${member}"]`)) === (await at(`.tags [data-member="${member}"]`))).toBe(true);
 });

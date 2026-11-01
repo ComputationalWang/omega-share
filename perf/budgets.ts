@@ -154,6 +154,10 @@ const LANDING: readonly Budget[] = [
   { id: "landing.longTask", area: "Landing", metric: "Longest task before the nickname field is usable", docMetric: "Longest task before the nickname field is usable", unit: "ms", limit: 50, comparator: "<=" },
 ];
 
+// OME-2106: layout shift in the room over one full-screen enter + exit (perf/room-cls.perf.ts).
+const ROOM_CLS_PROFILES = { desktop: "desktop Chromium", landscape: "Pixel 7 landscape (915×412)", portrait: "Pixel 7 portrait (412×915)" } as const;
+const ROOM_CLS: readonly Budget[] = Object.entries(ROOM_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.fsCls.${p}`, area: "Site", metric: `Cumulative Layout Shift in the room over a full-screen enter + exit, ${pl}`, docMetric: "Cumulative Layout Shift in the room over a full-screen enter + exit", unit: "score", limit: 0.01, comparator: "<" }));
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -168,6 +172,7 @@ export const BUDGETS: readonly Budget[] = [
   ...PHONE,
   ...THEATRE,
   ...FULLSCREEN,
+  ...ROOM_CLS,
   ...VIEW_SWAP,
   ...JOIN,
   ...POPOUT,

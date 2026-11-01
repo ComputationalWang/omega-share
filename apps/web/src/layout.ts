@@ -162,9 +162,10 @@ export const WIDE_CHAT_W = 320;
 const WIDE_TV_SHARE = 0.37;
 /**
  * OME-1803 (design OME-1799 §2): with a video loaded the TV is the hero and the room an audience band under the shelf,
- * at least this tall and BAND_SHARE of the column. An empty room keeps the room-first split above.
+ * at least this tall and BAND_SHARE of the column. An empty room keeps the room-first split above. Half the room (OME-2117,
+ * ADR 0059): 240 px hid the back wall and its art at 1280×800.
  */
-const BAND_MIN_H = 240;
+const BAND_MIN_H = ROOM_VIEW.h / 2;
 const BAND_SHARE = 0.28;
 
 /**
@@ -443,15 +444,34 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
 }
 
 /**
- * Where the desktop band looks first (OME-1843): the whole audience, seats and standing spots, to their name tags' foot.
- * A band too short for every name tag keeps the seats whole instead, where they fit (OME-1864): Twitch's taller TV and
- * its hint leave 1280×720 a band where the audience's front row put the back seats behind the TV, out of every click's
- * reach. Where the tags fit (the Theatre at 1280×800), or the seats don't either, it's OME-1843's home.
+ * Where the desktop band looks first (OME-1843), a `view` stage px: the whole audience, seats and standing spots, their
+ * name tags' foot at the band's, so the back wall and its art get every row left above (OME-2117). A band too short for
+ * every name tag keeps the seats whole instead, where they fit (OME-1864): Twitch's taller TV and its hint leave 1280×720
+ * a band where the audience's front row put the back seats behind the TV, out of every click's reach. Where the seats
+ * don't fit either, it's OME-1843's home. Standing (`me`), I'm whole in it, head to name tag, wherever I stand: a swap
+ * room's far side had me under the band's foot (OME-2117).
  */
-export function bandHome(seats: readonly Point[], standing: readonly Point[], h: number): Point {
+export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
+  const c = audienceHome(seats, standing, view.h);
+  if (me === null) return c;
+  const y = Math.max(me.y + TAG_FOOT + 1 - view.h / 2, Math.min(me.y - AVATAR_TOP + view.h / 2, c.y));
+  // The seats' tops win over my own tag where they fit (OME-1864): a cropped seat takes no click, and I can walk.
+  const seatsFit = seats.length > 0 && span(seats, -SEAT_HIT_H / 2) <= view.h;
+  return {
+    x: Math.max(me.x + TAG_MAX_W / 2 - view.w / 2, Math.min(me.x - TAG_MAX_W / 2 + view.w / 2, c.x)),
+    y: seatsFit ? Math.min(y, Math.min(...seats.map((p) => p.y)) - SEAT_HIT_H / 2 + view.h / 2) : y,
+  };
+}
+
+function audienceHome(seats: readonly Point[], standing: readonly Point[], h: number): Point {
   const audience = [...seats, ...standing];
-  const tagsFit = span(audience, TAG_OFFSET_Y) <= h;
-  if (tagsFit || seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h) return seatsHome(audience, h, TAG_FOOT);
+  if (audience.length > 0 && span(audience, TAG_OFFSET_Y) <= h) {
+    const y = Math.max(...audience.map((p) => p.y)) + TAG_FOOT + 1 - h / 2;
+    // Never above the seats' tops where they fit (OME-1864): the front row's tags give way first.
+    const seatsFit = seats.length > 0 && span(seats, -SEAT_HIT_H / 2) <= h;
+    return { x: seatsHome(audience, h, TAG_FOOT).x, y: seatsFit ? Math.min(y, Math.min(...seats.map((p) => p.y)) - SEAT_HIT_H / 2 + h / 2) : y };
+  }
+  if (seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h) return seatsHome(audience, h, TAG_FOOT);
   // The seats whole, and from there as near the audience's home as the band goes (OME-1945): centred on the seats, the
   // Dank Dungeon's band cut the first standing spot's tag by 2 px.
   const ys = seats.map((p) => p.y);

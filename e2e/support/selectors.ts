@@ -26,6 +26,7 @@ export const site = {
   sharedVideo: id("shared-video"),
   // The phone watch layout (OME-596): the TV box, and the cropped window the 1× room is dragged around in.
   tv: id("tv"),
+  tvEmpty: id("tv-empty"),
   roomWindow: id("room-window"),
   // Movie night (OME-1628, OME-1629): QA's heap row (perf/heap-movie.perf.ts) looks for these.
   momentsStrip: id("moments"),

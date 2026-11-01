@@ -489,6 +489,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     centre,
     rehome() {
       if (active && looking === null) apply();
+      // Off the phone (OME-2117): the band follows me too, until the viewer looks around.
+      else if (!active && desk !== null && !deskMoved) applyDesk(desk, deskHome(desk, deskView.zoom));
     },
     desk(fit, box = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }) {
       desk = fit;

@@ -35,7 +35,7 @@
   url("../../../assets/ui/scenes/curtain-drape.png") 50% 0 / calc(8 * var(--ui-px)) calc(8 * var(--ui-px)) repeat; }
 .room-wide[data-chrome="2"] .tv-curtain { --ui-px: 4px; }
 /* The caption scales with the TV, not the page (OME-1848, design OME-1847 §1): the stage is outside the chrome zoom, so cqw is real px. */
-.tv-empty { max-width: min(80%, 30em); margin: 0; padding: 0.3em 0.9em; font-size: clamp(var(--text-sm), 2.2cqw, 40px); background: var(--ui-page); border: max(var(--ui-px), 0.12em) solid var(--ui-accent); color: var(--ui-text); font-weight: 500; text-align: center; }
+.tv-empty { max-width: min(80%, 30em); margin: 0; padding: 0.3em 0.9em; font-size: clamp(var(--text-sm), 2.2cqw, 40px); background: var(--ui-page); border: max(var(--ui-px), 0.12em) solid var(--ui-accent); color: var(--ui-text); font-weight: 500; text-align: center; font-family: inherit; line-height: inherit; cursor: pointer; }
 /* Generic tier (ADR 0024 §3): the load card fills the TV until Load; the strip takes the sync controls' slot. */
 .tv .tv-generic { width: 100%; height: 100%; display: grid; place-items: center; }
 .generic-card { max-width: 80%; text-align: center; color: #eee; }
@@ -369,6 +369,12 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 /* Full screen's leftover is letterbox (OME-1810, design OME-1809 item 6): plain black, no bezel rule over the picture. */
 .stage-wrap.is-fs { background: #000; overflow: hidden; }
 .stage-wrap.is-fs .tv { border-image: none; }
+/* In full screen the wrapper leaves the flow (or, with is-fs, its height), so what follows it sits higher. On the way out
+   Chrome paints frames before the wrapper is back, and a visible reaction bar jumps (CLS, OME-2106): hidden behind full
+   screen, it just reappears in place. Open dialogs are in the top layer, above full screen: they stay visible. A `~ *`
+   rule here would cost every chat line a walk over its previous siblings: the room marks its root room-fs instead. */
+.room-fs > :not(.stage-wrap, dialog) { visibility: hidden; }
+.room-fs dialog { visibility: visible; }
 /* Keep the provider intact on very short screens; scroll to reach picture or controls, with no overlay.
  * Hidden scrollbars keep clientWidth stable when this fallback switches on. */
 .stage-wrap.is-fs[data-fs-scroll="true"] { overflow-y: auto; scrollbar-width: none; }

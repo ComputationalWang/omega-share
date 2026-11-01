@@ -39,7 +39,7 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
   for (const a of anchors) a.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 200, width: 300, height: 100 });
   const after = document.createElement("button");
   // The TV (empty until a test says otherwise, no box until a test gives it one) and the picture it's in.
-  const tv = { box: document.createElement("div"), empty: true, picture: document.createElement("div") };
+  const tv = { box: document.createElement("div"), empty: true, picture: document.createElement("div"), message: document.createElement("button") };
   const asked: number[] = [];
   const hints = createHints({
     storage: store,
@@ -47,7 +47,7 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
       asked.push(step);
       return anchors[step] ?? null;
     },
-    tv: { box: tv.box, empty: () => tv.empty, picture: tv.picture },
+    tv: { box: tv.box, empty: () => tv.empty, picture: tv.picture, message: tv.message },
     next: () => after,
   });
   document.body.replaceChildren(...anchors, tv.picture, tv.box, hints.root, after);
@@ -221,5 +221,16 @@ describe("the first-visit tour", () => {
     await Promise.resolve();
     expect(hints.root.style.visibility).toBe("");
     expect(hints.root.style.top).toBe("192px");
+  });
+
+  test("on an empty TV a chip never covers its message: it goes under the message, on the curtain, not under the picture where the chat bar is on a small phone (OME-2104)", async () => {
+    const { hints, tv } = await setup();
+    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });
+    tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 });
+    // The message sits where the floor chip (y 192 above its anchor) would go.
+    tv.message.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 180, width: 600, height: 40 });
+    hints.show();
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("228px");
   });
 });
