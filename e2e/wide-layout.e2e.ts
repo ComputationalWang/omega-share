@@ -93,9 +93,9 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560
 }
 
 // OME-1803 (design OME-1799 §2): with a video playing the TV was a small island, 25–30 % of a big monitor's width. It's
-// the hero now: at least 45 % of the window and as wide as its shelf, with the room and the transport still in view and
+// the hero now: at least 45 % of the window (43 % at 1920×1080, where the band holds half the room, ADR 0059) and as wide as its shelf, with the room and the transport still in view and
 // the page unscrolled. At 1280×800 it's no smaller than before (360 px).
-for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440, 900, 0.45], ["hero1920", 1920, 1080, 0.45], ["hero2560", 2560, 1440, 0.45]] as const) {
+for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440, 900, 0.45], ["hero1920", 1920, 1080, 0.43], ["hero2560", 2560, 1440, 0.45]] as const) {
   test(`${String(w)}×${String(h)} with a video: the TV is the hero, the room and the transport stay in view`, async ({ browser, request }) => {
     const room = testRoom("wide", name);
     await shareVideo(request, room.id);
