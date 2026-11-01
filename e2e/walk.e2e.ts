@@ -241,6 +241,8 @@ test("Walk over walks me to a free cell beside them", async ({ browser }) => {
 
 // OME-1389: Follow walks me beside them after each of their walks, until I stop.
 test("Follow walks me beside them each time they walk; Stop ends it", async ({ browser }) => {
+  // OME-2114: the 6 s door wait plus two follow walks (10 s + 15 s polls each) and the Stop walk; 24 s idle, past 30 s under suite load.
+  test.setTimeout(90_000);
   clients = await joinRoom(browser, { roomUrl: testRoom("walk", "follow").url, count: 2, nicknamePrefix: "follow" });
   const [a, b] = clients;
   if (a === undefined || b === undefined) throw new Error("need two clients");
