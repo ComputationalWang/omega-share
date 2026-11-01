@@ -488,8 +488,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const v of views) {
         const p = seats[v.index];
         if (v.member !== null && p !== undefined && !at.has(v.member.id)) {
-          placements.push({ id: v.member.id, avatar: v.member.avatar, tint: v.member.tint ?? 0, hair: v.member.hair ?? 0, accessory: v.member.accessory ?? 0, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
-          at.set(v.member.id, p);
+          // A lounger's sitter lies back on it (OME-2123): their floor point is the lier's, their depth still the seat's.
+          const lie = scene.seats[v.index]?.lie;
+          const q = lie?.at ?? p;
+          placements.push({ id: v.member.id, avatar: v.member.avatar, tint: v.member.tint ?? 0, hair: v.member.hair ?? 0, accessory: v.member.accessory ?? 0, at: q, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null, ...(lie === undefined ? {} : { lie: lie.style }) });
+          at.set(v.member.id, q);
         }
       }
       // Someone who walked somewhere stands on that cell (ADR 0053); a seat wins if both ever showed.
