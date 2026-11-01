@@ -479,9 +479,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
         dragged = false;
         pinch = null;
         fingers.clear();
-        stage.style.removeProperty("--label-scale");
-        if (labels !== null && labels !== 1) onLabels(1);
-        labels = null;
+        // The labels are desk()'s to settle, which always follows: a reset here told the bubbles twice per refit (OME-2148).
         settleSides(0, STAGE_W, Infinity);
       }
     },

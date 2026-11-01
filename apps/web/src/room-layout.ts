@@ -542,8 +542,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
         } else {
-          // The room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1× if it must.
-          const k = bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me);
+          // With a video the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
+          // if it must. Without one the room isn't a band and keeps its whole scale (OME-1811).
+          const video = tvBox.provider() !== null;
+          const k = video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
           const r = { x: Math.floor((w - sw) / 2), y: l.stage.y, w: sw, h: l.stage.h };
           box(clip, r);
@@ -553,7 +555,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           roomWindow.set(false, 0, 0);
           roomWindow.desk(k, r);
           stage.style.setProperty("--stage-scale", String(k));
-          band = { scale: l.scale, h: l.stage.h, k };
+          band = video ? { scale: l.scale, h: l.stage.h, k } : null;
         }
       }
       wrap.style.height = "";
