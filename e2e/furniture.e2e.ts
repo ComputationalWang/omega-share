@@ -330,6 +330,7 @@ test.describe("furniture in use", () => {
   }
 
   // OME-2119: reduced motion toggled mid-session stops the ambient loops and re-arms them, without a visibilitychange.
+  // It shares the "ambient" room: the seed sits at MAX_ROOMS minus room-presets' creates, so no new test room fits.
   test("turning reduced motion on stops the fireplace; turning it off again re-arms it", async ({ browser }) => {
     const context = await watchCsp(await browser.newContext());
     try {
@@ -339,7 +340,7 @@ test.describe("furniture in use", () => {
       });
       const page = await context.newPage();
       await withLayout(page, { layout: BAR });
-      await enter(page, "fire-toggle", `${URLS.web}/r/${testRoomId("furniture", "ambienttoggle")}`);
+      await enter(page, "fire-toggle", `${URLS.web}/r/${testRoomId("furniture", "ambient")}`);
       const fire = async (): Promise<number[]> => (await allLoops(page)).filter((l) => l.key === "furniture/fireplace/stone/sw/back").map((l) => l.frame);
       await expect.poll(fire, { timeout: WALK_SETTLE_MS }).toHaveLength(1);
       await page.emulateMedia({ reducedMotion: "reduce" });

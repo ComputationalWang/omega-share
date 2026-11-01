@@ -67,7 +67,7 @@ export const SPEC_ROOMS = {
   "m10-a11y": ["dock360", "dock390", "fs", "away", "moved", "fullq"],
   "a11y-sweep": ["w1280", "p390", "l844", "n320", "t768", "t1366", "t1024", "d1920"],
   "tablet-layout": ["t768", "t1024"],
-  furniture: ["v2seats", "v2benches", "v3poufs", "inuse", "doorstay", "doorgo", "doorgone", "doortarget", "bar", "barstill", "ambient", "ambientstill", "ambienttoggle", "cat"],
+  furniture: ["v2seats", "v2benches", "v3poufs", "inuse", "doorstay", "doorgo", "doorgone", "doortarget", "bar", "barstill", "ambient", "ambientstill", "cat"],
   theme: ["desk", "phone", "reduced", "off", "ambience", "ambience-rm"],
   targets: ["desk", "touch"],
   "a11y-presence": ["join", "tv"],
