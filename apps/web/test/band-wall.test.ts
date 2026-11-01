@@ -57,14 +57,18 @@ describe("1280×800 with a video (OME-2117)", () => {
   });
 
   // dank-dungeon-desktop-north (OME-2107): the owner stood where the band's foot cut them.
-  test.each(["dank-dungeon", "penthouse", "studio"].flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: standing on any floor cell, I'm whole in the band, head to name tag", (name, side) => {
+  test.each(["dank-dungeon", "penthouse", "studio"].flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: standing on any floor cell, I'm whole in the band, head to name tag where the seats leave room", (name, side) => {
     setNorth(side === "north");
     for (let col = 0; col < FLOOR_CELLS; col++) {
       for (let row = 0; row < FLOOR_CELLS; row++) {
         const me = cellCenter(col, row);
-        const { pan, shown } = bandView(name, me);
+        const { room, pan, shown } = bandView(name, me);
         expect(me.y - AVATAR_TOP).toBeGreaterThanOrEqual(pan.y);
-        expect(me.y + TAG_FOOT).toBeLessThanOrEqual(pan.y + shown.h);
+        expect(me.y).toBeLessThanOrEqual(pan.y + shown.h);
+        // My tag gives way only to the back seats' tops (OME-1864): a few front cells of the Dank Dungeon, the Penthouse and the Studio.
+        const seatTop = Math.min(...seatPoints(room).map((p) => p.y)) - 22;
+        if (me.y + TAG_FOOT - seatTop > shown.h) expect(pan.y).toBe(seatTop);
+        else expect(me.y + TAG_FOOT).toBeLessThanOrEqual(pan.y + shown.h);
         expect(me.x).toBeGreaterThanOrEqual(pan.x);
         expect(me.x).toBeLessThanOrEqual(pan.x + shown.w);
       }
@@ -87,6 +91,25 @@ describe("the seats stay whole while the band looks down (OME-1864)", () => {
       if (need > h) continue;
       const c = bandHome(seats, standingPoints(room), { w: ROOM_VIEW.w, h });
       expect(Math.min(...ys) - SEAT_HIT_TOP, `${String(h)} px band`).toBeGreaterThanOrEqual(c.y - h / 2);
+    }
+  });
+
+  // CI again: the e2e viewer joins standing, and keeping me whole pulled the band back under the seats' tops.
+  test.each(PRESETS.flatMap((n) => SIDES.map((s) => [n, s] as const)))("%p from the %p: standing on any floor cell, every seat's top still in the band", (name, side) => {
+    setNorth(side === "north");
+    const room = preset(name);
+    const seats = seatPoints(room);
+    if (seats.length === 0) return;
+    const ys = seats.map((p) => p.y);
+    const need = Math.max(...ys) + TAG_FOOT - (Math.min(...ys) - SEAT_HIT_TOP);
+    for (let h = 200; h <= ROOM_VIEW.h; h += 4) {
+      if (need > h) continue;
+      for (let col = 0; col < FLOOR_CELLS; col++) {
+        for (let row = 0; row < FLOOR_CELLS; row++) {
+          const c = bandHome(seats, standingPoints(room), { w: ROOM_VIEW.w, h }, cellCenter(col, row));
+          expect(Math.min(...ys) - SEAT_HIT_TOP, `${String(h)} px band, me at ${String(col)},${String(row)}`).toBeGreaterThanOrEqual(c.y - h / 2);
+        }
+      }
     }
   });
 });
