@@ -114,3 +114,12 @@ export const LIE_ANCHORS: Readonly<Record<string, LieAnchor>> = {
     beside: { ne: { x: -16, y: 17 }, nw: { x: 16, y: 17 }, se: { x: -16, y: 1 }, sw: { x: 16, y: 1 } },
   },
 };
+
+/** A piece whose sitter is drawn lying (OME-2120): the spa lounger seats one at its anchor (`seatCells: 1`), and someone seated
+ *  there lies back on it, head on the raised back, face up: `sleep` frames (head up the axis) at the hips' floor point, in screen
+ *  px from the piece's anchor, mattress lift included. Drawn like a sitter (after the piece's `back` layer, at its sort point).
+ *  Not in LIE_ANCHORS: that table is the lie key's (lie down on a sofa), this one replaces the `sit` frame on the seat. */
+export const SEAT_LIE: Readonly<Record<string, Omit<LieAnchor, "frame" | "beside">>> = {
+  // Hips at local x 11 on the mattress (z 9.5); the raised back runs to x −7.6, so the head lands on the rolled towel.
+  lounger: { style: "sleep", dirs: { ne: { x: 22, y: 1 }, nw: { x: -22, y: 1 }, se: { x: -22, y: 1 }, sw: { x: 22, y: 1 } } },
+};

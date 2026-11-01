@@ -1955,3 +1955,13 @@ fringe and stage boards), `curtain-seam.png` 3×6 (repeat-y, centred: one art pi
 bottom pelmet, hem, seam, drape, each sized at the page chrome's `--ui-px` (2 px; 4 px under the 2× chrome zoom), so they keep the
 shelf's and the keys' pixel size on any TV width. Every pixel is opaque; the TV bezel is the outline. 551 B in total, all lazy;
 eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are on [OME-1799](/OME/issues/OME-1799).
+
+## Seat poses, wave 4 (OME-2120)
+
+- **Spa lounger: its sitter lies.** `avatars/lying.json` `meta.omega.seatLie.lounger` = `{ style: "sleep", dirs }`. A member seated on a
+  lounger (one seat, at its anchor) is drawn with `sleep/<avatar>/<dir>/<0|1>` (face up, head on the raised back, breathing loop as the bed's)
+  instead of `<avatar>/sit/<dir>`, at the piece's anchor + `dirs[dir]`, after the `back` layer at the piece's sort point, like a sitter.
+  Offsets: ne (22, 1), nw (−22, 1), se (−22, 1), sw (22, 1). Not in `pieces` (that is the lie key's table, pinned by the web).
+  Preview: `preview/lounger-lie@2x.png`. Source: `SEAT_LIE` in `src/lying.ts`.
+- **Lower backs on away-facing seats.** Theatre row backrest top is riser + 17 (was + 21), wingback back + crown top at 19 (was 27), the
+  club sofa's height: a sitter seen from behind shows head, shoulders and tag. Same keys, rects and anchors; furniture.png +124 B, v5 −107 B.
