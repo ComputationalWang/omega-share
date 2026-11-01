@@ -376,4 +376,15 @@ describe("on a computer", () => {
     expect(labels.at(-1)).toBe(1);
     expect(clip.classList.contains("is-fit")).toBe(false);
   });
+
+  // OME-2148 CI: every refit (set, then desk) told the bubbles 1, then the fit's scale: a restack each time, which hung chat.
+  test("a refit at the same fit tells the labels nothing new", async () => {
+    const { win, labels } = await setup();
+    win.set(false, 0, 0);
+    win.desk(FIT);
+    const told = labels.length;
+    win.set(false, 0, 0);
+    win.desk(FIT);
+    expect(labels.length).toBe(told);
+  });
 });

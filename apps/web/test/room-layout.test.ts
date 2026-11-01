@@ -67,7 +67,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
+  return { layout, root, wrap, stage, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -175,5 +175,13 @@ describe("room layout", () => {
     const { layout, wrap } = await setup();
     expect(layout.fs.mode()).toBe("off");
     expect(wrap.querySelector<HTMLElement>('[data-testid="fullscreen-toggle"]')?.ariaLabel).toBe("Full screen");
+  });
+  // OME-2148 CI: the band's fit (ADR 0060) shrank the room with no video too (0.86× at 1280×800), where it isn't a band.
+  test("with no video on a wide screen the room keeps its whole scale, however tall its audience", async () => {
+    const { layout, wrap, stage } = await setup({ wide: true });
+    Object.defineProperty(wrap, "clientWidth", { value: 888 });
+    Object.defineProperty(wrap, "clientHeight", { value: 727 });
+    layout.seats([{ x: 300, y: 200 }], [{ x: 600, y: 560 }]);
+    expect(stage.style.getPropertyValue("--stage-scale")).toBe("1");
   });
 });
