@@ -1109,7 +1109,7 @@
     "x": 49,
     "y": 272,
     "w": 34,
-    "h": 32
+    "h": 26
    },
    "rotated": false,
    "trimmed": false,
@@ -1117,15 +1117,15 @@
     "x": 0,
     "y": 0,
     "w": 34,
-    "h": 32
+    "h": 26
    },
    "sourceSize": {
     "w": 34,
-    "h": 32
+    "h": 26
    },
    "anchor": {
     "x": 0.5,
-    "y": 0.8125
+    "y": 0.7692307692307693
    }
   },
   "furniture/sidetable/wood/sw/back": {
@@ -1133,7 +1133,7 @@
     "x": 144,
     "y": 291,
     "w": 34,
-    "h": 32
+    "h": 26
    },
    "rotated": false,
    "trimmed": false,
@@ -1141,15 +1141,15 @@
     "x": 0,
     "y": 0,
     "w": 34,
-    "h": 32
+    "h": 26
    },
    "sourceSize": {
     "w": 34,
-    "h": 32
+    "h": 26
    },
    "anchor": {
     "x": 0.5,
-    "y": 0.8125
+    "y": 0.7692307692307693
    }
   },
   "furniture/sofa/navy/ne/back": {

@@ -19,12 +19,12 @@
    {
     "kind": "wingback",
     "col": 1,
-    "row": 4,
+    "row": 2,
     "facing": "ne"
    },
    {
     "kind": "wingback",
-    "col": 4,
+    "col": 2,
     "row": 1,
     "facing": "nw"
    },
