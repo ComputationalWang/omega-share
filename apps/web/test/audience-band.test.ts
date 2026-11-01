@@ -53,9 +53,9 @@ describe("the audience band (OME-1843)", () => {
     }
   });
 
-  // AC 3: 2× needs the band to hold the audience at 2× (2 × 240 px); the hero TV (≥ 45 % of the window, OME-1803) leaves
-  // 2560×1440 a 313 px band, so 2× would crop the seated rows: it's 1×, and the band's bleed still spans the column.
-  test("2560×1440 with a video stays 1× (the hero leaves 313 px; the audience needs 2 × 240); empty, 2×", () => {
+  // AC 3: 2× needs the band to hold the audience at 2× (2 × 266 px, ADR 0059); the hero TV (≥ 43 % of the window,
+  // OME-1803) leaves 2560×1440 a 313 px band, so 2× would crop the seated rows: it's 1×, and the band's bleed still spans the column.
+  test("2560×1440 with a video stays 1× (the hero leaves 313 px; the audience needs 2 × 266); empty, 2×", () => {
     expect(wideLayout(1808, 1118, "youtube", 2, 2).scale).toBe(1);
     expect(wideLayout(1808, 1118, null, 2, 2).scale).toBe(2);
   });

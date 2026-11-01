@@ -77,8 +77,8 @@ describe("wideLayout", () => {
 });
 
 // OME-1803 (design OME-1799 §2): on a big monitor the TV was a small island, 25–30 % of the window's width. With a video
-// loaded the TV is the hero: as large as leaves the room a band at least 240 px and 28 % of the column tall, and never
-// smaller than the room-first split gave it. Columns are each window's left column as measured in the page (OME-1803 audit).
+// loaded the TV is the hero: as large as leaves the room a band at least half the room (266 px, OME-2117, ADR 0059) and 28 %
+// of the column tall, and never smaller than the room-first split gave it. Columns are each window's left column as measured in the page (OME-1803 audit).
 const HERO: readonly (readonly [number, number, number, number])[] = [
   // [window width, column width, column height, chrome zoom]
   [1440, 1096, 713, 1],
@@ -87,12 +87,12 @@ const HERO: readonly (readonly [number, number, number, number])[] = [
 ];
 
 describe("the TV as the hero (OME-1803)", () => {
-  test.each(HERO)("a %p px window: the TV is at least 45 %% of it and as wide as its shelf; the band keeps 240 px and 28 %% of the column", (vw, w, h, z) => {
+  test.each(HERO)("a %p px window: the TV is at least 43 %% of it and as wide as its shelf; the band keeps half the room and 28 %% of the column", (vw, w, h, z) => {
     for (const provider of ["youtube", "twitch"] as const) {
       const l = wideLayout(w, h, provider, z);
-      expect(l.tv.w).toBeGreaterThanOrEqual(0.45 * vw);
+      expect(l.tv.w).toBeGreaterThanOrEqual(0.43 * vw);
       expect(l.tv.w).toBeGreaterThanOrEqual(l.controls.w);
-      expect(h - l.stage.y).toBeGreaterThanOrEqual(Math.max(240, 0.28 * h) - 1);
+      expect(h - l.stage.y).toBeGreaterThanOrEqual(Math.max(ROOM_VIEW.h / 2, 0.28 * h) - 1);
       for (const r of [l.tv, l.controls, l.stage]) expect(inside(r, w, h)).toBe(true);
       expect(intersects(l.controls, l.stage)).toBe(false);
     }
@@ -140,7 +140,7 @@ describe("chrome zoom (OME-1667)", () => {
 
 // OME-1811 (design OME-1799 §2, finding F2; OME-1809 item 3): the room was drawn at min(w/960, h/532), 0.87× at 2560 and
 // 1.17× at 1920, so its pixel rows doubled unevenly. It's 1× or 2× now (STYLE.md: integers only, nearest-neighbour): 2× from
-// a 2400×1300 window, and only where the band under the shelf holds 2 × 240 px, so the 2× room shows as many rows as 1×'s.
+// a 2400×1300 window, and only where the band under the shelf holds 2 × 266 px, so the 2× room shows as many rows as 1×'s.
 // The rest of the band is the stage's void. The page chrome keeps its 1.5× step at 1920 (OME-1667, CEO on OME-1811).
 describe("integer room scale (OME-1811)", () => {
   test("the scale picker: 1× up to 2399 px wide or 1299 px tall, 2× from 2400×1300", () => {
@@ -168,7 +168,7 @@ describe("integer room scale (OME-1811)", () => {
     }
   });
 
-  test("2× only where the band holds 2 × 240 px; otherwise 1×, never a fraction", () => {
+  test("2× only where the band holds 2 × 266 px; otherwise 1×, never a fraction", () => {
     // 2560×1440, empty room: the room-first split leaves a tall band.
     expect(wideLayout(1896, 1118, null, 2, 2).scale).toBe(2);
     // 2560×1440 with a video: the hero TV leaves a 313 px band, so the room stays at 1×.
