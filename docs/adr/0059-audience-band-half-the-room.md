@@ -8,7 +8,7 @@
 
 1. **The band's floor is half the room:** `BAND_MIN_H = ROOM_VIEW.h / 2` (266 px at 1×; 2× needs 532). `BAND_SHARE` (28 %) is unchanged.
 2. **The band looks as high as keeps the audience whole.** When every seat's and standing spot's name tag fits, the front row's tag foot sits one pixel above the band's foot, and the back wall gets the rest. Where the tags don't fit, OME-1864/OME-1945 still apply (seats whole first). The band never rises past the back seats' tops while they fit: where the seats and the front row's tags don't both fit (the Dank Dungeon and the Penthouse from the south at 1280×800, Twitch at 1280×720), the seats stay whole and clickable and the front tags give way.
-3. **Standing, I'm always whole in the band**, head (`AVATAR_TOP`) to name tag, on any floor cell from either side. The band re-homes when my spot changes, as the phone window already does (OME-1930), until the viewer drags or zooms it.
+3. **Standing, I'm always whole in the band**, head (`AVATAR_TOP`) to name tag, on any floor cell from either side, except that the back seats' tops win over my name tag where both don't fit: on 1–3 front cells of the Dank Dungeon, the Penthouse and the Studio at 1280×800 my tag loses up to 26 px, my avatar head to feet stays whole (and Twitch's 1280×720 seats stay clickable for a viewer who joins standing). The band re-homes when my spot changes, as the phone window already does (OME-1930), until the viewer drags or zooms it.
 
 ## Consequences
 

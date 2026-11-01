@@ -454,9 +454,12 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
 export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
   const c = audienceHome(seats, standing, view.h);
   if (me === null) return c;
+  const y = Math.max(me.y + TAG_FOOT + 1 - view.h / 2, Math.min(me.y - AVATAR_TOP + view.h / 2, c.y));
+  // The seats' tops win over my own tag where they fit (OME-1864): a cropped seat takes no click, and I can walk.
+  const seatsFit = seats.length > 0 && span(seats, -SEAT_HIT_H / 2) <= view.h;
   return {
     x: Math.max(me.x + TAG_MAX_W / 2 - view.w / 2, Math.min(me.x - TAG_MAX_W / 2 + view.w / 2, c.x)),
-    y: Math.max(me.y + TAG_FOOT + 1 - view.h / 2, Math.min(me.y - AVATAR_TOP + view.h / 2, c.y)),
+    y: seatsFit ? Math.min(y, Math.min(...seats.map((p) => p.y)) - SEAT_HIT_H / 2 + view.h / 2) : y,
   };
 }
 
