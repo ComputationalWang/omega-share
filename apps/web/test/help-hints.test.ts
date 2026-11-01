@@ -223,7 +223,7 @@ describe("the first-visit tour", () => {
     expect(hints.root.style.top).toBe("192px");
   });
 
-  test("on an empty TV a chip never covers its message: it goes under the picture instead (OME-2104)", async () => {
+  test("on an empty TV a chip never covers its message: it goes under the message, on the curtain, not under the picture where the chat bar is on a small phone (OME-2104)", async () => {
     const { hints, tv } = await setup();
     tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });
     tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 });
@@ -231,6 +231,6 @@ describe("the first-visit tour", () => {
     tv.message.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 180, width: 600, height: 40 });
     hints.show();
     expect(hints.root.style.visibility).toBe("");
-    expect(hints.root.style.top).toBe("608px");
+    expect(hints.root.style.top).toBe("228px");
   });
 });
