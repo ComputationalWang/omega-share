@@ -463,7 +463,10 @@ export function bandHome(seats: readonly Point[], standing: readonly Point[], vi
 function audienceHome(seats: readonly Point[], standing: readonly Point[], h: number): Point {
   const audience = [...seats, ...standing];
   if (audience.length > 0 && span(audience, TAG_OFFSET_Y) <= h) {
-    return { x: seatsHome(audience, h, TAG_FOOT).x, y: Math.max(...audience.map((p) => p.y)) + TAG_FOOT + 1 - h / 2 };
+    const y = Math.max(...audience.map((p) => p.y)) + TAG_FOOT + 1 - h / 2;
+    // Never above the seats' tops where they fit (OME-1864): the front row's tags give way first.
+    const seatsFit = seats.length > 0 && span(seats, -SEAT_HIT_H / 2) <= h;
+    return { x: seatsHome(audience, h, TAG_FOOT).x, y: seatsFit ? Math.min(y, Math.min(...seats.map((p) => p.y)) - SEAT_HIT_H / 2 + h / 2) : y };
   }
   if (seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h) return seatsHome(audience, h, TAG_FOOT);
   // The seats whole, and from there as near the audience's home as the band goes (OME-1945): centred on the seats, the
