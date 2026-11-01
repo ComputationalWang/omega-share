@@ -1965,3 +1965,22 @@ eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are 
   Preview: `preview/lounger-lie@2x.png`. Source: `SEAT_LIE` in `src/lying.ts`.
 - **Lower backs on away-facing seats.** Theatre row backrest top is riser + 17 (was + 21), wingback back + crown top at 19 (was 27), the
   club sofa's height: a sitter seen from behind shows head, shoulders and tag. Same keys, rects and anchors; furniture.png +124 B, v5 −107 B.
+
+## Seat footprints, wave 4 round 2 (OME-2150)
+
+- **Theatre (preset `cinema`):** the back tier stands a free row behind the front one and straight behind it: `theatrerow (1,6) ne` and
+  `(6,1) nw`, `step` (were `(2,5)` / `(5,2)`, offset a col, so each back sitter landed right under a front one on screen and the two stacked).
+  At 1× a back sitter is now 64 px left and 22 px down from the front sitter in its line, 32 px left and 38 px down from the next: no pixel
+  overlap. Row 5 between the tiers is the aisle to the front row.
+- **Snack table (`sidetable`, both colours) is café height:** top at z 9 (was 15), the bowl, popcorn and mug drop with it (heap top z 16, was 22;
+  the mug's steam at z 13, was 19). From the chair beside it the table shows under the sitter's chin, not between two heads. Frame 34×26 (was
+  34×32), anchor y 20/26; same keys. furniture.png −49 B, v8 −153 B, edit.png −101 B.
+- **Living room:** the two wingbacks move by the hearth, `(1,2) ne` and `(2,1) nw` (were `(1,4)` / `(4,1)`), so no sitter or tag lands right
+  over a couch pair. The couch's two sitters keep their cells: at 1× they sit 32 px apart with a 6 px gap between the widest sit frames
+  (kiki, 26 px), so they don't overlap.
+- **The ghost on the near wall (penthouse/studio north) stays:** it is the wall screen's back, per the swapped-view rule above (§ "Back views
+  (swapped view)"), and tells a guest seen from the north that the screen hangs behind them (QA OME-2091 asked that the front row not hide it).
+- **Judging cast:** evidence runs give the two extra guests looks no default (tint 0, hair 0, no hat) and no other guest wears: Obs =
+  `{ avatar: 2 (mo), tint: 3, hair: 2, accessory: 5 (cap) }`, Pip = `{ avatar: 1 (pip), tint: 4, hair: 4, accessory: 6 (flower) }`.
+
+Net art bytes −332 B gz (all files under `assets/` except `src/` and `preview/`).
