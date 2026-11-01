@@ -85,6 +85,8 @@ findRoom.hidden = pathRoom !== null;
 
 const profile = loadProfile(localStorage);
 let avatar: Avatar = profile.avatar;
+// Never picked one: the room swaps the preselected draw for its least-used avatar (OME-2131), and none is saved.
+let avatarAuto = profile.avatarAuto;
 let tint: Tint = profile.tint;
 let accessory: Accessory = profile.accessory;
 let hair: Hair = profile.hair;
@@ -120,6 +122,7 @@ const selectAvatar = (a: Avatar): void => {
 selectAvatar(avatar);
 options.forEach((o, i) => {
   o.addEventListener("click", () => {
+    avatarAuto = false;
     selectAvatar(i);
   });
 });
@@ -205,6 +208,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
         socketUrl: wsUrl(serverUrl, roomId),
         nickname,
         avatar: as,
+        avatarAuto: avatarAuto && resumeToken === undefined,
         tint,
         accessory,
         hair,
@@ -232,7 +236,7 @@ form.addEventListener("submit", (ev) => {
   ev.preventDefault();
   const nickname = checkedNickname();
   if (nickname === null) return;
-  saveProfile(localStorage, { nickname, avatar });
+  saveProfile(localStorage, avatarAuto ? { nickname } : { nickname, avatar });
   enterRoom(nickname, avatar);
 });
 // index.html ships the button disabled: a click before this handler would submit natively, blocked by CSP form-action (OME-1473).
@@ -288,7 +292,7 @@ if (pathRoom === null) {
   findRoom.addEventListener("click", () => {
     const nickname = checkedNickname();
     if (nickname === null) return;
-    saveProfile(localStorage, { nickname, avatar });
+    saveProfile(localStorage, avatarAuto ? { nickname } : { nickname, avatar });
     openDirectory(nickname);
     directoryTitle.focus();
   });

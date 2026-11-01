@@ -82,6 +82,8 @@ export interface RoomOptions {
   readonly socketUrl: string;
   readonly nickname: Nickname;
   readonly avatar: Avatar;
+  /** Never picked an avatar: the room gives me its least-used one instead of `avatar` (OME-2131). */
+  readonly avatarAuto?: boolean;
   /** Shirt tint to join with (ADR 0053, the profile's). */
   readonly tint: Tint;
   /** Accessory to join with (OME-1391, the profile's). */
@@ -643,22 +645,33 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const look = document.createElement("div");
   look.className = "look";
   people.panel.prepend(look);
-  const tintSection = createTintSection({
-    tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
-    tint: opts.tint,
-    send: (m) => send(m),
-    onPick: (t) => {
-      saveTint(opts.secrets, t);
-    },
-  });
-  const hairSection = createHairSection({
-    hairs: AVATAR_HAIRS[opts.avatar]?.hairs ?? [],
-    hair: opts.hair,
-    send: (m) => send(m),
-    onPick: (h) => {
-      saveHair(opts.secrets, h);
-    },
-  });
+  // The ramps are the avatar's own: built for the one I joined with, again if the room gave me another (OME-2131).
+  const tintsByAvatar = parseTints(tintsJson, AVATAR_IDS);
+  let lookAvatar = opts.avatar;
+  let tint = opts.tint;
+  let hair = opts.hair;
+  const tintRow = (a: Avatar): HTMLElement =>
+    createTintSection({
+      tints: tintsByAvatar[a]?.tints ?? [],
+      tint,
+      send: (m) => send(m),
+      onPick: (t) => {
+        tint = t;
+        saveTint(opts.secrets, t);
+      },
+    });
+  const hairRow = (a: Avatar): HTMLElement =>
+    createHairSection({
+      hairs: AVATAR_HAIRS[a]?.hairs ?? [],
+      hair,
+      send: (m) => send(m),
+      onPick: (h) => {
+        hair = h;
+        saveHair(opts.secrets, h);
+      },
+    });
+  let tintSection = tintRow(lookAvatar);
+  let hairSection = hairRow(lookAvatar);
   const accessorySection = createAccessorySection({
     accessory: opts.accessory,
     send: (m) => send(m),
@@ -667,6 +680,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   look.append(tintSection, hairSection, accessorySection);
+  let sessionToken: ResumeToken | null = null;
+  const adoptAvatar = (a: Avatar): void => {
+    lookAvatar = a;
+    const t = tintRow(a);
+    const h = hairRow(a);
+    tintSection.replaceWith(t);
+    hairSection.replaceWith(h);
+    tintSection = t;
+    hairSection = h;
+    // A reload resumes as the avatar I wear here, not the draw I sent.
+    if (sessionToken !== null) saveResume(resumeStore, { roomId: opts.roomId, token: sessionToken, nickname: opts.nickname, avatar: a });
+  };
   // Outfit slots (OME-1453): what the rows show is what I wear; Wear picks in them, so only a change is sent (and saved).
   const radios = (section: HTMLElement): HTMLButtonElement[] => [...section.querySelectorAll<HTMLButtonElement>("[role=radio]")];
   const checked = (section: HTMLElement): number => Math.max(0, radios(section).findIndex((b) => b.getAttribute("aria-checked") === "true"));
@@ -1139,6 +1164,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
     // Moments (OME-1628): a snapshot brings the item's reactions and catches me up; a new item starts empty.
     if (e.type === "server" && e.msg.type === "snapshot") {
+      const mine = next.room?.members.find((m) => m.id === next.self)?.avatar;
+      if (mine !== undefined && mine !== lookAvatar) adoptAvatar(mine);
       reactions = [...(e.msg.reactions ?? [])];
       replay.start(reactions);
       drawMoments();
@@ -1324,7 +1351,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     relay?.typing(id, on);
   }, hidden: isHidden, session: (token) => {
     sentAway = false;
-    saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });
+    sessionToken = token;
+    saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: lookAvatar });
     // The server cleared away on this (re)join; a tab that came back while still hidden says so again.
     sendPresence(true);
   } };
@@ -1332,7 +1360,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
-    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair, takeVia(viaStore, opts.roomId)),
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair, takeVia(viaStore, opts.roomId), opts.avatarAuto === true),
     durable: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,

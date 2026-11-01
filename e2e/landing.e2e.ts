@@ -3,12 +3,14 @@
 // works" (three numbered steps) and the install row; the site footer under it all. Desktop: the art sits beside the
 // form. Phone: the vignette above it, nothing wider than the screen. Checked keyboard-only, with reduced motion, and
 // for layout shift. The perf budget is perf/landing.perf.ts.
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
+import * as v from "valibot";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { DEFAULT_ROOM_ID, ROOM_PRESET_IDS, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
+import { ownedRoom } from "./support/owned-rooms";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -329,22 +331,46 @@ test("the join button is disabled until the app script has attached its handler 
   await expect(page.locator(site.room)).toBeVisible();
 });
 
-// OME-2124: four fresh guests used to be four Junos. A first visit preselects a random avatar, joins as it and saves it;
-// a stored avatar always wins. Math.random is pinned so the draw is known.
-test("a fresh guest gets a random avatar preselected and joins as it; a returning guest keeps theirs", async ({ browser }) => {
-  for (const [stored, expected] of [[null, "2"], ["1", "1"]] as const) {
+// OME-2124/OME-2131: four fresh guests used to be four Junos, then random twins. A fresh guest still sees a random
+// avatar preselected, but joins with `avatarAuto` and the room gives it the least-used one; nothing is saved, so the
+// next room picks again. A stored avatar always wins. Math.random is pinned so every fresh draw is the same avatar (2).
+test("fresh guests get the room's least-used avatar and save none; a stored avatar is kept", async ({ browser }) => {
+  const { id, inviteKey } = ownedRoom("avauto");
+  const contexts: BrowserContext[] = [];
+  const members = async (page: Page): Promise<{ nickname: string; avatar: number }[]> =>
+    v.parse(
+      v.array(v.object({ nickname: v.string(), avatar: v.number() })),
+      await page.evaluate(() => {
+        const debug: unknown = Reflect.get(window, "__omega");
+        const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+        const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "state") : null;
+        const state: unknown = typeof get === "function" ? Reflect.apply(get, room, []) : null;
+        const r: unknown = typeof state === "object" && state !== null ? Reflect.get(state, "room") : null;
+        return typeof r === "object" && r !== null ? (Reflect.get(r, "members") as unknown) : [];
+      }),
+    ).map(({ nickname, avatar }) => ({ nickname, avatar }));
+  let last: Page | null = null;
+  // Two returning guests on avatar 2 (a twin the room would never pick), then three fresh guests whose draw is 2 too.
+  for (const [nickname, stored] of [["keep2a", "2"], ["keep2b", "2"], ["freshx", null], ["freshy", null], ["freshz", null]] as const) {
     const context = await watchCsp(await browser.newContext());
+    contexts.push(context);
     await context.addInitScript((avatar) => {
       Math.random = () => 0.6;
-      if (avatar !== null) localStorage.setItem("omega.avatar", avatar);
+      if (avatar !== null && localStorage.getItem("omega.avatar") === null) localStorage.setItem("omega.avatar", avatar);
     }, stored);
     const page = await context.newPage();
-    await page.goto(URLS.web);
-    await expect(page.locator(`${site.avatarOption}[data-avatar="${expected}"]`)).toHaveAttribute("aria-checked", "true");
-    await page.locator(site.nicknameInput).fill(`fresh${expected}`);
-    await page.locator(site.findRoom).click();
-    await expect(page.locator("#home-root")).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem("omega.avatar"))).toBe(expected);
-    await context.close();
+    await page.goto(`${URLS.web}/r/${id}#k=${inviteKey}`);
+    await expect(page.locator(`${site.avatarOption}[data-avatar="2"]`)).toHaveAttribute("aria-checked", "true");
+    await page.locator(site.nicknameInput).fill(nickname);
+    await page.locator(site.joinButton).click();
+    await expect(page.locator(site.room)).toBeVisible();
+    await expect.poll(async () => (await members(page)).some((m) => m.nickname === nickname)).toBe(true);
+    expect(await page.evaluate(() => localStorage.getItem("omega.avatar"))).toBe(stored);
+    last = page;
   }
+  if (last === null) throw new Error("no guest joined");
+  const byName = new Map((await members(last)).map((m) => [m.nickname, m.avatar]));
+  expect([byName.get("keep2a"), byName.get("keep2b")]).toEqual([2, 2]);
+  expect(new Set([byName.get("freshx"), byName.get("freshy"), byName.get("freshz")])).toEqual(new Set([0, 1, 3]));
+  for (const c of contexts) await c.close();
 });
