@@ -329,6 +329,29 @@ test.describe("furniture in use", () => {
     });
   }
 
+  // OME-2119: reduced motion toggled mid-session stops the ambient loops and re-arms them, without a visibilitychange.
+  // It shares the "ambient" room: the seed sits at MAX_ROOMS minus room-presets' creates, so no new test room fits.
+  test("turning reduced motion on stops the fireplace; turning it off again re-arms it", async ({ browser }) => {
+    const context = await watchCsp(await browser.newContext());
+    try {
+      await stubExternalNetwork(context);
+      await context.addInitScript(() => {
+        localStorage.setItem("omega.motion", "smooth");
+      });
+      const page = await context.newPage();
+      await withLayout(page, { layout: BAR });
+      await enter(page, "fire-toggle", `${URLS.web}/r/${testRoomId("furniture", "ambient")}`);
+      const fire = async (): Promise<number[]> => (await allLoops(page)).filter((l) => l.key === "furniture/fireplace/stone/sw/back").map((l) => l.frame);
+      await expect.poll(fire, { timeout: WALK_SETTLE_MS }).toHaveLength(1);
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await expect.poll(fire, { timeout: 1000 }).toEqual([]);
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await expect.poll(fire, { timeout: 1000 }).toHaveLength(1);
+    } finally {
+      await context.close();
+    }
+  });
+
   // OME-1425: a door opens while anyone stands in front of it; my arrival there offers "Go to <room> · Stay".
   const DOOR_FRONT = [1, 3] as const;
   const DOOR_OPEN = '[{"key":"furniture/door/wood/se/back","frame":0}]';

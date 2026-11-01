@@ -1099,6 +1099,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     syncAmbient();
   });
   stageObserver.observe(app.canvas);
+  // Reduced motion can change mid-session (OME-2119): re-check at once rather than on the next render.
+  reduced.addEventListener("change", syncAmbient);
 
   /** Hand the running loops to the animator; the rest go back to their idle frame. */
   const applyLoops = (): void => {
@@ -1424,6 +1426,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       stopClocks?.();
       fxObserver.disconnect();
       stageObserver.disconnect();
+      reduced.removeEventListener("change", syncAmbient);
       fxCanvas.remove();
       sparkle.remove();
       for (const b of spotSparkles.values()) b.remove();
