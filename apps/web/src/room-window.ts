@@ -111,6 +111,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   const applyDesk = (fit: number, v: DeskView): void => {
     deskView = wheelView(fit, v, { x: 0, y: 0 }, v.zoom, deskBox);
     showDesk(fit);
+    // The band's edges too (OME-2160): a stacked tag dropped past its foot.
+    const k = fit * deskView.zoom;
+    if (down === null) settleSides(deskView.pan.x, deskView.pan.x + deskBox.w / k, deskView.pan.y + deskBox.h / k);
   };
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
@@ -367,6 +370,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     down = null;
     clip.classList.remove("is-dragging");
     if (active) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
+    else if (desk !== null) applyDesk(desk, deskView);
     // A mouse drag's click comes in this same task, right after pointerup; a finger drag sends none. Either way the drop
     // ends here, so it can never eat a later click (a keyboard Enter on a seat, a switch or screen-reader activation).
     if (dragged) setTimeout(() => {
@@ -479,8 +483,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
         dragged = false;
         pinch = null;
         fingers.clear();
-        // The labels are desk()'s to settle, which always follows: a reset here told the bubbles twice per refit (OME-2148).
-        settleSides(0, STAGE_W, Infinity);
+        // The labels and sides are desk()'s to settle, which always follows: a reset here told the bubbles twice per refit (OME-2148).
       }
     },
     centre,
