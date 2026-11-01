@@ -165,3 +165,14 @@ describe("1280×800 with a video: the room fits the band (OME-2148)", () => {
     expect(bandFit(1, 266, [], null)).toBe(1);
   });
 });
+
+describe("a band fitted below 1× keeps its seats clickable (room.css, OME-2148)", () => {
+  test("a seat grows back to a 24 px target (WCAG 2.5.8) at any fit down to half size", async () => {
+    const css = await Bun.file(new URL("../src/room.css", import.meta.url)).text();
+    const rule = /\.stage-clip\.is-fit \.seat \{ scale: max\(1, calc\(([\d.]+) \/ var\(--stage-scale\)\)\); \}/.exec(css);
+    expect(rule).not.toBeNull();
+    // The seat's diamond is 52×26 at 1×; on screen it is 26 × fit × scale tall.
+    const k = Number(rule?.[1]);
+    for (const fit of [0.5, 0.6, 0.75, 0.9, 0.99]) expect(26 * fit * Math.max(1, k / fit)).toBeGreaterThanOrEqual(24);
+  });
+});
