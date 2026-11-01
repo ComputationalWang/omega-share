@@ -384,3 +384,88 @@ test("844×390 touch, People: another member's 9-letter name shows whole beside 
     expect(k44.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+// OME-2103 (site audit OME-2064 item 6): the audit's `Pixel 7 landscape` is a 915×412 screen with an 863×360 viewport.
+// The TV took ~60 % of the height, the avatars' feet and tags and the zoom − key were cut at the bottom edge, Up next
+// covered the newest chat lines (its title on two lines), and in the editor the tray sat below Done and the playback setting.
+const PIXEL7 = [["a915", "landedpw", 915, 412], ["a863", "landedps", 863, 360]] as const;
+
+/** Pairs of visible boxes in the chat column that overlap by more than a px. */
+const sideOverlaps = (page: Page): Promise<string[]> => page.locator(".room-side").evaluate((side) => {
+  const kids = [...side.children].filter((k) => k.checkVisibility() && k.getBoundingClientRect().height > 1);
+  const out: string[] = [];
+  for (const [i, a] of kids.entries()) for (const b of kids.slice(i + 1)) {
+    const [p, q] = [a.getBoundingClientRect(), b.getBoundingClientRect()];
+    if (Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 1 && Math.min(p.right, q.right) - Math.max(p.left, q.left) > 1) out.push(`${a.className} × ${b.className}`);
+  }
+  return out;
+});
+
+for (const [name, , width, height] of PIXEL7) {
+  test(`${String(width)}×${String(height)} touch (Pixel 7 landscape), two members and a queue: every tag and zoom key on screen, Up next above the chat, not over it (OME-2103)`, async ({ browser, request }) => {
+    clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 2, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
+      contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2.625, isMobile: true, hasTouch: true }) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await expect(page.locator(site.chatInput)).toBeVisible();
+    const [now = "dQw4w9WgXcQ", next = "M7lc1UVf-VE"] = [["dQw4w9WgXcQ", "M7lc1UVf-VE"], ["aqz-KE-bpKQ", "9bZkp7q19f0"], ["kJQP7kiw5Fk", "OPf0YbXqDm0"]][test.info().retry] ?? [];
+    await shareProvider(request, `https://youtu.be/${now}`, testRoom("landscape-phone", name).id);
+    await expect(page.locator(site.sharedVideo)).toBeVisible();
+    // The audit's state: one link up next, so the head carries Play next now.
+    await page.locator(site.queueUrl).fill(`https://youtu.be/${next}`);
+    await page.locator(site.queueAdd).click();
+    await expect(page.locator(site.queueRow).first()).toBeVisible();
+    await page.waitForTimeout(300);
+
+    // The TV leaves the room at least half the height, down to its ADR 0012 minimum (356×200).
+    expect((await box(page.locator(site.tv))).height, "TV height").toBeLessThanOrEqual(Math.max(height * 0.5, 200));
+    await inside(page.locator(site.roomWindow), 0, height, 0, width);
+    for (const k of ["in", "out", "fit"]) await inside(page.locator(`[data-testid=room-zoom-${k}]`), 0, height, 0, width);
+    const win = await box(page.locator(site.roomWindow));
+    const tags = page.locator(site.nicknameTag);
+    await expect(tags).toHaveCount(2);
+    await expect.poll(async () => {
+      const out: string[] = [];
+      for (const t of await tags.all()) {
+        const b = await box(t);
+        if (b.y < win.y || b.y + b.height > win.y + win.height || b.x < win.x || b.x + b.width > win.x + win.width) out.push(`${await t.innerText()} ${JSON.stringify(b)}`);
+      }
+      return out;
+    }, { message: "every tag inside the room window" }).toEqual([]);
+
+    // Up next sits above the chat log, never over it; its heading keeps one line.
+    expect(await sideOverlaps(page)).toEqual([]);
+    const heading = page.locator(`${site.queuePanel} .queue-head h3`);
+    await expect(heading).toHaveText("Up next");
+    expect(await heading.evaluate((n) => n.getClientRects().length === 1 && n.getBoundingClientRect().height < parseFloat(getComputedStyle(n).fontSize) * 2), "one line").toBe(true);
+    expect((await box(page.locator(site.chatLog))).height).toBeGreaterThanOrEqual(60);
+    for (const l of [site.queueUrl, site.queueAdd, site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
+  });
+}
+
+for (const [, owned, width, height] of PIXEL7) {
+  test(`${String(width)}×${String(height)} touch (Pixel 7 landscape), the owner edits: the tray shows under Done without scrolling (OME-2103)`, async ({ browser }) => {
+    const { id, ownerToken, inviteKey } = ownedRoom(owned);
+    clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}`, count: 1, nicknamePrefix: `${owned}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
+      contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2.625, isMobile: true, hasTouch: true }),
+      setup: async (context) => { await context.addInitScript(([origin, key, value]) => {
+        if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+      }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })]); } });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await page.locator(site.peopleKey).tap();
+    await page.locator(site.editRoom).tap();
+    await expect(page.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
+    const tray = page.locator(site.editorTray);
+    await expect(tray).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(await page.locator(".room-side").evaluate((n) => n.scrollTop)).toBe(0);
+    await inside(page.locator(site.editRoom), 0, height, 0, width);
+    // The tray's first slot shows whole, unscrolled.
+    await inside(page.locator(site.editorSlot).first(), 0, height, 0, width);
+    expect(await page.locator(".room-side").evaluate((n) => n.scrollTop)).toBe(0);
+    expect(await sideOverlaps(page)).toEqual([]);
+  });
+}

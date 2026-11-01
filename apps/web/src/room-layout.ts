@@ -7,9 +7,9 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
-import { createRoomWindow, windowH } from "./room-window";
+import { createRoomWindow, windowH, windowMinH } from "./room-window";
 
 /** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
 const STRIP_STORAGE_KEY = "omega.fsStrip";
@@ -508,7 +508,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           // lost 34 px and took the keys' column. Where the wrap holds the window, its foot: the reaction keys stay on screen
           // under it (1024×768 t as owner, OME-1944).
           const foot = root.clientHeight - (wrap.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop);
-          const bottom = h - l.stage.y >= PHONE_ROOM_MIN_H ? h : Math.max(h, foot);
+          const bottom = h - l.stage.y >= windowMinH(rw) ? h : Math.max(h, foot);
           const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, bottom - l.stage.y)) };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
