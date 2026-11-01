@@ -38,10 +38,10 @@ describe("profile storage", () => {
   test("round-trips a saved nickname and avatar", () => {
     const store = memory();
     expect(saveProfile(store, { nickname: "zoe", avatar: 2 })).toBe(true);
-    expect(loadProfile(store)).toEqual({ nickname: "zoe", avatar: 2, tint: 0, accessory: 0, hair: 0 });
+    expect(loadProfile(store)).toEqual({ nickname: "zoe", avatar: 2, avatarAuto: false, tint: 0, accessory: 0, hair: 0 });
   });
-  test("an empty store gives no nickname and an avatar drawn at random (OME-2124), tint and hair 0", () => {
-    expect(loadProfile(memory(), () => 0)).toEqual({ nickname: null, avatar: 0, tint: 0, accessory: 0, hair: 0 });
+  test("an empty store gives no nickname, an avatar drawn at random (OME-2124) for the room to replace (avatarAuto, OME-2131), tint and hair 0", () => {
+    expect(loadProfile(memory(), () => 0)).toEqual({ nickname: null, avatar: 0, avatarAuto: true, tint: 0, accessory: 0, hair: 0 });
     expect(loadProfile(memory(), () => 0.3).avatar).toBe(1);
     expect(loadProfile(memory(), () => 0.6).avatar).toBe(2);
     expect(loadProfile(memory(), () => 0.999).avatar).toBe(3);
@@ -49,15 +49,22 @@ describe("profile storage", () => {
   test("a stored avatar always wins over the random draw (OME-2124)", () => {
     expect(loadProfile(memory({ "omega.avatar": "0" }), () => 0.999).avatar).toBe(0);
     expect(loadProfile(memory({ "omega.avatar": "1" }), () => 0.999).avatar).toBe(1);
+    expect(loadProfile(memory({ "omega.avatar": "1" })).avatarAuto).toBe(false);
+  });
+  test("saving without an avatar keeps the nickname only: a fresh guest stays avatarAuto (OME-2131)", () => {
+    const store = memory();
+    expect(saveProfile(store, { nickname: "zoe" })).toBe(true);
+    expect(store.data).toEqual({ "omega.nickname": "zoe" });
+    expect(loadProfile(store).avatarAuto).toBe(true);
   });
   test("tampered stored values are ignored", () => {
     const store = memory({ "omega.nickname": "<script>😀", "omega.avatar": "99" });
-    expect(loadProfile(store, () => 0.999)).toEqual({ nickname: null, avatar: 0, tint: 0, accessory: 0, hair: 0 });
+    expect(loadProfile(store, () => 0.999)).toEqual({ nickname: null, avatar: 3, avatarAuto: true, tint: 0, accessory: 0, hair: 0 });
   });
   test("round-trips a shirt tint (ADR 0053), kept apart from the nickname and avatar", () => {
     const store = memory({ "omega.nickname": "zoe", "omega.avatar": "1" });
     expect(saveTint(store, 4)).toBe(true);
-    expect(loadProfile(store)).toEqual({ nickname: "zoe", avatar: 1, tint: 4, accessory: 0, hair: 0 });
+    expect(loadProfile(store)).toEqual({ nickname: "zoe", avatar: 1, avatarAuto: false, tint: 4, accessory: 0, hair: 0 });
   });
   test("a tampered tint reads as 0", () => {
     for (const bad of ["6", "-1", "2.5", "x"]) expect(loadProfile(memory({ "omega.tint": bad })).tint).toBe(0);
@@ -66,7 +73,7 @@ describe("profile storage", () => {
   test("round-trips an accessory (OME-1391); a tampered one reads as none", () => {
     const store = memory({ "omega.tint": "2", "omega.avatar": "0" });
     expect(saveAccessory(store, 3)).toBe(true);
-    expect(loadProfile(store)).toEqual({ nickname: null, avatar: 0, tint: 2, accessory: 3, hair: 0 });
+    expect(loadProfile(store)).toEqual({ nickname: null, avatar: 0, avatarAuto: false, tint: 2, accessory: 3, hair: 0 });
     for (const bad of ["9", "-1", "1.5", "x"]) expect(loadProfile(memory({ "omega.accessory": bad })).accessory).toBe(0);
     expect(loadProfile(memory({ "omega.accessory": "8" })).accessory).toBe(8);
     expect(saveAccessory(throwing, 1)).toBe(false);
@@ -74,12 +81,12 @@ describe("profile storage", () => {
   test("round-trips a hair colour (OME-1438); a tampered one reads as the avatar's own", () => {
     const store = memory({ "omega.tint": "2", "omega.avatar": "0" });
     expect(saveHair(store, 4)).toBe(true);
-    expect(loadProfile(store)).toEqual({ nickname: null, avatar: 0, tint: 2, accessory: 0, hair: 4 });
+    expect(loadProfile(store)).toEqual({ nickname: null, avatar: 0, avatarAuto: false, tint: 2, accessory: 0, hair: 4 });
     for (const bad of ["6", "-1", "1.5", "x"]) expect(loadProfile(memory({ "omega.hair": bad })).hair).toBe(0);
     expect(saveHair(throwing, 1)).toBe(false);
   });
   test("a storage that throws is survivable", () => {
-    expect(loadProfile(throwing, () => 0)).toEqual({ nickname: null, avatar: 0, tint: 0, accessory: 0, hair: 0 });
+    expect(loadProfile(throwing, () => 0)).toEqual({ nickname: null, avatar: 0, avatarAuto: true, tint: 0, accessory: 0, hair: 0 });
     expect(saveProfile(throwing, { nickname: "zoe", avatar: 1 })).toBe(false);
   });
 });

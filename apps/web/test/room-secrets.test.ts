@@ -253,6 +253,10 @@ describe("joinMessage", () => {
     expect(joinMessage("zoe", 1, undefined, 3, 0, 2)).toEqual({ type: "join", nickname: "zoe", avatar: 1, tint: 3, hair: 2 });
     expect("hair" in joinMessage("zoe", 1, undefined, 3, 4, 0)).toBe(false);
   });
+  test("asks the room for the least-used avatar for a guest who never picked one, and leaves the flag out otherwise (OME-2131)", () => {
+    expect(joinMessage("zoe", 1, undefined, 0, 0, 0, null, true)).toEqual({ type: "join", nickname: "zoe", avatar: 1, avatarAuto: true });
+    expect("avatarAuto" in joinMessage("zoe", 1, undefined, 0, 0, 0, null, false)).toBe(false);
+  });
   test("carries the stored owner token and invite key", () => {
     expect(joinMessage("zoe", 1, { ownerToken: OWNER, inviteKey: KEY })).toEqual({ type: "join", nickname: "zoe", avatar: 1, ownerToken: OWNER, inviteKey: KEY });
   });

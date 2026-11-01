@@ -9,6 +9,8 @@ export interface KeyValueStore {
 export interface Profile {
   readonly nickname: Nickname | null;
   readonly avatar: Avatar;
+  /** No avatar was ever picked: join with `avatarAuto` and let the room choose (OME-2131). */
+  readonly avatarAuto: boolean;
   readonly tint: Tint;
   /** Avatar accessory (OME-1391), 0 none. */
   readonly accessory: Accessory;
@@ -51,13 +53,13 @@ export function loadProfile(store: KeyValueStore, random: () => number = Math.ra
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
   const accessory = v.safeParse(AccessorySchema, Number(read(store, ACCESSORY_KEY) ?? "0"));
   const hair = v.safeParse(HairSchema, Number(read(store, HAIR_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: hair.success ? hair.output : 0 };
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, avatarAuto: false, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: hair.success ? hair.output : 0 };
 }
 
-export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar: Avatar }): boolean {
+export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar?: Avatar }): boolean {
   try {
     store.setItem(NICKNAME_KEY, profile.nickname);
-    store.setItem(AVATAR_KEY, String(profile.avatar));
+    store.setItem(AVATAR_KEY, String(profile.avatar ?? 0));
     return true;
   } catch {
     return false;
