@@ -12,26 +12,34 @@ export interface TagBox {
 /** The gap (stage px) between stacked tags. */
 const GAP = 2;
 
-/** How far down (stage px) each tag of height `h` moves so no two overlap; a tag that overlaps nothing stays put. */
-export function stackTags(tags: readonly TagBox[], h: number): number[] {
+/**
+ * How far (stage px) each tag of height `h` moves so no two overlap; a tag that overlaps nothing stays put. A tag drops
+ * under the tags it hits, or, where that would take it past `maxY` (the room's bottom), rises over them instead.
+ */
+export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity): number[] {
   const dy = tags.map(() => 0);
   // Back row first, then left to right: the same tags stack the same way in any order.
   const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
   const placed: { readonly x0: number; readonly x1: number; readonly y: number }[] = [];
-  for (const { t, i } of order) {
-    const x0 = t.x - t.w / 2;
-    const x1 = t.x + t.w / 2;
-    let y = t.y;
-    // Each hit moves the tag strictly down, past a box placed before it: at most `placed.length` passes.
+  // Each hit moves the tag strictly one way, past a box placed before it: at most `placed.length` passes.
+  const settle = (x0: number, x1: number, y0: number, down: boolean): number => {
+    let y = y0;
     for (let hit = true; hit; ) {
       hit = false;
       for (const p of placed) {
         if (x0 < p.x1 && p.x0 < x1 && y < p.y + h && p.y < y + h) {
-          y = p.y + h + GAP;
+          y = down ? p.y + h + GAP : p.y - h - GAP;
           hit = true;
         }
       }
     }
+    return y;
+  };
+  for (const { t, i } of order) {
+    const x0 = t.x - t.w / 2;
+    const x1 = t.x + t.w / 2;
+    const below = settle(x0, x1, t.y, true);
+    const y = below + h > maxY && below !== t.y ? settle(x0, x1, t.y, false) : below;
     placed.push({ x0, x1, y });
     dy[i] = y - t.y;
   }

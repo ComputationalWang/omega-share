@@ -14,7 +14,7 @@ import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
-import { SYSLINE_RAIL, TAG_H, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
+import { ROOM_VIEW, SYSLINE_RAIL, TAG_H, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
@@ -166,12 +166,20 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** The phone's readable-zoom label scale (room.css --label-scale): tags show this many times their layout size. */
   let labelK = 1;
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
+  // The stack's drop is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
-    const at = { x, y: y + TAG_OFFSET_Y + (tagDy.get(id) ?? 0) };
+    const at = { x, y: y + TAG_OFFSET_Y };
+    const drop = `${String(tagDy.get(id) ?? 0)}px`;
     const tag = tagEls.get(id);
-    if (tag !== undefined) place(tag, at);
+    if (tag !== undefined) {
+      place(tag, at);
+      tag.style.marginTop = drop;
+    }
     const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
-    if (padEl !== undefined) place(padEl, at);
+    if (padEl !== undefined) {
+      place(padEl, at);
+      padEl.style.marginTop = drop;
+    }
   };
   /** Stack the tags of everyone standing still and place every tag. */
   const restack = (): void => {
@@ -186,7 +194,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK });
     }
-    const dy = stackTags(boxes, TAG_H * labelK);
+    const dy = stackTags(boxes, TAG_H * labelK, ROOM_VIEW.y + ROOM_VIEW.h);
     ids.forEach((id, i) => {
       const p = at[i];
       tagDy.set(id, dy[i] ?? 0);
