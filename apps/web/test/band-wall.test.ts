@@ -40,12 +40,19 @@ describe("1280×800 with a video (OME-2117)", () => {
     setNorth(side === "north");
     const { room, pan, shown } = bandView(name);
     const audience = [...seatPoints(room), ...standingPoints(room)];
+    const front = Math.max(...audience.map((p) => p.y)) + TAG_FOOT;
+    const seatTop = Math.min(...seatPoints(room).map((p) => p.y)) - 22;
+    // Where the back seats' tops and the front row's tags don't both fit, the seats stay whole (OME-1864) and the
+    // front row's tags give way: that's the Dank Dungeon and the Penthouse from the south.
+    if (front - seatTop > shown.h) {
+      expect(pan.y).toBe(seatTop);
+      return;
+    }
     for (const p of audience) {
       expect(p.y + TAG_OFFSET_Y).toBeGreaterThanOrEqual(pan.y);
       expect(p.y + TAG_FOOT).toBeLessThanOrEqual(pan.y + shown.h);
     }
     // Any higher and the front row's tags would be cut: nothing more of the wall could show.
-    const front = Math.max(...audience.map((p) => p.y)) + TAG_FOOT;
     expect(pan.y + shown.h).toBe(Math.min(ROOM_VIEW.y + ROOM_VIEW.h, front + 1));
   });
 
@@ -61,6 +68,25 @@ describe("1280×800 with a video (OME-2117)", () => {
         expect(me.x).toBeGreaterThanOrEqual(pan.x);
         expect(me.x).toBeLessThanOrEqual(pan.x + shown.w);
       }
+    }
+  });
+});
+
+// OME-2117 CI (e2e/provider-shelf.e2e.ts, OME-1864): looking down to the front row's tags put Twitch's 1280×720 band
+// under the back seats' tops. Where the seats fit whole, they stay whole; the front row's tags give way first.
+describe("the seats stay whole while the band looks down (OME-1864)", () => {
+  const SEAT_HIT_TOP = 22;
+  test.each(PRESETS.flatMap((n) => SIDES.map((s) => [n, s] as const)))("%p from the %p: every seat's top in the band, for any band the seats fit", (name, side) => {
+    setNorth(side === "north");
+    const room = preset(name);
+    const seats = seatPoints(room);
+    if (seats.length === 0) return;
+    const ys = seats.map((p) => p.y);
+    const need = Math.max(...ys) + TAG_FOOT - (Math.min(...ys) - SEAT_HIT_TOP);
+    for (let h = 200; h <= ROOM_VIEW.h; h += 4) {
+      if (need > h) continue;
+      const c = bandHome(seats, standingPoints(room), { w: ROOM_VIEW.w, h });
+      expect(Math.min(...ys) - SEAT_HIT_TOP, `${String(h)} px band`).toBeGreaterThanOrEqual(c.y - h / 2);
     }
   });
 });
