@@ -179,7 +179,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   wrap.append(...live.map((l) => l.twin));
   const mirror = (): void => {
     for (const { src, twin } of live) {
-      const text = src.hidden ? "" : (src.textContent ?? "");
+      const text = src.hidden ? "" : src.textContent;
       // The room re-sets the same status on every render: only a real change may be said again.
       if (twin.textContent !== text) twin.textContent = text;
     }

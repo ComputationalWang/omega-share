@@ -499,7 +499,7 @@ test("in full screen a dropped connection is still announced", async ({ browser 
   const cdp = await page.context().newCDPSession(page);
   const announced = async (): Promise<boolean> => {
     const { nodes } = await cdp.send("Accessibility.getFullAXTree");
-    return nodes.some((n) => n.ignored !== true && typeof n.name?.value === "string" && n.name.value.includes("Connection lost"));
+    return nodes.some((n) => !n.ignored && typeof n.name?.value === "string" && n.name.value.includes("Connection lost"));
   };
   await expect.poll(announced).toBe(true);
   expect(await inFullscreen(page)).toBe(true);
