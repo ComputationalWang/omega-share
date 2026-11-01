@@ -5,6 +5,7 @@
 // every image and JSON art response is gzipped at level 6 as the landing row counts it. The dearest preset is the value.
 import { devices, expect, test, type Browser, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import * as v from "valibot";
 import { ROOM_PRESET_IDS, RoomLayoutInputSchema, type RoomPresetId } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
@@ -23,11 +24,13 @@ const ID = "site.artGzip";
 const desktop = devices["Desktop Chrome"];
 const ROOM = ownedRoom("artperf");
 
-/** The room's owner sets `preset`'s layout, as the create form would have, and leaves. */
+/** The room's owner sets `preset`'s layout, as the create form would have, and leaves. The server ignores a layout the
+ *  room already has (the seed is classic), so that one isn't waited for. */
 async function setPreset(preset: RoomPresetId): Promise<void> {
   const layout = v.parse(RoomLayoutInputSchema, JSON.parse(readFileSync(new URL(`../assets/presets/${preset}.json`, import.meta.url), "utf8")));
   const owner = await WsMember.join(ROOM.id, "artowner", { ownerToken: ROOM.ownerToken, inviteKey: ROOM.inviteKey });
   try {
+    if (isDeepStrictEqual(layout, owner.snapshot.room.layout)) return;
     const at = owner.frames.length;
     owner.send({ type: "layout-set", layout });
     await owner.next("layout-changed", undefined, at);
