@@ -388,7 +388,7 @@ test("844×390 touch, People: another member's 9-letter name shows whole beside 
 // OME-2103 (site audit OME-2064 item 6): the audit's `Pixel 7 landscape` is a 915×412 screen with an 863×360 viewport.
 // The TV took ~60 % of the height, the avatars' feet and tags and the zoom − key were cut at the bottom edge, Up next
 // covered the newest chat lines (its title on two lines), and in the editor the tray sat below Done and the playback setting.
-const PIXEL7 = [["a915", "landedwide", 915, 412], ["a863", "landedshort", 863, 360]] as const;
+const PIXEL7 = [["a915", "landedpw", 915, 412], ["a863", "landedps", 863, 360]] as const;
 
 /** Pairs of visible boxes in the chat column that overlap by more than a px. */
 const sideOverlaps = (page: Page): Promise<string[]> => page.locator(".room-side").evaluate((side) => {
