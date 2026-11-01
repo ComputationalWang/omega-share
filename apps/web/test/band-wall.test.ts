@@ -1,0 +1,66 @@
+// OME-2117 (design judge on OME-2116, QA OME-2107 finding 1): at 1280×800 the band was 240 px of the 532 px room, so the
+// back wall and its art sat above it, and in a swap room my own avatar stood under its foot. The band holds at least half
+// the room, it looks as high as keeps the audience whole (the back wall gets every row left over), and it keeps me whole
+// wherever I stand, from either side of the room. The TV stays the hero (OME-1803).
+import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import * as v from "valibot";
+import { FLOOR_CELLS, RoomLayoutSchema } from "@omega/shared";
+import { seatPoints, standingPoints } from "../src/furniture";
+import { AVATAR_TOP, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
+
+const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
+const SIDES = ["south", "north"] as const;
+const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
+/** 1280×800's left column as QA measured it (OME-2107: the band at y 487, 888 px wide, 240 tall). */
+const COLUMN = { w: 888, h: 727 };
+
+afterEach(() => {
+  setNorth(false);
+});
+
+/** The band's view as the room window opens it (room-window.ts deskHome): centred on bandHome, kept on the room. */
+function bandView(name: string, me: Point | null = null) {
+  const l = wideLayout(COLUMN.w, COLUMN.h, "youtube");
+  const room = preset(name);
+  const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
+  const c = bandHome(seatPoints(room), standingPoints(room), shown, me);
+  const view = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, l.stage);
+  return { room, pan: view.pan, shown };
+}
+
+describe("1280×800 with a video (OME-2117)", () => {
+  test("the band holds at least half the room, and the TV stays the hero: at least 45 % of the window wide", () => {
+    const l = wideLayout(COLUMN.w, COLUMN.h, "youtube");
+    expect(l.stage.h).toBeGreaterThanOrEqual(ROOM_VIEW.h / 2);
+    expect(l.tv.w).toBeGreaterThanOrEqual(0.45 * 1280);
+  });
+
+  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the audience whole, its front row's tags at the band's foot, so the back wall gets the rest", (name, side) => {
+    setNorth(side === "north");
+    const { room, pan, shown } = bandView(name);
+    const audience = [...seatPoints(room), ...standingPoints(room)];
+    for (const p of audience) {
+      expect(p.y + TAG_OFFSET_Y).toBeGreaterThanOrEqual(pan.y);
+      expect(p.y + TAG_FOOT).toBeLessThanOrEqual(pan.y + shown.h);
+    }
+    // Any higher and the front row's tags would be cut: nothing more of the wall could show.
+    const front = Math.max(...audience.map((p) => p.y)) + TAG_FOOT;
+    expect(pan.y + shown.h).toBe(Math.min(ROOM_VIEW.y + ROOM_VIEW.h, front + 1));
+  });
+
+  // dank-dungeon-desktop-north (OME-2107): the owner stood where the band's foot cut them.
+  test.each(["dank-dungeon", "penthouse", "studio"].flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: standing on any floor cell, I'm whole in the band, head to name tag", (name, side) => {
+    setNorth(side === "north");
+    for (let col = 0; col < FLOOR_CELLS; col++) {
+      for (let row = 0; row < FLOOR_CELLS; row++) {
+        const me = cellCenter(col, row);
+        const { pan, shown } = bandView(name, me);
+        expect(me.y - AVATAR_TOP).toBeGreaterThanOrEqual(pan.y);
+        expect(me.y + TAG_FOOT).toBeLessThanOrEqual(pan.y + shown.h);
+        expect(me.x).toBeGreaterThanOrEqual(pan.x);
+        expect(me.x).toBeLessThanOrEqual(pan.x + shown.w);
+      }
+    }
+  });
+});

@@ -448,7 +448,8 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
  * its hint leave 1280×720 a band where the audience's front row put the back seats behind the TV, out of every click's
  * reach. Where the tags fit (the Theatre at 1280×800), or the seats don't either, it's OME-1843's home.
  */
-export function bandHome(seats: readonly Point[], standing: readonly Point[], h: number): Point {
+export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, _me: Point | null = null): Point {
+  const h = view.h;
   const audience = [...seats, ...standing];
   const tagsFit = span(audience, TAG_OFFSET_Y) <= h;
   if (tagsFit || seats.length === 0 || span(seats, -SEAT_HIT_H / 2) > h) return seatsHome(audience, h, TAG_FOOT);

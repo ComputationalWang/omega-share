@@ -310,6 +310,26 @@ describe("on a computer", () => {
     expect(stage.style.transform).toBe("translate(-30px, -150px) scale(1)");
   });
 
+  // OME-2117: I walk out of the band (a swap room's far side): it follows me there, unless the viewer looked around.
+  test("in a band, rehome follows a new home until a mouse drag moves the view", async () => {
+    const { win, clip, stage, at } = await setup();
+    win.desk(1, { w: 900, h: 300 });
+    at.home = { x: 480, y: 400 };
+    win.rehome();
+    expect(stage.style.transform).toBe("translate(-30px, -250px) scale(1)");
+    const mouse = (type: string, x: number, y: number): void => {
+      clip.dispatchEvent(new PointerEvent(type, { pointerId: 7, clientX: x, clientY: y, isPrimary: true, button: 0, bubbles: true, pointerType: "mouse" }));
+    };
+    mouse("pointerdown", 400, 200);
+    mouse("pointermove", 400, 240);
+    await frame();
+    mouse("pointerup", 400, 240);
+    const looked = stage.style.transform;
+    at.home = { x: 480, y: 300 };
+    win.rehome();
+    expect(stage.style.transform).toBe(looked);
+  });
+
   // OME-1811: the browser scrolls the clip to show something cropped (find in page, a screen reader): that's the pan.
   test("in a band, a scroll of the clip becomes the view's pan, and the clip is left unscrolled", async () => {
     const { win, clip, stage } = await setup();

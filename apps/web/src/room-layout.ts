@@ -407,7 +407,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   placeChat();
 
   /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843; the seats' where it can't hold them all, OME-1864), until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, (w, h, band) => (band ? bandHome(seatPoints, standingPoints, h) : touchHome(seatPoints, me, { w, h })), o.labelScale, o.bubbleSides);
+  const roomWindow = createRoomWindow(clip, stage, (w, h, band) => (band ? bandHome(seatPoints, standingPoints, { w, h }, me) : touchHome(seatPoints, me, { w, h })), o.labelScale, o.bubbleSides);
   let seatPoints: readonly Point[] = [];
   /** The standing spots: with the seats, where members are. */
   let standingPoints: readonly Point[] = [];

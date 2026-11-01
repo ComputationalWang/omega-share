@@ -26,7 +26,7 @@ const VIEWPORTS: readonly (readonly [number, number, number, number])[] = [
 function bandView(w: number, h: number, vw: number, vh: number, room = cinema) {
   const l = wideLayout(w, h, "youtube", chromeZoom(vw, vh), roomScale(vw, vh));
   const k = l.scale;
-  const c = bandHome(seatPoints(room), standingPoints(room), l.stage.h / k);
+  const c = bandHome(seatPoints(room), standingPoints(room), { w: l.stage.w / k, h: l.stage.h / k });
   const view = wheelView(k, { zoom: 1, pan: { x: c.x - l.stage.w / (2 * k), y: c.y - l.stage.h / (2 * k) } }, { x: 0, y: 0 }, 1, l.stage);
   return { l, k, pan: view.pan, shown: { w: l.stage.w / k, h: l.stage.h / k } };
 }
