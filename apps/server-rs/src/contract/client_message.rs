@@ -102,6 +102,9 @@ pub enum ClientMessage {
         /// Relay `batch` frames opt-in (OME-1624); absent means false.
         #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         batch: Option<bool>,
+        /// The room picks the least-used avatar instead of `avatar` (OME-2133). Present only as `true`.
+        #[cfg_attr(test, serde(skip_serializing_if = "std::ops::Not::not"))]
+        avatar_auto: bool,
     },
     Leave {},
     Presence {
@@ -325,6 +328,8 @@ struct JoinW {
     via: Option<RoomId>,
     #[serde(default, deserialize_with = "present")]
     batch: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    avatar_auto: Option<True>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -659,6 +664,7 @@ fn convert(wire: Wire) -> ClientMessage {
             hair: m.hair,
             via: m.via,
             batch: m.batch,
+            avatar_auto: m.avatar_auto.is_some(),
         },
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },
@@ -776,6 +782,7 @@ mod tests {
         for v in [
             json!({"type":"join","nickname":"Alice","avatar":1}),
             json!({"type":"join","nickname":"Alice","avatar":1,"ownerToken":token,"inviteKey":token,"durableSession":true,"resumeToken":"B".repeat(43)}),
+            json!({"type":"join","nickname":"Alice","avatar":1,"avatarAuto":true}),
             json!({"type":"leave"}),
             json!({"type":"presence","away":true}),
             json!({"type":"sit","seat":4}),
@@ -832,6 +839,7 @@ mod tests {
             "seat is required, null stands up"
         );
         assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"durableSession":false}"#).is_none());
+        assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"avatarAuto":false}"#).is_none());
         assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"shareToken":"x"}"#).is_none());
         // packages/shared/test/queue-contract.test.ts:135, playback.test.ts:135
         assert!(parse_client_message(r#"{"type":"ended","itemId":"q1","position":Infinity}"#).is_none());

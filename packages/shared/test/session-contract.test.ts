@@ -22,10 +22,10 @@ test("durable joins and presence survive wire parsing while legacy joins and sna
   const join = { type: "join", nickname: "Alice", avatar: 0 };
   const room = { id: "lobby", seats: Array.from({ length: 8 }, () => null), members: [{ id: "alice", nickname: "Alice", avatar: 0 }], embed: null };
   const snapshot = { type: "snapshot", self: "alice", room };
-  for (const frame of [join, { ...join, durableSession: true }, { ...join, resumeToken: token }, { ...join, durableSession: true, resumeToken: token }, { type: "presence", away: true }, { type: "presence", away: false }]) {
+  for (const frame of [join, { ...join, durableSession: true }, { ...join, resumeToken: token }, { ...join, durableSession: true, resumeToken: token }, { ...join, avatarAuto: true }, { type: "presence", away: true }, { type: "presence", away: false }]) {
     expect(parseClientMessage(JSON.stringify(frame)) as unknown).toEqual(frame);
   }
-  for (const frame of [{ ...join, durableSession: false }, { ...join, durableSession: 1 }, { ...join, resumeToken: "short" }, { ...join, resumeToken: null }, { type: "presence", away: "true" }, { type: "presence" }, { type: "presence", away: false, token }, { ...join, away: true }]) {
+  for (const frame of [{ ...join, durableSession: false }, { ...join, durableSession: 1 }, { ...join, avatarAuto: false }, { ...join, avatarAuto: 1 }, { ...join, avatarAuto: null }, { ...join, resumeToken: "short" }, { ...join, resumeToken: null }, { type: "presence", away: "true" }, { type: "presence" }, { type: "presence", away: false, token }, { ...join, away: true }]) {
     expect(parseClientMessage(JSON.stringify(frame)) as unknown).toBeNull();
   }
   for (const frame of [snapshot, { ...snapshot, resumeToken: token, resumed: true }, { type: "member-presence", memberId: "alice", away: false }, { type: "member-presence", memberId: "alice", away: true }, { type: "error", code: "resume_expired", message: "Session expired" }]) {

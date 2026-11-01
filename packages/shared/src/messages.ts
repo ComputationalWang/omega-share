@@ -161,6 +161,11 @@ export const ClientMessageSchema = v.variant("type", [
     via: v.optional(RoomIdSchema),
     /** Opt in to relay `batch` frames (OME-1624, ADR 0050 amendment); absent or false gets one frame per message. */
     batch: v.optional(v.boolean()),
+    /**
+     * A fresh guest with no saved avatar (OME-2133): the room gives them the avatar the fewest members wear, ties at
+     * random, instead of `avatar` (kept as the fallback). A resume ignores it.
+     */
+    avatarAuto: v.optional(v.literal(true)),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */
