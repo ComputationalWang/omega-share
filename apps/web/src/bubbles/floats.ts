@@ -28,6 +28,8 @@ export const FLOAT_POOL = 16;
 export const FLOAT_PER_SPEAKER = 10;
 /** Clear space between a pushed bubble and the newer one under it. */
 const GAP = 3;
+/** Overlap below this is float rounding at a fractional scale, not overlap: left in, resolve() never ended (QA OME-2156). */
+const SLACK = 1e-6;
 /** The box keeps this far from the stage's side edges. */
 const MARGIN = 4;
 /** The tail's tip hangs this far below the box (reference.css `.ui-float::after`). */
@@ -377,7 +379,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           const bottom = top + s.h * k;
           const nTop = n.ay - (n.h + TAIL_BELOW) * k - n.push;
           const nBottom = nTop + (n.h + (n.stacked ? 0 : TAIL_BELOW)) * k;
-          if (top >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop) continue;
+          if (top + SLACK >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop + SLACK) continue;
           // Typing dots never stack, so they keep their tail.
           push += Math.max(0, bottom + (s.typing ? TAIL_BELOW * k : 0) + GAP - nTop);
           // Re-measured and re-centred: the next pass checks the box as it now is.
