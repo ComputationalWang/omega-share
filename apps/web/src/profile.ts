@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { AccessorySchema, AvatarSchema, HairSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Accessory, type Avatar, type Hair, type Nickname, type Tint } from "@omega/shared";
+import { AccessorySchema, AVATAR_COUNT, AvatarSchema, HairSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Accessory, type Avatar, type Hair, type Nickname, type Tint } from "@omega/shared";
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -41,10 +41,13 @@ function read(store: KeyValueStore, key: string): string | null {
   }
 }
 
-/** Stored values are untrusted (anyone can edit localStorage): re-validate. */
-export function loadProfile(store: KeyValueStore): Profile {
+/**
+ * Stored values are untrusted (anyone can edit localStorage): re-validate. A first visit (no stored avatar) draws one at
+ * random, so fresh guests in a room don't all look alike (OME-2124); it is saved with the nickname on Enter.
+ */
+export function loadProfile(store: KeyValueStore, random: () => number = Math.random): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
-  const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
+  const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? Math.floor(random() * AVATAR_COUNT)));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
   const accessory = v.safeParse(AccessorySchema, Number(read(store, ACCESSORY_KEY) ?? "0"));
   const hair = v.safeParse(HairSchema, Number(read(store, HAIR_KEY) ?? "0"));
