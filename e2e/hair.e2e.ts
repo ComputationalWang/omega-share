@@ -43,6 +43,10 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test("landing: six named hair swatches beside the tints, 44 px to a finger, relabelled per avatar", async ({ browser }) => {
   const context = await watchCsp(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }));
+  // Start from Juno: a fresh guest's default avatar is random (OME-2124).
+  await context.addInitScript(() => {
+    localStorage.setItem("omega.avatar", "0");
+  });
   const page = await context.newPage();
   await page.goto(URLS.web);
   const row = page.getByRole("radiogroup", { name: "Hair colour" });

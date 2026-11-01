@@ -4,7 +4,7 @@
 // form. Phone: the vignette above it, nothing wider than the screen. Checked keyboard-only, with reduced motion, and
 // for layout shift. The perf budget is perf/landing.perf.ts.
 import type { Page } from "@playwright/test";
-import { expect, test } from "./support/csp";
+import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { DEFAULT_ROOM_ID, ROOM_PRESET_IDS, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { site } from "./support/selectors";
@@ -333,7 +333,7 @@ test("the join button is disabled until the app script has attached its handler 
 // a stored avatar always wins. Math.random is pinned so the draw is known.
 test("a fresh guest gets a random avatar preselected and joins as it; a returning guest keeps theirs", async ({ browser }) => {
   for (const [stored, expected] of [[null, "2"], ["1", "1"]] as const) {
-    const context = await browser.newContext();
+    const context = await watchCsp(await browser.newContext());
     await context.addInitScript((avatar) => {
       Math.random = () => 0.6;
       if (avatar !== null) localStorage.setItem("omega.avatar", avatar);
