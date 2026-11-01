@@ -471,3 +471,17 @@ test("full screen hides the chat by default; the bottom edge and Enter bring it 
   await input.evaluate((el) => { if (el instanceof HTMLElement) el.blur(); });
   await expect(strip).toBeHidden({ timeout: 5000 });
 });
+
+// OME-2136: full screen hides the room's other children (visibility, against layout shift on the way out, OME-2106),
+// but a hidden live region is never announced: "Connection lost" must still reach a screen reader while watching.
+test("in full screen the room's live regions stay announceable", async ({ browser }) => {
+  const [a] = await join(browser, "strip");
+  if (!a) throw new Error("no client");
+  const page = a.page;
+  await page.locator(site.fullscreenToggle).click();
+  await expect.poll(() => inFullscreen(page)).toBe(true);
+  const hidden = await page.evaluate(() =>
+    [...document.querySelectorAll(".room-fs :is([role=status], [role=alert])")].filter((e) => getComputedStyle(e).visibility === "hidden").map((e) => e.className),
+  );
+  expect(hidden).toEqual([]);
+});
