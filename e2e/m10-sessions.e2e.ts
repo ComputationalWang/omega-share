@@ -275,13 +275,25 @@ test("two tabs with one token: only one member; the older tab says the session m
   await expect(obs.page.locator(site.peopleRow).filter({ hasText: "ana" })).toHaveCount(1);
 });
 
-// OME-1967: Leave, top-left of the room bar, is the explicit leave (ADR 0043): the others see it now, not after the grace.
+// OME-1967: Leave, top-left of the room bar. OME-2105 (ADR 0043 amendment 3): it can be undone. The landing shows a
+// "You left … Rejoin" chip for 10 s and the server holds the seat as for a closed tab, so Rejoin is back in the same seat.
 for (const phone of [true, false]) {
-  test(`Leave, top-left, takes you to the landing and the others see you go at once (${phone ? "phone" : "desktop"})`, async ({ browser }) => {
+  test(`Leave, top-left, takes you to the landing; Rejoin there puts you back in the same seat (${phone ? "phone" : "desktop"})`, async ({ browser }) => {
     const room = testRoom("m10-sessions", phone ? "leavephone" : "leavedesk");
     const ana = await open(browser, room.url, "ana", undefined, phone);
     const obs = await open(browser, room.url, "obs");
     await expect(tag(obs.page, "ana")).toHaveCount(1);
+    await sit(ana.page, 2, "ana");
+    await expect.poll(() => seatOf(obs.page, "ana")).toBe(2);
+    const before = (await seen(ana.page)).self;
+    // Every layout shift on the landing the Leave opens (the CLS budget's own measure: no input excluded on a fresh load).
+    await ana.context.addInitScript(() => {
+      const w = window as { __shifts?: number };
+      w.__shifts = 0;
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) w.__shifts = (w.__shifts ?? 0) + (e as unknown as { value: number }).value;
+      }).observe({ type: "layout-shift", buffered: true });
+    });
 
     const leave = ana.page.locator(site.leaveKey);
     await expect(leave).toHaveRole("button");
@@ -301,7 +313,35 @@ for (const phone of [true, false]) {
     await leave.focus();
     await ana.page.keyboard.press("Enter");
     await expect(ana.page).toHaveURL(`${URLS.web}/`);
-    await expect(tag(obs.page, "ana")).toHaveCount(0, { timeout: 10_000 });
-    await expect(chatLines(obs.page, "ana left the room")).toHaveCount(1);
+    const chip = ana.page.locator(site.rejoinChip);
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText("You left");
+    // The room settles on the landing (the public list included) with nothing moving.
+    await expect(ana.page.locator(site.publicRooms)).toHaveAttribute("aria-busy", "false");
+    await ana.page.waitForTimeout(1000);
+    expect(await ana.page.evaluate(() => (window as { __shifts?: number }).__shifts)).toBe(0);
+    // Meanwhile the others see ana away, not gone.
+    await expect(obs.page.locator(`${site.peopleRow}.is-away`).filter({ hasText: "ana" })).toHaveCount(1);
+
+    await chip.getByRole("button", { name: "Rejoin" }).click();
+    await expect(ana.page).toHaveURL(room.url);
+    await expect(ana.page.locator(site.room)).toBeVisible();
+    await expect(ana.page.locator(site.nicknameInput)).toBeHidden();
+    await expect.poll(() => seatOf(ana.page, "ana")).toBe(2);
+    expect((await seen(ana.page)).self).toBe(before);
+    await expect(obs.page.locator(`${site.peopleRow}.is-away`)).toHaveCount(0);
+    for (const p of [ana.page, obs.page]) await expect(chatLines(p, "left the room")).toHaveCount(0);
   });
 }
+
+test("the Rejoin chip goes after 10 s and leaves nothing of the room in storage", async ({ browser }) => {
+  const room = testRoom("m10-sessions", "leavechip");
+  const ana = await open(browser, room.url, "ana", undefined, false);
+  await ana.page.locator(site.leaveKey).click();
+  await expect(ana.page).toHaveURL(`${URLS.web}/`);
+  await expect(ana.page.locator(site.rejoinChip)).toBeVisible();
+  await expect(ana.page.locator(site.rejoinChip)).toHaveCount(0, { timeout: 15_000 });
+  // The profile and the room secrets stay as before Leave; no session, hand-off, share or chip record does.
+  const keys = await ana.page.evaluate(() => [...Object.keys(sessionStorage), ...Object.keys(localStorage)]);
+  expect(keys.filter((k) => k.includes(room.id) || k === "omega.left" || k === "omega.share")).toEqual([]);
+});

@@ -285,6 +285,15 @@ describe("open rooms: loading, empty and error are told apart (OME-935)", () => 
     expect(h?.tagName).toBe("H2");
     expect(h?.getAttribute("tabindex")).toBe("-1");
   });
+
+  test("the invite note sits above the list, so the list settling never moves it (landing CLS, OME-2105)", async () => {
+    const root = await mount();
+    const section = root.querySelector(".rooms-public");
+    const note = section?.querySelector(".note");
+    const list = root.querySelector("[data-testid=public-rooms]");
+    expect(note?.textContent).toContain("Have an invite?");
+    expect(note !== null && note !== undefined && list !== null && (note.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
+  });
 });
 
 describe("your rooms: an honest empty state and plain labels (OME-935)", () => {

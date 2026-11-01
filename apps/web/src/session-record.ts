@@ -94,3 +94,14 @@ export function takePendingEnter(store: Pick<ResumeStore, "getItem" | "removeIte
     return false;
   }
 }
+
+export const REJOIN_CHIP_MS = 10_000;
+export interface Left {
+  readonly record: ResumeRecord;
+  readonly title: string | null;
+  readonly until: number;
+}
+
+// Stubs (OME-2105 red commit).
+export const stashLeft: (store: Pick<ResumeStore, "setItem">, record: ResumeRecord, title: string | null, now: number) => void = () => undefined;
+export const takeLeft: (store: Pick<ResumeStore, "getItem" | "removeItem">, now: number) => Left | null = () => null;
