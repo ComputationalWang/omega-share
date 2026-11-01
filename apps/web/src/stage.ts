@@ -102,8 +102,8 @@ export interface Stage {
   petCat(cell: number): void;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
-  /** Bubbles keep inside stage x `x0`–`x1`: the phone's room window as it settled (OME-1945), or the whole stage. */
-  bubbleSides(x0: number, x1: number): void;
+  /** Bubbles keep inside stage x `x0`–`x1` and stacked tags above `y1`: the phone's room window as it settled (OME-1945, OME-2118), or the whole stage. */
+  bubbleSides(x0: number, x1: number, y1: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
@@ -165,6 +165,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const tagDy = new Map<MemberId, number>();
   /** The phone's readable-zoom label scale (room.css --label-scale): tags show this many times their layout size. */
   let labelK = 1;
+  /** The phone window's bottom (stage px; Infinity off the phone): a stacked tag never drops past it or the room's. */
+  let shownBottom = Infinity;
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
   // The stack's drop is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
@@ -194,7 +196,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK });
     }
-    const dy = stackTags(boxes, TAG_H * labelK, ROOM_VIEW.y + ROOM_VIEW.h);
+    const dy = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom));
     ids.forEach((id, i) => {
       const p = at[i];
       tagDy.set(id, dy[i] ?? 0);
@@ -749,8 +751,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         restack();
       }
     },
-    bubbleSides: (x0, x1) => {
+    bubbleSides: (x0, x1, y1) => {
       floats.sides(x0, x1);
+      if (y1 !== shownBottom) {
+        shownBottom = y1;
+        restack();
+      }
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),

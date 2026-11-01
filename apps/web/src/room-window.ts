@@ -190,18 +190,18 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     }).observe(tagLayer, { childList: true });
   }
 
-  /** The window's sides last handed to the bubbles (OME-1945): once it settles, never per drag or pinch frame. */
-  let sides = { x0: 0, x1: STAGE_W };
-  const settleSides = (x0: number, x1: number): void => {
-    if (x0 === sides.x0 && x1 === sides.x1) return;
-    sides = { x0, x1 };
-    onSides(x0, x1);
+  /** The window's sides (and bottom, for the tag stack, OME-2118) last handed to the stage (OME-1945): once it settles, never per drag or pinch frame. */
+  let sides = { x0: 0, x1: STAGE_W, y1: Infinity };
+  const settleSides = (x0: number, x1: number, y1: number): void => {
+    if (x0 === sides.x0 && x1 === sides.x1 && y1 === sides.y1) return;
+    sides = { x0, x1, y1 };
+    onSides(x0, x1, y1);
   };
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
     pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
-    if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom);
+    if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
   };
   /** The window's centre now, stage px. */
   const shown = (): Point => ({ x: pan.x + view.w / (2 * zoom), y: pan.y + view.h / (2 * zoom) });
@@ -353,7 +353,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       pinch = null;
       settleLabels();
       storeZoom(zoom);
-      settleSides(pan.x, pan.x + view.w / zoom);
+      settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
     }
     fingers.delete(ev.pointerId);
     if (fingers.size === 0 && dragged && down === null) setTimeout(() => {
@@ -367,7 +367,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     }
     down = null;
     clip.classList.remove("is-dragging");
-    if (active) settleSides(pan.x, pan.x + view.w / zoom);
+    if (active) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
     // A mouse drag's click comes in this same task, right after pointerup; a finger drag sends none. Either way the drop
     // ends here, so it can never eat a later click (a keyboard Enter on a seat, a switch or screen-reader activation).
     if (dragged) setTimeout(() => {
@@ -483,7 +483,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
         stage.style.removeProperty("--label-scale");
         if (labels !== null && labels !== 1) onLabels(1);
         labels = null;
-        settleSides(0, STAGE_W);
+        settleSides(0, STAGE_W, Infinity);
       }
     },
     centre,
