@@ -319,6 +319,8 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * OME-1184): a tag grows around its anchor, a bubble around its speaker's head (the motion wrapper sits on the slot's
  * anchor; floats.ts `scale` places it). */
 .stage-clip:is(.is-phone, .is-fit) :is(.tag, .tag-pad, .float-motion) { transform-origin: 0 0; scale: var(--label-scale, 1); }
+/* Its seats keep a 24 px target (WCAG 2.5.8, OME-2148): the 26 px tall diamond grows back as the band shrinks. */
+.stage-clip.is-fit .seat { scale: max(1, calc(0.94 / var(--stage-scale))); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
 .stage-pane { position: absolute; inset: 0; }
 /* The zoom keys keep a band of their own (room-window.ts KEYS_BAND): a column beside the room, a row under a short one, or
