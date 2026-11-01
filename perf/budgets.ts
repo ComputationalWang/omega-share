@@ -154,6 +154,11 @@ const LANDING: readonly Budget[] = [
   { id: "landing.longTask", area: "Landing", metric: "Longest task before the nickname field is usable", docMetric: "Longest task before the nickname field is usable", unit: "ms", limit: 50, comparator: "<=" },
 ];
 
+// OME-2151 (ADR 0060): room art (images + JSON) a cold context fetches into the dearest preset's room, preview build, gz level 6. Pending until a spec measures it.
+const ART: readonly Budget[] = [
+  { id: "site.artGzip", area: "Site", metric: "Room art transfer, dearest preset (gzipped)", docMetric: "Room art transfer per preset (gzipped)", unit: "KB", limit: 450, comparator: "<=" },
+];
+
 // OME-2106: layout shift in the room over one full-screen enter + exit (perf/room-cls.perf.ts).
 const ROOM_CLS_PROFILES = { desktop: "desktop Chromium", landscape: "Pixel 7 landscape (915×412)", portrait: "Pixel 7 portrait (412×915)" } as const;
 const ROOM_CLS: readonly Budget[] = Object.entries(ROOM_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.fsCls.${p}`, area: "Site", metric: `Cumulative Layout Shift in the room over a full-screen enter + exit, ${pl}`, docMetric: "Cumulative Layout Shift in the room over a full-screen enter + exit", unit: "score", limit: 0.01, comparator: "<" }));
@@ -210,6 +215,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "load.relayLatency", area: "Load test", metric: "Relay latency p95, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 50, comparator: "<=", load: { of: "server.relayLatency", members: 25 } },
   { id: "load.frameP95", area: "Load test", metric: "p95 frame time, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 16.7, comparator: "<=", load: { of: "site.frameP95", members: 25 } },
   ...LANDING,
+  ...ART,
 ];
 
 export type Measurement =
