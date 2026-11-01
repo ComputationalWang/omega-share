@@ -44,22 +44,24 @@ function read(store: KeyValueStore, key: string): string | null {
 }
 
 /**
- * Stored values are untrusted (anyone can edit localStorage): re-validate. A first visit (no stored avatar) draws one at
- * random, so fresh guests in a room don't all look alike (OME-2124); it is saved with the nickname on Enter.
+ * Stored values are untrusted (anyone can edit localStorage): re-validate. A first visit (no valid stored avatar) draws one
+ * at random for the landing to show (OME-2124) and is `avatarAuto`: the room swaps it for its least-used one (OME-2131).
  */
 export function loadProfile(store: KeyValueStore, random: () => number = Math.random): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
-  const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? Math.floor(random() * AVATAR_COUNT)));
+  const saved = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? NaN));
+  const avatar = saved.success ? saved : v.safeParse(AvatarSchema, Math.floor(random() * AVATAR_COUNT));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
   const accessory = v.safeParse(AccessorySchema, Number(read(store, ACCESSORY_KEY) ?? "0"));
   const hair = v.safeParse(HairSchema, Number(read(store, HAIR_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, avatarAuto: false, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: hair.success ? hair.output : 0 };
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, avatarAuto: !saved.success, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: hair.success ? hair.output : 0 };
 }
 
+/** Without an avatar (a guest who never picked one, OME-2131) only the nickname is saved. */
 export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar?: Avatar }): boolean {
   try {
     store.setItem(NICKNAME_KEY, profile.nickname);
-    store.setItem(AVATAR_KEY, String(profile.avatar ?? 0));
+    if (profile.avatar !== undefined) store.setItem(AVATAR_KEY, String(profile.avatar));
     return true;
   } catch {
     return false;
