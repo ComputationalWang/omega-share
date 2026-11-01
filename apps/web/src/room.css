@@ -315,9 +315,10 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .stage-clip.is-phone.is-dragging { cursor: grabbing; }
 .stage-clip.is-phone .stage { will-change: transform; }
 .stage-clip.is-phone:has(:focus-visible) { outline: 2px solid var(--ui-text); outline-offset: -2px; }
-/* Zoomed out, names and bubbles stay readable (room-window.ts --label-scale, OME-1184): a tag grows around its anchor,
- * a bubble around its speaker's head (the motion wrapper sits on the slot's anchor; floats.ts `scale` places it). */
-.stage-clip.is-phone .tag, .stage-clip.is-phone .tag-pad, .stage-clip.is-phone .float-motion { transform-origin: 0 0; scale: var(--label-scale, 1); }
+/* Zoomed out (or a band fitted below 1×, OME-2148), names and bubbles stay readable (room-window.ts --label-scale,
+ * OME-1184): a tag grows around its anchor, a bubble around its speaker's head (the motion wrapper sits on the slot's
+ * anchor; floats.ts `scale` places it). */
+.stage-clip:is(.is-phone, .is-fit) :is(.tag, .tag-pad, .float-motion) { transform-origin: 0 0; scale: var(--label-scale, 1); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
 .stage-pane { position: absolute; inset: 0; }
 /* The zoom keys keep a band of their own (room-window.ts KEYS_BAND): a column beside the room, a row under a short one, or

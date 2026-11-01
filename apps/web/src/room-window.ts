@@ -215,8 +215,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   /** The label scale the stage has now (null: unset, off the phone). */
   let labels: number | null = null;
   /** Restyle the labels for the zoom (one style pass, not per frame), and tell the bubbles (floats.ts `scale`). */
-  const settleLabels = (): void => {
-    const k = labelScale(zoom);
+  const settleLabels = (k = labelScale(zoom)): void => {
     if (k === labels) return;
     labels = k;
     stage.style.setProperty("--label-scale", String(k));
@@ -460,7 +459,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   return {
     set(on, w, h) {
       desk = null;
-      clip.classList.remove("is-band");
+      clip.classList.remove("is-band", "is-fit");
       const was = active;
       active = on;
       if (on !== was) for (const e of cropped) crop(e);
@@ -495,6 +494,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     desk(fit, box = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }) {
       desk = fit;
       deskBox = box;
+      // A band fitted below 1× (OME-2148) keeps its names and bubbles readable, as the phone's window does.
+      clip.classList.toggle("is-fit", fit < 1);
+      settleLabels(labelScale(fit));
       clip.classList.toggle("is-band", deskPans());
       applyDesk(fit, deskMoved ? deskView : deskHome(fit, deskView.zoom));
     },

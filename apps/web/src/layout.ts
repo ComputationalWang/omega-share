@@ -417,7 +417,11 @@ export function panTo(view: { readonly w: number; readonly h: number }, centre: 
   const w = view.w / zoom;
   const h = view.h / zoom;
   const clamp = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), Math.round(v)));
-  return { x: clamp(centre.x - w / 2, STAGE_W - w), y: clamp(centre.y - h / 2, STAGE_H - h) };
+  // A window that holds the walls shows them whole and centred (OME-2148): the stage's empty sides are no use.
+  return {
+    x: w >= ROOM_WALLS.w - 0.5 ? Math.round(ROOM_WALLS.x + (ROOM_WALLS.w - w) / 2) : clamp(centre.x - w / 2, STAGE_W - w),
+    y: h >= ROOM_WALLS.h - 0.5 ? Math.round(ROOM_WALLS.y + (ROOM_WALLS.h - h) / 2) : clamp(centre.y - h / 2, STAGE_H - h),
+  };
 }
 
 /** A seat's touch hit area is 44 px tall (room.css .ui-touch .seat), centred on its point. */
@@ -456,9 +460,19 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
  */
 /** The top of the tallest wall art (ROOM_VIEW): the band shows the back wall from here (OME-2148). */
 export const BAND_WALL_TOP = 113;
+/** The band never fits the room below half size: shorter, it keeps the seats whole as before (OME-1864). */
+const BAND_MIN_FIT = 0.5;
 
-export function bandFit(scale: number, _bandH: number, _audience: readonly Point[], _me: Point | null): number {
-  return scale;
+/**
+ * The band's scale (OME-2148, ADR 0060), `bandH` CSS px tall: the largest whole scale up to `scale` that holds the back
+ * wall's art down to the lowest name tag (the audience's, or mine), else the fraction that does, never under half.
+ */
+export function bandFit(scale: number, bandH: number, audience: readonly Point[], me: Point | null): number {
+  const points = me === null ? audience : [...audience, me];
+  if (points.length === 0) return scale;
+  const need = Math.max(...points.map((p) => p.y)) + TAG_FOOT + 1 - BAND_WALL_TOP;
+  for (let k = scale; k >= 1; k--) if (need * k <= bandH) return k;
+  return Math.max(BAND_MIN_FIT, Math.min(1, bandH / need));
 }
 
 export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
@@ -519,9 +533,9 @@ function span(points: readonly Point[], top: number): number {
 
 interface Size { readonly w: number; readonly h: number }
 
-/** The phone window's zoom range (OME-1184): from the whole stage on screen (never above 1×) up to this. */
+/** The phone window's zoom range (OME-1184): from the room's walls whole on screen (never above 1×, OME-2148) up to this. */
 export const MAX_ZOOM = 2;
-export const minZoom = (view: Size): number => Math.min(1, view.w / STAGE_W, view.h / STAGE_H);
+export const minZoom = (view: Size): number => Math.min(1, view.w / ROOM_WALLS.w, view.h / ROOM_WALLS.h);
 export const clampZoom = (z: number, view: Size): number => (Number.isFinite(z) ? Math.max(minZoom(view), Math.min(MAX_ZOOM, z)) : 1);
 
 /** Zoomed out, names and bubbles are counter-scaled so they never show below this fraction of their 1× size. */
