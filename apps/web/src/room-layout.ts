@@ -69,6 +69,8 @@ export interface RoomLayoutOptions {
   };
   readonly queue: QueuePanel;
   readonly notice: HTMLElement;
+  /** The room's live regions outside the wrapper (connection status, notices): full screen says them from inside it. */
+  readonly live: readonly HTMLElement[];
   /** The room's pop-out placeholder. */
   readonly roomAway: HTMLElement;
   /** The room's head row (title, Photo, People, Help): the root's first child, or the chat column's on a short screen. */
@@ -171,6 +173,26 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     },
   });
   wrap.append(fsChat.bubbles, fsChat.pill);
+  // Chromium leaves everything outside the full-screen element out of the accessibility tree, whatever its CSS
+  // (OME-2136): while full screen is on, each live region speaks through an sr-only twin inside the wrapper.
+  const live = o.live.map((src) => ({ src, twin: el("p", { className: "sr-only", role: src.getAttribute("role") ?? "status" }) }));
+  wrap.append(...live.map((l) => l.twin));
+  const mirror = (): void => {
+    for (const { src, twin } of live) {
+      const text = src.hidden ? "" : src.textContent;
+      // The room re-sets the same status on every render: only a real change may be said again.
+      if (twin.textContent !== text) twin.textContent = text;
+    }
+  };
+  const mirrorer = new MutationObserver(mirror);
+  const setMirror = (on: boolean): void => {
+    mirrorer.disconnect();
+    if (!on) for (const { twin } of live) twin.textContent = "";
+    else {
+      for (const { src } of live) mirrorer.observe(src, { childList: true, characterData: true, subtree: true, attributeFilter: ["hidden"] });
+      mirror();
+    }
+  };
   // The pill dims after a while; a pointer over our wrapper (not the provider's iframe, which keeps its events) wakes it.
   const wakePill = (): void => {
     if (fsChat.hidden()) fsChat.wake();
@@ -295,6 +317,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     fsChat.setActive(on);
     placeChat();
     setBehindInert(mode === "pseudo");
+    setMirror(on);
     renderStrip();
     fit();
     restoreScroll();

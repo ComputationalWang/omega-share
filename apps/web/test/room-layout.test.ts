@@ -53,7 +53,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   root.append(roomTop, people, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side, foot);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, roomTop, people, invite, foot, side, ownerBar, editorPanel,
+    root, wrap, clip, stage, tv, log, poll, queue, notice, live: [notice], roomAway, roomTop, people, invite, foot, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },

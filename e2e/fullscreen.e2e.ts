@@ -4,7 +4,7 @@
 // in full screen. Where element full screen is missing (iPhone Safari) the same layout runs as a CSS full-viewport mode
 // with a history entry, so Back leaves it. The per-provider checks (same iframe, sync) are provider-fullscreen.e2e.ts;
 // the geometry and mode machine are apps/web/test/fullscreen.test.ts.
-import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContextOptions, Locator, Page, WebSocketRoute } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
@@ -470,4 +470,37 @@ test("full screen hides the chat by default; the bottom edge and Enter bring it 
   await input.fill("");
   await input.evaluate((el) => { if (el instanceof HTMLElement) el.blur(); });
   await expect(strip).toBeHidden({ timeout: 5000 });
+});
+
+// OME-2136: Chromium leaves everything outside the full-screen element out of the accessibility tree, whatever its CSS,
+// so "Connection lost" must come from inside it. Asserted on Chromium's own tree (CDP), not on computed styles.
+test("in full screen a dropped connection is still announced", async ({ browser }) => {
+  let up = true;
+  const routes: WebSocketRoute[] = [];
+  clients = await joinRoom(browser, {
+    roomUrl: testRoom("fullscreen", "strip").url,
+    count: 1,
+    nicknamePrefix: "fsdrop",
+    setup: async (context) => {
+      await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
+        routes.push(ws);
+        if (up) ws.connectToServer();
+        else void ws.close({ code: 4000, reason: "offline" });
+      });
+    },
+  });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await page.locator(site.fullscreenToggle).click();
+  await expect.poll(() => inFullscreen(page)).toBe(true);
+  up = false;
+  await routes.at(-1)?.close({ code: 4000, reason: "drop" });
+  await expect(page.locator(site.connectionStatus)).toHaveText("Connection lost, reconnecting…");
+  const cdp = await page.context().newCDPSession(page);
+  const announced = async (): Promise<boolean> => {
+    const { nodes } = await cdp.send("Accessibility.getFullAXTree");
+    return nodes.some((n) => !n.ignored && typeof n.name?.value === "string" && n.name.value.includes("Connection lost"));
+  };
+  await expect.poll(announced).toBe(true);
+  expect(await inFullscreen(page)).toBe(true);
 });
