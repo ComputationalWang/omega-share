@@ -34,9 +34,9 @@ export interface HintsOptions {
   readonly storage: Pick<Storage, "getItem" | "setItem">;
   /** What chip `step` sits beside; while it's null or has no box the chip is out of sight (and the tour still open). */
   readonly anchor: (step: number) => HTMLElement | null;
-  /** While the TV shows anything (a player, a Load card), no chip covers it: Twitch's player doesn't start covered
+  /** While the TV shows anything (a player, a Load card), no chip covers it; while it's empty, none covers `message`: Twitch's player doesn't start covered
    * (OME-1778). One that would goes under the picture (the TV and the stage), or out of sight if that's on the TV too. */
-  readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement };
+  readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement; readonly message: HTMLElement };
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
 }
@@ -92,10 +92,12 @@ export function createHints(o: HintsOptions): Hints {
     if (side === undefined) return;
     const w = root.offsetWidth;
     const h = root.offsetHeight;
-    const tv = o.tv.empty() ? null : o.tv.box.getBoundingClientRect();
-    const onTv = (p: Spot): boolean => tv !== null && p.left < tv.right && tv.left < p.left + w && p.top < tv.bottom && tv.top < p.top + h;
+    // An empty TV may be covered, but not its message (OME-2104).
+    const tv = (o.tv.empty() ? o.tv.message : o.tv.box).getBoundingClientRect();
+    const onTv = (p: Spot): boolean => p.left < tv.right && tv.left < p.left + w && p.top < tv.bottom && tv.top < p.top + h;
     let at = spot(o.anchor(step), side, w, h);
-    if (at !== null && onTv(at)) at = spot(o.tv.picture, "below", w, h);
+    // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone.
+    if (at !== null && onTv(at)) at = spot(o.tv.empty() ? o.tv.message : o.tv.picture, "below", w, h);
     // Nothing to sit beside (the stage behind People on a phone), or nowhere off the TV: out of sight until there is.
     const away = at === null || onTv(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });

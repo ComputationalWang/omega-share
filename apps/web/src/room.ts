@@ -440,6 +440,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onProvider: () => {
       layout.fit();
     },
+    // Upright on a phone the field is in the Up next sheet: the composer's Link key opens it with the field focused.
+    onCurtain: () => {
+      if (layout.portraitOn()) layout.dock.link.click();
+      else queuePanel.root.querySelector("input")?.focus();
+    },
   });
   const { tv, controls } = tvBox;
   // Moments (OME-1628): the current item's reactions, as the strip under the shelf and the late joiner's replay.
@@ -701,7 +706,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The floor chip sits on an empty TV just above its player bar, next to the floor without covering it; with a video
     // there it goes under the picture instead (hints.ts, OME-1778).
     anchor: (step) => (step === 0 ? controls : step === 1 ? chatForm : people.key),
-    tv: { box: tv, empty: tvBox.empty, picture: wrap },
+    tv: { box: tv, empty: tvBox.empty, picture: wrap, message: tvBox.message },
     next: () => (help.key.hidden ? null : help.key),
   });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");

@@ -37,6 +37,7 @@ async function setup(extension: ExtensionBridge = { whenPresent: () => undefined
     wrap,
     fullscreen: () => false,
     onProvider: () => { providers++; },
+    onCurtain: () => undefined,
   });
   wrap.append(tv.tv, tv.controls);
   document.body.replaceChildren(wrap, tv.personal);
@@ -60,7 +61,7 @@ describe("room TV", () => {
     const curtain = tv.tv.querySelector(".tv-curtain");
     expect(curtain).not.toBeNull();
     expect(tv.tv.firstElementChild).toBe(curtain);
-    expect(curtain?.querySelector("p")?.textContent).toBe("Nothing on yet. Paste a link in Up next to raise the curtain.");
+    expect(curtain?.querySelector("button")?.textContent).toBe("Nothing on yet. Paste a link in Up next to raise the curtain.");
     expect(tv.empty()).toBe(true);
   });
 
