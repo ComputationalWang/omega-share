@@ -97,3 +97,16 @@ Decision:
 - **Creator.** A successful create from the home page sets `sessionStorage["omega.pendingEnter.<roomId>"]`, the same hop as the pending layout; the room page takes it and, with a saved profile and no resume record, enters at once with that profile.
 
 No contract, server or dependency change; the entry chunk grows by about 240 B gzip.
+
+## Amendment 3 — the Leave key can be undone (2026-11-01, Lead Engineer, [OME-2105](/OME/issues/OME-2105))
+
+Audit [OME-2064](/OME/issues/OME-2064#document-audit) item 9: Leave sits where people expect "back", and one tap dropped the seat for good. An explicit `leave` revokes the resume token at once, so nothing could take it back.
+
+Decision:
+
+- **The room bar's Leave key sends no `leave`.** It closes the socket (the server starts the usual grace hold, as for a closed tab), clears the session and share records, and puts the resume record and the room title in `sessionStorage["omega.left"]` as `{ record, title, until }`, `until` = now + 10 s. No hand-off is written. With no stored record it falls back to the explicit leave.
+- **The landing takes that key at every boot** (read and remove, Valibot-parsed, dropped past `until`) and shows a fixed "You left <title> — Rejoin" chip until `until`; focus on it keeps it. Rejoin writes the record back as the room's session record and opens `/r/<roomId>`, which resumes as a reload does: same member, same seat, no chat lines. After the chip, the browser keeps nothing of the room beyond what it kept before (profile, room secrets).
+- **The report dialog's leave stays explicit** (`leave` at once): leaving after a report should not be held.
+- **Cost, accepted:** after Leave, peers see the member as Away until the hold ends (`RESUME_GRACE_MS`, 120 s), then one leave line, instead of an instant leave line. The share grant lives as long server-side, but the page has dropped its record. Sending `leave` when the chip expires would need a socket from the landing (a resume join and a leave, with a presence flicker for peers); not worth it now.
+
+No contract, server or dependency change.

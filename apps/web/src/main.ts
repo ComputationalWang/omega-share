@@ -9,7 +9,8 @@ import { bindRadioRow, bindTintRow } from "./controls/tint-row";
 import { loadProfile, saveAccessory, saveHair, saveProfile, saveTint, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
-import { loadResume, takeHandOff, takePendingEnter } from "./session-record";
+import { mountRejoinChip } from "./rejoin-chip";
+import { loadResume, takeHandOff, takeLeft, takePendingEnter } from "./session-record";
 import { takeShareLink } from "./share-link";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import type * as RoomModule from "./room";
@@ -154,6 +155,8 @@ const local = { getItem: (k: string) => localStorage.getItem(k), setItem: (k: st
 // Taken on every boot of the room, so it never outlives the next visit.
 const handedOff = pathRoom === null ? null : takeHandOff(local, pathRoom, Date.now());
 const resumed = pathRoom === null ? null : (loadResume(session, pathRoom) ?? handedOff);
+// Just left a room with its Leave key: the landing offers Rejoin for a few seconds (OME-2105). Taken on every boot.
+const left = takeLeft(session, Date.now());
 // Just created this room from the home page: in with the saved profile, no second entry form (OME-2075).
 const creating = pathRoom !== null && resumed === null && takePendingEnter(session, pathRoom) && profile.nickname !== null ? profile.nickname : null;
 // Desktop: the entry form is the page's one task, so its field starts focused. Not on touch (the keyboard would pop up),
@@ -311,5 +314,8 @@ if (pathRoom === null) {
     }
   }
 } else if (resumed === null && creating === null) show("entry");
+if (pathRoom === null && left !== null) {
+  mountRejoinChip({ parent: document.body, left, now: Date.now(), session, navigate: (path) => { location.assign(path); }, setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => { window.clearTimeout(id); } });
+}
 
 performance.mark("omega:interactive");

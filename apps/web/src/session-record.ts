@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { RESUME_GRACE_MS, RESUME_STORAGE_KEY_PREFIX, ResumeRecordSchema, type ResumeRecord } from "@omega/shared";
+import { RESUME_GRACE_MS, RESUME_STORAGE_KEY_PREFIX, ROOM_TITLE_MAX_LENGTH, ResumeRecordSchema, type ResumeRecord } from "@omega/shared";
 
 /** The part of `Storage` we use. Every access may throw (blocked storage), so all of it is guarded. */
 export interface ResumeStore {
@@ -30,7 +30,7 @@ export function loadResume(store: ResumeStore, roomId: string): ResumeRecord | n
   return null;
 }
 
-export function saveResume(store: ResumeStore, record: ResumeRecord): void {
+export function saveResume(store: Pick<ResumeStore, "setItem">, record: ResumeRecord): void {
   try {
     store.setItem(keyFor(record.roomId), JSON.stringify(record));
   } catch {
@@ -95,13 +95,30 @@ export function takePendingEnter(store: Pick<ResumeStore, "getItem" | "removeIte
   }
 }
 
+// The Leave key's session, handed to the landing for its Rejoin chip (OME-2105, ADR 0043 amendment 3). sessionStorage: the
+// same tab goes to `/`. The landing takes (removes) it at boot, so it never outlives the chip.
+const LEFT_KEY = "omega.left";
 export const REJOIN_CHIP_MS = 10_000;
-export interface Left {
-  readonly record: ResumeRecord;
-  readonly title: string | null;
-  readonly until: number;
+const LeftSchema = v.strictObject({ record: ResumeRecordSchema, title: v.nullable(v.pipe(v.string(), v.maxLength(ROOM_TITLE_MAX_LENGTH))), until: v.number() });
+export type Left = v.InferOutput<typeof LeftSchema>;
+
+export function stashLeft(store: Pick<ResumeStore, "setItem">, record: ResumeRecord, title: string | null, now: number): void {
+  try {
+    store.setItem(LEFT_KEY, JSON.stringify({ record, title, until: now + REJOIN_CHIP_MS }));
+  } catch {
+    // Best effort: without it the landing shows no chip.
+  }
 }
 
-// Stubs (OME-2105 red commit).
-export const stashLeft: (store: Pick<ResumeStore, "setItem">, record: ResumeRecord, title: string | null, now: number) => void = () => undefined;
-export const takeLeft: (store: Pick<ResumeStore, "getItem" | "removeItem">, now: number) => Left | null = () => null;
+/** The left record while the chip's time lasts, else null. Always removes it. Never throws. */
+export function takeLeft(store: Pick<ResumeStore, "getItem" | "removeItem">, now: number): Left | null {
+  try {
+    const raw = store.getItem(LEFT_KEY);
+    if (raw === null) return null;
+    store.removeItem(LEFT_KEY);
+    const parsed = v.safeParse(LeftSchema, JSON.parse(raw));
+    return parsed.success && now < parsed.output.until ? parsed.output : null;
+  } catch {
+    return null;
+  }
+}
