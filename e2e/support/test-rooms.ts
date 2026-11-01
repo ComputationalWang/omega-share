@@ -20,8 +20,6 @@ export const SPEC_ROOMS = {
   "room-view": ["main"],
   "view-swap": ["main"],
   "view-swap-perf": ["frames"],
-  // One room per shipped preset, on that preset's layout, for the room-art bytes row (perf/art.perf.ts, OME-2152).
-  "art-perf": ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon", "penthouse", "studio"],
   "wall-screen": ["north"],
   walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over", "follow", "jog", "floor", "conga", "conga-late"],
   reactions: ["bar", "burst"],
