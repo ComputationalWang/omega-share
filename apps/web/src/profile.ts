@@ -42,7 +42,7 @@ function read(store: KeyValueStore, key: string): string | null {
 }
 
 /** Stored values are untrusted (anyone can edit localStorage): re-validate. */
-export function loadProfile(store: KeyValueStore): Profile {
+export function loadProfile(store: KeyValueStore, _random: () => number = Math.random): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
   const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));

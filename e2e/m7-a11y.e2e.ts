@@ -286,6 +286,10 @@ test("keyboard only, no mouse: join, sit, chat, full screen in and out, chat out
   extra.push(context);
   await stubExternalNetwork(context);
   await mockReport(context);
+  // Start from Juno so ArrowRight lands on the second avatar: a fresh guest's default is random (OME-2124).
+  await context.addInitScript(() => {
+    localStorage.setItem("omega.avatar", "0");
+  });
   const page = await context.newPage();
 
   // Land on the site and join as a guest.

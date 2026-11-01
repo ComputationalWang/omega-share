@@ -128,6 +128,10 @@ for (const [width, height] of [[844, 390], [1024, 768]] as const) {
 
 // OME-1280: the avatar radiogroup moves its selection with the arrow keys (wrapping), Home and End, like a click.
 test("keyboard only: arrows, Home and End change the chosen avatar, and the profile saves it", async ({ page }) => {
+  // Start from Juno: a fresh guest's default is random (OME-2124).
+  await page.addInitScript(() => {
+    localStorage.setItem("omega.avatar", "0");
+  });
   await page.goto(URLS.web);
   const options = page.locator(site.avatarOption);
   const chosen = async (i: number): Promise<void> => {
@@ -323,4 +327,24 @@ test("the join button is disabled until the app script has attached its handler 
   release(undefined);
   await page.locator(site.joinButton).click();
   await expect(page.locator(site.room)).toBeVisible();
+});
+
+// OME-2124: four fresh guests used to be four Junos. A first visit preselects a random avatar, joins as it and saves it;
+// a stored avatar always wins. Math.random is pinned so the draw is known.
+test("a fresh guest gets a random avatar preselected and joins as it; a returning guest keeps theirs", async ({ browser }) => {
+  for (const [stored, expected] of [[null, "2"], ["1", "1"]] as const) {
+    const context = await browser.newContext();
+    await context.addInitScript((avatar) => {
+      Math.random = () => 0.6;
+      if (avatar !== null) localStorage.setItem("omega.avatar", avatar);
+    }, stored);
+    const page = await context.newPage();
+    await page.goto(URLS.web);
+    await expect(page.locator(`${site.avatarOption}[data-avatar="${expected}"]`)).toHaveAttribute("aria-checked", "true");
+    await page.locator(site.nicknameInput).fill(`fresh${expected}`);
+    await page.locator(site.findRoom).click();
+    await expect(page.locator("#home-root")).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("omega.avatar"))).toBe(expected);
+    await context.close();
+  }
 });
