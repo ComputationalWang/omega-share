@@ -1,6 +1,7 @@
 // Run with bun (bun:sqlite): `bun e2e/fixtures/seed-rooms.ts <db path>` (OME-341). Recreates the e2e server's DB
 // with the lobby and every test room of e2e/support/test-rooms.ts, all on DEFAULT_LAYOUT. Playwright's webServer
-// runs it right before `dev`, so each run starts from empty rooms.
+// runs it right before `dev`, so each run starts from empty rooms. `--lobby-only` seeds the lobby alone, for a spec that
+// creates rooms on its own server and needs the headroom under MAX_ROOMS (OME-2144).
 import { readFileSync, rmSync } from "node:fs";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, RoomLayoutSchema } from "@omega/shared";
@@ -11,8 +12,9 @@ import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support
 import { TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
 import { PADS, SET_G, doorTo } from "./layouts";
 
-const path = process.argv[2];
-if (path === undefined || path === ":memory:") throw new Error("usage: seed-rooms.ts <db file path>");
+const [path, flag] = process.argv.slice(2);
+const lobbyOnly = flag === "--lobby-only";
+if (path === undefined || path === ":memory:" || (flag !== undefined && !lobbyOnly)) throw new Error("usage: seed-rooms.ts <db file path> [--lobby-only]");
 
 for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: true });
 const db = openDatabase(path);
@@ -35,8 +37,12 @@ const SEEDED_LAYOUTS = new Map([
   [testRoomId("doors", "a"), doorTo(testRoomId("doors", "b"))],
   [testRoomId("doors", "b"), doorTo(testRoomId("doors", "a"))],
 ]);
-for (const [i, id] of [DEFAULT_ROOM_ID, ...TEST_ROOM_IDS].entries()) {
+for (const [i, id] of [DEFAULT_ROOM_ID, ...(lobbyOnly ? [] : TEST_ROOM_IDS)].entries()) {
   store.createRoom({ id, title: id === DEFAULT_ROOM_ID ? "Lobby" : "", createdAt: i + 1, layout: SEEDED_LAYOUTS.get(id) ?? DEFAULT_LAYOUT });
+}
+if (lobbyOnly) {
+  db.close();
+  process.exit(0);
 }
 const MIN = 60_000;
 // The QA rooms specs' rooms (OME-417): private, unpinned (so the owner can delete them), with known secrets. The GC
