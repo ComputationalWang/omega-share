@@ -472,7 +472,7 @@ export function referenceCss(rects: Readonly<Record<string, Rect>>, sheet: { w: 
   const b = (key: string): number => borders[key]?.top ?? 0;
   const slice = (key: string): string => `url("slices/${kebab(key)}.png")`;
   const nineRule = (key: string): string =>
-    `border-style: solid; border-color: transparent; border-width: calc(${String(b(key))} * var(--ui-px)); border-image: ${slice(key)} ${String(b(key))} fill / calc(${String(b(key))} * var(--ui-px)) stretch;`;
+    `border-style: solid; border-color: transparent; border-width: calc(${String(b(key))} * var(--ui-px)); border-image: ${slice(key)} ${String(b(key))} fill / 1 stretch;`;
   const src = (key: string): string => `border-image-source: ${slice(key)};`;
   const tok = Object.entries(tokens).map(([k, v]) => `  --ui-${k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}: ${v};`).join("\n");
   const sprites = Object.entries(rects)

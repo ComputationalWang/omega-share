@@ -290,7 +290,7 @@ export const STRIP_AGES = { settled: 6000, faded: 20000, gone: 45000, ditherMs: 
 export function fullscreenCss(): string {
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: readonly [number, number, number, number]): string =>
-    `border-style: solid; border-color: transparent; border-width: ${b.map(u).join(" ")}; border-image: ${slice(k)} ${b.join(" ")} fill / ${b.map(u).join(" ")} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${b.map(u).join(" ")}; border-image: ${slice(k)} ${b.join(" ")} fill / 1 stretch;`;
   return `
 /* ---- Set (k) (OME-541), M7: full screen with a chat strip, pop-out windows, the phone watch-only layout.
  * The player is sacred (ADR 0012) in full screen too: the strip, the band and the phone's chat column stand beside or below the

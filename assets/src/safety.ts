@@ -333,7 +333,7 @@ export function safetyCss(rects: Readonly<Record<string, { x: number; y: number 
   };
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: number): string =>
-    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / ${u(b)} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / 1 stretch;`;
   const src = (k: string): string => `border-image-source: ${slice(k)};`;
   const waitVars = Array.from({ length: WAIT_FRAMES }, (_, n) => `--w${String(n)}: ${at(`wait/${String(n)}`)};`).join(" ");
   const waitKeys = Array.from({ length: WAIT_FRAMES }, (_, n) => `${String((n * 100) / WAIT_FRAMES)}% { background-position: var(--w${String(n)}); }`).join(" ");

@@ -161,7 +161,7 @@ export function liveCss(rects: Readonly<Record<string, { x: number; y: number }>
   };
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string): string =>
-    `border-style: solid; border-color: transparent; border-width: ${u(4)}; border-image: ${slice(k)} 4 fill / ${u(4)} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${u(4)}; border-image: ${slice(k)} 4 fill / 1 stretch;`;
   const total = RESYNC_FRAME_MS.reduce((a, b) => a + b, 0);
   const p1 = Math.round((RESYNC_FRAME_MS[0] / total) * 100);
   const p2 = Math.round(((RESYNC_FRAME_MS[0] + RESYNC_FRAME_MS[1]) / total) * 100);

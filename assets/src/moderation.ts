@@ -202,7 +202,7 @@ const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-
 export function moderationCss(): string {
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: number): string =>
-    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / ${u(b)} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / 1 stretch;`;
   const src = (k: string): string => `border-image-source: ${slice(k)};`;
   return `
 /* ---- Set (j) (OME-422): house rules. Remote = who controls playback (wood: it's the TV's; the house badge = only the host).
