@@ -7,7 +7,20 @@ export interface TagBox {
   readonly x: number;
   readonly y: number;
   readonly w: number;
+  /** The owner's head top (stage px), if known: other tags keep off the head under it. */
+  readonly top?: number;
 }
+
+/** Where a tag goes: how far it moves (stage px), and whether it left its owner's cell and wears a leader pip. */
+export interface TagPlace {
+  readonly dx: number;
+  readonly dy: number;
+  readonly led: boolean;
+}
+
+/** An avatar's head under its `top` (stage px), as other tags keep off it. */
+export const HEAD_W = 24;
+export const HEAD_H = 24;
 
 /** The gap (stage px) between stacked tags. */
 const GAP = 2;
@@ -16,7 +29,7 @@ const GAP = 2;
  * How far (stage px) each tag of height `h` moves so no two overlap; a tag that overlaps nothing stays put. A tag drops
  * under the tags it hits, or, where that would take it past `maxY` (the room's bottom), rises over them instead.
  */
-export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity): number[] {
+export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity): TagPlace[] {
   const dy = tags.map(() => 0);
   // Back row first, then left to right: the same tags stack the same way in any order.
   const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
@@ -43,5 +56,5 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity): 
     placed.push({ x0, x1, y });
     dy[i] = y - t.y;
   }
-  return dy;
+  return dy.map((d) => ({ dx: 0, dy: d, led: false }));
 }

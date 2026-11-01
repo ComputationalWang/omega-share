@@ -196,7 +196,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK });
     }
-    const dy = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom));
+    const dy = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom)).map((p) => p.dy);
     ids.forEach((id, i) => {
       const p = at[i];
       tagDy.set(id, dy[i] ?? 0);

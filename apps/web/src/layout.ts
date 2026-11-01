@@ -541,6 +541,7 @@ export const clampZoom = (z: number, view: Size): number => (Number.isFinite(z) 
 /** Zoomed out, names and bubbles are counter-scaled so they never show below this fraction of their 1× size. */
 const LABEL_MIN = 0.85;
 export const labelScale = (zoom: number): number => Math.max(1, LABEL_MIN / zoom);
+export const tagScale = labelScale;
 
 /** The stored zoom is untrusted (anyone can edit localStorage): a positive finite number, or null. */
 export function readZoom(s: string | null): number | null {
