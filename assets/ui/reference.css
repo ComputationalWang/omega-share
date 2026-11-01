@@ -21,10 +21,10 @@
 .ui-panel, .ui-button, .ui-input, .ui-bubble, .ui-tag, .ui-picker, .ui-sprite, .ui-bubble::after, .ui-seat-cursor { image-rendering: pixelated; box-sizing: border-box; }
 
 /* Panel: wood frame, brass pins, dusk fill. */
-.ui-panel { border-style: solid; border-color: transparent; border-width: calc(8 * var(--ui-px)); border-image: url("slices/panel-0.png") 8 fill / calc(8 * var(--ui-px)) stretch; color: var(--ui-text); padding: calc(4 * var(--ui-px)); }
+.ui-panel { border-style: solid; border-color: transparent; border-width: calc(8 * var(--ui-px)); border-image: url("slices/panel-0.png") 8 fill / 1 stretch; color: var(--ui-text); padding: calc(4 * var(--ui-px)); }
 
 /* Buttons: face sits 2 art px above its lip; pressed loses the lip, so the label drops with it. */
-.ui-button { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)); border-image: url("slices/button-primary-idle.png") 5 fill / calc(5 * var(--ui-px)) stretch; min-height: calc(20 * var(--ui-px)); padding: 0 calc(3 * var(--ui-px)) calc(2 * var(--ui-px)); display: inline-flex; align-items: center; justify-content: center; gap: calc(3 * var(--ui-px)); background: none; color: var(--ui-on-primary); font-weight: 700; cursor: pointer; }
+.ui-button { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)); border-image: url("slices/button-primary-idle.png") 5 fill / 1 stretch; min-height: calc(20 * var(--ui-px)); padding: 0 calc(3 * var(--ui-px)) calc(2 * var(--ui-px)); display: inline-flex; align-items: center; justify-content: center; gap: calc(3 * var(--ui-px)); background: none; color: var(--ui-on-primary); font-weight: 700; cursor: pointer; }
 .ui-button:hover, .ui-button.is-hover { border-image-source: url("slices/button-primary-hover.png"); }
 .ui-button:active, .ui-button.is-press { border-image-source: url("slices/button-primary-press.png"); padding-top: calc(2 * var(--ui-px)); padding-bottom: 0; }
 .ui-button:disabled, .ui-button.is-disabled { border-image-source: url("slices/button-primary-disabled.png"); color: var(--ui-disabled-text); cursor: default; padding-top: 0; padding-bottom: calc(2 * var(--ui-px)); }
@@ -35,21 +35,21 @@
 .ui-button:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
 
 /* Text field: inset well; the outer ring is the focus indicator (mustard) or the error state (rust). */
-.ui-input { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/input-idle.png") 6 fill / calc(6 * var(--ui-px)) stretch; background: none; color: var(--ui-text); padding: 0 calc(1 * var(--ui-px)); min-height: calc(18 * var(--ui-px)); outline: none; }
+.ui-input { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/input-idle.png") 6 fill / 1 stretch; background: none; color: var(--ui-text); padding: 0 calc(1 * var(--ui-px)); min-height: calc(18 * var(--ui-px)); outline: none; }
 .ui-input::placeholder { color: var(--ui-muted); opacity: 1; }
 .ui-input:focus-visible, .ui-input.is-focus { border-image-source: url("slices/input-focus.png"); }
 .ui-input[aria-invalid="true"] { border-image-source: url("slices/input-invalid.png"); }
 
 /* Chat bubble + centred tail (the tail's top 2 rows overlap the bubble's lip and outline). */
-.ui-bubble { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/bubble-0.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; color: var(--ui-bubble-text); padding: 0 calc(1 * var(--ui-px)); }
+.ui-bubble { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/bubble-0.png") 6 fill / 1 stretch; position: relative; color: var(--ui-bubble-text); padding: 0 calc(1 * var(--ui-px)); }
 .ui-bubble::after { content: ""; position: absolute; left: 50%; top: calc(100% + 4 * var(--ui-px)); width: calc(14 * var(--ui-px)); height: calc(5 * var(--ui-px)); translate: -50% 0; background: url("slices/bubble-tail.png") 0 0 / 100% 100%; }
 
 /* Name tag; .self marks you. */
-.ui-tag { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/tag-0.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-text); padding: 0 calc(1 * var(--ui-px)); font-size: 11px; line-height: 1; white-space: nowrap; }
+.ui-tag { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/tag-0.png") 4 fill / 1 stretch; color: var(--ui-text); padding: 0 calc(1 * var(--ui-px)); font-size: 11px; line-height: 1; white-space: nowrap; }
 .ui-tag.self { border-image-source: url("slices/tag-self.png"); color: var(--ui-accent); }
 
 /* Avatar picker tile (put a .ui-portrait-* inside, bottom-aligned). */
-.ui-picker { border-style: solid; border-color: transparent; border-width: calc(7 * var(--ui-px)); border-image: url("slices/picker-idle.png") 7 fill / calc(7 * var(--ui-px)) stretch; display: grid; place-items: end center; padding: 0; background: none; cursor: pointer; }
+.ui-picker { border-style: solid; border-color: transparent; border-width: calc(7 * var(--ui-px)); border-image: url("slices/picker-idle.png") 7 fill / 1 stretch; display: grid; place-items: end center; padding: 0; background: none; cursor: pointer; }
 .ui-picker:hover, .ui-picker.is-hover { border-image-source: url("slices/picker-hover.png"); }
 .ui-picker[aria-checked="true"] { border-image-source: url("slices/picker-selected.png"); }
 
@@ -211,30 +211,30 @@
 
 /* Seek bar. Put the fill and head inside, and set --pos (0..1) on the bar. For a11y, lay a transparent
  * <input type="range"> over it (opacity 0, inset 0) and keep the art as decoration. */
-.ui-seek { position: relative; flex: 1; min-width: calc(40 * var(--ui-px)); height: calc(10 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/seek-track.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; }
+.ui-seek { position: relative; flex: 1; min-width: calc(40 * var(--ui-px)); height: calc(10 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/seek-track.png") 4 4 fill / 1 stretch; }
 .ui-seek.is-disabled { border-image-source: url("slices/seek-track-disabled.png"); }
-.ui-seek-fill { position: absolute; left: 0; top: calc(-2 * var(--ui-px)); height: calc(6 * var(--ui-px)); width: calc(100% * var(--pos, 0)); border-style: solid; border-color: transparent; border-width: calc(1 * var(--ui-px)); border-image: url("slices/seek-fill.png") 1 1 fill / calc(1 * var(--ui-px)) stretch; border-left-width: 0; border-right-width: 0; }
+.ui-seek-fill { position: absolute; left: 0; top: calc(-2 * var(--ui-px)); height: calc(6 * var(--ui-px)); width: calc(100% * var(--pos, 0)); border-style: solid; border-color: transparent; border-width: calc(1 * var(--ui-px)); border-image: url("slices/seek-fill.png") 1 1 fill / 1 stretch; border-left-width: 0; border-right-width: 0; }
 .ui-seek.is-disabled .ui-seek-fill { display: none; }
 .ui-seek-head { position: absolute; top: calc(-7 * var(--ui-px)); left: calc(100% * var(--pos, 0) - calc(5 * var(--ui-px))); }
 
 /* Time readout: sunken night well, cream tabular digits. */
-.ui-readout { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/readout-0.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; padding: 0; color: var(--ui-text); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; line-height: 1; min-height: calc(14 * var(--ui-px)); white-space: nowrap; }
+.ui-readout { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/readout-0.png") 4 4 fill / 1 stretch; display: inline-flex; align-items: center; padding: 0; color: var(--ui-text); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; line-height: 1; min-height: calc(14 * var(--ui-px)); white-space: nowrap; }
 
 /* Personal volume: its own pod, never inside the wood panel. */
-.ui-volume { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/panel-self.png") 6 6 fill / calc(6 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: 0 calc(2 * var(--ui-px)); color: var(--ui-accent); }
-.ui-vol-track { position: relative; width: calc(40 * var(--ui-px)); height: calc(8 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/volume-track.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; }
-.ui-vol-fill { position: absolute; left: 0; top: calc(-2 * var(--ui-px)); height: calc(4 * var(--ui-px)); width: calc(100% * var(--vol, 1)); border-style: solid; border-color: transparent; border-width: calc(1 * var(--ui-px)); border-image: url("slices/volume-fill.png") 1 1 fill / calc(1 * var(--ui-px)) stretch; border-left-width: 0; border-right-width: 0; }
+.ui-volume { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/panel-self.png") 6 6 fill / 1 stretch; display: inline-flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: 0 calc(2 * var(--ui-px)); color: var(--ui-accent); }
+.ui-vol-track { position: relative; width: calc(40 * var(--ui-px)); height: calc(8 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/volume-track.png") 4 4 fill / 1 stretch; }
+.ui-vol-fill { position: absolute; left: 0; top: calc(-2 * var(--ui-px)); height: calc(4 * var(--ui-px)); width: calc(100% * var(--vol, 1)); border-style: solid; border-color: transparent; border-width: calc(1 * var(--ui-px)); border-image: url("slices/volume-fill.png") 1 1 fill / 1 stretch; border-left-width: 0; border-right-width: 0; }
 .ui-vol-knob { position: absolute; top: calc(-5 * var(--ui-px)); left: calc(100% * var(--vol, 1) - calc(5 * var(--ui-px))); }
 .ui-volume.is-muted .ui-vol-fill, .ui-vol-track.is-disabled .ui-vol-fill { display: none; }
 
 /* Chips: who a control affects. Always paired with a glyph/icon, so it never relies on colour. */
-.ui-chip { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/chip-shared.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.ui-chip { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/chip-shared.png") 4 4 fill / 1 stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
 .ui-room .ui-readout { font-size: 11px; }
 .ui-room .ui-chip { font-size: 9px; }
 .ui-chip.self { border-image-source: url("slices/chip-self.png"); color: var(--ui-accent); }
 
 /* Chat system line ("Ana paused"): dark strip + glow bar + glyph. User chat stays in cream bubbles over avatars. */
-.ui-sysline { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/chat-system.png") 4 4 4 5 fill / calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(5 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(2 * var(--ui-px)); margin: 0; padding: 0 calc(1 * var(--ui-px)); width: fit-content; color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 1.2; }
+.ui-sysline { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/chat-system.png") 4 4 4 5 fill / 1 stretch; display: flex; align-items: center; gap: calc(2 * var(--ui-px)); margin: 0; padding: 0 calc(1 * var(--ui-px)); width: fit-content; color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 1.2; }
 .ui-sysline b { color: var(--ui-glow); font-weight: 700; }
 .ui-sysline time { color: var(--ui-text); font-variant-numeric: tabular-nums; font-weight: 700; }
 
@@ -270,7 +270,7 @@
 .ui-live, .ui-hint, .ui-plate { image-rendering: pixelated; box-sizing: border-box; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); line-height: 1; white-space: nowrap; flex: none; }
 
 /* LIVE pill. Put a .ui-sprite.ui-onair inside, before the word. .is-behind = paused or not at the live edge. */
-.ui-live { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-live.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.ui-live { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-live.png") 4 fill / 1 stretch; color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 /* Frame 1 (lit) is a layer over frame 0 (dim) that blinks by opacity only, so the compositor runs it and the page's main thread
  * stays idle while a live stream plays (OME-201). Both frames share one silhouette, so lit fully covers dim. */
 .ui-onair { --f0: calc(-121 * var(--ui-px)) calc(-358 * var(--ui-px)); --f1: calc(-130 * var(--ui-px)) calc(-358 * var(--ui-px)); position: relative; width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); }
@@ -290,10 +290,10 @@
 .ui-room .ui-live-note { font-size: 11px; }
 
 /* Seek-only hint: the provider can't nudge its speed, so drift is fixed by small jumps. Quiet on purpose. */
-.ui-hint { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/chip-hint.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-muted); font-size: 11px; font-weight: 600; }
+.ui-hint { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/chip-hint.png") 4 fill / 1 stretch; color: var(--ui-muted); font-size: 11px; font-weight: 600; }
 
 /* Provider plate: brass, plum system-font text (8:1). The name is plain text, e.g. "YouTube", "Twitch", "Vimeo". */
-.ui-plate { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/plate-source.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-on-primary); font-size: 11px; font-weight: 700; }
+.ui-plate { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/plate-source.png") 4 fill / 1 stretch; color: var(--ui-on-primary); font-size: 11px; font-weight: 700; }
 
 /* Narrow shelf (.compact): keep the lamp, the pill word, the glyphs; drop the note and the plate/hint words. */
 .ui-tv-shelf.compact .ui-live-note, .ui-tv-shelf.compact .ui-plate-name, .ui-tv-shelf.compact .ui-hint-text { display: none; }
@@ -337,10 +337,10 @@
 @keyframes ui-dots { 0% { background-position: var(--d0); } 33.333% { background-position: var(--d1); } 66.667% { background-position: var(--d2); } }
 
 /* Room-list card: dusk glass in a wood rim, door thumbnail on the left. .is-full dims it and shuts the door. */
-.ui-card { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/card-room-idle.png") 6 fill / calc(6 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: calc(1 * var(--ui-px)) calc(2 * var(--ui-px)); color: var(--ui-text); image-rendering: pixelated; box-sizing: border-box; }
+.ui-card { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/card-room-idle.png") 6 fill / 1 stretch; display: flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: calc(1 * var(--ui-px)) calc(2 * var(--ui-px)); color: var(--ui-text); image-rendering: pixelated; box-sizing: border-box; }
 a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-source: url("slices/card-room-hover.png"); outline: none; }
 .ui-card.is-full { border-image-source: url("slices/card-room-full.png"); color: var(--ui-muted); }
-.ui-pill-full { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-full.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1; white-space: nowrap; image-rendering: pixelated; box-sizing: border-box; }
+.ui-pill-full { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-full.png") 4 fill / 1 stretch; display: inline-flex; align-items: center; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1; white-space: nowrap; image-rendering: pixelated; box-sizing: border-box; }
 .ui-room .ui-pill-full { font-size: 9px; }
 @media (prefers-reduced-motion: reduce) { .ui-dots { animation: none; } .ui-wait { animation: none; background-position: var(--w0); } }
 
@@ -474,16 +474,16 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-button.self[aria-pressed="true"], .ui-button.self.is-on { border-image-source: url("slices/button-self-on.png"); color: var(--ui-on-primary); padding-top: calc(2 * var(--ui-px)); padding-bottom: 0; }
 
 /* Furniture tray: a wooden drawer under the stage. Tabs sit on its top rim (the open tab's bottom row covers the rim's outline). */
-.ui-tray { border-style: solid; border-color: transparent; border-width: calc(10 * var(--ui-px)); border-image: url("slices/tray-0.png") 10 fill / calc(10 * var(--ui-px)) stretch; display: flex; gap: calc(3 * var(--ui-px)); padding: calc(1 * var(--ui-px)); overflow-x: auto; scrollbar-width: thin; }
+.ui-tray { border-style: solid; border-color: transparent; border-width: calc(10 * var(--ui-px)); border-image: url("slices/tray-0.png") 10 fill / 1 stretch; display: flex; gap: calc(3 * var(--ui-px)); padding: calc(1 * var(--ui-px)); overflow-x: auto; scrollbar-width: thin; }
 .ui-tabs { display: flex; gap: calc(1 * var(--ui-px)); padding-left: calc(6 * var(--ui-px)); margin-bottom: calc(-1 * var(--ui-px)); position: relative; }
-.ui-tab { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/tab-idle.png") 5 5 4 fill / calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); min-height: calc(14 * var(--ui-px)); background: none; color: var(--ui-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ui-tab { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/tab-idle.png") 5 5 4 fill / 1 stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); min-height: calc(14 * var(--ui-px)); background: none; color: var(--ui-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .ui-tab:hover, .ui-tab.is-hover { border-image-source: url("slices/tab-hover.png"); color: var(--ui-text); }
 .ui-tab[aria-selected="true"] { border-image-source: url("slices/tab-on.png"); color: var(--ui-text); }
 .ui-tab:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
 
 /* Cubby: one catalogue piece. Centre its thumb/<id>/<colour> (≤ 44×40 art px) inside; footprint glyph bottom-left.
  * Pressed (aria-pressed="true") = it's in your hand: mustard double rim. aria-disabled="true" = the room is at MAX_FURNITURE. */
-.ui-slot { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/slot-idle.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; display: grid; place-items: center; width: calc(52 * var(--ui-px)); height: calc(50 * var(--ui-px)); padding: 0; background: none; cursor: grab; flex: none; }
+.ui-slot { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/slot-idle.png") 6 fill / 1 stretch; position: relative; display: grid; place-items: center; width: calc(52 * var(--ui-px)); height: calc(50 * var(--ui-px)); padding: 0; background: none; cursor: grab; flex: none; }
 .ui-slot:hover, .ui-slot.is-hover, .ui-slot:focus-visible, .ui-slot.is-focus { border-image-source: url("slices/slot-hover.png"); }
 /* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the lit edge plus a cream ring hugging the cubby's plum outline, on the dusk well
  * (14:1), never under 2 CSS px. Offset 0 keeps it inside the tray's padding, so the scrolling tray doesn't clip it. */
@@ -502,14 +502,14 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 
 /* Invite link: a cinema ticket, fixed 20 art px tall. The link text sits on the card in plum; the stub is decoration.
  * .is-copied stamps a teal check on the stub (pair it with "Copied" on the key, glyph/check); .is-expired tears the stub off and greys it. */
-.ui-ticket { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(15 * var(--ui-px)); border-image: url("slices/ticket-idle.png") 4 6 4 15 fill / calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(15 * var(--ui-px)) stretch; height: calc(20 * var(--ui-px)); display: flex; align-items: center; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-bubble-text); font: 600 13px/1 ui-monospace, monospace; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ui-ticket { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(15 * var(--ui-px)); border-image: url("slices/ticket-idle.png") 4 6 4 15 fill / 1 stretch; height: calc(20 * var(--ui-px)); display: flex; align-items: center; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-bubble-text); font: 600 13px/1 ui-monospace, monospace; white-space: nowrap; overflow: hidden; min-width: 0; }
 .ui-ticket > span { overflow: hidden; text-overflow: ellipsis; }
 .ui-ticket.is-copied { border-image-source: url("slices/ticket-copied.png"); }
 .ui-ticket.is-expired { border-image-source: url("slices/ticket-expired.png"); color: var(--ui-panel); text-decoration: line-through; }
 .ui-room .ui-ticket { font-size: 10px; }
 
 /* Private room: "Invite only" pill (glyph/key + words), cream rim on night. */
-.ui-pill-private { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-private.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
+.ui-pill-private { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-private.png") 4 fill / 1 stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
 .ui-room .ui-pill-private { font-size: 9px; }
 /* The host's name tag carries glyph/host before the name. */
 .ui-tag .ui-glyph-host { vertical-align: -1px; margin-right: calc(1 * var(--ui-px)); }
@@ -551,14 +551,14 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 /* "Your rooms" row: the room card with the mustard "only you" line. door/<open|private> thumb, title, a meta line
  * (glyph/moon + "Closes in 9 days if nobody visits" when it's within 3 days of the GC sweep), then Enter / copy invite / close keys.
  * .is-confirm turns the line rust and the glass charcoal while it asks "Close <title> for good?". */
-.ui-mine { border-style: solid; border-color: transparent; border-width: calc(7 * var(--ui-px)); border-image: url("slices/card-mine-idle.png") 7 fill / calc(7 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); }
+.ui-mine { border-style: solid; border-color: transparent; border-width: calc(7 * var(--ui-px)); border-image: url("slices/card-mine-idle.png") 7 fill / 1 stretch; display: flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); }
 .ui-mine:hover, .ui-mine.is-hover, .ui-mine:focus-within { border-image-source: url("slices/card-mine-hover.png"); }
 .ui-mine.is-confirm { border-image-source: url("slices/card-mine-confirm.png"); }
 /* The moon's crescent sits on its right edge, so give it air before the "closes in" words (OME-427). */
 .ui-mine .ui-glyph-moon { flex: none; margin-right: calc(3 * var(--ui-px)); }
 
 /* Paste an invite (the invite-required page): an empty ticket-shaped slot, 20 art px tall. Focus = mustard edge. */
-.ui-slot-ticket { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(17 * var(--ui-px)); border-image: url("slices/ticket-slot-idle.png") 4 6 4 17 fill / calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(17 * var(--ui-px)) stretch; height: calc(20 * var(--ui-px)); background: none; color: var(--ui-text); font: 600 13px/1 ui-monospace, monospace; padding: 0 calc(1 * var(--ui-px)); outline: none; min-width: 0; }
+.ui-slot-ticket { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(17 * var(--ui-px)); border-image: url("slices/ticket-slot-idle.png") 4 6 4 17 fill / 1 stretch; height: calc(20 * var(--ui-px)); background: none; color: var(--ui-text); font: 600 13px/1 ui-monospace, monospace; padding: 0 calc(1 * var(--ui-px)); outline: none; min-width: 0; }
 .ui-slot-ticket::placeholder { color: var(--ui-muted); opacity: 1; }
 .ui-slot-ticket:focus-visible, .ui-slot-ticket.is-focus { border-image-source: url("slices/ticket-slot-focus.png"); }
 .ui-slot-ticket[aria-invalid="true"] { border-image-source: url("slices/ticket-expired.png"); color: var(--ui-panel); }
@@ -576,9 +576,9 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
  * a tail down to the key (set --ui-tail-x to the key's centre, from the tray's padding edge). Each <button class="ui-emote"
  * role="menuitem" aria-keyshortcuts="1".."8"> holds .ui-emote-pick-<id>; say the shortcut in its title, not on the cell.
  * The wave sits after .ui-sprite.ui-emotes-sep: it's your avatar's gesture (works seated too), not a sticker. */
-.ui-emotes { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/emotes-tray.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; display: inline-flex; align-items: center; gap: calc(1 * var(--ui-px)); padding: 0; }
+.ui-emotes { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/emotes-tray.png") 6 fill / 1 stretch; position: relative; display: inline-flex; align-items: center; gap: calc(1 * var(--ui-px)); padding: 0; }
 .ui-emotes::after { content: ""; position: absolute; left: var(--ui-tail-x, 50%); top: calc(100% + calc(3 * var(--ui-px))); width: calc(16 * var(--ui-px)); height: calc(6 * var(--ui-px)); translate: -50% 0; background: url("slices/emotes-tail.png") 0 0 / 100% 100%; }
-.ui-emote { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/emotes-slot-idle.png") 4 fill / calc(4 * var(--ui-px)) stretch; position: relative; display: grid; place-items: center; width: calc(24 * var(--ui-px)); height: calc(24 * var(--ui-px)); padding: 0; background: none; cursor: pointer; }
+.ui-emote { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/emotes-slot-idle.png") 4 fill / 1 stretch; position: relative; display: grid; place-items: center; width: calc(24 * var(--ui-px)); height: calc(24 * var(--ui-px)); padding: 0; background: none; cursor: pointer; }
 .ui-emote:hover, .ui-emote.is-hover, .ui-emote:focus-visible, .ui-emote.is-focus { border-image-source: url("slices/emotes-slot-hover.png"); }
 /* Keyboard focus (OME-1247): the cream ring outside the cell, on the tray's night face (11:1), never under 2 CSS px. */
 .ui-emote:focus-visible, .ui-emote.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
@@ -602,7 +602,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-modsep { display: block; height: calc(2 * var(--ui-px)); background: url("slices/menu-sep.png") 0 0 / calc(4 * var(--ui-px)) calc(2 * var(--ui-px)) repeat-x; }
 /* A row: <button class="ui-modrow" role="menuitem"> icon + words. "Mute chat" (icon/chat-mute) ↔ "Unmute chat" (icon/chat), and
  * "Remove from room" (icon/remove). Remove asks first: the row turns .is-ask with "Remove Kit for 10 min?" + Keep / Remove keys. */
-.ui-modrow { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/menu-row-idle.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(3 * var(--ui-px)); min-height: calc(20 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); background: none; color: var(--ui-text); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.ui-modrow { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/menu-row-idle.png") 4 fill / 1 stretch; display: flex; align-items: center; gap: calc(3 * var(--ui-px)); min-height: calc(20 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); background: none; color: var(--ui-text); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
 .ui-modrow:hover, .ui-modrow.is-hover, .ui-modrow:focus-visible, .ui-modrow.is-focus { border-image-source: url("slices/menu-row-hover.png"); }
 /* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the sunken well plus a cream ring outside the row. One art px of gap between rows
  * and the tray's night face behind them, so the ring always lands on night (11:1) and never covers a neighbour. */
@@ -643,7 +643,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-qlist { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(1 * var(--ui-px)); max-height: calc(8 * calc(26 * var(--ui-px))); overflow-y: auto; }
 /* A row: <li class="ui-qrow"> qsrc tile · the title (one line, ellipsis) over "head/<avatar> Kit" · the synced chip · the × key.
  * The first row is .is-next ("plays next": the glow bar). Hover lights the edge; the × only shows for the host and whoever added it. */
-.ui-qrow { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/queue-row-idle.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: calc(4 * var(--ui-px)); min-height: calc(24 * var(--ui-px)); padding: calc(1 * var(--ui-px)) calc(2 * var(--ui-px)); color: var(--ui-text); }
+.ui-qrow { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/queue-row-idle.png") 4 fill / 1 stretch; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: calc(4 * var(--ui-px)); min-height: calc(24 * var(--ui-px)); padding: calc(1 * var(--ui-px)) calc(2 * var(--ui-px)); color: var(--ui-text); }
 .ui-qrow:hover, .ui-qrow.is-hover, .ui-qrow:focus-within { border-image-source: url("slices/queue-row-hover.png"); }
 .ui-qrow.is-next { border-image-source: url("slices/queue-row-next.png"); }
 .ui-qrow .body { display: grid; gap: calc(1 * var(--ui-px)); min-width: 0; }
@@ -675,13 +675,13 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-fs[data-strip="band"] { grid-template-columns: minmax(0, 1fr); }
 
 /* The strip: the TV cabinet's side panel. Head (icon/chat "Chat" · people · strip-hide key), the lines, the input at the foot. */
-.ui-fs-strip { border-style: solid; border-color: transparent; border-width: calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/fs-strip.png") 2 2 2 5 fill / calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(5 * var(--ui-px)) stretch; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: calc(3 * var(--ui-px)); padding: calc(2 * var(--ui-px)) calc(3 * var(--ui-px)) calc(3 * var(--ui-px)) calc(3 * var(--ui-px)); color: var(--ui-text); }
+.ui-fs-strip { border-style: solid; border-color: transparent; border-width: calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/fs-strip.png") 2 2 2 5 fill / 1 stretch; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: calc(3 * var(--ui-px)); padding: calc(2 * var(--ui-px)) calc(3 * var(--ui-px)) calc(3 * var(--ui-px)) calc(3 * var(--ui-px)); color: var(--ui-text); }
 .ui-fs-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: calc(2 * var(--ui-px)); overflow: hidden; }
 
 /* A line ages by tone, never by alpha: .ui-fs-line (fresh) → .is-settled (6 s) → .is-faded (20 s) → removed from the strip
  * (45 s; it stays in the log). Each change shows one frame of .is-turning (set i's 1-bit dither over the card, 120 ms).
  * Hovering or focusing the strip pins it: no line ages while you read, and older lines come back (.is-faded lines show as settled). */
-.ui-fs-line { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/fs-line-fresh.png") 4 4 4 4 fill / calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) stretch; width: fit-content; max-width: 100%; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-bubble-text); font-size: 13px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; position: relative; }
+.ui-fs-line { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/fs-line-fresh.png") 4 4 4 4 fill / 1 stretch; width: fit-content; max-width: 100%; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-bubble-text); font-size: 13px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; position: relative; }
 .ui-fs-line b { font-weight: 700; }
 .ui-fs-line.is-settled { border-image-source: url("slices/fs-line-settled.png"); color: var(--ui-text); }
 .ui-fs-line.is-settled b { color: var(--ui-muted); }
@@ -698,7 +698,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 
 /* Pop-out windows (desktop only): the window's content sits in .ui-pop (a mustard "only you" rim), so it reads as yours on the
  * other monitor. Chat-only: the log + the input. Whole room: the 960×600 stage (Pixi) + the log + the input, no player. */
-.ui-pop { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) calc(6 * var(--ui-px)); border-image: url("slices/fs-pop.png") 6 6 6 6 fill / calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) stretch; color: var(--ui-text); }
+.ui-pop { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) calc(6 * var(--ui-px)) calc(6 * var(--ui-px)); border-image: url("slices/fs-pop.png") 6 6 6 6 fill / 1 stretch; color: var(--ui-text); }
 
 /* What stays in the page: <div class="ui-panel ui-away"> scene + one line + the bring-back key (.ui-button.self). */
 .ui-away { display: grid; justify-items: center; gap: calc(3 * var(--ui-px)); text-align: center; }
@@ -764,7 +764,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-report p { margin: 0; font-size: 12px; font-weight: 500; color: var(--ui-muted); line-height: 1.4; }
 .ui-report fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: calc(1 * var(--ui-px)); }
 .ui-report legend { font-size: 12px; font-weight: 700; color: var(--ui-text); padding: 0 0 calc(2 * var(--ui-px)); }
-.ui-reason { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/menu-row-idle.png") 4 4 4 4 fill / calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(3 * var(--ui-px)); min-height: calc(10 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); font-size: 13px; font-weight: 600; color: var(--ui-text); cursor: pointer; }
+.ui-reason { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/menu-row-idle.png") 4 4 4 4 fill / 1 stretch; display: flex; align-items: center; gap: calc(3 * var(--ui-px)); min-height: calc(10 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); font-size: 13px; font-weight: 600; color: var(--ui-text); cursor: pointer; }
 .ui-reason input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .ui-reason:hover, .ui-reason.is-hover { border-image-source: url("slices/menu-row-hover.png"); }
 .ui-reason:focus-within, .ui-reason.is-focus { outline: var(--ui-px) solid var(--ui-text); outline-offset: 0; }
@@ -783,7 +783,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
  * speaker is past the tail's reach. .is-stacked (pushed up by a newer bubble) has no tail and starts with <b class="who">Name</b>.
  * The keyframes and the push transition below are the standalone component. The room turns them off and steps the same rise and fade by
  * script on one shared clock (meta.omega.bubbles.room, ADR 0040): no fade-in, an instant push, an early exit at half opacity for one tick. */
-.ui-float { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/bubble-float.png") 5 5 6 5 fill / calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)) stretch;
+.ui-float { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/bubble-float.png") 5 5 6 5 fill / 1 stretch;
   position: absolute; margin: 0; width: max-content; max-width: 168px; padding: 0 calc(1 * var(--ui-px));
   color: var(--ui-bubble-text); font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; pointer-events: none;
   transform: translateY(var(--push, 0px)); transition: transform 160ms steps(4, end);
@@ -847,7 +847,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 @media (prefers-reduced-motion: reduce) { .ui-wheel { animation: none; } }
 
 /* Keycap: <kbd class="ui-kbd">Enter</kbd> inline in hints. Page chrome (2×) only: at 1× a 12 px key can't hold a word. Fixed height 12 art px; the label sits on the key face, above the lip. */
-.ui-kbd { border-style: solid; border-color: transparent; border-width: calc(3 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/kbd-0.png") 3 4 4 4 fill / calc(3 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) stretch;
+.ui-kbd { border-style: solid; border-color: transparent; border-width: calc(3 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/kbd-0.png") 3 4 4 4 fill / 1 stretch;
   display: inline-flex; align-items: center; height: calc(12 * var(--ui-px)); padding: 0; vertical-align: middle; color: var(--ui-bubble-text); font: 700 11px/1 system-ui, sans-serif; }
 .ui-kbd.is-small { font-size: 9px; } /* a single digit or letter in a chip */
 
@@ -859,7 +859,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 }
 /* The chat column is set (k)'s strip standing beside the room instead of the picture: the wood spine faces the stage. Head (icon/chat,
  * the people count, the pop-out key), the log (role=log, aria-live=polite), the composer at the foot. */
-.ui-chatcol { border-style: solid; border-color: transparent; border-width: calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/fs-strip.png") 2 2 2 5 fill / calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(5 * var(--ui-px)) stretch;
+.ui-chatcol { border-style: solid; border-color: transparent; border-width: calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(2 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/fs-strip.png") 2 2 2 5 fill / 1 stretch;
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; height: 100%; min-height: 0; padding: 10px 12px 12px 10px; color: var(--ui-text); }
 .ui-chatcol-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
 .ui-chatcol-head .n { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ui-muted); }

@@ -641,7 +641,7 @@ const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-
 export function roomsCss(rects: Readonly<Record<string, { x: number; y: number; w: number; h: number }>>): string {
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: number): string =>
-    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / ${u(b)} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / 1 stretch;`;
   const src = (k: string): string => `border-image-source: ${slice(k)};`;
   const kebab = (k: string): string => k.replace(/\//g, "-");
   const sprite = (k: string): string => {
@@ -693,7 +693,7 @@ ${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/ex
 .ui-mine .ui-glyph-moon { flex: none; margin-right: calc(3 * var(--ui-px)); }
 
 /* Paste an invite (the invite-required page): an empty ticket-shaped slot, ${String(SLOT.h)} art px tall. Focus = mustard edge. */
-.ui-slot-ticket { border-style: solid; border-color: transparent; border-width: ${skw}; border-image: ${slice("ticket/slot-idle")} ${sk} fill / ${skw} stretch; height: ${u(SLOT.h)}; background: none; color: var(--ui-text); font: 600 13px/1 ui-monospace, monospace; padding: 0 ${u(1)}; outline: none; min-width: 0; }
+.ui-slot-ticket { border-style: solid; border-color: transparent; border-width: ${skw}; border-image: ${slice("ticket/slot-idle")} ${sk} fill / 1 stretch; height: ${u(SLOT.h)}; background: none; color: var(--ui-text); font: 600 13px/1 ui-monospace, monospace; padding: 0 ${u(1)}; outline: none; min-width: 0; }
 .ui-slot-ticket::placeholder { color: var(--ui-muted); opacity: 1; }
 .ui-slot-ticket:focus-visible, .ui-slot-ticket.is-focus { ${src("ticket/slot-focus")} }
 .ui-slot-ticket[aria-invalid="true"] { ${src("ticket/expired")} color: var(--ui-panel); }

@@ -330,7 +330,7 @@ export function chatFloatCss(rects: Readonly<Record<string, { x: number; y: numb
  * speaker is past the tail's reach. .is-stacked (pushed up by a newer bubble) has no tail and starts with <b class="who">Name</b>.
  * The keyframes and the push transition below are the standalone component. The room turns them off and steps the same rise and fade by
  * script on one shared clock (meta.omega.bubbles.room, ADR 0040): no fade-in, an instant push, an early exit at half opacity for one tick. */
-.ui-float { border-style: solid; border-color: transparent; border-width: ${u(5)} ${u(5)} ${u(6)} ${u(5)}; border-image: ${slice("bubble/float")} 5 5 6 5 fill / ${u(5)} ${u(5)} ${u(6)} ${u(5)} stretch;
+.ui-float { border-style: solid; border-color: transparent; border-width: ${u(5)} ${u(5)} ${u(6)} ${u(5)}; border-image: ${slice("bubble/float")} 5 5 6 5 fill / 1 stretch;
   position: absolute; margin: 0; width: max-content; max-width: ${String(B.maxW)}px; padding: 0 ${u(1)};
   color: var(--ui-bubble-text); font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; pointer-events: none;
   transform: translateY(var(--push, 0px)); transition: transform ${String(B.pushMs)}ms steps(4, end);
@@ -387,7 +387,7 @@ ${slots}
 @media (prefers-reduced-motion: reduce) { .ui-wheel { animation: none; } }
 
 /* Keycap: <kbd class="ui-kbd">Enter</kbd> inline in hints. Page chrome (2×) only: at 1× a 12 px key can't hold a word. Fixed height 12 art px; the label sits on the key face, above the lip. */
-.ui-kbd { border-style: solid; border-color: transparent; border-width: ${u(3)} ${u(4)} ${u(4)} ${u(4)}; border-image: ${slice("kbd/0")} 3 4 4 4 fill / ${u(3)} ${u(4)} ${u(4)} ${u(4)} stretch;
+.ui-kbd { border-style: solid; border-color: transparent; border-width: ${u(3)} ${u(4)} ${u(4)} ${u(4)}; border-image: ${slice("kbd/0")} 3 4 4 4 fill / 1 stretch;
   display: inline-flex; align-items: center; height: ${u(12)}; padding: 0; vertical-align: middle; color: var(--ui-bubble-text); font: 700 11px/1 system-ui, sans-serif; }
 .ui-kbd.is-small { font-size: 9px; } /* a single digit or letter in a chip */
 
@@ -399,7 +399,7 @@ ${slots}
 }
 /* The chat column is set (k)'s strip standing beside the room instead of the picture: the wood spine faces the stage. Head (icon/chat,
  * the people count, the pop-out key), the log (role=log, aria-live=polite), the composer at the foot. */
-.ui-chatcol { border-style: solid; border-color: transparent; border-width: ${u(2)} ${u(2)} ${u(2)} ${u(5)}; border-image: ${slice("fs/strip")} 2 2 2 5 fill / ${u(2)} ${u(2)} ${u(2)} ${u(5)} stretch;
+.ui-chatcol { border-style: solid; border-color: transparent; border-width: ${u(2)} ${u(2)} ${u(2)} ${u(5)}; border-image: ${slice("fs/strip")} 2 2 2 5 fill / 1 stretch;
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; height: 100%; min-height: 0; padding: 10px 12px 12px 10px; color: var(--ui-text); }
 .ui-chatcol-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
 .ui-chatcol-head .n { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ui-muted); }

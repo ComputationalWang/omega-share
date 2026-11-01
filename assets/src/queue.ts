@@ -348,7 +348,7 @@ const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-
 export function queueCss(rects: Readonly<Record<string, { x: number; y: number; w: number; h: number }>>): string {
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: number): string =>
-    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / ${u(b)} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / 1 stretch;`;
   const src = (k: string): string => `border-image-source: ${slice(k)};`;
   const kebab = (k: string): string => k.replace(/\//g, "-");
   const rect = (k: string): { x: number; y: number; w: number; h: number } => {

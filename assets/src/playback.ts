@@ -380,7 +380,7 @@ export function playbackCss(rects: Readonly<Record<string, { x: number; y: numbe
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: number, side = b): string => {
     const w = b === side ? u(b) : `${u(b)} ${u(side)}`;
-    return `border-style: solid; border-color: transparent; border-width: ${w}; border-image: ${slice(k)} ${String(b)} ${String(side)} fill / ${w} stretch;`;
+    return `border-style: solid; border-color: transparent; border-width: ${w}; border-image: ${slice(k)} ${String(b)} ${String(side)} fill / 1 stretch;`;
   };
   const src = (k: string): string => `border-image-source: ${slice(k)};`;
   const off = OFF_ICONS.map((n) => {
@@ -433,7 +433,7 @@ ${off}
 .ui-chip.self { ${src("chip/self")} color: var(--ui-accent); }
 
 /* Chat system line ("Ana paused"): dark strip + glow bar + glyph. User chat stays in cream bubbles over avatars. */
-.ui-sysline { border-style: solid; border-color: transparent; border-width: ${u(4)} ${u(4)} ${u(4)} ${u(5)}; border-image: ${slice("chat/system")} 4 4 4 5 fill / ${u(4)} ${u(4)} ${u(4)} ${u(5)} stretch; display: flex; align-items: center; gap: ${u(2)}; margin: 0; padding: 0 ${u(1)}; width: fit-content; color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 1.2; }
+.ui-sysline { border-style: solid; border-color: transparent; border-width: ${u(4)} ${u(4)} ${u(4)} ${u(5)}; border-image: ${slice("chat/system")} 4 4 4 5 fill / 1 stretch; display: flex; align-items: center; gap: ${u(2)}; margin: 0; padding: 0 ${u(1)}; width: fit-content; color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 1.2; }
 .ui-sysline b { color: var(--ui-glow); font-weight: 700; }
 .ui-sysline time { color: var(--ui-text); font-variant-numeric: tabular-nums; font-weight: 700; }
 

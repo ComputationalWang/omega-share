@@ -644,7 +644,7 @@ const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-
 export function ownerCss(edit: Readonly<Record<string, { x: number; y: number; w: number; h: number }>>, sheet: { w: number; h: number }, thumbBox: { w: number; h: number }): string {
   const slice = (k: string): string => `url("slices/${k.replace(/\//g, "-")}.png")`;
   const nineRule = (k: string, b: number): string =>
-    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / ${u(b)} stretch;`;
+    `border-style: solid; border-color: transparent; border-width: ${u(b)}; border-image: ${slice(k)} ${String(b)} fill / 1 stretch;`;
   const src = (k: string): string => `border-image-source: ${slice(k)};`;
   const kebab = (k: string): string => k.replace(/\//g, "-");
   // Lazy edit kit (ui/edit.png): the tray's thumbnails and swatches as CSS sprites. Same .ui-sprite element, another sheet.
@@ -671,7 +671,7 @@ ${lazyRules}
 /* Furniture tray: a wooden drawer under the stage. Tabs sit on its top rim (the open tab's bottom row covers the rim's outline). */
 .ui-tray { ${nineRule("tray/0", 10)} display: flex; gap: ${u(3)}; padding: ${u(1)}; overflow-x: auto; scrollbar-width: thin; }
 .ui-tabs { display: flex; gap: ${u(1)}; padding-left: ${u(6)}; margin-bottom: ${u(-1)}; position: relative; }
-.ui-tab { border-style: solid; border-color: transparent; border-width: ${u(5)} ${u(5)} ${u(4)}; border-image: ${slice("tab/idle")} 5 5 4 fill / ${u(5)} ${u(5)} ${u(4)} stretch; display: inline-flex; align-items: center; gap: ${u(2)}; padding: 0 ${u(1)}; min-height: ${u(14)}; background: none; color: var(--ui-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ui-tab { border-style: solid; border-color: transparent; border-width: ${u(5)} ${u(5)} ${u(4)}; border-image: ${slice("tab/idle")} 5 5 4 fill / 1 stretch; display: inline-flex; align-items: center; gap: ${u(2)}; padding: 0 ${u(1)}; min-height: ${u(14)}; background: none; color: var(--ui-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .ui-tab:hover, .ui-tab.is-hover { ${src("tab/hover")} color: var(--ui-text); }
 .ui-tab[aria-selected="true"] { ${src("tab/on")} color: var(--ui-text); }
 .ui-tab:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
@@ -697,7 +697,7 @@ ${lazyRules}
 
 /* Invite link: a cinema ticket, fixed ${String(TICKET.h)} art px tall. The link text sits on the card in plum; the stub is decoration.
  * .is-copied stamps a teal check on the stub (pair it with "Copied" on the key, glyph/check); .is-expired tears the stub off and greys it. */
-.ui-ticket { border-style: solid; border-color: transparent; border-width: ${tkw}; border-image: ${slice("ticket/idle")} ${tk} fill / ${tkw} stretch; height: ${u(TICKET.h)}; display: flex; align-items: center; padding: 0 ${u(1)}; color: var(--ui-bubble-text); font: 600 13px/1 ui-monospace, monospace; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ui-ticket { border-style: solid; border-color: transparent; border-width: ${tkw}; border-image: ${slice("ticket/idle")} ${tk} fill / 1 stretch; height: ${u(TICKET.h)}; display: flex; align-items: center; padding: 0 ${u(1)}; color: var(--ui-bubble-text); font: 600 13px/1 ui-monospace, monospace; white-space: nowrap; overflow: hidden; min-width: 0; }
 .ui-ticket > span { overflow: hidden; text-overflow: ellipsis; }
 .ui-ticket.is-copied { ${src("ticket/copied")} }
 .ui-ticket.is-expired { ${src("ticket/expired")} color: var(--ui-panel); text-decoration: line-through; }
