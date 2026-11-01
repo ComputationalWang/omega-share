@@ -815,6 +815,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     composer: { form: chatForm, away: chatAway, popOut, picker },
     queue: queuePanel,
     notice,
+    live: [status, notice, tvBox.notice],
     roomAway,
     roomTop,
     people: people.panel,
