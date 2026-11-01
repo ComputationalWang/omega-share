@@ -2,18 +2,21 @@
 // screen" up to 2×; a pinch keeps the stage point under the fingers under the fingers; names and bubbles never shrink
 // below a readable size however far out you zoom.
 import { describe, expect, test } from "bun:test";
-import { MAX_ZOOM, ROOM_VIEW, STAGE_H, STAGE_W, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView } from "../src/layout";
+import { MAX_ZOOM, ROOM_VIEW, ROOM_WALLS, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView } from "../src/layout";
 
 const PHONE = { w: 390, h: 270 };
 
 describe("zoom range", () => {
-  test("the smallest zoom shows the whole stage in the window", () => {
-    // 390 / 960 is the tighter fit: the stage's full width is on screen, and its full height too.
-    expect(minZoom(PHONE)).toBeCloseTo(0.40625, 5);
-    expect(STAGE_W * minZoom(PHONE)).toBeLessThanOrEqual(PHONE.w);
-    expect(STAGE_H * minZoom(PHONE)).toBeLessThanOrEqual(PHONE.h);
+  // OME-2148: fitting the 960 px stage left a 412 px phone's room at 60 % of its width; the walls are 660 px of it.
+  test("the smallest zoom shows the room's walls whole in the window, not the empty stage around them", () => {
+    // 270 / 532 is the tighter fit here: the walls' full height is on screen, and their full width too.
+    expect(minZoom(PHONE)).toBeCloseTo(270 / 532, 5);
+    expect(ROOM_WALLS.w * minZoom(PHONE)).toBeLessThanOrEqual(PHONE.w + 1e-9);
+    expect(ROOM_WALLS.h * minZoom(PHONE)).toBeLessThanOrEqual(PHONE.h + 1e-9);
+    // QA's Pixel 7 window (OME-2146, 412×915: 360×280 beside the keys): the room takes at least 95 % of its width.
+    expect(ROOM_WALLS.w * minZoom({ w: 360, h: 280 })).toBeGreaterThanOrEqual(0.95 * 360);
     // A short, wide window fits the height.
-    expect(minZoom({ w: 600, h: 150 })).toBe(0.25);
+    expect(minZoom({ w: 600, h: 133 })).toBe(0.25);
   });
 
   test("never above 1× at the small end, so a window bigger than the stage doesn't force a zoom in", () => {
@@ -26,7 +29,7 @@ describe("zoom range", () => {
 
   test("clampZoom keeps a zoom in range", () => {
     expect(clampZoom(5, PHONE)).toBe(2);
-    expect(clampZoom(0.1, PHONE)).toBeCloseTo(0.40625, 5);
+    expect(clampZoom(0.1, PHONE)).toBeCloseTo(270 / 532, 5);
     expect(clampZoom(1.5, PHONE)).toBe(1.5);
     expect(clampZoom(Number.NaN, PHONE)).toBe(1);
   });
@@ -38,8 +41,16 @@ describe("panTo at a zoom", () => {
     expect(panTo(PHONE, { x: 480, y: 300 }, 2)).toEqual({ x: 383, y: 233 });
   });
 
-  test("zoomed out to fit, the window looks at the stage's top-left whatever the centre", () => {
-    expect(panTo(PHONE, { x: 900, y: 500 }, minZoom(PHONE))).toEqual({ x: 0, y: 0 });
+  test("zoomed out to fit, the window shows the room's walls whole, centred, whatever the centre", () => {
+    for (const c of [{ x: 900, y: 500 }, { x: 0, y: 0 }, { x: 480, y: 300 }]) {
+      const z = minZoom(PHONE);
+      const p = panTo(PHONE, c, z);
+      expect(p.x).toBeLessThanOrEqual(ROOM_WALLS.x);
+      expect(p.x + PHONE.w / z).toBeGreaterThanOrEqual(ROOM_WALLS.x + ROOM_WALLS.w - 1e-9);
+      expect(p.y).toBeLessThanOrEqual(ROOM_WALLS.y);
+      expect(p.y + PHONE.h / z).toBeGreaterThanOrEqual(ROOM_WALLS.y + ROOM_WALLS.h - 1e-9);
+      expect(Math.abs(p.x + PHONE.w / z / 2 - 480)).toBeLessThanOrEqual(1);
+    }
   });
 
   test("at 1× it's the window it always was", () => {
@@ -59,7 +70,7 @@ describe("pinchView: the stage point under the fingers stays under them", () => 
 
   test("the zoom stops at its range however far the fingers go", () => {
     expect(pinchView({ zoom: 1, at: { x: 0, y: 0 }, dist: 100 }, { dist: 1000, mid: { x: 0, y: 0 } }, PHONE).zoom).toBe(2);
-    expect(pinchView({ zoom: 1, at: { x: 0, y: 0 }, dist: 100 }, { dist: 1, mid: { x: 0, y: 0 } }, PHONE).zoom).toBeCloseTo(0.40625, 5);
+    expect(pinchView({ zoom: 1, at: { x: 0, y: 0 }, dist: 100 }, { dist: 1, mid: { x: 0, y: 0 } }, PHONE).zoom).toBeCloseTo(270 / 532, 5);
   });
 
   test("moving both fingers together pans with them", () => {

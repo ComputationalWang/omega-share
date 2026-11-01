@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandFit, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
 
@@ -436,6 +436,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   /** The standing spots: with the seats, where members are. */
   let standingPoints: readonly Point[] = [];
   let me: Point | null = null;
+  /** The desktop band's fit (OME-2148): its inputs and scale, null in every other layout. */
+  let band: { readonly scale: number; readonly h: number; readonly k: number } | null = null;
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -457,6 +459,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     controls.classList.toggle("compact", l.compact.controls);
   };
   const fit = (): void => {
+    band = null;
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap; only its desktop band bleeds (OME-1843).
     wrap.style.minHeight = "";
@@ -539,13 +542,20 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
         } else {
-          box(clip, l.stage);
+          // With a video the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
+          // if it must. Without one the room isn't a band and keeps its whole scale (OME-1811).
+          const video = tvBox.provider() !== null;
+          const k = video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
+          const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
+          const r = { x: Math.floor((w - sw) / 2), y: l.stage.y, w: sw, h: l.stage.h };
+          box(clip, r);
           // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
-          clip.classList.toggle("is-bleed", l.stage.w < w);
-          clip.style.setProperty("--bleed", `${String(Math.ceil((w - l.stage.w) / 2))}px`);
+          clip.classList.toggle("is-bleed", r.w < w);
+          clip.style.setProperty("--bleed", `${String(Math.ceil((w - r.w) / 2))}px`);
           roomWindow.set(false, 0, 0);
-          roomWindow.desk(l.scale, l.stage);
-          stage.style.setProperty("--stage-scale", String(l.scale));
+          roomWindow.desk(k, r);
+          stage.style.setProperty("--stage-scale", String(k));
+          band = video ? { scale: l.scale, h: l.stage.h, k } : null;
         }
       }
       wrap.style.height = "";
@@ -600,7 +610,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     me: (p) => {
       if (p?.x === me?.x && p?.y === me?.y) return;
       me = p;
-      roomWindow.rehome();
+      // The band's fit holds my name tag too (OME-2148): a spot that changes it refits, any other just looks again.
+      if (band !== null && bandFit(band.scale, band.h, [...seatPoints, ...standingPoints], me) !== band.k) fit();
+      else roomWindow.rehome();
     },
     missed: () => {
       if (displayedStripMode !== "band" || fs.mode() === "off") return;
