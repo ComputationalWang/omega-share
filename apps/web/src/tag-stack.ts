@@ -41,10 +41,10 @@ const NUDGES = [0, -16, 16];
 /**
  * Where each tag of height `h` goes so no two overlap and none covers another avatar's head (OME-2149). A tag first
  * tries the spots by its owner: where it hangs, one tag lower, above the owner's head, each nudged sideways. Only where
- * all are taken does it drop under what it hits, or, where that would take it past `maxY` (the room's bottom), rise
- * over it; a tag that ends up outside its owner's cell is `led` (it wears a leader pip).
+ * all are taken (or outside `minY`–`maxY`, the shown room) does it drop under what it hits, or, where that would take it
+ * past `maxY`, rise over it; a tag that ends up outside its owner's cell is `led` (it wears a leader pip).
  */
-export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, _minY = -Infinity): TagPlace[] {
+export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, minY = -Infinity): TagPlace[] {
   const out: TagPlace[] = tags.map(() => ({ dx: 0, dy: 0, led: false }));
   // Back row first, then left to right: the same tags stack the same way in any order.
   const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
@@ -67,7 +67,7 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, _
     const rows = [t.y, t.y + h + GAP, ...(t.top === undefined ? [] : [t.top - GAP - h])];
     let at: { dx: number; y: number } | undefined;
     for (const dx of NUDGES) {
-      at = rows.map((y) => ({ dx, y })).find(({ y }) => y + h <= maxY && near(t, dx, y) && blocker(i, t.x + dx - t.w / 2, t.x + dx + t.w / 2, y) === undefined);
+      at = rows.map((y) => ({ dx, y })).find(({ y }) => y >= minY && y + h <= maxY && near(t, dx, y) && blocker(i, t.x + dx - t.w / 2, t.x + dx + t.w / 2, y) === undefined);
       if (at !== undefined) break;
     }
     if (at === undefined) {

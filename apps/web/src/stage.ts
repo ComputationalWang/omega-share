@@ -103,7 +103,7 @@ export interface Stage {
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
   /** Bubbles keep inside stage x `x0`–`x1` and stacked tags above `y1`: the phone's room window as it settled (OME-1945, OME-2118), or the whole stage. */
-  bubbleSides(x0: number, x1: number, y1: number): void;
+  bubbleSides(x0: number, x1: number, y1: number, y0: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
@@ -167,6 +167,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let labelK = 1;
   /** The phone window's bottom (stage px; Infinity off the phone): a stacked tag never drops past it or the room's. */
   let shownBottom = Infinity;
+  /** …and its top (-Infinity off the phone): a tag never rises past it (OME-2149). */
+  let shownTop = -Infinity;
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
@@ -201,7 +203,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - liftOf(id) });
     }
-    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom));
+    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop);
     ids.forEach((id, i) => {
       const p = at[i];
       const m = moved[i];
@@ -759,10 +761,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         restack();
       }
     },
-    bubbleSides: (x0, x1, y1) => {
+    bubbleSides: (x0, x1, y1, y0) => {
       floats.sides(x0, x1);
-      if (y1 !== shownBottom) {
+      if (y1 !== shownBottom || y0 !== shownTop) {
         shownBottom = y1;
+        shownTop = y0;
         restack();
       }
     },

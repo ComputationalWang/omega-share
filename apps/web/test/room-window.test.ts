@@ -389,7 +389,7 @@ describe("on a computer", () => {
     const { win, clip, sides } = await setup();
     win.set(false, 0, 0);
     win.desk(1, { w: 900, h: 300 });
-    expect(sides.at(-1)).toEqual([30, 930, 450]);
+    expect(sides.at(-1)).toEqual([30, 930, 450, 150]);
     const told = sides.length;
     win.set(false, 0, 0);
     win.desk(1, { w: 900, h: 300 });
@@ -402,7 +402,7 @@ describe("on a computer", () => {
     await frame();
     expect(sides.length).toBe(told);
     mouse("pointerup", 400, 160);
-    expect(sides.at(-1)).toEqual([30, 930, 490]);
+    expect(sides.at(-1)).toEqual([30, 930, 490, 190]);
   });
 
   // OME-2148 CI: every refit (set, then desk) told the bubbles 1, then the fit's scale: a restack each time, which hung chat.
