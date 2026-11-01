@@ -10,7 +10,7 @@
 use crate::contract::capabilities::playback_caps;
 use crate::contract::confusables::nickname_key;
 use crate::contract::constants::{
-    CONGA_CAP, CONGA_WINDOW_MS, FLOOR_CELLS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT,
+    AVATAR_COUNT, CONGA_CAP, CONGA_WINDOW_MS, FLOOR_CELLS, MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, PAIR_INVITE_TTL_MS, REACTIONS_MAX, SEAT_COUNT,
 };
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
@@ -832,8 +832,17 @@ impl Room {
 
     /// For a join with `avatarAuto` (OME-2133): the avatar the fewest members wear, `draw` picking among the tied ones.
     pub fn least_used_avatar(&self, draw: u32) -> Option<Avatar> {
-        let _ = draw;
-        None
+        let mut worn = [0usize; AVATAR_COUNT];
+        for m in self.members() {
+            if let Some(n) = worn.get_mut(usize::from(m.avatar.get())) {
+                *n += 1;
+            }
+        }
+        let fewest = worn.iter().min().copied().unwrap_or(0);
+        let tied: Vec<usize> = (0..AVATAR_COUNT).filter(|&a| worn.get(a) == Some(&fewest)).collect();
+        // At most AVATAR_COUNT ties: the modulo bias on a 32-bit draw is negligible.
+        let pick = tied.get(usize::try_from(draw).ok()? % tied.len().max(1))?;
+        Avatar::new(u64::try_from(*pick).ok()?)
     }
 
     /// Seats a checked join in the lowest free standing slot. A reused `id` is refused as a taken name (a bug elsewhere).
@@ -1651,7 +1660,10 @@ mod tests {
     #[test]
     fn least_used_avatar_is_unworn_first_then_among_the_fewest() {
         let mut r = room();
-        assert_eq!((0..4).map(|d| r.least_used_avatar(d).unwrap().get()).collect::<Vec<_>>(), [0, 1, 2, 3]);
+        assert_eq!(
+            (0..4).map(|d| r.least_used_avatar(d).unwrap().get()).collect::<Vec<_>>(),
+            [0, 1, 2, 3]
+        );
         let mut worn = Vec::new();
         for (i, d) in [7u32, 0, 5, 2].into_iter().enumerate() {
             let a = r.least_used_avatar(d).unwrap();
@@ -1661,7 +1673,10 @@ mod tests {
         }
         // All four worn once: any is least-used. One more on 2 leaves 0, 1, 3 as the fewest.
         r.join_with_id(mid("m4"), &nick("n4"), avatar(2), None).unwrap();
-        assert_eq!((0..6).map(|d| r.least_used_avatar(d).unwrap().get()).collect::<Vec<_>>(), [0, 1, 3, 0, 1, 3]);
+        assert_eq!(
+            (0..6).map(|d| r.least_used_avatar(d).unwrap().get()).collect::<Vec<_>>(),
+            [0, 1, 3, 0, 1, 3]
+        );
         r.leave(&mid("m4"), T0);
         r.leave(&mid("m0"), T0);
         let gone = r.members().map(|m| m.avatar.get()).collect::<Vec<_>>();

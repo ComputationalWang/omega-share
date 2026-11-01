@@ -157,6 +157,11 @@ fn uniform(sides: u32, mut draw: impl FnMut() -> Result<u32, EntropyError>) -> R
     }
 }
 
+/// A tie-break draw (OME-2133, the least-used avatar) from the OS CSPRNG.
+pub fn draw_u32() -> Result<u32, EntropyError> {
+    random::<4>().map(u32::from_le_bytes)
+}
+
 /// `/roll` (OME-1423): a die face from the OS CSPRNG.
 pub fn roll(sides: DiceSides) -> Result<DieValue, EntropyError> {
     let face = uniform(u32::from(sides.get()), || random::<4>().map(u32::from_le_bytes))?;

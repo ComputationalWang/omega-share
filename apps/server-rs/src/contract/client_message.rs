@@ -328,6 +328,8 @@ struct JoinW {
     via: Option<RoomId>,
     #[serde(default, deserialize_with = "present")]
     batch: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    avatar_auto: Option<True>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -662,7 +664,7 @@ fn convert(wire: Wire) -> ClientMessage {
             hair: m.hair,
             via: m.via,
             batch: m.batch,
-            avatar_auto: false,
+            avatar_auto: m.avatar_auto.is_some(),
         },
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },

@@ -20,7 +20,7 @@ use crate::outbox::{ConnId, publish_msg};
 use crate::rate_limit::KeyedLimiter;
 use crate::registry::{RoomCell, RoomInner, ShareGrant};
 use crate::room::{FloorSitResult, JoinFailure};
-use crate::secrets::{hash_secret, mint_resume_token, mint_share_token};
+use crate::secrets::{draw_u32, hash_secret, mint_resume_token, mint_share_token};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::task::AbortHandle;
@@ -399,7 +399,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         hair,
         via,
         batch,
-        avatar_auto: _,
+        avatar_auto,
     } = msg
     else {
         return;
@@ -444,7 +444,12 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         close_self(app, inner, conn, 1011, "server error");
         return;
     };
-    let member = match inner.room.join(nickname, *avatar, client.as_deref()) {
+    // OME-2133: a fresh guest gets the avatar the fewest members wear; the sent one if entropy fails.
+    let avatar = avatar_auto
+        .then(|| draw_u32().ok().and_then(|d| inner.room.least_used_avatar(d)))
+        .flatten()
+        .unwrap_or(*avatar);
+    let member = match inner.room.join(nickname, avatar, client.as_deref()) {
         Err(_) => {
             close_self(app, inner, conn, 1011, "server error");
             return;
