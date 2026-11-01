@@ -440,6 +440,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onProvider: () => {
       layout.fit();
     },
+    // Upright on a phone the field is in the Up next sheet: the composer's Link key opens it with the field focused.
+    onCurtain: () => {
+      if (layout.portraitOn()) layout.dock.link.click();
+      else queuePanel.root.querySelector("input")?.focus();
+    },
   });
   const { tv, controls } = tvBox;
   // Moments (OME-1628): the current item's reactions, as the strip under the shelf and the late joiner's replay.
