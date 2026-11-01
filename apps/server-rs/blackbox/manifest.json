@@ -25,6 +25,8 @@
     "apps/server/test/abuse.test.ts::abuse limits::share is rate limited per address with 429 rate_limited",
     "apps/server/test/abuse.test.ts::abuse limits::the latency probe refuses a run with no samples",
     "apps/server/test/abuse.test.ts::abuse limits::too many sockets from one address are refused with 429",
+    "apps/server/test/avatar-auto.test.ts::avatarAuto (OME-2133)::sequential fresh joiners get distinct avatars, then a least-used one",
+    "apps/server/test/avatar-auto.test.ts::avatarAuto (OME-2133)::without the flag the sent avatar stands, even if it is worn",
     "apps/server/test/boundary.test.ts::HSTS (threat model §10, research M4 D1)::an https public origin gets HSTS on every response to the public host, refusals included",
     "apps/server/test/boundary.test.ts::HSTS (threat model §10, research M4 D1)::the same server never sends HSTS to its loopback names (plain http, localhost dev)",
     "apps/server/test/boundary.test.ts::Host allowlist (T-06, DNS rebinding)::a WebSocket upgrade with an unknown Host is refused with 421",

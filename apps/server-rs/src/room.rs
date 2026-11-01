@@ -830,6 +830,12 @@ impl Room {
         self.admit(id, nickname, avatar, name_key, client)
     }
 
+    /// For a join with `avatarAuto` (OME-2133): the avatar the fewest members wear, `draw` picking among the tied ones.
+    pub fn least_used_avatar(&self, draw: u32) -> Option<Avatar> {
+        let _ = draw;
+        None
+    }
+
     /// Seats a checked join in the lowest free standing slot. A reused `id` is refused as a taken name (a bug elsewhere).
     fn admit(
         &mut self,
@@ -1639,6 +1645,28 @@ mod tests {
         let e = join(&mut r, "m5", "erin", None);
         assert_eq!(r.member(&e).unwrap().standing_slot.map(|s| s.get()), Some(3));
         assert_eq!(r.member_count(), 4);
+    }
+
+    // OME-2133: fresh joins get distinct avatars while one is free, then a least-used one; `draw` breaks ties.
+    #[test]
+    fn least_used_avatar_is_unworn_first_then_among_the_fewest() {
+        let mut r = room();
+        assert_eq!((0..4).map(|d| r.least_used_avatar(d).unwrap().get()).collect::<Vec<_>>(), [0, 1, 2, 3]);
+        let mut worn = Vec::new();
+        for (i, d) in [7u32, 0, 5, 2].into_iter().enumerate() {
+            let a = r.least_used_avatar(d).unwrap();
+            assert!(!worn.contains(&a.get()), "avatar {} handed out twice", a.get());
+            worn.push(a.get());
+            r.join_with_id(mid(&format!("m{i}")), &nick(&format!("n{i}")), a, None).unwrap();
+        }
+        // All four worn once: any is least-used. One more on 2 leaves 0, 1, 3 as the fewest.
+        r.join_with_id(mid("m4"), &nick("n4"), avatar(2), None).unwrap();
+        assert_eq!((0..6).map(|d| r.least_used_avatar(d).unwrap().get()).collect::<Vec<_>>(), [0, 1, 3, 0, 1, 3]);
+        r.leave(&mid("m4"), T0);
+        r.leave(&mid("m0"), T0);
+        let gone = r.members().map(|m| m.avatar.get()).collect::<Vec<_>>();
+        let free = (0..4).find(|a| !gone.contains(a)).unwrap();
+        assert_eq!(r.least_used_avatar(u32::MAX).unwrap().get(), free);
     }
 
     #[test]

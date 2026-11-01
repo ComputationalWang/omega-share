@@ -399,6 +399,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         hair,
         via,
         batch,
+        avatar_auto: _,
     } = msg
     else {
         return;

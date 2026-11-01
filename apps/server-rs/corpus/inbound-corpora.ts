@@ -61,6 +61,7 @@ const valid: Raw[] = [
   js({ ...JOIN, batch: true }), js({ ...JOIN, batch: false }), js({ ...JOIN, batch: true, hair: 1 }),
   js({ ...JOIN, via: "lobby" }), js({ ...JOIN, via: "a".repeat(32) }), js({ ...JOIN, via: "film-club", hair: 2 }),
   js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
+  js({ ...JOIN, avatarAuto: true }), js({ ...JOIN, avatarAuto: true, durableSession: true, hair: 2 }),
   // pair, layout pairs (OME-1671)
   js({ type: "pair", pose: "thrust" }), js({ type: "pair", pose: "bendover" }),
   // lie (OME-1773)
@@ -199,6 +200,8 @@ const invalid: Raw[] = [
   ...[6, -1, 0.5, "1", null, true].map((hair) => js({ type: "set-hair", hair })), js({ ...JOIN, hair: 6 }), js({ ...JOIN, hair: null }),
   // join batch opt-in (OME-1624)
   ...["true", 1, 0, null, []].map((batch) => js({ ...JOIN, batch })),
+  // join avatarAuto (OME-2133)
+  ...[false, "true", 1, null, []].map((avatarAuto) => js({ ...JOIN, avatarAuto })),
   // join via (OME-1556)
   ...["Lobby", "", "a".repeat(33), "lobby/x", "https://evil.example/", null, 3, ["lobby"]].map((via) => js({ ...JOIN, via })),
   // floor-sit, layout mood (OME-1499)
