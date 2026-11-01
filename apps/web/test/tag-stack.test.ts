@@ -117,6 +117,20 @@ describe("stackTags: tags keep off heads and by their owner", () => {
     expect(nearOwner(visitor, v ?? { dx: 99, dy: 99 }, H)).toBe(true);
   });
 
+  // OME-2149 CI (landscape-phone 863×360): the phone window is 90 px tall, so the spot above a neighbour-blocked
+  // owner's head lay past its top and the tag left the window. A spot outside the window is no spot.
+  test("a tag never takes a spot by its owner that lies past the window's top", () => {
+    const tags = [member({ x: 448, y: 454 }, 93, false), member({ x: 512, y: 454 }, 93, false)];
+    const [minY, maxY] = [380, 454 + TAG_OFFSET_Y + H + 5];
+    const placed = stackTags(tags, H, maxY, minY);
+    expect(overlaps(tags, placed, H)).toEqual([]);
+    tags.forEach((t, i) => {
+      const y = t.y + (placed[i]?.dy ?? 0);
+      expect(y).toBeGreaterThanOrEqual(minY);
+      expect(y + H).toBeLessThanOrEqual(maxY);
+    });
+  });
+
   // Every seat sat on and every standing spot stood on, in every preset, from either side; three-letter names and the
   // widest tags, at 1× and at the phone's largest tag scale.
   const presets = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "living", "lounge", "penthouse", "studio"];

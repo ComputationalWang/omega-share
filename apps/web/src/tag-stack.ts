@@ -44,7 +44,7 @@ const NUDGES = [0, -16, 16];
  * all are taken does it drop under what it hits, or, where that would take it past `maxY` (the room's bottom), rise
  * over it; a tag that ends up outside its owner's cell is `led` (it wears a leader pip).
  */
-export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity): TagPlace[] {
+export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, _minY = -Infinity): TagPlace[] {
   const out: TagPlace[] = tags.map(() => ({ dx: 0, dy: 0, led: false }));
   // Back row first, then left to right: the same tags stack the same way in any order.
   const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
