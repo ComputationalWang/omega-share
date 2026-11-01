@@ -72,7 +72,7 @@ import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
 import { ACCESSORIES, BARE } from "./accessories";
-import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, SLEEP_FLOOR, floorOf, lieGrid, type LieStyle } from "./lying";
+import { BREATH_FRAMES, BREATH_MS, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_FLOOR, LIE_STYLES, SEAT_LIE, SLEEP_FLOOR, floorOf, lieGrid, type LieStyle } from "./lying";
 import { BEND_FLOOR, DUNGEON_CELL, DUNGEON_DIRS, THRUST_FLOOR, THRUST_FRAMES, THRUST_MS, THRUST_OFFSET, THRUST_SEQUENCE, bendGrid, thrustGrid } from "./dungeon";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
@@ -2313,6 +2313,8 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
         anims,
         // The queen bed's two sleepers (OME-1983): `dirs` is sleeper 0, `beside` sleeper 1 (apps/web, OME-2009).
         pieces: LIE_ANCHORS,
+        // OME-2120: a sitter on these pieces is drawn lying, not sitting: `sleep/<avatar>/<dir>/<n>` at the piece anchor + `dirs[dir]`.
+        seatLie: SEAT_LIE,
       },
     },
   };
@@ -2358,6 +2360,23 @@ function buildLying(pieces: readonly PieceMeta[], all0: FurnSprites): void {
   });
   writeFileSync(join(ROOT, "preview", "lying-pieces@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
 
+  // OME-2120: the spa lounger's sitter lies back on it, in each facing: empty, then each avatar in turn.
+  {
+    const lm = meta("lounger"), dirs = ["ne", "nw", "se", "sw"] as const;
+    const LW = 120, LH = 70, W = LW * dirs.length + 20, H = LH * 2 + 20;
+    const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+    dirs.forEach((d, ci) => {
+      for (let ri = 0; ri < 2; ri++) {
+        const ax = 10 + ci * LW + 60, ay = 10 + ri * LH + 30;
+        const fp = lm.footprintByDir[d] ?? { cols: 1, rows: 1 };
+        for (let c = 0; c < fp.cols; c++) for (let r = 0; r < fp.rows; r++) drawSprite(img, W, H, all, `floor/${String((c + r) % 2)}`, ax + (c - r) * 32, ay + (c + r) * 16);
+        drawSprite(img, W, H, all, `furniture/lounger/teak/${d}/back`, ax, ay);
+        const off = SEAT_LIE["lounger"]?.dirs[d], who = AVATARS[ci % AVATARS.length]?.id;
+        if (ri === 1 && off && who) drawSprite(img, W, H, all, `sleep/${who}/${d}/0`, ax + off.x, ay + off.y);
+      }
+    });
+    writeFileSync(join(ROOT, "preview", "lounger-lie@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+  }
   // OME-1983: the queen bed in each facing: empty, two sleepers side by side (each under their duvet), two sitters.
   const bedM = meta("bed"), bedA = LIE_ANCHORS["bed"];
   const pairs: [string, string][] = [["juno", "pip"], ["mo", "kiki"], ["kiki", "juno"], ["pip", "mo"]];

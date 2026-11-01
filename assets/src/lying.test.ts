@@ -5,7 +5,7 @@ import { readFileSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { join } from "node:path";
 import { AVATARS, composeMotion } from "./avatars";
-import { BREATH_FRAMES, LIE_ANCHORS, LIE_CELL, LIE_DIRS, LIE_STYLES, lieGrid } from "./lying";
+import { BREATH_FRAMES, LIE_ANCHORS, SEAT_LIE, LIE_CELL, LIE_DIRS, LIE_STYLES, lieGrid } from "./lying";
 import type { Grid } from "./sprite";
 
 const ROOT = join(import.meta.dir, "..");
@@ -39,6 +39,14 @@ test("both sofas and the cat bed have a lie anchor in every facing they ship", (
     const piece = [...v1.meta.omega.pieces, ...v2.meta.omega.pieces].find((p) => p.id === id);
     for (const d of piece?.dirs ?? ["missing"]) expect(LIE_ANCHORS[id]?.dirs[d as "se"]).toBeDefined();
   }
+});
+
+test("the lounger's sitter lies in every facing it ships, and the sheet carries the table (OME-2120)", () => {
+  const v7 = JSON.parse(readFileSync(join(ROOT, "furniture", "furniture-v7.json"), "utf8")) as { meta: { omega: { pieces: { id: string; dirs: string[] }[] } } };
+  const dirs = v7.meta.omega.pieces.find((p) => p.id === "lounger")?.dirs ?? ["missing"];
+  for (const d of dirs) expect(SEAT_LIE["lounger"]?.dirs[d as "se"]).toBeDefined();
+  const atlas = JSON.parse(readFileSync(join(ROOT, "avatars", "lying.json"), "utf8")) as { meta: { omega: { seatLie: unknown } } };
+  expect(atlas.meta.omega.seatLie).toEqual(SEAT_LIE);
 });
 
 test("the shipped sheet lists every key and stays inside 12 KB on the wire", () => {

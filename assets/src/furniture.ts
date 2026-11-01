@@ -134,7 +134,8 @@ function couch(k: Kit, c: RampName): void {
   k.box(22, 24, -7, 5, 6, 11, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null), front: true });
 }
 
-/** Leather wingback reading chair: tall back, side wings, brass studs along the arm fronts, tapered legs. */
+/** Leather wingback reading chair: a back as high as the club sofa's (OME-2120: it was 27, and a sitter seen from behind showed
+ *  only hair), side wings, brass studs along the arm fronts, tapered legs. */
 function wingback(k: Kit, c: RampName): void {
   for (const [x, y] of [[-5, -5], [4, -5], [-5, 4], [4, 4]] as const) k.box(x, x + 1, y, y + 1, 0, 3, "wood");
   k.box(-6, 6, -6, 6, 3, 6, c, { paint: (p, f) => (f === "top" ? [c, 0] : p.z < 3.8 ? [c, 2] : null) });
@@ -150,14 +151,14 @@ function wingback(k: Kit, c: RampName): void {
   // Channel stitching down the back, on the side we see.
   const channels: LPaint = (p, f) => {
     if (f === "top") return [c, 0];
-    if ((f === "front" || f === "back") && p.z > 9 && p.z < 25 && Math.abs(((p.x + 8) % 3) - 1.5) < 0.4) return [c, 2];
+    if ((f === "front" || f === "back") && p.z > 9 && p.z < 17 && Math.abs(((p.x + 8) % 3) - 1.5) < 0.4) return [c, 2];
     return null;
   };
-  k.box(-6, 6, 4, 6, 6, 25, c, { paint: channels, front: ne });
-  k.box(-5, 5, 4, 6, 25, 27, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null), front: ne });
+  k.box(-6, 6, 4, 6, 6, 17, c, { paint: channels, front: ne });
+  k.box(-5, 5, 4, 6, 17, 19, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null), front: ne });
   const wing: LPaint = (_p, f) => (f === "top" ? [c, 0] : null);
   // Wings step down toward the front in three 1 px stairs, so they read as a curve at 1×.
-  for (const [y0, z1] of [[3, 24], [0.5, 21], [-1.5, 17]] as const) {
+  for (const [y0, z1] of [[3, 17], [0.5, 15.5], [-1.5, 14]] as const) {
     k.box(-6, -4.5, y0, 6, 12, z1, c, { paint: wing, front: ne });
     k.box(4.5, 6, y0, 6, 12, z1, c, { paint: wing, front: true });
   }
@@ -1807,6 +1808,8 @@ export function buildBackViews(): RoomFrame[] {
 /** Riser height per theatre-row variant, px (= z units): what the web lifts a sitter by (`meta.omega.pieces[].seatLiftByColour`). */
 export const THEATRE_LIFT = { floor: 0, step: 10, high: 20 } as const;
 type RowLevel = keyof typeof THEATRE_LIFT;
+/** Backrest top above the riser, px: under a sitter's shoulders (OME-2120; it was 21, up to the neck). */
+const THEATRE_BACK = 17;
 const levelOf = (c: string): RowLevel => (c === "step" || c === "high" ? c : "floor");
 
 /** Theatre carpet in world units: a navy field on a 16-unit lattice, gold diamonds at the crossings, wine dots between.
@@ -1844,16 +1847,17 @@ function theatreRow(k: Kit, colour: string): void {
   for (const c of [0, 16]) {
     // Seat pan: piped front edge.
     k.box(c - 6.2, c + 6.2, -5, 3, L + 4.5, L + SEAT_HEIGHT, "velvet", { paint: (p, f) => (f === "top" ? ["velvet", 0] : p.z < L + 5.4 ? ["velvet", 2] : null) });
-    // Backrest: rounded crown, two channel seams and a brass seat plate on the back the audience behind sees.
-    k.box(c - 6.2, c + 6.2, 3, 6.5, L + 4.5, L + 21, "velvet", {
+    // Backrest: rounded crown, two channel seams and a brass seat plate on the back the audience behind sees. Low (OME-2120):
+    // the rows face away from the camera, so a sitter's head, shoulders and tag show over it, as over the sofa's back.
+    k.box(c - 6.2, c + 6.2, 3, 6.5, L + 4.5, L + THEATRE_BACK, "velvet", {
       front: true,
       paint: (p, f) => {
         if (f === "top") return ["velvet", 0];
-        if (p.z >= L + 20) return ["velvet", 0];
+        if (p.z >= L + THEATRE_BACK - 1) return ["velvet", 0];
         if (f !== "back") return null;
         const dx = p.x - c;
-        if (Math.abs(dx) < 1.6 && p.z >= L + 16.5 && p.z < L + 18.5) return ["mustard", p.z >= L + 17.5 ? 0 : 1];
-        if (Math.abs(Math.abs(dx) - 2.6) < 0.4 && p.z < L + 15.5 && p.z > L + 6) return ["velvet", 2];
+        if (Math.abs(dx) < 1.6 && p.z >= L + 12.5 && p.z < L + 14.5) return ["mustard", p.z >= L + 13.5 ? 0 : 1];
+        if (Math.abs(Math.abs(dx) - 2.6) < 0.4 && p.z < L + 11.5 && p.z > L + 6) return ["velvet", 2];
         return p.z < L + 6 ? ["velvet", 2] : null;
       },
     });

@@ -352,63 +352,63 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 
 /* Lazy sheet: edit.png (+ edit.json for Pixi) holds the owner's edit kit. Load it when "Edit room" is pressed, never for guests. */
 .ui-handle-remove-hover, .ui-handle-remove-idle, .ui-handle-rotate-hover, .ui-handle-rotate-idle, .ui-swatch-blush, .ui-swatch-brass, .ui-swatch-charcoal, .ui-swatch-cream, .ui-swatch-dusk, .ui-swatch-flat, .ui-swatch-floor, .ui-swatch-fridge, .ui-swatch-frost, .ui-swatch-ginger, .ui-swatch-glass, .ui-swatch-high, .ui-swatch-lilac, .ui-swatch-meadow, .ui-swatch-mustard, .ui-swatch-navy, .ui-swatch-olive, .ui-swatch-oval, .ui-swatch-painted, .ui-swatch-panel, .ui-swatch-panelglass, .ui-swatch-party, .ui-swatch-peach, .ui-swatch-pink, .ui-swatch-ring, .ui-swatch-rust, .ui-swatch-silver, .ui-swatch-solid, .ui-swatch-step, .ui-swatch-sunset, .ui-swatch-teal, .ui-swatch-tide, .ui-swatch-velvet, .ui-swatch-warm, .ui-swatch-wood, .ui-thumb-aislelight-warm, .ui-thumb-aquarium-teal, .ui-thumb-arcade-night, .ui-thumb-arclamp-brass, .ui-thumb-armchair-velvet, .ui-thumb-barcounter-wood, .ui-thumb-beanbag-blush, .ui-thumb-beanbag-navy, .ui-thumb-bed-velvet, .ui-thumb-bench-pink, .ui-thumb-bench-teal, .ui-thumb-bigscreen-charcoal, .ui-thumb-bookshelf-wood, .ui-thumb-carpet-navy, .ui-thumb-carpet-oval, .ui-thumb-cat-charcoal, .ui-thumb-cat-ginger, .ui-thumb-coffeetable-wood, .ui-thumb-couch-cream, .ui-thumb-couch-olive, .ui-thumb-curtain-velvet, .ui-thumb-desk-wood, .ui-thumb-door-painted, .ui-thumb-door-wood, .ui-thumb-fireplace-stone, .ui-thumb-floorcushion-mustard, .ui-thumb-floorcushion-teal, .ui-thumb-frame-dusk, .ui-thumb-frame-tide, .ui-thumb-garland-party, .ui-thumb-garland-warm, .ui-thumb-hammock-rust, .ui-thumb-lamp-cream, .ui-thumb-lounger-teak, .ui-thumb-minibar-fridge, .ui-thumb-minibar-wood, .ui-thumb-mirror-brass, .ui-thumb-mirror-silver, .ui-thumb-monstera-rust, .ui-thumb-monstera-teal, .ui-thumb-neonsign-pink, .ui-thumb-neonsign-teal, .ui-thumb-pad-lilac, .ui-thumb-pad-teal, .ui-thumb-partition-glass, .ui-thumb-partition-panel, .ui-thumb-partition-panelglass, .ui-thumb-partition-solid, .ui-thumb-piano-charcoal, .ui-thumb-piano-wood, .ui-thumb-plant-rust, .ui-thumb-popcorn-rust, .ui-thumb-pouf-lilac, .ui-thumb-pouf-rust, .ui-thumb-rug-lilac, .ui-thumb-rug-navy, .ui-thumb-rug-teal, .ui-thumb-sauna-cedar, .ui-thumb-sidetable-wood, .ui-thumb-soaktub-cedar, .ui-thumb-sofa-navy, .ui-thumb-sofa-velvet, .ui-thumb-speaker-teal, .ui-thumb-speaker-wood, .ui-thumb-stool-teal, .ui-thumb-stool-wood, .ui-thumb-theatrerow-floor, .ui-thumb-theatrerow-high, .ui-thumb-theatrerow-step, .ui-thumb-turntable-wood, .ui-thumb-tv-charcoal, .ui-thumb-tv-flat, .ui-thumb-wallclock-brass, .ui-thumb-wallshelf-wood, .ui-thumb-washbasin-cream, .ui-thumb-whirlpool-teal, .ui-thumb-wingback-ginger { background-image: url("edit.png"); background-size: calc(256 * var(--ui-px)) calc(1024 * var(--ui-px)); }
-.ui-handle-remove-hover { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-139 * var(--ui-px)) calc(-780 * var(--ui-px)); }
-.ui-handle-remove-idle { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-86 * var(--ui-px)) calc(-781 * var(--ui-px)); }
-.ui-handle-rotate-hover { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-107 * var(--ui-px)) calc(-781 * var(--ui-px)); }
-.ui-handle-rotate-idle { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-160 * var(--ui-px)) calc(-781 * var(--ui-px)); }
-.ui-swatch-blush { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-242 * var(--ui-px)) calc(-817 * var(--ui-px)); }
-.ui-swatch-brass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: 0 calc(-822 * var(--ui-px)); }
-.ui-swatch-charcoal { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-241 * var(--ui-px)) calc(-828 * var(--ui-px)); }
-.ui-swatch-cream { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: 0 calc(-833 * var(--ui-px)); }
-.ui-swatch-dusk { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-835 * var(--ui-px)); }
-.ui-swatch-flat { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-835 * var(--ui-px)); }
-.ui-swatch-floor { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-228 * var(--ui-px)) calc(-835 * var(--ui-px)); }
-.ui-swatch-fridge { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-60 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-frost { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-71 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-ginger { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-82 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-glass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-93 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-high { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-104 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-lilac { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-115 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-meadow { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-126 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-mustard { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-137 * var(--ui-px)) calc(-836 * var(--ui-px)); }
-.ui-swatch-navy { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-11 * var(--ui-px)) calc(-837 * var(--ui-px)); }
-.ui-swatch-olive { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-22 * var(--ui-px)) calc(-837 * var(--ui-px)); }
-.ui-swatch-oval { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-33 * var(--ui-px)) calc(-837 * var(--ui-px)); }
-.ui-swatch-painted { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-44 * var(--ui-px)) calc(-837 * var(--ui-px)); }
-.ui-swatch-panel { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-164 * var(--ui-px)) calc(-837 * var(--ui-px)); }
-.ui-swatch-panelglass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-175 * var(--ui-px)) calc(-837 * var(--ui-px)); }
-.ui-swatch-party { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-239 * var(--ui-px)) calc(-839 * var(--ui-px)); }
-.ui-swatch-peach { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: 0 calc(-844 * var(--ui-px)); }
-.ui-swatch-pink { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-148 * var(--ui-px)) calc(-846 * var(--ui-px)); }
-.ui-swatch-ring { width: calc(14 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-242 * var(--ui-px)) calc(-802 * var(--ui-px)); }
-.ui-swatch-rust { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-846 * var(--ui-px)); }
-.ui-swatch-silver { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-197 * var(--ui-px)) calc(-846 * var(--ui-px)); }
-.ui-swatch-solid { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-846 * var(--ui-px)); }
-.ui-swatch-step { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-219 * var(--ui-px)) calc(-846 * var(--ui-px)); }
-.ui-swatch-sunset { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-55 * var(--ui-px)) calc(-847 * var(--ui-px)); }
-.ui-swatch-teal { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-66 * var(--ui-px)) calc(-847 * var(--ui-px)); }
-.ui-swatch-tide { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-77 * var(--ui-px)) calc(-847 * var(--ui-px)); }
-.ui-swatch-velvet { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-88 * var(--ui-px)) calc(-847 * var(--ui-px)); }
-.ui-swatch-warm { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-99 * var(--ui-px)) calc(-847 * var(--ui-px)); }
-.ui-swatch-wood { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-110 * var(--ui-px)) calc(-847 * var(--ui-px)); }
-.ui-thumb-aislelight-warm { width: calc(20 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-196 * var(--ui-px)) calc(-835 * var(--ui-px)); }
+.ui-handle-remove-hover { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-781 * var(--ui-px)); }
+.ui-handle-remove-idle { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-781 * var(--ui-px)); }
+.ui-handle-rotate-hover { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-123 * var(--ui-px)) calc(-781 * var(--ui-px)); }
+.ui-handle-rotate-idle { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: 0 calc(-782 * var(--ui-px)); }
+.ui-swatch-blush { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-226 * var(--ui-px)) calc(-836 * var(--ui-px)); }
+.ui-swatch-brass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-836 * var(--ui-px)); }
+.ui-swatch-charcoal { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-21 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-cream { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-32 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-dusk { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-75 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-flat { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-86 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-floor { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-97 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-fridge { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-108 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-frost { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-ginger { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-130 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-glass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-165 * var(--ui-px)) calc(-837 * var(--ui-px)); }
+.ui-swatch-high { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: 0 calc(-838 * var(--ui-px)); }
+.ui-swatch-lilac { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-43 * var(--ui-px)) calc(-838 * var(--ui-px)); }
+.ui-swatch-meadow { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-54 * var(--ui-px)) calc(-838 * var(--ui-px)); }
+.ui-swatch-mustard { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-141 * var(--ui-px)) calc(-838 * var(--ui-px)); }
+.ui-swatch-navy { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-152 * var(--ui-px)) calc(-838 * var(--ui-px)); }
+.ui-swatch-olive { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-205 * var(--ui-px)) calc(-847 * var(--ui-px)); }
+.ui-swatch-oval { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-847 * var(--ui-px)); }
+.ui-swatch-painted { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-227 * var(--ui-px)) calc(-847 * var(--ui-px)); }
+.ui-swatch-panel { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-847 * var(--ui-px)); }
+.ui-swatch-panelglass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-11 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-party { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-22 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-peach { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-65 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-pink { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-76 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-ring { width: calc(14 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-803 * var(--ui-px)); }
+.ui-swatch-rust { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-87 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-silver { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-98 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-solid { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-109 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-step { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-120 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-sunset { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-163 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-teal { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-174 * var(--ui-px)) calc(-848 * var(--ui-px)); }
+.ui-swatch-tide { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: 0 calc(-849 * var(--ui-px)); }
+.ui-swatch-velvet { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-33 * var(--ui-px)) calc(-849 * var(--ui-px)); }
+.ui-swatch-warm { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-44 * var(--ui-px)) calc(-849 * var(--ui-px)); }
+.ui-swatch-wood { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-131 * var(--ui-px)) calc(-849 * var(--ui-px)); }
+.ui-thumb-aislelight-warm { width: calc(20 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-205 * var(--ui-px)) calc(-836 * var(--ui-px)); }
 .ui-thumb-aquarium-teal { width: calc(26 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-673 * var(--ui-px)); }
 .ui-thumb-arcade-night { width: calc(25 * var(--ui-px)); height: calc(34 * var(--ui-px)); background-position: calc(-231 * var(--ui-px)) calc(-382 * var(--ui-px)); }
 .ui-thumb-arclamp-brass { width: calc(22 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-218 * var(--ui-px)) calc(-730 * var(--ui-px)); }
-.ui-thumb-armchair-velvet { width: calc(27 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-756 * var(--ui-px)); }
+.ui-thumb-armchair-velvet { width: calc(27 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-45 * var(--ui-px)) calc(-757 * var(--ui-px)); }
 .ui-thumb-barcounter-wood { width: calc(44 * var(--ui-px)); height: calc(35 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-275 * var(--ui-px)); }
-.ui-thumb-beanbag-blush { width: calc(25 * var(--ui-px)); height: calc(18 * var(--ui-px)); background-position: calc(-147 * var(--ui-px)) calc(-802 * var(--ui-px)); }
-.ui-thumb-beanbag-navy { width: calc(25 * var(--ui-px)); height: calc(18 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-802 * var(--ui-px)); }
+.ui-thumb-beanbag-blush { width: calc(25 * var(--ui-px)); height: calc(18 * var(--ui-px)); background-position: 0 calc(-803 * var(--ui-px)); }
+.ui-thumb-beanbag-navy { width: calc(25 * var(--ui-px)); height: calc(18 * var(--ui-px)); background-position: calc(-26 * var(--ui-px)) calc(-803 * var(--ui-px)); }
 .ui-thumb-bed-velvet { width: calc(43 * var(--ui-px)); height: calc(34 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-347 * var(--ui-px)); }
 .ui-thumb-bench-pink { width: calc(43 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: 0 calc(-709 * var(--ui-px)); }
-.ui-thumb-bench-teal { width: calc(43 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-173 * var(--ui-px)) calc(-731 * var(--ui-px)); }
+.ui-thumb-bench-teal { width: calc(43 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-146 * var(--ui-px)) calc(-731 * var(--ui-px)); }
 .ui-thumb-bigscreen-charcoal { width: calc(44 * var(--ui-px)); height: calc(29 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-643 * var(--ui-px)); }
 .ui-thumb-bookshelf-wood { width: calc(30 * var(--ui-px)); height: calc(39 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-194 * var(--ui-px)); }
-.ui-thumb-carpet-navy { width: calc(44 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-41 * var(--ui-px)) calc(-781 * var(--ui-px)); }
-.ui-thumb-carpet-oval { width: calc(40 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: 0 calc(-759 * var(--ui-px)); }
-.ui-thumb-cat-charcoal { width: calc(22 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-173 * var(--ui-px)) calc(-803 * var(--ui-px)); }
-.ui-thumb-cat-ginger { width: calc(22 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-173 * var(--ui-px)) calc(-820 * var(--ui-px)); }
-.ui-thumb-coffeetable-wood { width: calc(28 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: 0 calc(-782 * var(--ui-px)); }
+.ui-thumb-carpet-navy { width: calc(44 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-202 * var(--ui-px)) calc(-780 * var(--ui-px)); }
+.ui-thumb-carpet-oval { width: calc(40 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: calc(-144 * var(--ui-px)) calc(-757 * var(--ui-px)); }
+.ui-thumb-cat-charcoal { width: calc(22 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-52 * var(--ui-px)) calc(-821 * var(--ui-px)); }
+.ui-thumb-cat-ginger { width: calc(22 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-142 * var(--ui-px)) calc(-821 * var(--ui-px)); }
+.ui-thumb-coffeetable-wood { width: calc(28 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-202 * var(--ui-px)) calc(-802 * var(--ui-px)); }
 .ui-thumb-couch-cream { width: calc(42 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-65 * var(--ui-px)) calc(-676 * var(--ui-px)); }
 .ui-thumb-couch-olive { width: calc(42 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-108 * var(--ui-px)) calc(-676 * var(--ui-px)); }
 .ui-thumb-curtain-velvet { width: calc(10 * var(--ui-px)); height: calc(37 * var(--ui-px)); background-position: calc(-243 * var(--ui-px)) calc(-199 * var(--ui-px)); }
@@ -416,58 +416,58 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-thumb-door-painted { width: calc(18 * var(--ui-px)); height: calc(40 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) 0; }
 .ui-thumb-door-wood { width: calc(18 * var(--ui-px)); height: calc(40 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-41 * var(--ui-px)); }
 .ui-thumb-fireplace-stone { width: calc(29 * var(--ui-px)); height: calc(31 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-549 * var(--ui-px)); }
-.ui-thumb-floorcushion-mustard { width: calc(30 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: calc(-185 * var(--ui-px)) calc(-757 * var(--ui-px)); }
-.ui-thumb-floorcushion-teal { width: calc(30 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: calc(-185 * var(--ui-px)) calc(-780 * var(--ui-px)); }
+.ui-thumb-floorcushion-mustard { width: calc(30 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: 0 calc(-759 * var(--ui-px)); }
+.ui-thumb-floorcushion-teal { width: calc(30 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: calc(-144 * var(--ui-px)) calc(-780 * var(--ui-px)); }
 .ui-thumb-frame-dusk { width: calc(16 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-44 * var(--ui-px)) calc(-709 * var(--ui-px)); }
-.ui-thumb-frame-tide { width: calc(16 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-146 * var(--ui-px)) calc(-732 * var(--ui-px)); }
-.ui-thumb-garland-party { width: calc(19 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-196 * var(--ui-px)) calc(-803 * var(--ui-px)); }
-.ui-thumb-garland-warm { width: calc(19 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-196 * var(--ui-px)) calc(-818 * var(--ui-px)); }
+.ui-thumb-frame-tide { width: calc(16 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-190 * var(--ui-px)) calc(-731 * var(--ui-px)); }
+.ui-thumb-garland-party { width: calc(19 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-99 * var(--ui-px)) calc(-822 * var(--ui-px)); }
+.ui-thumb-garland-warm { width: calc(19 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-822 * var(--ui-px)); }
 .ui-thumb-hammock-rust { width: calc(42 * var(--ui-px)); height: calc(31 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-517 * var(--ui-px)); }
 .ui-thumb-lamp-cream { width: calc(18 * var(--ui-px)); height: calc(38 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-82 * var(--ui-px)); }
 .ui-thumb-lounger-teak { width: calc(43 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-484 * var(--ui-px)); }
 .ui-thumb-minibar-fridge { width: calc(23 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-151 * var(--ui-px)) calc(-676 * var(--ui-px)); }
-.ui-thumb-minibar-wood { width: calc(26 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-90 * var(--ui-px)) calc(-757 * var(--ui-px)); }
+.ui-thumb-minibar-wood { width: calc(26 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-73 * var(--ui-px)) calc(-757 * var(--ui-px)); }
 .ui-thumb-mirror-brass { width: calc(20 * var(--ui-px)); height: calc(33 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-417 * var(--ui-px)); }
 .ui-thumb-mirror-silver { width: calc(12 * var(--ui-px)); height: calc(38 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-121 * var(--ui-px)); }
-.ui-thumb-monstera-rust { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-117 * var(--ui-px)) calc(-757 * var(--ui-px)); }
-.ui-thumb-monstera-teal { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-163 * var(--ui-px)) calc(-757 * var(--ui-px)); }
-.ui-thumb-neonsign-pink { width: calc(17 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-129 * var(--ui-px)) calc(-801 * var(--ui-px)); }
-.ui-thumb-neonsign-teal { width: calc(17 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: 0 calc(-802 * var(--ui-px)); }
-.ui-thumb-pad-lilac { width: calc(24 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-821 * var(--ui-px)); }
-.ui-thumb-pad-teal { width: calc(24 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-822 * var(--ui-px)); }
+.ui-thumb-monstera-rust { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-100 * var(--ui-px)) calc(-757 * var(--ui-px)); }
+.ui-thumb-monstera-teal { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-122 * var(--ui-px)) calc(-757 * var(--ui-px)); }
+.ui-thumb-neonsign-pink { width: calc(17 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-124 * var(--ui-px)) calc(-802 * var(--ui-px)); }
+.ui-thumb-neonsign-teal { width: calc(17 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-231 * var(--ui-px)) calc(-802 * var(--ui-px)); }
+.ui-thumb-pad-lilac { width: calc(24 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-822 * var(--ui-px)); }
+.ui-thumb-pad-teal { width: calc(24 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-211 * var(--ui-px)) calc(-822 * var(--ui-px)); }
 .ui-thumb-partition-glass { width: calc(8 * var(--ui-px)); height: calc(38 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-160 * var(--ui-px)); }
 .ui-thumb-partition-panel { width: calc(8 * var(--ui-px)); height: calc(38 * var(--ui-px)); background-position: calc(-246 * var(--ui-px)) calc(-160 * var(--ui-px)); }
 .ui-thumb-partition-panelglass { width: calc(8 * var(--ui-px)); height: calc(38 * var(--ui-px)); background-position: calc(-225 * var(--ui-px)) calc(-194 * var(--ui-px)); }
 .ui-thumb-partition-solid { width: calc(8 * var(--ui-px)); height: calc(38 * var(--ui-px)); background-position: calc(-234 * var(--ui-px)) calc(-199 * var(--ui-px)); }
 .ui-thumb-piano-charcoal { width: calc(42 * var(--ui-px)); height: calc(40 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-112 * var(--ui-px)); }
 .ui-thumb-piano-wood { width: calc(42 * var(--ui-px)); height: calc(40 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-153 * var(--ui-px)); }
-.ui-thumb-plant-rust { width: calc(22 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-139 * var(--ui-px)) calc(-758 * var(--ui-px)); }
+.ui-thumb-plant-rust { width: calc(22 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-58 * var(--ui-px)) calc(-781 * var(--ui-px)); }
 .ui-thumb-popcorn-rust { width: calc(26 * var(--ui-px)); height: calc(27 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-702 * var(--ui-px)); }
-.ui-thumb-pouf-lilac { width: calc(20 * var(--ui-px)); height: calc(15 * var(--ui-px)); background-position: calc(-18 * var(--ui-px)) calc(-821 * var(--ui-px)); }
-.ui-thumb-pouf-rust { width: calc(20 * var(--ui-px)); height: calc(15 * var(--ui-px)); background-position: calc(-39 * var(--ui-px)) calc(-821 * var(--ui-px)); }
+.ui-thumb-pouf-lilac { width: calc(20 * var(--ui-px)); height: calc(15 * var(--ui-px)); background-position: calc(-165 * var(--ui-px)) calc(-821 * var(--ui-px)); }
+.ui-thumb-pouf-rust { width: calc(20 * var(--ui-px)); height: calc(15 * var(--ui-px)); background-position: 0 calc(-822 * var(--ui-px)); }
 .ui-thumb-rug-lilac { width: calc(44 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-61 * var(--ui-px)) calc(-733 * var(--ui-px)); }
 .ui-thumb-rug-navy { width: calc(44 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: 0 calc(-735 * var(--ui-px)); }
-.ui-thumb-rug-teal { width: calc(44 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-45 * var(--ui-px)) calc(-757 * var(--ui-px)); }
+.ui-thumb-rug-teal { width: calc(44 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-207 * var(--ui-px)) calc(-756 * var(--ui-px)); }
 .ui-thumb-sauna-cedar { width: calc(26 * var(--ui-px)); height: calc(35 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-311 * var(--ui-px)); }
-.ui-thumb-sidetable-wood { width: calc(18 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-61 * var(--ui-px)) calc(-803 * var(--ui-px)); }
+.ui-thumb-sidetable-wood { width: calc(18 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-52 * var(--ui-px)) calc(-803 * var(--ui-px)); }
 .ui-thumb-soaktub-cedar { width: calc(36 * var(--ui-px)); height: calc(34 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-382 * var(--ui-px)); }
 .ui-thumb-sofa-navy { width: calc(42 * var(--ui-px)); height: calc(30 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-581 * var(--ui-px)); }
 .ui-thumb-sofa-velvet { width: calc(42 * var(--ui-px)); height: calc(30 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-612 * var(--ui-px)); }
 .ui-thumb-speaker-teal { width: calc(18 * var(--ui-px)); height: calc(27 * var(--ui-px)); background-position: calc(-108 * var(--ui-px)) calc(-705 * var(--ui-px)); }
 .ui-thumb-speaker-wood { width: calc(18 * var(--ui-px)); height: calc(27 * var(--ui-px)); background-position: calc(-127 * var(--ui-px)) calc(-705 * var(--ui-px)); }
-.ui-thumb-stool-teal { width: calc(18 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-821 * var(--ui-px)); }
-.ui-thumb-stool-wood { width: calc(18 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-110 * var(--ui-px)) calc(-822 * var(--ui-px)); }
+.ui-thumb-stool-teal { width: calc(18 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-236 * var(--ui-px)) calc(-822 * var(--ui-px)); }
+.ui-thumb-stool-wood { width: calc(18 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-836 * var(--ui-px)); }
 .ui-thumb-theatrerow-floor { width: calc(42 * var(--ui-px)); height: calc(27 * var(--ui-px)); background-position: calc(-175 * var(--ui-px)) calc(-703 * var(--ui-px)); }
 .ui-thumb-theatrerow-high { width: calc(44 * var(--ui-px)); height: calc(36 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-238 * var(--ui-px)); }
 .ui-thumb-theatrerow-step { width: calc(44 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-451 * var(--ui-px)); }
-.ui-thumb-turntable-wood { width: calc(26 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-780 * var(--ui-px)); }
-.ui-thumb-tv-charcoal { width: calc(42 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-18 * var(--ui-px)) calc(-803 * var(--ui-px)); }
-.ui-thumb-tv-flat { width: calc(42 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-86 * var(--ui-px)) calc(-802 * var(--ui-px)); }
-.ui-thumb-wallclock-brass { width: calc(24 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-60 * var(--ui-px)) calc(-821 * var(--ui-px)); }
-.ui-thumb-wallshelf-wood { width: calc(23 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-129 * var(--ui-px)) calc(-821 * var(--ui-px)); }
+.ui-thumb-turntable-wood { width: calc(26 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-31 * var(--ui-px)) calc(-781 * var(--ui-px)); }
+.ui-thumb-tv-charcoal { width: calc(42 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-142 * var(--ui-px)) calc(-803 * var(--ui-px)); }
+.ui-thumb-tv-flat { width: calc(42 * var(--ui-px)); height: calc(19 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-802 * var(--ui-px)); }
+.ui-thumb-wallclock-brass { width: calc(24 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-21 * var(--ui-px)) calc(-822 * var(--ui-px)); }
+.ui-thumb-wallshelf-wood { width: calc(23 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-75 * var(--ui-px)) calc(-822 * var(--ui-px)); }
 .ui-thumb-washbasin-cream { width: calc(28 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-106 * var(--ui-px)) calc(-733 * var(--ui-px)); }
 .ui-thumb-whirlpool-teal { width: calc(42 * var(--ui-px)); height: calc(27 * var(--ui-px)); background-position: calc(-65 * var(--ui-px)) calc(-705 * var(--ui-px)); }
-.ui-thumb-wingback-ginger { width: calc(26 * var(--ui-px)); height: calc(26 * var(--ui-px)); background-position: calc(-146 * var(--ui-px)) calc(-705 * var(--ui-px)); }
+.ui-thumb-wingback-ginger { width: calc(26 * var(--ui-px)); height: calc(22 * var(--ui-px)); background-position: calc(-175 * var(--ui-px)) calc(-780 * var(--ui-px)); }
 
 /* Edit toggle: a personal key (.ui-button.self) with icon/arrange + "Edit room". aria-pressed="true" latches it: a filled mustard
  * face that has lost its lip, plum label ("Done"). Only the owner gets this key. */
