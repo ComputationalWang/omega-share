@@ -330,6 +330,8 @@ export interface SceneSeat {
   readonly z: number;
   /** Draw the placeholder seat marker (room-atlas armchairs before the room atlas loads); otherwise the seat is its piece. */
   readonly marker: boolean;
+  /** A lounger's sitter lies back on it (OME-2123): drawn in this style at `at`, not sitting at the seat point. */
+  readonly lie?: { readonly style: LieStyle; readonly at: Point };
 }
 
 const SLEEPERS = [0, 1] as const;

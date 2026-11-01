@@ -39,6 +39,9 @@ const BESIDE: Readonly<Partial<Record<FurnitureKind, Readonly<Partial<Record<Dir
  */
 export const lieOffset = (kind: FurnitureKind, dir: Dir, sleeper: Sleeper = 0): Point | undefined => (sleeper === 0 ? OFFSETS : BESIDE)[kind]?.[dir];
 
+/** A seat whose sitter is drawn lying (OME-2123): its style and the screen px from the piece's anchor to the lier's floor point (lying.json `meta.omega.seatLie`). */
+export const seatLie = (_kind: FurnitureKind, _dir: Dir): { readonly style: LieStyle; readonly off: Point } | undefined => undefined;
+
 /** Stage px a lie key sits above the lier's floor point. */
 export const LIE_KEY_LIFT = 40;
 
