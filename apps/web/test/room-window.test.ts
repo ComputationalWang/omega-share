@@ -28,7 +28,8 @@ async function setup() {
   document.body.append(clip);
   const at = { home: { x: 480, y: 300 } };
   const labels: number[] = [];
-  const win = createRoomWindow(clip, stage, () => at.home, (k) => labels.push(k));
+  const sides: [number, number, number][] = [];
+  const win = createRoomWindow(clip, stage, () => at.home, (k) => labels.push(k), (x0, x1, y1) => sides.push([x0, x1, y1]));
   const key = (name: string): HTMLButtonElement => {
     const k = clip.querySelector<HTMLButtonElement>(`[data-testid="room-zoom-${name}"]`);
     if (k === null) throw new Error(`no ${name} key`);
@@ -41,7 +42,7 @@ async function setup() {
   const pointer = (type: string, id: number, x: number, y: number): void => {
     clip.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: y, isPrimary: id === 1, button: 0, bubbles: true, pointerType: "touch" }));
   };
-  return { win, clip, stage, key, zoom, pointer, at, labels };
+  return { win, clip, stage, key, zoom, pointer, at, labels, sides };
 }
 
 describe("on a phone", () => {
@@ -91,6 +92,19 @@ describe("on a phone", () => {
     expect(stage.style.getPropertyValue("--label-scale")).toBe("1");
     key("fit").click();
     expect(Number(stage.style.getPropertyValue("--label-scale"))).toBeCloseTo(0.85 / FIT, 5);
+  });
+
+  // OME-2118: a stacked name tag that would drop past the window's bottom rises instead, so the stage needs that bottom.
+  test("the window's settled sides carry its bottom edge in stage px; off the phone, none", async () => {
+    const { win, key, zoom, sides } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    key("in").click();
+    const [x0, x1, y1] = sides.at(-1) ?? [];
+    expect(x0).toBeCloseTo(win.pan().x, 5);
+    expect(x1).toBeCloseTo(win.pan().x + (VIEW.w - 52) / zoom(), 5);
+    expect(y1).toBeCloseTo(win.pan().y + VIEW.h / zoom(), 5);
+    win.set(false, VIEW.w, VIEW.h);
+    expect(sides.at(-1)?.[2]).toBe(Infinity);
   });
 });
 

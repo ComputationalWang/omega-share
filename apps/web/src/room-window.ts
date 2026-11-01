@@ -87,7 +87,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined, onSides: (x0: number, x1: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined, onSides: (x0: number, x1: number, y1: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
