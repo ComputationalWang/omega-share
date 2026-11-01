@@ -193,25 +193,26 @@ function arcLamp(k: Kit): void {
   k.ell({ x: -3, y: sy, z: 30 }, { x: 3.6, y: 3.6, z: 9 }, [-8, 8, -8, 8, 30, 40], "cream", { paint: bell });
 }
 
-/** Round side table with a popcorn bowl and a mug of cocoa. */
+/** Round side table with a popcorn bowl and a mug of cocoa. Café height (OME-2150): its top is 6 px under the old one, so from
+ *  the chair beside it the bowl shows under the sitter's chin, not between two heads. */
 function sideTable(k: Kit): void {
   k.ell({ x: 0, y: 0, z: 0 }, { x: 3.6, y: 3.6, z: Infinity }, [-8, 8, -8, 8, 0, 1.5], "charcoal");
-  k.ell({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: Infinity }, [-8, 8, -8, 8, 1.5, 13], "wood");
-  k.ell({ x: 0, y: 0, z: 0 }, { x: 5.6, y: 5.6, z: Infinity }, [-8, 8, -8, 8, 13, 15], "wood", {
-    paint: (p, f) => (f !== "top" && p.z < 13.8 ? ["wood", 2] : null),
+  k.ell({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: Infinity }, [-8, 8, -8, 8, 1.5, 7], "wood");
+  k.ell({ x: 0, y: 0, z: 0 }, { x: 5.6, y: 5.6, z: Infinity }, [-8, 8, -8, 8, 7, 9], "wood", {
+    paint: (p, f) => (f !== "top" && p.z < 7.8 ? ["wood", 2] : null),
   });
   // Bowl: a rust half-ellipsoid with a cream band, heaped with popcorn.
   const bx = -1.6, by = 1;
-  k.ell({ x: bx, y: by, z: 18 }, { x: 3, y: 3, z: 3 }, [-8, 8, -8, 8, 15, 18], "rust", {
-    paint: (p, f) => (f !== "top" && p.z > 16.4 && p.z < 17.2 ? ["cream", 0] : null),
+  k.ell({ x: bx, y: by, z: 12 }, { x: 3, y: 3, z: 3 }, [-8, 8, -8, 8, 9, 12], "rust", {
+    paint: (p, f) => (f !== "top" && p.z > 10.4 && p.z < 11.2 ? ["cream", 0] : null),
   });
-  k.ell({ x: bx, y: by, z: 18 }, { x: 2.7, y: 2.7, z: 1.8 }, [-8, 8, -8, 8, 18, 22], "cream", {
+  k.ell({ x: bx, y: by, z: 12 }, { x: 2.7, y: 2.7, z: 1.8 }, [-8, 8, -8, 8, 12, 16], "cream", {
     paint: (p) => (hash(Math.floor(p.x * 2), Math.floor(p.y * 2 + p.z * 3)) % 5 === 0 ? ["mustard", 0] : ["cream", 0]),
   });
-  k.ell({ x: 2.6, y: -1.8, z: 0 }, { x: 1.2, y: 1.2, z: Infinity }, [-8, 8, -8, 8, 15, 18.5], "teal", {
+  k.ell({ x: 2.6, y: -1.8, z: 0 }, { x: 1.2, y: 1.2, z: Infinity }, [-8, 8, -8, 8, 9, 12.5], "teal", {
     paint: (_p, f) => (f === "top" ? ["hairDark", 0] : null),
   });
-  k.box(3.6, 4.4, -2.2, -1.4, 15.8, 17.6, "teal");
+  k.box(3.6, 4.4, -2.2, -1.4, 9.8, 11.6, "teal");
 }
 
 /** Bookcase for a wall: two bays of mixed-height spines, a globe and a film reel, and a cactus on top. */
