@@ -99,6 +99,10 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 /* Shirt-colour accents (OME-1375): stage.ts sets --tint (the member's tint ramp, tints.json) on each tag and bubble. A
  * decorative 2 px edge in the frame, under the text, never behind it: text colours are untouched, so contrast holds. */
 .tag::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: -1px; height: 2px; background: var(--tint, transparent); pointer-events: none; }
+/* A tag stacked out of its owner's cell (OME-2149, tag-stack.ts `led`) wears a leader pip on its top edge, pointing up
+ * at its owner. shortcut: a tag that rose past its cell (only at the room's bottom) points up too; draw it below if QA
+ * sees one. */
+.tag.is-led::before { content: ""; position: absolute; left: 50%; bottom: calc(100% + 4 * var(--ui-px)); translate: -50% 0; border: 4px solid transparent; border-top-width: 0; border-bottom-color: var(--tint, var(--ui-text)); pointer-events: none; }
 .bubbles .ui-float::before { content: ""; position: absolute; left: -3px; top: 1px; bottom: 1px; width: 2px; background: var(--tint, transparent); }
 /* A /me action (OME-1375): italic in the log, the bubble and its twin (so the measured size holds). */
 .chat-log-line.is-action, .ui-float.is-action .say, .float-twin.is-action > span { font-style: italic; }
@@ -319,6 +323,8 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * OME-1184): a tag grows around its anchor, a bubble around its speaker's head (the motion wrapper sits on the slot's
  * anchor; floats.ts `scale` places it). */
 .stage-clip:is(.is-phone, .is-fit) :is(.tag, .tag-pad, .float-motion) { transform-origin: 0 0; scale: var(--label-scale, 1); }
+/* …but a tag never shows taller than a seated avatar (OME-2149, layout.ts TAG_MAX_SCALE); its hit pad keeps 24 px. */
+.stage-clip:is(.is-phone, .is-fit) .tag { scale: min(var(--label-scale, 1), 2.5); }
 /* Its seats keep a 24 px target (WCAG 2.5.8, OME-2148): the 26 px tall diamond grows back as the band shrinks. */
 .stage-clip.is-fit .seat { scale: max(1, calc(0.94 / var(--stage-scale))); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */

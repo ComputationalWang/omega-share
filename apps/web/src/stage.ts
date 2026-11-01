@@ -14,7 +14,7 @@ import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
-import { ROOM_VIEW, SYSLINE_RAIL, TAG_H, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
+import { ROOM_VIEW, SYSLINE_RAIL, TAG_H, TAG_MAX_SCALE, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
@@ -28,7 +28,7 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
-import { stackTags, type TagBox } from "./tag-stack";
+import { stackTags, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -158,28 +158,33 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const padEls = new Map<MemberId, HTMLElement>();
   /** Members I hid (OME-769): their tags are made dimmed too. */
   const hiddenIds = new Set<MemberId>();
-  /** Overlapping tags stack (OME-2118): each tag's width (layout px, from a ResizeObserver) and how far it was moved down. */
+  /** Overlapping tags stack (OME-2118): each tag's width (layout px, from a ResizeObserver) and where it was moved. */
   const tagW = new Map<Element, number>();
   /** Who is mid-walk: their tag hangs right under them (dy 0) and the others stack again once they stop. */
   const walkers = new Set<MemberId>();
-  const tagDy = new Map<MemberId, number>();
-  /** The phone's readable-zoom label scale (room.css --label-scale): tags show this many times their layout size. */
+  const tagAt = new Map<MemberId, TagPlace>();
+  /** The phone's readable-zoom label scale (room.css --label-scale), capped at TAG_MAX_SCALE: tags show this many times their layout size. */
   let labelK = 1;
   /** The phone window's bottom (stage px; Infinity off the phone): a stacked tag never drops past it or the room's. */
   let shownBottom = Infinity;
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
-  // The stack's drop is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
+  // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
     const at = { x, y: y + TAG_OFFSET_Y };
-    const drop = `${String(tagDy.get(id) ?? 0)}px`;
+    const moved = tagAt.get(id);
+    const left = `${String(moved?.dx ?? 0)}px`;
+    const drop = `${String(moved?.dy ?? 0)}px`;
     const tag = tagEls.get(id);
     if (tag !== undefined) {
       place(tag, at);
+      tag.style.marginLeft = left;
       tag.style.marginTop = drop;
+      tag.classList.toggle("is-led", moved?.led === true);
     }
     const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
       place(padEl, at);
+      padEl.style.marginLeft = left;
       padEl.style.marginTop = drop;
     }
   };
@@ -194,12 +199,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       ids.push(id);
       at.push(p);
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
-      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK });
+      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - liftOf(id) });
     }
-    const dy = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom)).map((p) => p.dy);
+    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom));
     ids.forEach((id, i) => {
       const p = at[i];
-      tagDy.set(id, dy[i] ?? 0);
+      const m = moved[i];
+      if (m === undefined) tagAt.delete(id);
+      else tagAt.set(id, m);
       if (p !== undefined) placeTag(id, p.x, p.y, true);
     });
   };
@@ -250,7 +257,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       floats.move(id, x, head);
       if (!walkers.has(id)) {
         walkers.add(id);
-        tagDy.delete(id);
+        tagAt.delete(id);
       }
       placeTag(id, x, y, false);
       o.onMove?.(id);
@@ -647,7 +654,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       e.remove();
       tagSizes.unobserve(e);
       tagW.delete(e);
-      tagDy.delete(id);
+      tagAt.delete(id);
       walkers.delete(id);
       tagEls.delete(id);
       padEls.get(id)?.remove();
@@ -746,8 +753,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     labelScale: (k) => {
       floats.scale(k);
-      if (k !== labelK) {
-        labelK = k;
+      const tk = Math.min(k, TAG_MAX_SCALE);
+      if (tk !== labelK) {
+        labelK = tk;
         restack();
       }
     },
