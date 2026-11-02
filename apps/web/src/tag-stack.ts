@@ -74,7 +74,9 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
       const x0 = t.x - t.w / 2;
       const x1 = t.x + t.w / 2;
       const below = settle(i, x0, x1, t.y, true);
-      at = { dx: 0, y: below + h > maxY && below !== t.y ? settle(i, x0, x1, t.y, false) : below };
+      // A tag that starts in the window ends in it (OME-2170); one whose owner is below the window leaves with them.
+      const up = t.y < maxY ? Math.min(t.y, maxY - h) : t.y;
+      at = { dx: 0, y: below + h > maxY && (below !== t.y || up !== t.y) ? settle(i, x0, x1, up, false) : below };
     }
     placed.push({ x0: t.x + at.dx - t.w / 2, x1: t.x + at.dx + t.w / 2, y0: at.y, y1: at.y + h });
     out[i] = { dx: at.dx, dy: at.y - t.y, led: !near(t, at.dx, at.y) };
