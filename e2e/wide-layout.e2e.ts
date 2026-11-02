@@ -130,9 +130,9 @@ test("1280×800 with a video: a fresh visit opens in Room view; turned off, it s
   const key = page.locator(site.roomViewKey);
   await expect(key).toHaveAttribute("aria-pressed", "true");
   expect((await box(page.locator(site.tv))).width).toBeLessThanOrEqual(357);
-  // A seated avatar is 41 px at 1×: at least 39 px on screen.
+  // I stand (just joined): a standing avatar is 47 px at 1× (ADR 0060 amendment 2: 41 seated to 47), as the judge measured it.
   const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
-  expect(41 * k).toBeGreaterThanOrEqual(39);
+  expect(47 * k).toBeGreaterThanOrEqual(40);
   for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow]) await inView(page, page.locator(l));
 
   await key.click();
