@@ -5,7 +5,8 @@ import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
-import { TAG_OFFSET_Y, cellCenter } from "../apps/web/src/layout";
+import { TAG_H, TAG_OFFSET_Y, cellCenter } from "../apps/web/src/layout";
+import { TAG_GAP } from "../apps/web/src/tag-stack";
 import { TILE_MS } from "../apps/web/src/walk/walks";
 import { EMOTE_LIFT } from "../apps/web/src/walk/animator";
 
@@ -454,7 +455,7 @@ const frameOf = async (page: Page, id: string): Promise<string> => {
   const f = (await debug(page, "avatarFrames", id)) as { avatar?: unknown } | null;
   return typeof f?.avatar === "string" ? f.avatar : "";
 };
-/** Where `id`'s bubbles and stickers hang on `page`, stage px. */
+/** Where `id`'s bubbles and badges hang on `page`, stage px: over the head and its name tag. */
 const headOf = async (page: Page, id: string): Promise<number> => {
   const h = (await debug(page, "head", id)) as { y?: unknown } | null;
   return typeof h?.y === "number" ? h.y : Number.NaN;
@@ -470,7 +471,8 @@ test("floor sit: S, /sit and Sit here toggle the sit pose on my cell for everyon
   await clickCell(b.page, 3, 8);
   for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "floor-2"), { timeout: 10_000 }).toBe(restOn(3, 8));
   const bId = await selfOf(b.page);
-  const seatedHead = Math.round(cellCenter(3, 8).y) - EMOTE_LIFT.sit;
+  // Over the seated head and the name tag on it (OME-2172).
+  const seatedHead = Math.round(cellCenter(3, 8).y) - EMOTE_LIFT.sit - TAG_GAP - TAG_H;
   await b.page.locator(site.walkFloor).focus();
   await b.page.keyboard.press("s");
   for (const page of [a.page, b.page]) {
