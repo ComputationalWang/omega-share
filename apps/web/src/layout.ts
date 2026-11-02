@@ -472,12 +472,19 @@ const BAND_MIN_FIT = 0.5;
 export function bandFit(scale: number, bandH: number, audience: readonly Point[], me: Point | null): number {
   const points = me === null ? audience : [...audience, me];
   if (points.length === 0) return scale;
-  const need = Math.max(...points.map((p) => p.y)) + TAG_FOOT + 1 - BAND_WALL_TOP;
+  const need = roomFoot(points) - BAND_WALL_TOP;
   for (let k = scale; k >= 1; k--) if (need * k <= bandH) return k;
   return Math.max(BAND_MIN_FIT, Math.min(1, bandH / need));
 }
 
+/** The room's foot (OME-2170): the lowest name tag's (the audience's, or mine), or the floor's front corner if lower. */
+const roomFoot = (points: readonly Point[]): number => Math.max(FLOOR_FOOT, ...points.map((p) => p.y + TAG_FOOT)) + 1;
+
 export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
+  // A band that holds the room (bandFit), back wall's art to its foot, shows it all: from the north the lowest tag is
+  // above the floor's front corner, and looking at the tags cut the front rows' furniture (OME-2170).
+  const points = me === null ? [...seats, ...standing] : [...seats, ...standing, me];
+  if (points.length > 0 && roomFoot(points) - BAND_WALL_TOP <= view.h) return { x: STAGE_W / 2, y: (BAND_WALL_TOP + roomFoot(points)) / 2 };
   const c = audienceHome(seats, standing, view.h);
   if (me === null) return c;
   const y = Math.max(me.y + TAG_FOOT + 1 - view.h / 2, Math.min(me.y - AVATAR_TOP + view.h / 2, c.y));
