@@ -20,7 +20,7 @@ beforeEach(() => {
 
 const div = (): HTMLElement => document.createElement("div");
 
-async function setup(o: { wide?: boolean; short?: boolean; video?: boolean } = {}) {
+async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coarse?: boolean } = {}) {
   const { createRoomLayout } = await import("../src/room-layout");
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
@@ -57,7 +57,7 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean } = {
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
-    coarse: { matches: false },
+    coarse: { matches: o.coarse === true },
     portrait: { matches: false },
     wide: { matches: o.wide === true },
     short: { matches: o.short === true },
@@ -208,6 +208,15 @@ describe("room layout", () => {
     expect(key?.ariaPressed).toBe("false");
     expect(Number(stage.style.getPropertyValue("--stage-scale"))).toBe(heroScale);
     expect(localStorage.length).toBe(0);
+  });
+
+  // QA OME-1330 R1 in CI: the key sat over seat 4 of the touch window at 844×390. A phone sideways has its own window.
+  test("a touch screen's phone window has no Room view key over its seats", async () => {
+    const { layout, wrap } = await setup({ wide: true, video: true, coarse: true });
+    Object.defineProperty(wrap, "clientWidth", { value: 600 });
+    Object.defineProperty(wrap, "clientHeight", { value: 330 });
+    layout.seats([{ x: 480, y: 300 }], []);
+    expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.hidden ?? true).toBe(true);
   });
 
   test("without a video there's no Room view key to press", async () => {
