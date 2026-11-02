@@ -102,7 +102,7 @@ describe("on a phone", () => {
     key("in").click();
     const [x0, x1, y1] = sides.at(-1) ?? [];
     expect(x0).toBeCloseTo(win.pan().x, 5);
-    expect(x1).toBeCloseTo(win.pan().x + (VIEW.w - 52) / zoom(), 5);
+    expect(x1).toBeCloseTo(win.pan().x + VIEW.w / zoom(), 5);
     expect(y1).toBeCloseTo(win.pan().y + VIEW.h / zoom(), 5);
   });
 
