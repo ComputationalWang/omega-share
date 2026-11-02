@@ -1,6 +1,7 @@
 //! Validated startup config (ADR 0015 §3), mirroring `apps/server/src/config.ts`. A bad value is an
 //! error naming the variable; the process exits before listening.
 
+use crate::contract::constants::MAX_ROOMS;
 use crate::contract::generic_embed::normalize_hostname;
 use crate::contract::js_compat::js_trim;
 use crate::contract::session::RESUME_GRACE_MS;
@@ -61,6 +62,9 @@ pub struct ServerConfig {
     /// `MAX_HTTP_IN_FLIGHT`: HTTP requests handled at once, whatever their clients; more get 503
     /// (`maxHttpInFlight` in server.ts, threat model section 10). Zero refuses every request.
     pub max_http_in_flight: usize,
+    /// `MAX_ROOMS`: stored rooms before creation is refused (default the contract's `MAX_ROOMS`). For the e2e
+    /// harness, whose seed alone nears the contract cap (OME-2164); production leaves it unset.
+    pub max_rooms: usize,
 }
 
 /// A refused variable: `invalid KEY: why`.
@@ -418,6 +422,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         status_interval_ms,
         relay_batch_ms,
         max_http_in_flight,
+        max_rooms: MAX_ROOMS,
     })
 }
 
@@ -505,6 +510,16 @@ mod tests {
     }
 
     #[test]
+    fn the_room_cap_defaults_to_the_contract_and_takes_a_bounded_override() {
+        assert_eq!(ok(&[]).max_rooms, MAX_ROOMS);
+        assert_eq!(ok(&[("MAX_ROOMS", "1000")]).max_rooms, 1000);
+        assert_eq!(ok(&[("MAX_ROOMS", "10000")]).max_rooms, 10_000);
+        for bad in ["0", "10001", "x", "-1", "1.5", ""] {
+            refuses(&[("MAX_ROOMS", bad)], "MAX_ROOMS");
+        }
+    }
+
+    #[test]
     fn defaults_to_local_dev() {
         assert_eq!(
             ok(&[]),
@@ -529,6 +544,7 @@ mod tests {
                 status_interval_ms: 1000,
                 relay_batch_ms: 8,
                 max_http_in_flight: 256,
+                max_rooms: 500,
             }
         );
     }
@@ -573,6 +589,7 @@ mod tests {
                 status_interval_ms: 1000,
                 relay_batch_ms: 8,
                 max_http_in_flight: 256,
+                max_rooms: 500,
             }
         );
     }

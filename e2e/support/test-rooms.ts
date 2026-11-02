@@ -99,3 +99,11 @@ export const testRoomId = <S extends RoomSpec>(spec: S, name: RoomName<S>): stri
 export const TEST_ROOM_IDS: readonly string[] = (Object.keys(SPEC_ROOMS) as RoomSpec[]).flatMap((spec) =>
   SPEC_ROOMS[spec].map((name: string) => `e2e-${spec}-${name}`),
 );
+
+/**
+ * The e2e servers' room cap (`MAX_ROOMS` env, OME-2164), above the contract's MAX_ROOMS (500), which the seed alone
+ * nears. Every server that boots from the full seed (fixtures/seed-rooms.ts) takes it; seed-rooms.test.ts fails
+ * `bun run check` when the seed leaves fewer than SEED_HEADROOM rooms for the specs that create one.
+ */
+export const E2E_MAX_ROOMS = 500;
+export const SEED_HEADROOM = 20;
