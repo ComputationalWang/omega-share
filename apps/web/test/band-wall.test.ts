@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { FLOOR_CELLS, RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { AVATAR_TOP, BAND_WALL_TOP, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
+import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
 
 const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
 const SIDES = ["south", "north"] as const;
@@ -148,8 +148,20 @@ describe("1280×800 with a video: the room fits the band (OME-2148)", () => {
     }
   });
 
-  test("the wall's art is the tallest wall art's top", () => {
+  // penthouse-desktop-north, studio-desktop-north (OME-2170, QA OME-2168 § 8 item 1): from the north the lowest name tag
+  // sits above the floor's front corner, so fitting to the tags cut the front rows' furniture (the studio's bookshelf).
+  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the floor's front corner shows too", (name, side) => {
+    setNorth(side === "north");
+    for (const me of [null, cellCenter(0, 0), cellCenter(9, 9)]) {
+      const { pan, shown } = fittedView(name, me);
+      expect(pan.y).toBeLessThanOrEqual(BAND_WALL_TOP);
+      expect(pan.y + shown.h).toBeGreaterThanOrEqual(FLOOR_FOOT);
+    }
+  });
+
+  test("the wall's art is the tallest wall art's top, the floor's front corner the room's foot", () => {
     expect(BAND_WALL_TOP).toBe(113);
+    expect(FLOOR_FOOT).toBe(540);
   });
 
   test("a band that holds it all keeps its whole scale, 2× included; the fraction is only for a band 1× can't fill", () => {

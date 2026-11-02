@@ -10,6 +10,8 @@
 2. **Names and bubbles stay readable below 1×:** the band gets the phone's counter-scale (`labelScale`, ≥ 0.85 of their 1× size on screen, `.is-fit`).
 3. **The phone's Fit fits the walls** (`ROOM_WALLS`, 660×532 stage px), not the stage. A window that holds them shows them centred (`panTo`). "Full width" is the room pane's width: the zoom keys keep their 52 px column beside it (OME-1302, keys over the room hid seats). With a video at 412×915 the pane is 360×358, so Fit is width-bound (360/660 < 358/532): the walls span the pane, and the 68 px left over sits evenly above and below the room (QA [OME-2156](/OME/issues/OME-2156) finding 2).
 
+**Amendment (2026-11-02, [OME-2170](/OME/issues/OME-2170)):** the room's foot is the lowest name tag's or the floor's front corner (`FLOOR_FOOT`, y 540), whichever is lower. A band that holds the back wall's art to that foot centres on it. Before this, the north views of the penthouse and the studio fitted to their tags, which sit above the corner, so the front rows' furniture was cut (QA [OME-2168](/OME/issues/OME-2168#document-review) § 8 item 1). The walls' and partitions' tops above y 113 stay cropped as before.
+
 ## Consequences
 
 - At 1× windows the band's pixel art is drawn below 1× (nearest-neighbour, like the phone's zoomed-out window). Whole-number scales stay wherever the band holds the span: 1280×1200 and 2× windows are unchanged.
