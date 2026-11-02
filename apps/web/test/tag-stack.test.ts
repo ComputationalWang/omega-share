@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { TAG_OFFSET_Y, TILE_H, TILE_W, setNorth } from "../src/layout";
+import { TAG_OFFSET_Y, setNorth } from "../src/layout";
 import { HEAD_H, HEAD_W, stackTags, type TagBox } from "../src/tag-stack";
 import { EMOTE_LIFT } from "../src/walk/animator";
 
@@ -36,27 +36,45 @@ function overlaps(tags: readonly TagBox[], dy: readonly (number | { dx: number; 
   return out;
 }
 
+/** An avatar at `p`, its tag `w` px wide: seated ones' heads sit lower (walk/animator.ts EMOTE_LIFT). */
+const member = (p: { x: number; y: number }, w: number, seated = false): TagBox => ({ x: p.x, y: p.y + TAG_OFFSET_Y, w, top: p.y - (seated ? EMOTE_LIFT.sit : EMOTE_LIFT.idle) });
+/** How far (stage px) a placed tag lies from its owner's head; Infinity if it isn't over the head's width. */
+function fromHead(t: TagBox, p: { dx: number; dy: number }, h: number): number {
+  const [x0, x1, y0] = [t.x + p.dx - t.w / 2, t.x + p.dx + t.w / 2, t.y + p.dy];
+  if (x1 < t.x - HEAD_W / 2 || t.x + HEAD_W / 2 < x0) return Infinity;
+  return Math.max(0, t.top - (y0 + h), y0 - (t.top + HEAD_H));
+}
+
 describe("stackTags", () => {
-  test("tags apart stay where they hang", () => {
-    expect(dys([{ x: 100, y: 300, w: 40 }, { x: 300, y: 300, w: 40 }, { x: 100, y: 400, w: 40 }], H)).toEqual([0, 0, 0]);
+  // OME-2172 (design judge round 3): tags hung under the feet, a cell from the head they name.
+  test.each([false, true])("a lone tag (seated: %p) sits just above its owner's head, off it, no pip", (seated) => {
+    const t = member({ x: 200, y: 300 }, 40, seated);
+    const [p] = stackTags([t], H);
+    if (p === undefined) throw new Error("no place");
+    expect(t.y + p.dy + H).toBeLessThanOrEqual(t.top);
+    expect(fromHead(t, p, H)).toBeLessThanOrEqual(12);
+    expect(p).toMatchObject({ dx: 0, led: false });
   });
 
-  test("three tags on one spot stack, the first where it hangs, each next one under the last", () => {
-    const tags = [{ x: 200, y: 300, w: 40 }, { x: 205, y: 302, w: 44 }, { x: 198, y: 301, w: 40 }];
+  test("tags apart each sit over their own head", () => {
+    const tags = [member({ x: 100, y: 300 }, 40), member({ x: 300, y: 300 }, 40), member({ x: 100, y: 400 }, 40)];
+    expect(dys(tags, H)).toEqual(tags.map((t) => t.top - 2 - H - t.y));
+  });
+
+  test("three tags on one spot stack upward: none overlap, each above the heads, the far ones led", () => {
+    const tags = [member({ x: 200, y: 300 }, 40), member({ x: 205, y: 302 }, 44), member({ x: 198, y: 301 }, 40)];
     const placed = stackTags(tags, H);
-    expect(placed[0]?.dy).toBe(0);
     expect(overlaps(tags, placed, H)).toEqual([]);
-    expect(Math.max(...placed.map((p) => p.dy))).toBeLessThanOrEqual(2 * (H + 2) + 2);
-  });
-
-  test("a tag only moves down, never up over its avatar", () => {
-    const tags = [{ x: 200, y: 310, w: 40 }, { x: 210, y: 300, w: 40 }];
-    for (const d of dys(tags, H)) expect(d).toBeGreaterThanOrEqual(0);
+    tags.forEach((t, i) => {
+      const p = placed[i] ?? { dx: 0, dy: 0, led: false };
+      expect(t.y + p.dy + H).toBeLessThanOrEqual(Math.min(...tags.map((o) => o.top)));
+      expect(p.led).toBe(fromHead(t, p, H) > 12);
+    });
   });
 
   // OME-2118 CI (landscape-phone): two members at the front edge; the second tag dropped out of the room window.
-  test("a tag that would drop past the bottom stacks up over the one it hits instead", () => {
-    const tags = [{ x: 200, y: 560, w: 40 }, { x: 205, y: 562, w: 40 }];
+  test("tags by the window's bottom stay inside it", () => {
+    const tags = [member({ x: 200, y: 550 }, 40), member({ x: 205, y: 552 }, 40)];
     const placed = stackTags(tags, H, 592);
     expect(overlaps(tags, placed, H)).toEqual([]);
     tags.forEach((t, i) => {
@@ -64,9 +82,18 @@ describe("stackTags", () => {
     });
   });
 
+  test("a tag whose spot over the head lies past the window's top hangs under the feet, led", () => {
+    const t = member({ x: 200, y: 300 }, 40);
+    const [p] = stackTags([t], H, Infinity, 260);
+    if (p === undefined) throw new Error("no place");
+    expect(t.y + p.dy).toBeGreaterThanOrEqual(260);
+    expect(t.y + p.dy).toBeGreaterThanOrEqual(t.top + HEAD_H);
+    expect(p.led).toBe(true);
+  });
+
   test("the same tags stack the same way whatever their order (a render and a stop agree)", () => {
-    const a = { x: 200, y: 300, w: 40 };
-    const b = { x: 210, y: 300, w: 40 };
+    const a = member({ x: 200, y: 300 }, 40);
+    const b = member({ x: 210, y: 300 }, 40);
     const [da, db] = stackTags([a, b], H);
     const [db2, da2] = stackTags([b, a], H);
     expect([da2, db2]).toEqual([da, db]);
@@ -77,7 +104,7 @@ describe("stackTags", () => {
   test.each(["studio", "dank-dungeon"].flatMap((p) => ["south", "north"].flatMap((s) => [40, 160].map((w) => [p, s, w] as const))))("%s from the %s, %i px tags: no two tags overlap", (name, side, w) => {
     setNorth(side === "north");
     const room = preset(name);
-    const tags = [...seatPoints(room), ...standingPoints(room)].map((p) => ({ x: p.x, y: p.y + TAG_OFFSET_Y, w }));
+    const tags = [...seatPoints(room), ...standingPoints(room)].map((p) => member(p, w));
     expect(overlaps(tags, stackTags(tags, H), H)).toEqual([]);
   });
 });
@@ -85,27 +112,21 @@ describe("stackTags", () => {
 // OME-2149 (design judge on OME-2122, busy-desktop-1280x800): the Visitor's stacked tag covered Dee's head and the stack
 // drifted a cell off its owner. A tag stays off other heads and next to its owner, or wears a leader pip.
 describe("stackTags: tags keep off heads and by their owner", () => {
-  /** An avatar at `p`, its tag `w` px wide: seated ones' heads sit lower (walk/animator.ts EMOTE_LIFT). */
-  const member = (p: { x: number; y: number }, w: number, seated: boolean): TagBox => ({ x: p.x, y: p.y + TAG_OFFSET_Y, w, top: p.y - (seated ? EMOTE_LIFT.sit : EMOTE_LIFT.idle) });
   const box = (t: TagBox, p: { dx: number; dy: number }, h: number) => ({ x0: t.x + p.dx - t.w / 2, x1: t.x + p.dx + t.w / 2, y0: t.y + p.dy, y1: t.y + p.dy + h });
-  /** Each tag and the other members' heads it covers. */
+  /** Each tag and the heads it covers, its owner's included (OME-2172). */
   function onHeads(tags: readonly TagBox[], h: number): [number, number][] {
     const placed = stackTags(tags, h);
     const out: [number, number][] = [];
     tags.forEach((t, i) => {
       const b = box(t, placed[i] ?? { dx: 0, dy: 0 }, h);
       tags.forEach((o, j) => {
-        if (i === j || o.top === undefined) return;
         if (b.x0 < o.x + HEAD_W / 2 && o.x - HEAD_W / 2 < b.x1 && b.y0 < o.top + HEAD_H && o.top < b.y1) out.push([i, j]);
       });
     });
     return out;
   }
-  /** The tag lies within one cell of its owner: sideways of its feet, above its head or below its tag's anchor. */
-  const nearOwner = (t: TagBox, p: { dx: number; dy: number }, h: number): boolean => {
-    const b = box(t, p, h);
-    return Math.abs(p.dx) <= TILE_W / 2 && b.y1 >= (t.top ?? t.y) - TILE_H && b.y0 <= t.y + TILE_H;
-  };
+  /** The tag lies within 12 px of its owner's head (OME-2172 acceptance). */
+  const nearOwner = (t: TagBox, p: { dx: number; dy: number }, h: number): boolean => fromHead(t, p, h) <= 12;
 
   test("a standing tag over a seated neighbour's head moves off it and stays by its owner, no pip", () => {
     const visitor = member({ x: 460, y: 540 }, 46, false);
@@ -133,7 +154,7 @@ describe("stackTags: tags keep off heads and by their owner", () => {
 
   // OME-2170 CI (320×640, the keys in a row): a 76 px phone window; the front tag hung 7 px past its bottom, on the zoom
   // key under it, and above the head was past the top. A tag that starts in the window ends in it.
-  test("a tag that starts in a short window but hangs past its bottom rises into it; one whose owner is below stays", () => {
+  test("a tag whose owner is in a short window keeps in it; one whose owner is below the window stays out with them", () => {
     const tags = [member({ x: 448, y: 444 }, 40, false), member({ x: 512, y: 444 }, 29, false), member({ x: 300, y: 600 }, 40, false)];
     const [minY, maxY] = [391, 467];
     const placed = stackTags(tags, H, maxY, minY);
@@ -141,7 +162,7 @@ describe("stackTags: tags keep off heads and by their owner", () => {
     tags.slice(0, 2).forEach((t, i) => {
       expect(t.y + (placed[i]?.dy ?? 0) + H).toBeLessThanOrEqual(maxY);
     });
-    expect(placed[2]?.dy).toBe(0);
+    expect((tags[2]?.y ?? 0) + (placed[2]?.dy ?? 0)).toBeGreaterThan(maxY);
   });
 
   // Every seat sat on and every standing spot stood on, in every preset, from either side; three-letter names and the
