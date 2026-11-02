@@ -833,7 +833,10 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-portrait .room-top > .snap-key + .ui-button { margin-left: auto; }
 .room-portrait > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .room-portrait > .status:empty, .room-portrait > .editor-panel:empty, .room-portrait > .room-bar:empty { display: none; }
-.room-portrait > .chat-log { height: 76px; max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
+/* The strip sizes to its lines, up to 76 px: one line (the owner's hint) mustn't leave a dark band over it (QA OME-2186). */
+.room-portrait > .chat-log { max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
+/* Focused (a Tab stop, QA OME-1614), an empty strip still shows as a 44 px target. */
+.room-portrait > .chat-log:focus { min-height: 44px; }
 /* A short portrait phone (360×640, OME-1612): the strip would leave the room ~100 px, so it's only visually hidden (still
  * the live log for screen readers); the Chat key's sheet shows it and bubbles show in the room. Typing, or under 500 px
  * (a keyboard's resize, no room window left), or focused (it's a Tab stop, QA OME-1614), it's back. */
