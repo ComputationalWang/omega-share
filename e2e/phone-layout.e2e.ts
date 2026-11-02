@@ -62,6 +62,12 @@ test("stacked: TV, shelf, room window, chat log, chat row; the room at 1×, no s
   const log = page.locator(site.chatLog);
   const input = page.locator(site.chatInput);
   await expect(win).toBeVisible();
+  // An empty log is folded on a phone (OME-2171); one line shows it.
+  await input.fill("hi");
+  await input.press("Enter");
+  await expect(page.locator(site.chatLogLine)).toHaveCount(1);
+  await input.blur();
+  await expect(log).toBeVisible();
   const ys = [await top(tv), await top(page.locator(".controls")), await top(win), await top(log), await top(input)];
   expect(ys, "TV, shelf, room, log, chat row from top to bottom").toEqual([...ys].sort((a, b) => a - b));
 
@@ -478,13 +484,25 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
     expect(b.x + b.width).toBeLessThanOrEqual(win.x + win.width + 0.5);
     expect(b.y + b.height).toBeLessThanOrEqual(win.y + win.height + 0.5);
   }
+  // At 1× (the default) the room covers the whole window: no dark band in it either.
+  const walls = async (): Promise<{ x: number; y: number; w: number; h: number }> => {
+    const t = await stageTransform(page);
+    return { x: t.x + t.scale * ROOM_WALLS.x, y: t.y + t.scale * ROOM_WALLS.y, w: t.scale * ROOM_WALLS.w, h: t.scale * ROOM_WALLS.h };
+  };
+  const atOne = await walls();
+  expect(atOne.x, "walls' left edge").toBeLessThanOrEqual(0.5);
+  expect(atOne.x + atOne.w, "walls' right edge").toBeGreaterThanOrEqual(win.width - 0.5);
+  expect(atOne.y, "band over the walls").toBeLessThanOrEqual(40);
+  expect(win.height - (atOne.y + atOne.h), "band under the walls").toBeLessThanOrEqual(40);
   // At 1× and at Fit, the floating keys cover no seat.
   expect(await targetSize(page)).toEqual([]);
   await page.getByTestId("room-zoom-fit").tap();
   await frames(page);
-  // At Fit the walls span the width, centred in the window's height: no empty band over 40 px above or under the room.
-  const scale = (await stageTransform(page)).scale;
-  expect(scale * 660, "fitted walls' width").toBeCloseTo(412, 0);
-  expect((win.height - scale * 532) / 2, "band over and under the fitted room").toBeLessThanOrEqual(40);
+  // At Fit the walls span the width and show whole, centred in the window's height. The window is taller than the
+  // room at that width, so Fit leaves equal margins over and under it: the price of seeing the whole room.
+  const fit = await walls();
+  expect(fit.w, "fitted walls' width").toBeCloseTo(412, 0);
+  expect(fit.h, "fitted walls' height").toBeLessThanOrEqual(win.height);
+  expect(Math.abs(fit.y - (win.height - fit.y - fit.h)), "walls centred").toBeLessThanOrEqual(2);
   expect(await targetSize(page)).toEqual([]);
 });

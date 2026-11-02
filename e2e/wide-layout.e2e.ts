@@ -276,10 +276,11 @@ test("390×844 phone: the stacked layout stays, with the volume in the shelf und
   const page = await one(browser, "phone", PHONE);
   const tv = await box(page.locator(site.tv));
   const room = await box(page.locator(site.roomWindow));
-  const log = await box(page.locator(site.chatLog));
-  // Stacked: TV, room window, chat log, top to bottom, all full width.
+  // No chat yet, so the empty log is folded (OME-2171): the chat row comes next.
+  const chat = await box(page.locator(site.chatInput));
+  // Stacked: TV, room window, chat row, top to bottom, all full width.
   expect(room.y).toBeGreaterThan(tv.y + tv.height);
-  expect(log.y).toBeGreaterThan(room.y + room.height);
+  expect(chat.y).toBeGreaterThan(room.y + room.height);
   await volumeUnderPicture(page);
   // No sideways scroll.
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
