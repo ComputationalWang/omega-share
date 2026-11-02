@@ -544,6 +544,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         // column height, so every seat row shows whole beside the keys; the wrap grows to hold it and the column scrolls.
         if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
           const rw = Math.min(w, STAGE_W);
+          // The phone's window keeps its own keys: the Room view key covered a seat there (QA OME-1330 R1).
+          roomViewKey.hidden = true;
           // Where the wrap leaves too little (844×390, OME-1929), to the column's foot: what plays under the wrap (the
           // reaction bar) is reached by scrolling, as it is when it shows after the fit; fitted with it there, the window
           // lost 34 px and took the keys' column. Where the wrap holds the window, its foot: the reaction keys stay on screen
