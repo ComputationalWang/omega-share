@@ -4,7 +4,7 @@
 // create limits, and seeding ten would put the seeded DB past MAX_ROOMS (500), so every create 503s;
 // every image and JSON art response, and every lazy JS chunk that is art JSON (OME-2163), is gzipped at level 6 as the landing row counts it. The dearest preset is the value.
 import { devices, expect, test, type Browser, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
@@ -32,6 +32,8 @@ const DIST = resolve(REPO, "apps/web/dist");
 function previewArtChunks(): ReadonlySet<string> {
   const manifest: unknown = JSON.parse(readFileSync(resolve(DIST, ".vite/manifest.json"), "utf8"));
   return artChunks(manifest, (file) => {
+    // Pixi's web-worker chunk ships without a sourcemap; it is code, never an atlas.
+    if (!existsSync(resolve(DIST, `${file}.map`))) return [];
     const map: unknown = JSON.parse(readFileSync(resolve(DIST, `${file}.map`), "utf8"));
     const sources: unknown = typeof map === "object" && map !== null ? Reflect.get(map, "sources") : null;
     if (!Array.isArray(sources)) throw new Error(`no sources in ${file}.map`);
