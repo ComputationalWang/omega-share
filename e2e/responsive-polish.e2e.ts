@@ -186,6 +186,25 @@ for (const [name, w, h] of [["d1280", 1280, 800], ["d1920", 1920, 1080], ["d2560
   });
 }
 
+// The night tint already lowers the lights, so playing adds only a soft dim on it, not the full one (OME-2199).
+test("a playing night room dims softly over its tint, not with the full dim", async ({ browser, request }) => {
+  const room = testRoom("rpolish", "nightdim");
+  await shareVideo(request, room.id);
+  clients = await joinRoom(browser, {
+    roomUrl: room.url,
+    count: 1,
+    nicknamePrefix: "ponight",
+    setup: (context) => showLayout(context, dungeon),
+    contextOptions: () => DESKTOP(1280, 800),
+  });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await waitPlaying(clients);
+  const dim = page.locator(".cinema-dim.is-on");
+  await expect(dim).toHaveAttribute("data-mood", "night");
+  await expect(dim).toHaveCSS("background-color", "rgba(8, 6, 18, 0.2)");
+});
+
 for (const [name, w, h, options] of [["f1024", 1024, 768, TOUCH(1024, 768)], ["f1366", 1024, 1366, TOUCH(1024, 1366)], ["f1280", 1280, 800, DESKTOP(1280, 800)]] as const) {
   test(`${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}: full screen centres the picture and its bar as one group, in black letterbox`, async ({ browser, request }) => {
     const room = testRoom("rpolish", name);
