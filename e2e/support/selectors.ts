@@ -28,6 +28,8 @@ export const site = {
   tv: id("tv"),
   tvEmpty: id("tv-empty"),
   roomWindow: id("room-window"),
+  // Room view (OME-2170, OME-2195): the toggle key in the band's top corner.
+  roomViewKey: id("room-view-key"),
   // Movie night (OME-1628, OME-1629): QA's heap row (perf/heap-movie.perf.ts) looks for these.
   momentsStrip: id("moments"),
   recapCard: id("recap"),

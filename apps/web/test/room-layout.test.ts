@@ -67,7 +67,7 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coar
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, stage, tv, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
+  return { layout, root, wrap, clip, stage, tv, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -185,7 +185,7 @@ describe("room layout", () => {
     expect(stage.style.getPropertyValue("--stage-scale")).toBe("1");
   });
 
-  // OME-2170 (CEO decision C): one labelled key gives the room the column at 1280×800, and back. Per tab, no storage.
+  // OME-2170 (CEO decision C): one labelled key gives the room the column at 1280×800, and back. OME-2195: remembered.
   test("the Room view key shrinks the TV to its floor and fits the room at about 1×, without touching the player", async () => {
     const { layout, wrap, stage, tv } = await setup({ wide: true, video: true });
     Object.defineProperty(wrap, "clientWidth", { value: 905 });
@@ -207,7 +207,70 @@ describe("room layout", () => {
     key?.click();
     expect(key?.ariaPressed).toBe("false");
     expect(Number(stage.style.getPropertyValue("--stage-scale"))).toBe(heroScale);
-    expect(localStorage.length).toBe(0);
+    expect(localStorage.getItem("omega.roomView")).toBe("off");
+  });
+
+  // OME-2195 (ADR 0060 amendment 3): Room view is the default from 1100 px wide; an explicit choice beats it, on reload too.
+  const atWidth = (w: number): void => {
+    Object.defineProperty(window, "innerWidth", { value: w, configurable: true });
+  };
+  test("a fresh visit 1100 px wide or more opens in Room view; narrower opens video first", async () => {
+    const width = window.innerWidth;
+    try {
+      for (const [w, on] of [[1280, true], [1100, true], [1099, false]] as const) {
+        atWidth(w);
+        const { layout, wrap, tv } = await setup({ wide: true, video: true });
+        Object.defineProperty(wrap, "clientWidth", { value: 905 });
+        Object.defineProperty(wrap, "clientHeight", { value: 655 });
+        layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+        expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.ariaPressed).toBe(String(on));
+        expect(tv.tv.style.width === "356px").toBe(on);
+      }
+    } finally {
+      atWidth(width);
+    }
+  });
+
+  test("the viewer's own choice beats the default, either way, and is kept for the next visit", async () => {
+    const width = window.innerWidth;
+    try {
+      for (const [w, stored] of [[1280, "off"], [1024, "on"]] as const) {
+        atWidth(w);
+        localStorage.setItem("omega.roomView", stored);
+        const { layout, wrap } = await setup({ wide: true, video: true });
+        Object.defineProperty(wrap, "clientWidth", { value: 905 });
+        Object.defineProperty(wrap, "clientHeight", { value: 655 });
+        layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+        const key = wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]');
+        expect(key?.ariaPressed).toBe(String(stored === "on"));
+        key?.click();
+        expect(localStorage.getItem("omega.roomView")).toBe(stored === "on" ? "off" : "on");
+      }
+      // Anything else in storage is no choice: the default.
+      atWidth(1280);
+      localStorage.setItem("omega.roomView", "yes");
+      const { layout, wrap } = await setup({ wide: true, video: true });
+      layout.seats([{ x: 480, y: 300 }], []);
+      expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.ariaPressed).toBe("true");
+    } finally {
+      atWidth(width);
+    }
+  });
+
+  test("in Room view the follow chip sits under the shelf that hangs over the band's corner", async () => {
+    const width = window.innerWidth;
+    try {
+      atWidth(1280);
+      const { layout, wrap, clip } = await setup({ wide: true, video: true });
+      Object.defineProperty(wrap, "clientWidth", { value: 905 });
+      Object.defineProperty(wrap, "clientHeight", { value: 655 });
+      layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+      expect(clip.style.getPropertyValue("--shelf-over")).toBe("44px");
+      wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.click();
+      expect(clip.style.getPropertyValue("--shelf-over")).toBe("");
+    } finally {
+      atWidth(width);
+    }
   });
 
   // QA OME-2183: each fit hid the key first, and hiding it dropped its focus to <body>; a second Enter did nothing.
