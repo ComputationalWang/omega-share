@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { artReport, isArt, presetArt } from "./art";
+import { artChunks, artReport, isArt, presetArt } from "./art";
 
 const WEB = "http://localhost:5183";
 const r = (path: string, type: string, bytes: number, origin = WEB) => ({ url: `${origin}${path}`, type, bytes });
@@ -43,5 +43,42 @@ describe("artReport (OME-2152)", () => {
 
   test("no presets is an error, not a 0 KB pass", () => {
     expect(() => artReport([])).toThrow();
+  });
+});
+
+describe("artChunks (OME-2163)", () => {
+  // The shapes of the preview build's manifest and sourcemaps (repo-relative module paths).
+  const manifest = {
+    "index.html": { file: "assets/index-a.js", src: "index.html", isEntry: true },
+    "src/walk/motion-atlas.ts": { file: "assets/motion-atlas-b.js", src: "src/walk/motion-atlas.ts", isDynamicEntry: true },
+    "_furniture-c.js": { file: "assets/furniture-c.js", name: "furniture" },
+    "src/furniture-atlas.ts": { file: "assets/furniture-atlas-d.js", src: "src/furniture-atlas.ts", isDynamicEntry: true },
+    "_stage-e.js": { file: "assets/stage-e.js", name: "stage" },
+    "src/room.ts": { file: "assets/room-f.js", src: "src/room.ts", isDynamicEntry: true },
+    "../../assets/furniture/furniture.png": { file: "assets/furniture-g.png", src: "../../assets/furniture/furniture.png" },
+  };
+  const modules: Record<string, string[]> = {
+    "assets/index-a.js": ["assets/presets/presets.json", "apps/web/src/main.ts"],
+    "assets/motion-atlas-b.js": ["assets/avatars/motion.json", "assets/avatars/motion.png", "apps/web/src/walk/motion-atlas.ts"],
+    "assets/furniture-c.js": ["assets/furniture/furniture.json"],
+    "assets/furniture-atlas-d.js": ["assets/furniture/furniture.png", "apps/web/src/furniture-atlas.ts"],
+    "assets/stage-e.js": ["assets/avatars/tints.json", "apps/web/src/stage.ts"],
+    "assets/room-f.js": ["assets/room/room.json", "apps/web/src/room.ts", "apps/web/src/room-view.ts"],
+  };
+  const modulesOf = (file: string): readonly string[] => modules[file] ?? [];
+
+  test("a lazy chunk of art JSON (plus at most its own loader) is art; entries, chunks without JSON and app code are not", () => {
+    expect([...artChunks(manifest, modulesOf)].sort()).toEqual(["/assets/furniture-c.js", "/assets/motion-atlas-b.js"]);
+  });
+
+  test("a malformed manifest is an error, not zero art", () => {
+    expect(() => artChunks({ "x.ts": { src: "x.ts" } }, modulesOf)).toThrow();
+  });
+
+  test("presetArt counts the art chunks it fetched; the note lists them", () => {
+    const chunks = artChunks(manifest, modulesOf);
+    const a = presetArt("studio", [r("/assets/motion-atlas-b.js", "script", 2048), r("/assets/stage-e.js", "script", 9999), r("/a.png", "image", 1024)], WEB, chunks);
+    expect([...a.files.keys()]).toEqual([`${WEB}/assets/motion-atlas-b.js`, `${WEB}/a.png`]);
+    expect(artReport([a]).note).toBe("dearest studio; studio 3.0 KB (2 files); union 3.0 KB (2 files); art in JS chunks: motion-atlas-b.js 2.0 KB");
   });
 });
