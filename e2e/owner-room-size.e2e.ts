@@ -147,7 +147,8 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
     e.classList.add("is-led");
     const hit = getComputedStyle(e, "::before");
     const pip = getComputedStyle(e.querySelector(".tag-name") ?? e, "::before");
-    return { hitEvents: hit.pointerEvents, hitBorder: hit.borderBottomWidth, pip: pip.content === "none" ? "none" : pip.borderBottomWidth };
+    // The pip points up (under the feet) or down (`.is-above`, OME-2172): its 4 px edge is on the bottom or the top.
+    return { hitEvents: hit.pointerEvents, hitBorder: hit.borderBottomWidth, pip: pip.content === "none" ? "none" : `${String(Math.max(parseFloat(pip.borderBottomWidth), parseFloat(pip.borderTopWidth)))}px` };
   });
   expect(led, "led tag: hit area intact, pip drawn apart").toEqual({ hitEvents: "auto", hitBorder: "0px", pip: "4px" });
   expect(Math.min(...Object.values(await hitBox(kitTag))), "led tag opener").toBeGreaterThanOrEqual(44);
