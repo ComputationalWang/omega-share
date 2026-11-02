@@ -299,9 +299,9 @@ test("keyboard: Tab reaches every seat, a focused seat is panned into the window
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
 });
 
-async function ownerOnPhone(browser: Browser): Promise<Page> {
-  const { id, ownerToken, inviteKey } = ownedRoom("phone");
-  const context = await watchCsp(await browser.newContext(PHONE));
+async function ownerOnPhone(browser: Browser, room: "phone" | "phonefull" = "phone", options: BrowserContextOptions = PHONE): Promise<Page> {
+  const { id, ownerToken, inviteKey } = ownedRoom(room);
+  const context = await watchCsp(await browser.newContext(options));
   contexts.push(context);
   await context.addInitScript(
     ([origin, key, value]) => {
@@ -505,4 +505,17 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
   expect(fit.h, "fitted walls' height").toBeLessThanOrEqual(win.height);
   expect(Math.abs(fit.y - (win.height - fit.y - fit.h)), "walls centred").toBeLessThanOrEqual(2);
   expect(await targetSize(page)).toEqual([]);
+});
+
+// QA OME-2186: the owner's log isn't empty (the "Arrange the room on a computer." line), so the strip under the room must
+// size to that line, not keep a 76 px strip with the line at its bottom and dark space above it.
+test("412×915 touch, the room's owner: no empty band between the room window and the hint line (OME-2171)", async ({ browser }) => {
+  const page = await ownerOnPhone(browser, "phonefull", { ...PHONE, viewport: { width: 412, height: 915 } });
+  const line = page.locator(site.chatLogLine).filter({ hasText: "Arrange the room on a computer." });
+  await expect(line).toBeVisible();
+  await frames(page);
+  const win = await page.locator(site.roomWindow).boundingBox();
+  const first = await line.boundingBox();
+  if (win === null || first === null) throw new Error("not laid out");
+  expect(first.y - (win.y + win.height), "empty band between the window and the hint line").toBeLessThanOrEqual(40);
 });
