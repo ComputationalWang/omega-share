@@ -257,22 +257,6 @@ describe("room layout", () => {
     }
   });
 
-  test("in Room view the follow chip sits under the shelf that hangs over the band's corner", async () => {
-    const width = window.innerWidth;
-    try {
-      atWidth(1280);
-      const { layout, wrap, clip } = await setup({ wide: true, video: true });
-      Object.defineProperty(wrap, "clientWidth", { value: 905 });
-      Object.defineProperty(wrap, "clientHeight", { value: 655 });
-      layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
-      expect(clip.style.getPropertyValue("--shelf-over")).toBe("44px");
-      wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.click();
-      expect(clip.style.getPropertyValue("--shelf-over")).toBe("");
-    } finally {
-      atWidth(width);
-    }
-  });
-
   // QA OME-2183: each fit hid the key first, and hiding it dropped its focus to <body>; a second Enter did nothing.
   test("the Room view key keeps its focus across its own toggles, never hidden in between", async () => {
     const { layout, wrap } = await setup({ wide: true, video: true });

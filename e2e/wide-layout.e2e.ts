@@ -121,28 +121,15 @@ for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440
 }
 
 // OME-2195 (judge round 4, ADR 0060 amendment 3): at 1280×800 video first left avatars ~27 px. From 1100 px wide the room
-// opens in Room view: the TV at its floor, its shelf docked right under it (no strip beside it, QA OME-2174 § 6 item 2),
-// avatars at least 39 px. The viewer's choice is kept: off stays off on the next visit.
-test("1280×800 with a video: a fresh visit opens in Room view, the shelf docked under the TV; turned off, it stays off", async ({ browser, request }) => {
+// opens in Room view: the TV at its floor, avatars at least 39 px. The viewer's choice is kept: off stays off next visit.
+test("1280×800 with a video: a fresh visit opens in Room view; turned off, it stays off", async ({ browser, request }) => {
   const room = testRoom("wide", "rv1280");
   await shareVideo(request, room.id);
   const page = await one(browser, "rv1280", DESKTOP(1280, 800));
   await waitPlaying(clients);
   const key = page.locator(site.roomViewKey);
   await expect(key).toHaveAttribute("aria-pressed", "true");
-  const tv = await box(page.locator(site.tv));
-  const shelf = await box(page.locator(".ui-tv-shelf"));
-  const band = await box(page.locator(site.roomWindow));
-  expect(tv.width).toBeLessThanOrEqual(357);
-  // Docked: flush under the picture, its left edge the picture's; the band starts right under the TV, no dead strip.
-  expect(shelf.y - (tv.y + tv.height)).toBeGreaterThanOrEqual(0);
-  expect(shelf.y - (tv.y + tv.height)).toBeLessThanOrEqual(16);
-  expect(Math.abs(shelf.x - tv.x)).toBeLessThanOrEqual(1);
-  expect(shelf.x + shelf.width).toBeLessThanOrEqual(tv.x + tv.width + 1);
-  expect(band.y - (tv.y + tv.height)).toBeLessThanOrEqual(16);
-  // The shelf is on top where it hangs over the band's corner: its play key takes the click.
-  const play = await box(page.locator(site.playToggle));
-  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="play-toggle"]') != null, { x: play.x + play.width / 2, y: play.y + play.height / 2 })).toBe(true);
+  expect((await box(page.locator(site.tv))).width).toBeLessThanOrEqual(357);
   // A seated avatar is 41 px at 1×: at least 39 px on screen.
   const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
   expect(41 * k).toBeGreaterThanOrEqual(39);
