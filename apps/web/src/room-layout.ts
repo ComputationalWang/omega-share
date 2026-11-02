@@ -470,7 +470,6 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     band = null;
-    roomViewKey.hidden = true;
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap; only its desktop band bleeds (OME-1843).
     wrap.style.minHeight = "";
@@ -483,6 +482,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       else e.dataset["chrome"] = String(zoom);
     }
     if (fs.mode() !== "off") {
+      // Hidden only where it doesn't show: hiding the key drops its focus (QA OME-2183), so a fit that keeps it never does.
+      roomViewKey.hidden = true;
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
       boxTv(l, wrap.clientHeight, l.at);
@@ -577,6 +578,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       wrap.style.height = "";
       return;
     }
+    roomViewKey.hidden = true;
     const onPhone = phone.matches;
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))

@@ -223,7 +223,7 @@ describe("room layout", () => {
     const hidden = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden");
     let hides = 0;
     Object.defineProperty(key, "hidden", {
-      get: () => hidden?.get?.call(key),
+      get: (): boolean => hidden?.get?.call(key) === true,
       set: (v: boolean) => {
         if (v) hides++;
         hidden?.set?.call(key, v);
