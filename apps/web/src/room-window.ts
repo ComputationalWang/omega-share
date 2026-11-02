@@ -29,9 +29,10 @@ const DESK_ZOOM_STORAGE_KEY = "omega.roomZoomDesk";
 /** The wheel's zoom per px of deltaY (a mouse notch, 100 px, is about one zoom key), and a trackpad pinch's. */
 const WHEEL_RATE = 0.0022;
 const PINCH_RATE = 0.01;
-/** The zoom keys' own band in the window, 44 px keys and 4 px gaps: over the room they hid seats (QA OME-1300 F3). */
+/** The zoom keys' own band in a short window, 44 px keys and 4 px gaps: over a short room they hid seats (QA OME-1300 F3). */
 const KEYS_BAND = 52;
-/** A column beside the room needs three keys' height; a shorter window has them in a row under the room. */
+/** A window this tall (three keys' height) has them floating on the room's bottom-right corner, so the room spans the
+ * window (OME-2171: a column beside it left a 412 px phone's room 360 px wide); a shorter one has them in a row under it. */
 export const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
 /** The keys in a row beside the room (a wide short window): three 44 px keys, their gaps and the band's edges. */
 const KEYS_ROW_W = 3 * 44 + 4 * 4;
@@ -467,8 +468,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       const was = active;
       active = on;
       if (on !== was) for (const e of cropped) crop(e);
-      const keysAt = h >= KEYS_COLUMN_H ? "column" : w >= KEYS_SIDE_MIN_W ? "side" : "row";
-      view.w = on && keysAt !== "row" ? Math.max(0, w - (keysAt === "column" ? KEYS_BAND : KEYS_ROW_W)) : w;
+      const keysAt = h >= KEYS_COLUMN_H ? "float" : w >= KEYS_SIDE_MIN_W ? "side" : "row";
+      view.w = on && keysAt === "side" ? Math.max(0, w - KEYS_ROW_W) : w;
       view.h = on && keysAt === "row" ? Math.max(0, h - KEYS_BAND) : h;
       clip.dataset["keys"] = keysAt;
       clip.classList.toggle("is-phone", on);
