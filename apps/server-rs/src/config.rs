@@ -108,7 +108,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 20] = [
+pub const CONFIG_KEYS: [&str; 21] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -125,6 +125,7 @@ pub const CONFIG_KEYS: [&str; 20] = [
     "STATUS_INTERVAL_MS",
     "RELAY_BATCH_MS",
     "MAX_HTTP_IN_FLIGHT",
+    "MAX_ROOMS",
     "GENERIC_EMBEDS",
     "GENERIC_EMBED_DENYLIST",
     "ROOM_TITLE_BLOCKLIST",
@@ -152,6 +153,7 @@ pub fn env_from_os(vars: impl IntoIterator<Item = (OsString, OsString)>) -> Resu
 
 /// Under the unit's `LimitNOFILE=4096`, so 1024 descriptors stay free for HTTP, SQLite and metrics.
 const MAX_CONNECTIONS_CEILING: u32 = 3072;
+const MAX_ROOMS_CEILING: u32 = 10_000;
 /// Long enough for a phone tab switch, short enough that a seat isn't kept for a gone member (ADR 0043).
 const RESUME_GRACE_MIN_MS: u32 = 5_000;
 const RESUME_GRACE_MAX_MS: u32 = 600_000;
@@ -378,6 +380,14 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
             .ok_or_else(|| fail("MAX_HTTP_IN_FLIGHT", "must be an integer from 0 to 99999"))?,
     };
 
+    let max_rooms = match get("MAX_ROOMS") {
+        None => MAX_ROOMS,
+        Some(raw) => digits(raw, 5)
+            .filter(|n| (1..=MAX_ROOMS_CEILING).contains(n))
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| fail("MAX_ROOMS", format!("must be an integer from 1 to {MAX_ROOMS_CEILING}")))?,
+    };
+
     let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
         "on" => true,
         "off" => false,
@@ -422,7 +432,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         status_interval_ms,
         relay_batch_ms,
         max_http_in_flight,
-        max_rooms: MAX_ROOMS,
+        max_rooms,
     })
 }
 

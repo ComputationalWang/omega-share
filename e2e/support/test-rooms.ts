@@ -105,5 +105,5 @@ export const TEST_ROOM_IDS: readonly string[] = (Object.keys(SPEC_ROOMS) as Room
  * nears. Every server that boots from the full seed (fixtures/seed-rooms.ts) takes it; seed-rooms.test.ts fails
  * `bun run check` when the seed leaves fewer than SEED_HEADROOM rooms for the specs that create one.
  */
-export const E2E_MAX_ROOMS = 500;
+export const E2E_MAX_ROOMS = 1000;
 export const SEED_HEADROOM = 20;
