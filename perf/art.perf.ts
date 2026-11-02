@@ -2,9 +2,11 @@
 // shipped preset, a cold context on the preview build goes from `/` through the directory into a room on that preset's
 // layout and sits down. One owned room whose owner sets each preset's layout first: creating ten rooms would spend the
 // create limits, and seeding ten would put the seeded DB past MAX_ROOMS (500), so every create 503s;
-// every image and JSON art response is gzipped at level 6 as the landing row counts it. The dearest preset is the value.
+// every image and JSON art response, and every lazy JS chunk that is art JSON (OME-2163), is gzipped at level 6 as the landing row counts it. The dearest preset is the value.
 import { devices, expect, test, type Browser, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import * as v from "valibot";
 import { ROOM_PRESET_IDS, RoomLayoutInputSchema, type RoomPresetId } from "@omega/shared";
@@ -15,7 +17,7 @@ import { ownedRoom } from "../e2e/support/owned-rooms";
 import { clickSettled } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
 import { WsMember } from "../e2e/support/ws-member";
-import { artReport, presetArt, type PresetArt } from "./art";
+import { artChunks, artReport, presetArt, type PresetArt } from "./art";
 import { BUDGETS, evaluate } from "./budgets";
 import { responseBytes, type LandingResource } from "./landing";
 import { recordMetric } from "./metrics";
@@ -23,6 +25,19 @@ import { recordMetric } from "./metrics";
 const ID = "site.artGzip";
 const desktop = devices["Desktop Chrome"];
 const ROOM = ownedRoom("artperf");
+const REPO = fileURLToPath(new URL("..", import.meta.url));
+const DIST = resolve(REPO, "apps/web/dist");
+
+/** OME-2163: the preview build's lazy art chunks, from its Vite manifest and each chunk's sourcemap (see artChunks). */
+function previewArtChunks(): ReadonlySet<string> {
+  const manifest: unknown = JSON.parse(readFileSync(resolve(DIST, ".vite/manifest.json"), "utf8"));
+  return artChunks(manifest, (file) => {
+    const map: unknown = JSON.parse(readFileSync(resolve(DIST, `${file}.map`), "utf8"));
+    const sources: unknown = typeof map === "object" && map !== null ? Reflect.get(map, "sources") : null;
+    if (!Array.isArray(sources)) throw new Error(`no sources in ${file}.map`);
+    return sources.map((s) => relative(REPO, resolve(DIST, dirname(file), String(s).replace(/\?.*$/, ""))));
+  });
+}
 
 /** The room's owner sets `preset`'s layout, as the create form would have, and leaves. The server ignores a layout the
  *  room already has (the seed is classic), so that one isn't waited for. */
@@ -55,7 +70,7 @@ async function seated(page: Page): Promise<boolean> {
 }
 
 /** One cold visit into `preset`'s room, seated (standing where the preset has no seat), and the art it fetched. */
-async function visit(browser: Browser, preset: RoomPresetId): Promise<PresetArt & { readonly sat: boolean }> {
+async function visit(browser: Browser, preset: RoomPresetId, chunks: ReadonlySet<string>): Promise<PresetArt & { readonly sat: boolean }> {
   // watchCsp also marks the first-visit tour seen, as the other room perf specs do (its card would cover the seats).
   const context = await watchCsp(await browser.newContext({ viewport: desktop.viewport, deviceScaleFactor: desktop.deviceScaleFactor, userAgent: desktop.userAgent }));
   try {
@@ -83,7 +98,7 @@ async function visit(browser: Browser, preset: RoomPresetId): Promise<PresetArt 
     }
     // Whatever the seated pose and the room's ambient art load after sitting.
     await page.waitForTimeout(2000);
-    return { ...presetArt(preset, await Promise.all(bodies), new URL(URLS.web).origin), sat };
+    return { ...presetArt(preset, await Promise.all(bodies), new URL(URLS.web).origin, chunks), sat };
   } finally {
     await context.close();
   }
@@ -97,10 +112,11 @@ test("room art: the dearest preset's art transfer, cold, from / to seated (gzipp
     return;
   }
   test.setTimeout(180_000);
+  const chunks = previewArtChunks();
   const presets: (PresetArt & { readonly sat: boolean })[] = [];
   for (const preset of ROOM_PRESET_IDS) {
     await setPreset(preset);
-    presets.push(await visit(browser, preset));
+    presets.push(await visit(browser, preset, chunks));
   }
   const report = artReport(presets);
   const standing = presets.filter((p) => !p.sat).map((p) => p.preset);
