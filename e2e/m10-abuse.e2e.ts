@@ -43,6 +43,7 @@ import { signalOwned, spawnOwned } from "./support/owned";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
 import { serverArgv } from "./support/server-cmd";
+import { E2E_MAX_ROOMS } from "./support/test-rooms";
 
 const SERVER_PORT = PORTS.server + 10;
 const SERVER_URL = `http://127.0.0.1:${String(SERVER_PORT)}`;
@@ -309,6 +310,7 @@ async function startServer(port: number, siteOrigin: string, metricsPort: number
     SITE_ORIGIN: siteOrigin,
     TRUST_PROXY: "loopback",
     DB_PATH: db,
+    MAX_ROOMS: String(E2E_MAX_ROOMS),
     ADMIN_SOCKET: "off",
     RESUME_GRACE_MS: String(GRACE_MS),
     ...(metricsPort === null ? {} : { METRICS_PORT: String(metricsPort) }),

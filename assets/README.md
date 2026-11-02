@@ -1755,9 +1755,8 @@ That freed 4 258 B (v8 −1 264, v8-shell −2 994 with the x-ray patches gone).
 
 These follow the furniture-back rules: keys `furniture/<id>/<colour>/<nw|ne>/back`, anchored on the turned footprint's min corner.
 - `wallscreen/panel`, `projector/cloth` (wall): the panel's matte back with the VESA plate and vents, and the cloth's blank back under its
-  case. A wall piece at segment `s` with span `n` turns to segment `9 − s − (n − 1)` on the **near** wall: col 9 for se → nw,
-  row 9 for sw → ne. Draw it there as a ghost: every other pixel, or ~50% alpha, with nothing behind it (OME-2078 dropped the x-ray
-  wall patch: it hid the sitters in front of it). This is the swapped-view rule (`preview/w2-screen-*-north`).
+  case. **Not drawn in the swapped view**: the piece turns onto a near wall, and near walls are cut away (OME-2173 dropped the ~50% ghost;
+  judges read it as an unexplained shape). The frames stay in v8 for the editor; a later repack may drop them.
 - `barcounter/kitchen`, `speaker/jukebox`: turned objects.
 - Turned shipped pieces for the swap rooms, in v8 because furniture-back is at its 12 KB allowance: `aquarium/teal`, `bookshelf/wood`.
   Round pieces (`sidetable` in both colours, `coffeetable`) have no back view: draw the source facing.
@@ -1788,7 +1787,7 @@ both on OME-1959's grid (partition on row 4, doorway at col 1).
 2. **Fixture segments in a skinned shell.** In both swap rooms the front room has only left-wall segments 5–9, and 5, 6 and 8 are
    `WALL_FIXTURE_SEGMENTS`. A span-2 screen can't hang there. The skin draws no window, poster or sconce, so I propose fixtures only
    for the default shell. The proposals hang the screen at (0, 7) (penthouse) and (0, 8) (studio) on that basis.
-3. One screen per room stays. From the far side of the partition the screen shows as its ghosted back on the near wall. The concept's
+3. One screen per room stays. From the far side of the partition the screen hangs on the cut-away near wall and is not drawn (OME-2173). The concept's
    "a screen per side" would need either a second screen or the web repeating the screen's front on the far wall. That decision
    is the web's (ADR 0058 §1), and no new art is needed for either option.
 
@@ -1978,8 +1977,8 @@ eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are 
 - **Living room:** the two wingbacks move by the hearth, `(1,2) ne` and `(2,1) nw` (were `(1,4)` / `(4,1)`), so no sitter or tag lands right
   over a couch pair. The couch's two sitters keep their cells: at 1× they sit 32 px apart with a 6 px gap between the widest sit frames
   (kiki, 26 px), so they don't overlap.
-- **The ghost on the near wall (penthouse/studio north) stays:** it is the wall screen's back, per the swapped-view rule above (§ "Back views
-  (swapped view)"), and tells a guest seen from the north that the screen hangs behind them (QA OME-2091 asked that the front row not hide it).
+- **No ghost on the near wall (penthouse/studio north):** OME-2173 removed it; the wall screen is not drawn from the north (§ "Back views
+  (swapped view)").
 - **Judging cast:** evidence runs give the two extra guests looks no default (tint 0, hair 0, no hat) and no other guest wears: Obs =
   `{ avatar: 2 (mo), tint: 3, hair: 2, accessory: 5 (cap) }`, Pip = `{ avatar: 1 (pip), tint: 4, hair: 4, accessory: 6 (flower) }`.
 

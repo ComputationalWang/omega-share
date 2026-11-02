@@ -37,7 +37,6 @@ const V8_KINDS: ReadonlySet<FurnitureKind> = new Set(["wallscreen", "projector"]
 /** The glass partitions (glass, panelglass): at night their pane gets v7's amber mask (assets/README.md "Night pane masks"). */
 const GLASS: ReadonlySet<number> = new Set([1, 3]);
 const PANE_ALPHA = 0.2;
-const GHOST_ALPHA = 0.5;
 const glassAtNight = (l: RoomLayout, f: Furniture): boolean => l.mood === "night" && f.kind === "partition" && GLASS.has(f.variant ?? 0);
 /**
  * A shell skin's frame names behind the partition line, on it and in front of it, floor and wall (ADR 0058):
@@ -385,10 +384,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
   if (room !== null) pushShell(sprites, layout, room, ready ? { skin, line } : undefined);
   for (const [i, source] of layout.furniture.entries()) {
     const spec = FURNITURE[source.kind];
-    if (north && spec.layer === "wall") {
-      if (V8_KINDS.has(source.kind)) pushGhost(sprites, source, manifests);
-      continue;
-    }
+    if (north && spec.layer === "wall") continue;
     const f = north ? { ...source, facing: TURN[source.facing] } : source;
     const id = atlasId(f.kind);
     // A variant its sheets lack (not loaded yet, or a recolour, which draws its source's frames) falls back to the piece's first colour; the tv has none, only its console.
@@ -443,21 +439,6 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
     }
   }
   return { lies, sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
-}
-
-/**
- * A wall screen seen from the north (assets/README.md "Back views"): its span turns to segment 9 - s - (span - 1) of the near wall (raw col 9 for
- * a left-wall se piece, raw row 9 for a right-wall sw one), drawn as its ne/nw back frame at half alpha over everything, with nothing behind it.
- */
-function pushGhost(out: FurnitureSprite[], f: Furniture, manifests: readonly FurnitureManifest[]): void {
-  const left = f.facing === "se";
-  const s = FLOOR_CELLS - 1 - (left ? f.row : f.col) - ((FURNITURE[f.kind].wallSpan ?? 1) - 1);
-  const colour = manifests.flatMap((m) => m.meta.omega.pieces).find((p) => p.id === f.kind)?.colours[0];
-  const key = `furniture/${f.kind}/${colour ?? ""}/${TURN[f.facing]}/back`;
-  if (!manifests.some((m) => m.frames[key] !== undefined)) return;
-  const at = left ? rawCenter(FLOOR_CELLS - 1, s) : rawCenter(s, FLOOR_CELLS - 1);
-  // An object over every piece and avatar (stage y < 4096): the wall layer sits under all objects, so the front row hid it (QA OME-2091).
-  out.push({ key, x: at.x, y: at.y, layer: "object", z: depth(0, 4096, 0), alpha: GHOST_ALPHA });
 }
 
 function pushSprites(

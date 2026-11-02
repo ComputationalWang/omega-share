@@ -40,6 +40,7 @@ import { PORTS, ROOT } from "./support/apps";
 import { spawnOwned } from "./support/owned";
 import { ownedRoom } from "./support/owned-rooms";
 import { serverArgv } from "./support/server-cmd";
+import { E2E_MAX_ROOMS } from "./support/test-rooms";
 
 const SERVER_PORT = PORTS.server + 6;
 const SITE_ORIGIN = `http://localhost:${String(PORTS.web)}`;
@@ -272,6 +273,7 @@ function startServer(): { server: ServerFixture; stop: () => Promise<void> } {
     SITE_ORIGIN,
     TRUST_PROXY: "loopback",
     DB_PATH: db,
+    MAX_ROOMS: String(E2E_MAX_ROOMS),
     ADMIN_SOCKET: "off",
     GENERIC_EMBED_DENYLIST: DENIED_DOMAIN,
   };

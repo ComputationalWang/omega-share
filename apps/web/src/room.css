@@ -35,7 +35,8 @@
   url("../../../assets/ui/scenes/curtain-drape.png") 50% 0 / calc(8 * var(--ui-px)) calc(8 * var(--ui-px)) repeat; }
 .room-wide[data-chrome="2"] .tv-curtain { --ui-px: 4px; }
 /* The caption scales with the TV, not the page (OME-1848, design OME-1847 §1): the stage is outside the chrome zoom, so cqw is real px. */
-.tv-empty { max-width: min(80%, 30em); margin: 0; padding: 0.3em 0.9em; font-size: clamp(var(--text-sm), 2.2cqw, 40px); background: var(--ui-page); border: max(var(--ui-px), 0.12em) solid var(--ui-accent); color: var(--ui-text); font-weight: 500; text-align: center; font-family: inherit; line-height: inherit; cursor: pointer; }
+.tv-empty { max-width: min(80%, 30em); margin: 0; padding: 0.3em 0.9em; font-size: clamp(var(--text-sm), 2.2cqw, 40px); background: var(--ui-page); border: max(var(--ui-px), 0.12em) solid var(--ui-accent); color: var(--ui-text); font-weight: 500; text-align: center; font-family: inherit; line-height: inherit; min-height: 40px; cursor: pointer; }
+@media (pointer: coarse) { .tv-empty { min-height: 44px; } }
 /* Generic tier (ADR 0024 §3): the load card fills the TV until Load; the strip takes the sync controls' slot. */
 .tv .tv-generic { width: 100%; height: 100%; display: grid; place-items: center; }
 .generic-card { max-width: 80%; text-align: center; color: #eee; }
@@ -70,9 +71,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
  * trace the tile (a clip-path would cut a focus ring away, OME-701): a light ring over a dark one reads on any floor. */
 .seat { position: absolute; left: -18.385px; top: -18.385px; width: 36.77px; height: 36.77px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; transform: scaleY(0.5) rotate(45deg); }
-.seat:hover, .seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
-.seat:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+/* Only where the device hovers: on touch :hover sticks after a tap and left the tint over the seated avatar (OME-2175). */
+@media (hover: hover) { .seat:hover { background: rgb(234 172 139 / 0.35); } }
+.seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
+.seat[data-occupied="true"]:not(.mine):hover, .seat[data-occupied="true"]:not(.mine):focus-visible { background: transparent; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
 /* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --label-scale (below) grows
  * them around their anchor. */
@@ -154,8 +157,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .seat:disabled { cursor: default; }
 /* Lie keys (OME-1691): a small pad above a sofa, couch or cat bed, not the floor diamond. */
 .lie-key { position: absolute; left: -14px; top: -10px; width: 28px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: transparent; pointer-events: auto; cursor: pointer; }
-.lie-key:hover, .lie-key:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
-.lie-key:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+/* Same rule as the seat (OME-2176): no sticky tap tint, none on a key someone else holds (lieIntent null → disabled). */
+@media (hover: hover) { .lie-key:not(:disabled):hover { background: rgb(234 172 139 / 0.35); } }
+.lie-key:focus-visible { background: rgb(234 172 139 / 0.35); outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .lie-key:disabled { cursor: default; }
 /* OME-1807: 44 px to a finger, its bottom edge where the 20 px pad's was, so it stays clear of the sofa's seat keys. */
 .ui-touch .lie-key { left: -22px; top: -34px; width: 44px; height: 44px; }
