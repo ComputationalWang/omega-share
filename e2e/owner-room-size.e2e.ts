@@ -142,7 +142,7 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
   });
   expect(led, "led tag: hit area intact, pip drawn apart").toEqual({ hitEvents: "auto", hitBorder: "0px", pip: "4px" });
   expect(Math.min(...Object.values(await hitBox(kitTag))), "led tag opener").toBeGreaterThanOrEqual(44);
-  await kitTag.evaluate((e) => e.classList.remove("is-led"));
+  await kitTag.evaluate((e) => { e.classList.remove("is-led"); });
 
   // A tag the window crops is inert (OME-1325): the whole room on screen first.
   await host.locator("[data-testid=room-zoom-fit]").click();
