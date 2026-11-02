@@ -154,7 +154,7 @@ const LANDING: readonly Budget[] = [
   { id: "landing.longTask", area: "Landing", metric: "Longest task before the nickname field is usable", docMetric: "Longest task before the nickname field is usable", unit: "ms", limit: 50, comparator: "<=" },
 ];
 
-// OME-2151 (ADR 0060): room art (images + JSON) a cold context fetches into the dearest preset's room, preview build, gz level 6. Pending until a spec measures it.
+// OME-2151 (ADR 0060): room art (images + JSON) a cold context fetches into the dearest preset's room, preview build, gz level 6 (perf/art.perf.ts, OME-2152).
 const ART: readonly Budget[] = [
   { id: "site.artGzip", area: "Site", metric: "Room art transfer, dearest preset (gzipped)", docMetric: "Room art transfer per preset (gzipped)", unit: "KB", limit: 450, comparator: "<=" },
 ];

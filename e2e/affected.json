@@ -771,7 +771,8 @@
         "perf/heap-movie.perf.ts",
         "perf/idle-ambient.perf.ts",
         "perf/walk-tiers.perf.ts",
-        "perf/wide.perf.ts"
+        "perf/wide.perf.ts",
+        "perf/art.perf.ts"
       ]
     },
     {
