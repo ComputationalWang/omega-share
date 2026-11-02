@@ -22,6 +22,20 @@ function storedStrip(): StripMode {
   }
 }
 
+/** Room view's last explicit choice on this device (OME-2195): "on" or "off"; anything else is no choice. */
+const ROOM_VIEW_STORAGE_KEY = "omega.roomView";
+/** With no choice, Room view is the default from this window width (ADR 0060 amendment 3): avatars ~27 px video first. */
+const ROOM_VIEW_FROM_W = 1100;
+
+function storedRoomView(): boolean | null {
+  try {
+    const v = localStorage.getItem(ROOM_VIEW_STORAGE_KEY);
+    return v === "on" ? true : v === "off" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
 function storeStrip(mode: StripMode): void {
   try {
     localStorage.setItem(STRIP_STORAGE_KEY, mode);
@@ -438,13 +452,19 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let me: Point | null = null;
   /** The desktop band's fit (OME-2148): its inputs and scale, null in every other layout. */
   let band: { readonly scale: number; readonly h: number; readonly k: number } | null = null;
-  // Room view (OME-2170, ADR 0060): this tab's choice only, never stored. The TV and stage are re-boxed, never rebuilt.
-  let roomView = false;
+  // Room view (OME-2170, ADR 0060): the viewer's choice, kept on this device (OME-2195), else on from ROOM_VIEW_FROM_W.
+  // The TV and stage are re-boxed, never rebuilt.
+  let roomViewChoice = storedRoomView();
+  const roomView = (): boolean => roomViewChoice ?? window.innerWidth >= ROOM_VIEW_FROM_W;
   const roomViewKey = el("button", { type: "button", className: "ui-button self room-view-key", textContent: "Room view", hidden: true }, "room-view-key");
-  roomViewKey.ariaPressed = "false";
+  roomViewKey.ariaPressed = String(roomView());
   roomViewKey.addEventListener("click", () => {
-    roomView = !roomView;
-    roomViewKey.ariaPressed = String(roomView);
+    roomViewChoice = !roomView();
+    try {
+      localStorage.setItem(ROOM_VIEW_STORAGE_KEY, roomViewChoice ? "on" : "off");
+    } catch {
+      // Storage off (private mode): the choice lasts for this page only.
+    }
     fit();
   });
   clip.after(roomViewKey);
@@ -470,6 +490,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     band = null;
+    clip.style.removeProperty("--shelf-over");
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap; only its desktop band bleeds (OME-1843).
     wrap.style.minHeight = "";
@@ -533,10 +554,16 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), roomView);
+      const on = roomView();
+      roomViewKey.ariaPressed = String(on);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on);
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
+        // Room view's shelf over the band's corner (OME-2195): the band's chips go under it.
+        const over = l.controls.y + l.controls.h - l.stage.y;
+        if (over > 0) clip.style.setProperty("--shelf-over", `${String(over)}px`);
+        else clip.style.removeProperty("--shelf-over");
         // In the band's top corner, over its backdrop beside the room.
         roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
         // A touch screen whose band can't hold the room at its scale (a phone held sideways) gets the phone's window: seats
