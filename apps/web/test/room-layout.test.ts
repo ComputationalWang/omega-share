@@ -210,6 +210,33 @@ describe("room layout", () => {
     expect(localStorage.length).toBe(0);
   });
 
+  // QA OME-2183: each fit hid the key first, and hiding it dropped its focus to <body>; a second Enter did nothing.
+  test("the Room view key keeps its focus across its own toggles, never hidden in between", async () => {
+    const { layout, wrap } = await setup({ wide: true, video: true });
+    Object.defineProperty(wrap, "clientWidth", { value: 905 });
+    Object.defineProperty(wrap, "clientHeight", { value: 655 });
+    layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+    const key = wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]');
+    if (key === null) throw new Error("no Room view key");
+    key.focus();
+    // happy-dom keeps focus on a hidden element; a browser blurs it. So watch the key never being hidden.
+    const hidden = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden");
+    let hides = 0;
+    Object.defineProperty(key, "hidden", {
+      get: () => hidden?.get?.call(key),
+      set: (v: boolean) => {
+        if (v) hides++;
+        hidden?.set?.call(key, v);
+      },
+    });
+    key.click();
+    expect(document.activeElement).toBe(key);
+    key.click();
+    expect(document.activeElement).toBe(key);
+    expect(key.ariaPressed).toBe("false");
+    expect(hides).toBe(0);
+  });
+
   // QA OME-1330 R1 in CI: the key sat over seat 4 of the touch window at 844×390. A phone sideways has its own window.
   test("a touch screen's phone window has no Room view key over its seats", async () => {
     const { layout, wrap } = await setup({ wide: true, video: true, coarse: true });
