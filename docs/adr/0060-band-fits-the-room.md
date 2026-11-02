@@ -12,10 +12,12 @@
 
 **Amendment (2026-11-02, [OME-2170](/OME/issues/OME-2170)):** the room's foot is the lowest name tag's or the floor's front corner (`FLOOR_FOOT`, y 540), whichever is lower. A band that holds the back wall's art to that foot centres on it. Before this, the north views of the penthouse and the studio fitted to their tags, which sit above the corner, so the front rows' furniture was cut (QA [OME-2168](/OME/issues/OME-2168#document-review) § 8 item 1). The walls' and partitions' tops above y 113 stay cropped as before.
 
+**Amendment 2 (2026-11-02, [OME-2170](/OME/issues/OME-2170), CEO decision C):** at 1280×800 a hero TV leaves the band 0.60 to 0.70×, so avatars (41 to 47 px at 1×) are about 25 px. Readable avatars need the room at about 1×, 428 to 442 px of the column's 655, which a hero TV can't leave. So the wide layout gets **Room view**: a labelled toggle key (`room-view-key`, `aria-pressed`) in the band's top corner, shown only with a video, out of full screen and while the room is here. On, `wideLayout(…, roomView)` puts the TV at its ADR 0012 floor (356×200, Twitch 534×300) on the left with its shelf beside it, where the shelf's keys fit (else under it, as before), and the band takes the rest: 441 px at 1280×800, so every preset fits at 0.998× or more, in both swap views. Off is the hero layout, unchanged, and stays the default. The choice lives in the tab's memory only (no storage, no contract change). Switching re-boxes the TV, the shelf and the stage; it never rebuilds the player or the stage.
+
 ## Consequences
 
 - At 1× windows the band's pixel art is drawn below 1× (nearest-neighbour, like the phone's zoomed-out window). Whole-number scales stay wherever the band holds the span: 1280×1200 and 2× windows are unchanged.
 - The TV keeps ADR 0059's size. The hero bound (43 %) is untouched.
 - Rows of the room below the lowest name tag (the floor's front corner) can sit under the band's foot, and a wheel drag still reaches them.
 - A fractional band scale gives the bubbles a fractional label scale, and float rounding can then leave a sub-pixel overlap that `floats.ts resolve()` never cleared (a frozen tab, QA OME-2156). Overlap under 1e-6 px counts as none (`SLACK`).
-- Reversing: drop `bandFit` from `room-layout.ts`. The band is then ADR 0059's again.
+- Reversing: drop `bandFit` from `room-layout.ts`. The band is then ADR 0059's again. Room view goes with its key and `wideLayout`'s `roomView` branch.

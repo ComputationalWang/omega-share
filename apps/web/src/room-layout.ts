@@ -438,6 +438,16 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let me: Point | null = null;
   /** The desktop band's fit (OME-2148): its inputs and scale, null in every other layout. */
   let band: { readonly scale: number; readonly h: number; readonly k: number } | null = null;
+  // Room view (OME-2170, ADR 0060): this tab's choice only, never stored. The TV and stage are re-boxed, never rebuilt.
+  let roomView = false;
+  const roomViewKey = el("button", { type: "button", className: "ui-button self room-view-key", textContent: "Room view", hidden: true }, "room-view-key");
+  roomViewKey.ariaPressed = "false";
+  roomViewKey.addEventListener("click", () => {
+    roomView = !roomView;
+    roomViewKey.ariaPressed = String(roomView);
+    fit();
+  });
+  clip.after(roomViewKey);
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -460,6 +470,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     band = null;
+    roomViewKey.hidden = true;
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap; only its desktop band bleeds (OME-1843).
     wrap.style.minHeight = "";
@@ -521,9 +532,12 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight));
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), roomView);
+      roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
+        // In the band's top corner, over its backdrop beside the room.
+        roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
         // A touch screen whose band can't hold the room at its scale (a phone held sideways) gets the phone's window: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves (windowH:
         // the keys beside it in a row, OME-1841); where that's too little (Twitch's taller TV, QA OME-1330 R1) the keys'
