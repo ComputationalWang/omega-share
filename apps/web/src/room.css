@@ -11,8 +11,7 @@
  * cinema dim's spread fills its width and the band isn't an island. */
 .stage-clip.is-bleed { overflow: visible; clip-path: inset(0 calc(-1 * var(--bleed))); }
 /* Follow (OME-1389): a small chip in the room window's top-left corner while I follow someone. */
-/* Under Room view's shelf where it hangs over the band (OME-2195). */
-.follow-chip { position: absolute; left: 8px; top: calc(8px + var(--shelf-over, 0px)); z-index: 3; text-transform: none; }
+.follow-chip { position: absolute; left: 8px; top: 8px; z-index: 3; text-transform: none; }
 .follow-chip .ui-button { font-size: 10px; padding: 0 4px; }
 /* Doors (OME-1425): "Go to <room> · Stay" in the top-right corner while I stand in front of a door. */
 .door-chip { position: absolute; right: 8px; top: 8px; z-index: 3; text-transform: none; }
@@ -24,8 +23,7 @@
 /* The TV box is the player rect (>= 356x200, layout.ts); the bezel is an outline so it never eats into it. */
 .tv { position: absolute; background: #000; display: grid; place-items: center; }
 /* Reserved for the set (e) shared transport + personal volume (OME-89); the shelf is its slot. */
-/* Over the band where Room view docks it on the band's corner (OME-2195). */
-.controls { position: absolute; z-index: 2; }
+.controls { position: absolute; }
 .tv iframe { width: 100%; height: 100%; border: 0; }
 .tv .tv-sdk { width: 100%; height: 100%; }
 /* Nothing on (OME-1812, design OME-1799 §5): the closed curtain, lazy tiles at the chrome's art pixel (4 px at the 2x

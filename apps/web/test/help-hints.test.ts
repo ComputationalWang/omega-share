@@ -236,8 +236,12 @@ describe("the first-visit tour", () => {
       observe(t: Element): void {
         watched.set(t, this.cb);
       }
-      unobserve(): void {}
-      disconnect(): void {}
+      unobserve(): void {
+        // Nothing to stop: the test fires the callback by hand.
+      }
+      disconnect(): void {
+        watched.clear();
+      }
     } as unknown as typeof ResizeObserver;
     try {
       const { hints, tv } = await setup();

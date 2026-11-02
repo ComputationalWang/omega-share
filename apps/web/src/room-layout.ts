@@ -490,7 +490,6 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     band = null;
-    clip.style.removeProperty("--shelf-over");
     const roomOut = o.roomOut();
     // Only the wide layout's touch window (below) stretches the wrap; only its desktop band bleeds (OME-1843).
     wrap.style.minHeight = "";
@@ -560,10 +559,6 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
-        // Room view's shelf over the band's corner (OME-2195): the band's chips go under it.
-        const over = l.controls.y + l.controls.h - l.stage.y;
-        if (over > 0) clip.style.setProperty("--shelf-over", `${String(over)}px`);
-        else clip.style.removeProperty("--shelf-over");
         // In the band's top corner, over its backdrop beside the room.
         roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
         // A touch screen whose band can't hold the room at its scale (a phone held sideways) gets the phone's window: seats

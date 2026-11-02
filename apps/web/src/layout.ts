@@ -206,17 +206,19 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const tvFit = provider === null ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
   const room = roomView && provider !== null;
   const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((tvFit * 16) / 9)));
-  // Room view (OME-2170, OME-2195): the TV at its floor at the column's left, its shelf docked under it.
-  const tv = { x: room ? TV_BEZEL : Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;
+  // Room view (OME-2170): the TV at its floor, left, and its shelf beside it where the shelf's keys fit, so the room
+  // gets the column under the picture.
+  const beside = room && w - (2 * TV_BEZEL + tvW + GAP + 2 * SHELF_SPEAKER) >= keysMin;
+  const tv = { x: beside ? TV_BEZEL : Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   // A TV narrower than the zoomed shelf's keys (People open, QA OME-1696) gets a wider shelf, centred under it. 1× as before.
-  const keysW = chrome > 1 ? (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome : 0;
+  const keysW = chrome > 1 ? keysMin : 0;
   const cw = Math.max(tv.w, Math.min(w, keysW));
-  const controls = { x: room ? tv.x : Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: room ? Math.min(cw, w - tv.x) : cw, h: barH };
-  // The room needs the column under the TV to keep 40 px avatars, so the shelf hangs over the band's top-left corner, as
-  // the moments strip does. Only where it clears the back wall: its art falls a tile's slope from the back corner, which
-  // the band centres, so the shelf's foot needs (TILE_W / TILE_H) px of run per px of drop. Else the band starts under it.
-  const over = room && w / 2 - (controls.x + controls.w) >= (barH * TILE_W) / TILE_H;
-  const sy = over ? controls.y : controls.y + controls.h + GAP;
+  const sx = tv.x + tv.w + TV_BEZEL + GAP + SHELF_SPEAKER;
+  const controls = beside
+    ? { x: sx, y: tv.y + tv.h - barH, w: w - SHELF_SPEAKER - sx, h: barH }
+    : { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
+  const sy = beside ? tv.y + tv.h + GAP : controls.y + controls.h + GAP;
   const band = Math.max(0, h - sy);
   const scale = Math.max(1, Math.min(maxScale, Math.floor(band / BAND_MIN_H)));
   const sw = Math.min(w, ROOM_VIEW.w * scale);
