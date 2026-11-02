@@ -17,7 +17,7 @@ export function isArt(r: LandingResource, webOrigin: string): boolean {
 }
 
 /** The art among one cold load's responses, deduplicated by URL. */
-export function presetArt(preset: string, resources: readonly LandingResource[], webOrigin: string): PresetArt {
+export function presetArt(preset: string, resources: readonly LandingResource[], webOrigin: string, _chunks: ReadonlySet<string> = new Set()): PresetArt {
   const files = new Map<string, number>();
   for (const r of resources) if (isArt(r, webOrigin)) files.set(r.url, Math.max(files.get(r.url) ?? 0, r.bytes));
   return { preset, files };
@@ -33,4 +33,9 @@ export function artReport(presets: readonly PresetArt[]): { readonly kb: number;
   if (dearest === undefined) throw new Error("no presets measured");
   const union = new Map(presets.flatMap((p) => [...p.files]));
   return { kb: total(dearest.files) / 1024, note: `dearest ${dearest.preset}; ${sorted.map((p) => line(p.preset, p.files)).join(", ")}; ${line("union", union)}` };
+}
+
+/** OME-2163: stub (red). */
+export function artChunks(_manifest: unknown, _modulesOf: (file: string) => readonly string[]): ReadonlySet<string> {
+  return new Set();
 }
