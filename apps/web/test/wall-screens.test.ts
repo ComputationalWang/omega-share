@@ -43,26 +43,10 @@ describe("the south view", () => {
 });
 
 describe("the north view (swapped-view rule)", () => {
-  test("a screen turns to segment 9 - s - (n - 1) on the near wall, as a half-alpha back frame", () => {
+  test("a wall screen turns onto the cut-away near wall, so it is not drawn at all, like every near-wall piece (OME-2175)", () => {
     setNorth(true);
     const s = sceneOf(withWall(wallscreen, projector), [v8]);
-    // se, segment 2, span 2 -> col 9, segment 6; sw, segment 2, span 3 -> row 9, segment 5.
-    expect(s.sprites.filter((x) => x.alpha === 0.5).map((x) => [x.key, x.x, x.y, x.alpha])).toEqual([
-      ["furniture/wallscreen/panel/nw/back", rawCenter(9, 6).x, rawCenter(9, 6).y, 0.5],
-      ["furniture/projector/cloth/ne/back", rawCenter(5, 9).x, rawCenter(5, 9).y, 0.5],
-    ]);
-  });
-
-  test("the ghost sorts above every piece and any avatar in the room, so the front row cannot hide it (QA OME-2091)", () => {
-    setNorth(true);
-    const s = sceneOf(withWall(wallscreen, projector), [v8]);
-    const ghosts = s.sprites.filter((x) => x.alpha === 0.5);
-    const others = s.sprites.filter((x) => x.alpha !== 0.5).map((x) => x.z);
-    const floor = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => standDepth(rawCenter(i % FLOOR_CELLS, Math.floor(i / FLOOR_CELLS))));
-    expect(ghosts).toHaveLength(2);
-    // The wall layer is drawn under every object (room-view.ts), whatever its z: the ghost sorts with the objects.
-    for (const g of ghosts) expect(g.layer).toBe("object");
-    for (const g of ghosts) expect(g.z).toBeGreaterThan(Math.max(...others, ...floor, ...s.seats.map((x) => x.z)));
+    expect(s.sprites.filter((x) => x.key.startsWith("furniture/wallscreen/") || x.key.startsWith("furniture/projector/"))).toEqual([]);
   });
 
   test("other wall pieces are still dropped from the north", () => {

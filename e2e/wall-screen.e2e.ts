@@ -1,6 +1,6 @@
 // The wall screen (OME-2069, ADR 0058). First test: an owner swaps the TV for it in the editor, from the keyboard. Second: in a seeded
 // Dank Dungeon with the screen where its TV hangs, a viewer who walks into the bedroom sees the room from the north, where the screen
-// is a ghosted back on the near wall (drawn from the same lazy sheet, furniture-v8). The editor can't place the partition that turns a view.
+// turns onto the cut-away near wall and is not drawn (OME-2175 dropped its ghosted back). The editor can't place the partition that turns a view.
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import * as v from "valibot";
 import type { Page } from "@playwright/test";
@@ -86,7 +86,7 @@ async function clickCell(page: Page, x: number, y: number): Promise<void> {
   await page.mouse.click(box.left + p.x * box.k, box.top + p.y * box.k);
 }
 
-test("walking into the bedroom turns the view north, where the wall screen shows as a ghosted back on the near wall", async ({ browser }, testInfo) => {
+test("walking into the bedroom turns the view north, where the wall screen, now on the cut-away near wall, is not drawn", async ({ browser }, testInfo) => {
   const requests: string[] = [];
   clients = await joinRoom(browser, { roomUrl: testRoom("wall-screen", "north").url,
     count: 1,
@@ -107,8 +107,8 @@ test("walking into the bedroom turns the view north, where the wall screen shows
   // Let the swapped scene settle, then keep the picture for the anchor review against assets/preview/w2-screen-wallscreen-north@2x.png.
   await a.page.waitForTimeout(500);
   await a.page.locator(site.room).screenshot({ path: testInfo.outputPath("wall-screen-north.png") });
-  // Drawn last, over the beds, the partition end and every avatar (QA OME-2091): the scene's draw order ends with the ghost.
-  await expect.poll(async () => (await drawOrder(a.page)).at(-1)).toBe("furniture/wallscreen/panel/nw/back");
+  // No ghost over the beds (OME-2175): nothing of the screen is in the scene's draw order.
+  await expect.poll(async () => (await drawOrder(a.page)).filter((k) => k.startsWith("furniture/wallscreen/"))).toEqual([]);
 });
 
 /** The scene's draw order, bottom first (apps/web/src/room.ts `scene`, through the dev handle `window.__omega.room`). */
