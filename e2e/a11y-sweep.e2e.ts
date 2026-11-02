@@ -170,6 +170,11 @@ const KNOWN: readonly { issue: string; surface: RegExp; problem: RegExp }[] = [
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
 async function audit(page: Page, vp: string, surface: string): Promise<void> {
   await page.waitForTimeout(400);
+  // A walker's tag crosses the seat keys on its way (OME-2191): judge the room once every tag has stopped.
+  await page.evaluate(async (tag) => {
+    const at = (): string => [...document.querySelectorAll(tag)].map((t) => { const r = t.getBoundingClientRect(); return `${String(r.x)},${String(r.y)}`; }).join(" ");
+    for (let was = "", now = at(); now !== was; was = now, now = at()) await new Promise((done) => setTimeout(done, 300));
+  }, site.nicknameTag);
   const problems = [...(await axe(page)), ...(await measure(page))];
   const known = (p: string) => KNOWN.find((k) => k.surface.test(surface) && k.problem.test(p));
   for (const p of problems) {
