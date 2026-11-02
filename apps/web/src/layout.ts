@@ -196,7 +196,7 @@ export function roomScale(width: number, height: number): number {
  * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits. The band's
  * backdrop reaches the column's edges past it (OME-1843, room-layout.ts).
  */
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1): RoomLayout {
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, _roomView = false): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
