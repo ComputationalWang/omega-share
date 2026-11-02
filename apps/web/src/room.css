@@ -156,8 +156,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .seat:disabled { cursor: default; }
 /* Lie keys (OME-1691): a small pad above a sofa, couch or cat bed, not the floor diamond. */
 .lie-key { position: absolute; left: -14px; top: -10px; width: 28px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: transparent; pointer-events: auto; cursor: pointer; }
-.lie-key:hover, .lie-key:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
-.lie-key:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+/* Same rule as the seat (OME-2176): no sticky tap tint, none on a key someone else holds (lieIntent null → disabled). */
+@media (hover: hover) { .lie-key:not(:disabled):hover { background: rgb(234 172 139 / 0.35); } }
+.lie-key:focus-visible { background: rgb(234 172 139 / 0.35); outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .lie-key:disabled { cursor: default; }
 /* OME-1807: 44 px to a finger, its bottom edge where the 20 px pad's was, so it stays clear of the sofa's seat keys. */
 .ui-touch .lie-key { left: -22px; top: -34px; width: 44px; height: 44px; }
