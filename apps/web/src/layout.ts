@@ -460,6 +460,8 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
  */
 /** The top of the tallest wall art (ROOM_VIEW): the band shows the back wall from here (OME-2148). */
 export const BAND_WALL_TOP = 113;
+/** The floor's front corner (the front cell's foot): the lowest thing the room's shell shows (OME-2170). */
+export const FLOOR_FOOT = ORIGIN_Y + FLOOR_CELLS * TILE_H;
 /** The band never fits the room below half size: shorter, it keeps the seats whole as before (OME-1864). */
 const BAND_MIN_FIT = 0.5;
 
