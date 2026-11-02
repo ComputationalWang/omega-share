@@ -30,7 +30,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -340,7 +340,7 @@ const SMALL: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
  * axe target-size in the room window, plus what axe can't see. axe ignores overflow clipping (axe-core getTargetRects
  * takes the whole boundingClientRect), so a seat cut by the room pane's edge counts the zoom keys' band past that edge
  * as covering its cut-off part. Such a seat is checked by geometry instead: no zoom key meets the pane, so no key ever
- * covers what's drawn of a seat. Anything else axe finds is returned.
+ * covers what's drawn of a seat. Keys floating on the room (OME-2171) get no such excuse. Anything else axe finds is returned.
  */
 async function targetSize(page: Page): Promise<string[]> {
   const { violations } = await new AxeBuilder({ page }).include(site.roomWindow).withRules(["target-size"]).analyze();
@@ -349,8 +349,10 @@ async function targetSize(page: Page): Promise<string[]> {
     const pane = document.querySelector(".stage-pane")?.getBoundingClientRect();
     if (pane === undefined) return ["no room pane"];
     const meets = (a: DOMRect, b: DOMRect): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-    const out = [...document.querySelectorAll(".room-zoom > button")].filter((k) => meets(k.getBoundingClientRect(), pane)).map((k) => `${k.ariaLabel ?? "a zoom key"} meets the room pane`);
-    const isKey = (sel: string): boolean => document.querySelector(sel)?.closest(".room-zoom") != null;
+    // Keys floating on a tall window (OME-2171) are on the pane by design: there axe alone says they cover no seat.
+    const float = document.querySelector<HTMLElement>(".stage-clip")?.dataset["keys"] === "float";
+    const out = float ? [] : [...document.querySelectorAll(".room-zoom > button")].filter((k) => meets(k.getBoundingClientRect(), pane)).map((k) => `${k.ariaLabel ?? "a zoom key"} meets the room pane`);
+    const isKey = (sel: string): boolean => !float && document.querySelector(sel)?.closest(".room-zoom") != null;
     for (const f of found) {
       const r = document.querySelector(f.target)?.getBoundingClientRect();
       const cut = r !== undefined && (r.left < pane.left || r.right > pane.right || r.top < pane.top || r.bottom > pane.bottom);
@@ -452,4 +454,37 @@ test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it a
   await page.getByTestId("portrait-chat").click();
   await expect(page.getByTestId("portrait-sheet")).toBeVisible();
   await expect(page.getByTestId("portrait-sheet").locator(site.chatLog)).toBeVisible();
+});
+
+// Design judge round 3 (OME-2169 request 5, OME-2171): at 412×915 the room was 360 px wide beside a column of zoom keys,
+// with a dark band under it. The keys float over the room's bottom-right corner now, and the room fills the free height.
+test("412×915 touch: the room spans the whole width and the free height, its zoom keys float on it at 44 px, on no seat (OME-2171)", async ({ browser }) => {
+  const page = await one(browser, "full412", { ...PHONE, viewport: { width: 412, height: 915 } });
+  await frames(page);
+  const pane = await page.locator(".stage-pane").boundingBox();
+  const win = await page.locator(site.roomWindow).boundingBox();
+  const dock = await page.getByTestId("portrait-chat").boundingBox();
+  if (pane === null || win === null || dock === null) throw new Error("not laid out");
+  expect(pane.width, "room picture width").toBe(412);
+  expect(pane.height, "room picture height").toBe(win.height);
+  // The window takes the free height: nothing but the chat strip between it and the panel keys.
+  const log = await page.locator(site.chatLog).boundingBox();
+  expect(dock.y - (win.y + win.height) - (log?.height ?? 0), "empty band under the window").toBeLessThanOrEqual(40);
+  for (const k of await page.locator('[data-testid^="room-zoom-"]').all()) {
+    const b = await k.boundingBox();
+    if (b === null) throw new Error("key not laid out");
+    expect(b.width).toBeGreaterThanOrEqual(44);
+    expect(b.height).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width).toBeLessThanOrEqual(win.x + win.width + 0.5);
+    expect(b.y + b.height).toBeLessThanOrEqual(win.y + win.height + 0.5);
+  }
+  // At 1× and at Fit, the floating keys cover no seat.
+  expect(await targetSize(page)).toEqual([]);
+  await page.getByTestId("room-zoom-fit").tap();
+  await frames(page);
+  // At Fit the walls span the width, centred in the window's height: no empty band over 40 px above or under the room.
+  const scale = (await stageTransform(page)).scale;
+  expect(scale * 660, "fitted walls' width").toBeCloseTo(412, 0);
+  expect((win.height - scale * 532) / 2, "band over and under the fitted room").toBeLessThanOrEqual(40);
+  expect(await targetSize(page)).toEqual([]);
 });

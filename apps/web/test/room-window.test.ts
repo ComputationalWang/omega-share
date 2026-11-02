@@ -17,8 +17,8 @@ beforeEach(() => {
 // Off the phone nothing changes: no keys, and a pinch does nothing.
 
 const VIEW = { w: 390, h: 270 };
-/** The room shows beside the zoom keys' 52 px column (OME-1302): Fit is the room's walls (660×532 stage px, OME-2148)
- * whole in that 338×270 pane, so here its height. */
+/** The zoom keys float on a tall window (OME-2171): Fit is the room's walls (660×532 stage px, OME-2148) whole in the
+ * whole 390×270 window, so here its height. */
 const FIT = 270 / 532;
 
 async function setup() {
@@ -116,10 +116,10 @@ describe("on a phone", () => {
 });
 
 describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => {
-  test("a tall window has the keys in a column beside the room, a short one in a row under it, a sliver none at all", async () => {
+  test("a tall window has the keys floating on the room (OME-2171), a short one in a row under it, a sliver none at all", async () => {
     const { win, clip } = await setup();
     win.set(true, VIEW.w, VIEW.h);
-    expect(clip.dataset["keys"]).toBe("column");
+    expect(clip.dataset["keys"]).toBe("float");
     expect(clip.style.visibility).toBe("");
     win.set(true, VIEW.w, 120);
     expect(clip.dataset["keys"]).toBe("row");
@@ -173,8 +173,8 @@ describe("on a phone, edges", () => {
     key("in").click();
     at.home = { x: 200, y: 300 };
     win.set(true, VIEW.w, VIEW.h);
-    // At 1.25× the pane (390 − the keys' 52 px) covers 270.4 stage px: centred on x 200 its left edge is at 65.
-    expect(win.pan().x).toBe(65);
+    // At 1.25× the whole window (the keys float on it, OME-2171) covers 312 stage px: centred on x 200 its left edge is at 44.
+    expect(win.pan().x).toBe(44);
   });
 
   test("zoomed in, focus on something past the window's right edge pans it into view", async () => {
