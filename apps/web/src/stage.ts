@@ -28,7 +28,7 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
-import { stackTags, type TagBox, type TagPlace } from "./tag-stack";
+import { TAG_GAP, stackTags, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -93,6 +93,8 @@ export interface Stage {
   seat(i: number): Point | undefined;
   /** Where a member is drawn now, or was put by the last render. */
   anchor(id: MemberId): Point | undefined;
+  /** Where a member's name tag shows (stage px, its top centre): over their head, or where it stacked (OME-2172). */
+  tag(id: MemberId): Point | undefined;
   /** Where the last render put a member: where their walk in ends. */
   spot(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
@@ -104,7 +106,7 @@ export interface Stage {
   labelScale(k: number): void;
   /** Bubbles keep inside stage x `x0`–`x1` and stacked tags above `y1`: the phone's room window as it settled (OME-1945, OME-2118), or the whole stage. */
   bubbleSides(x0: number, x1: number, y1: number, y0: number): void;
-  /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
+  /** Where a member's emote shows (stage px): `anchor` lifted over the head and the name tag on it (overOf). */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
   layoutBuilds(): number;
@@ -160,7 +162,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hiddenIds = new Set<MemberId>();
   /** Overlapping tags stack (OME-2118): each tag's width (layout px, from a ResizeObserver) and where it was moved. */
   const tagW = new Map<Element, number>();
-  /** Who is mid-walk: their tag hangs right under them (dy 0) and the others stack again once they stop. */
+  /** Who is mid-walk: their tag rides just over their head (aboveHead) and the others stack again once they stop. */
   const walkers = new Set<MemberId>();
   const tagAt = new Map<MemberId, TagPlace>();
   /** The phone's readable-zoom label scale (room.css --label-scale), capped at TAG_MAX_SCALE: tags show this many times their layout size. */
@@ -173,15 +175,17 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
     const at = { x, y: y + TAG_OFFSET_Y };
-    const moved = tagAt.get(id);
-    const left = `${String(moved?.dx ?? 0)}px`;
-    const drop = `${String(moved?.dy ?? 0)}px`;
+    const moved = tagAt.get(id) ?? aboveHead(id);
+    const left = `${String(moved.dx)}px`;
+    const drop = `${String(moved.dy)}px`;
     const tag = tagEls.get(id);
     if (tag !== undefined) {
       place(tag, at);
       tag.style.marginLeft = left;
       tag.style.marginTop = drop;
-      tag.classList.toggle("is-led", moved?.led === true);
+      tag.classList.toggle("is-led", moved.led);
+      // Over its owner the pip points down at the head; hung under the feet, up at them.
+      tag.classList.toggle("is-above", moved.dy < 0);
     }
     const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
@@ -234,7 +238,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const setTyping = (id: MemberId, on: boolean): void => {
     const p = view.position(id) ?? placedAt.get(id);
     if (on && p === undefined) return;
-    floats.typing(id, on, { x: p?.x ?? 0, y: (p?.y ?? 0) - liftOf(id) });
+    floats.typing(id, on, { x: p?.x ?? 0, y: (p?.y ?? 0) - overOf(id) });
     if (on) typers.add(id);
     else typers.delete(id);
   };
@@ -248,13 +252,17 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** Who arrives by a teleport pad (OME-1548) in the next placement; cleared once placed. */
   const teleporting = new Set<MemberId>();
   const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
+  /** A tag's place unstacked (a walker's): TAG_GAP over its owner's head (OME-2172). */
+  const aboveHead = (id: MemberId): TagPlace => ({ dx: 0, dy: -(liftOf(id) + TAG_OFFSET_Y + TAG_GAP + TAG_H * labelK), led: false });
+  /** Bubbles, badges and the emote wheel float over the head and the tag on it. */
+  const overOf = (id: MemberId): number => liftOf(id) + TAG_GAP + TAG_H * labelK;
   // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
     ...(o.roomId === undefined ? {} : { roomId: o.roomId }),
     ...(o.serverNow === undefined ? {} : { serverNow: o.serverNow }),
     ...(o.sound === undefined ? {} : { sound: o.sound }),
     onMove: (id, x, y) => {
-      const head = y - liftOf(id);
+      const head = y - overOf(id);
       badges.move(id, x, head);
       floats.move(id, x, head);
       if (!walkers.has(id)) {
@@ -265,7 +273,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       o.onMove?.(id);
     },
     onStop: (id, x, y) => {
-      floats.settle(id, x, y - liftOf(id));
+      floats.settle(id, x, y - overOf(id));
       walkers.delete(id);
       restack();
       o.onStop?.(id);
@@ -575,8 +583,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         if (wasSat.has(id) === floorSat.has(id)) continue;
         const p = view.position(id) ?? at.get(id);
         if (p === undefined) continue;
-        badges.move(id, p.x, p.y - liftOf(id));
-        floats.move(id, p.x, p.y - liftOf(id));
+        badges.move(id, p.x, p.y - overOf(id));
+        floats.move(id, p.x, p.y - overOf(id));
       }
       const claimed = new Set<number>();
       for (const m of everyone) if (m.standingSlot !== undefined) claimed.add(m.standingSlot);
@@ -706,7 +714,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const m = members.get(b.memberId);
       if (p === undefined || m === undefined) return false;
       const accent = tintAccent(TINTS, m.avatar, m.tint ?? 0);
-      floats.say({ id: b.memberId, name: m.nickname, text: b.text, ...(accent === null ? {} : { accent }), self: b.memberId === s.self, mention: b.memberId !== s.self && me !== undefined && mentions(b.text, me.nickname), at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
+      floats.say({ id: b.memberId, name: m.nickname, text: b.text, ...(accent === null ? {} : { accent }), self: b.memberId === s.self, mention: b.memberId !== s.self && me !== undefined && mentions(b.text, me.nickname), at: { x: p.x, y: p.y - overOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
       return true;
     });
 
@@ -732,11 +740,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       }
       const p = view.position(id) ?? placedAt.get(id);
       // The reach has no badge; room.ts never sends it under reduced motion.
-      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - overOf(id) });
     },
     react(id, kind) {
       const p = view.position(id) ?? placedAt.get(id);
-      return p === undefined ? 0 : glyphs.burst({ x: p.x, y: p.y - liftOf(id) }, kind);
+      return p === undefined ? 0 : glyphs.burst({ x: p.x, y: p.y - overOf(id) }, kind);
     },
     teleported(id) {
       teleporting.add(id);
@@ -771,6 +779,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    tag: (id) => {
+      const p = view.position(id) ?? placedAt.get(id);
+      const m = tagAt.get(id) ?? aboveHead(id);
+      return p === undefined ? undefined : { x: p.x + m.dx, y: p.y + TAG_OFFSET_Y + m.dy };
+    },
     spot: (id) => placedAt.get(id),
     catCells: () => view.catCells(),
     petCat: (cell) => {
@@ -783,7 +796,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     head: (id) => {
       const p = view.position(id) ?? placedAt.get(id);
-      return p === undefined ? undefined : { x: p.x, y: p.y - liftOf(id) };
+      return p === undefined ? undefined : { x: p.x, y: p.y - overOf(id) };
     },
     layoutBuilds: () => layoutBuilds,
   };

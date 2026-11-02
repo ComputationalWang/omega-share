@@ -5,7 +5,7 @@ import type { ChatLogEntry } from "./chat/log";
 import { el } from "./controls/dom";
 import type { Editor, EditorContext } from "./editor/editor";
 import { layoutOf } from "./furniture";
-import { STAGE_W, TAG_OFFSET_Y, type Point } from "./layout";
+import { STAGE_W, type Point } from "./layout";
 import type { Moderation } from "./owner/moderation";
 import { screen, type ViewState } from "./state";
 
@@ -20,7 +20,7 @@ export interface OwnerToolsOptions {
   /** Where the member menu mounts: page chrome over the stage, not clipped by it (owner/moderation.ts). */
   readonly layer: HTMLElement;
   readonly view: EditorContext["view"];
-  /** Where a member is drawn now (stage.ts `anchor`). */
+  /** Where a member's name tag shows now (stage.ts `tag`): the moderation tray points at it. */
   readonly anchor: (id: MemberId) => Point | undefined;
   /** Walk over (OME-1376, room.ts): the walk to that member, or null when no cell beside them is free. */
   readonly walkOver: (id: MemberId) => (() => void) | null;
@@ -135,10 +135,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     void import("./owner/moderation")
       .then(({ mountModeration }) => {
         if (gen !== moderationGen) return;
-        moderation = mountModeration({ stage: o.stage, layer: o.layer, tags: o.tags, bar: o.bar, view: o.state, send: o.send, stageWidth: STAGE_W, walkOver: o.walkOver, follow: o.follow, anchor: (id) => {
-          const p = o.anchor(id);
-          return p === undefined ? undefined : { x: p.x, y: p.y + TAG_OFFSET_Y };
-        } });
+        moderation = mountModeration({ stage: o.stage, layer: o.layer, tags: o.tags, bar: o.bar, view: o.state, send: o.send, stageWidth: STAGE_W, walkOver: o.walkOver, follow: o.follow, anchor: o.anchor });
         moderation.update();
       })
       .catch((e: unknown) => {

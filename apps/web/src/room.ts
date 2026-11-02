@@ -919,7 +919,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     layer: wrap,
     tags,
     view,
-    anchor: (id) => roomStage.anchor(id),
+    anchor: (id) => roomStage.tag(id),
     walkOver,
     follow,
     bar: editBar,
