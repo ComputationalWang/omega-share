@@ -5,8 +5,8 @@ import { atlasId, coloursOf } from "../src/editor/colours";
 import { AWAITING_ART, TRAY_TABS, fits, place, problems, remove } from "../src/editor/draft";
 import { markerKeys } from "../src/editor/pick";
 import { V8_THUMBS, trayScale } from "../src/editor/v8-thumbs";
-import { FurnitureManifestSchema, sceneOf, standDepth, usesSetG, usesV8, type Scene } from "../src/furniture";
-import { cellCenter, rawCenter, setNorth } from "../src/layout";
+import { FurnitureManifestSchema, sceneOf, usesSetG, usesV8, type Scene } from "../src/furniture";
+import { cellCenter, setNorth } from "../src/layout";
 
 // OME-2069: the wall screen (span 2) and the pull-down screen (span 3), from furniture-v8 (assets/README.md "Wave 2").
 

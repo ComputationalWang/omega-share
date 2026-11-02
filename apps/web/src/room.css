@@ -70,9 +70,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
  * trace the tile (a clip-path would cut a focus ring away, OME-701): a light ring over a dark one reads on any floor. */
 .seat { position: absolute; left: -18.385px; top: -18.385px; width: 36.77px; height: 36.77px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; transform: scaleY(0.5) rotate(45deg); }
-.seat:hover, .seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
-.seat:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+/* Only where the device hovers: on touch :hover sticks after a tap and left the tint over the seated avatar (OME-2175). */
+@media (hover: hover) { .seat:hover { background: rgb(234 172 139 / 0.35); } }
+.seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
+.seat[data-occupied="true"]:not(.mine):hover, .seat[data-occupied="true"]:not(.mine):focus-visible { background: transparent; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
 /* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --label-scale (below) grows
  * them around their anchor. */
