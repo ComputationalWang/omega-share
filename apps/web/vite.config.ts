@@ -66,6 +66,8 @@ export default defineConfig(({ command, mode }) => ({
     assetsInlineLimit: (file: string) => (SITE_ART.test(file) ? false : undefined),
     target: "es2023",
     sourcemap: true,
+    // perf/art.perf.ts reads it to tell the lazy chunks that are art JSON (OME-2163).
+    manifest: true,
     reportCompressedSize: true,
     // The privacy notice (OME-411) is a second, script-free page; it adds nothing to the room's JS.
     // The pop-out chat (OME-598) is a third page with its own small chunk: no Pixi, no socket.
