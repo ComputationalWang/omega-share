@@ -20,3 +20,16 @@ describe("the seat's hover tint (OME-2175)", () => {
     expect(rules.find((r) => r.selector === ".seat:focus-visible")?.body).toMatch(/outline: 4px solid/);
   });
 });
+
+// OME-2176: the sofa's lie key sits right over a sitter's head; it follows the seat's rule.
+describe("the lie key's hover tint (OME-2176)", () => {
+  test("a hover fill only applies where the device can hover, and never on a key someone else holds (disabled)", () => {
+    expect(css).toMatch(/@media \(hover: hover\) \{[^}]*\.lie-key:not\(:disabled\):hover[^}]*background:/);
+    const sticky = rules.filter((r) => r.selector.includes(".lie-key:hover") && /background:\s*rgb/.test(r.body));
+    expect(sticky).toEqual([]);
+  });
+
+  test("keyboard focus keeps its ring", () => {
+    expect(rules.find((r) => r.selector === ".lie-key:focus-visible")?.body).toMatch(/outline: 4px solid/);
+  });
+});
