@@ -129,12 +129,13 @@ test.describe("generic embed synced by the extension (ADR 0057)", () => {
         await info.attach("viewers-synced", { body: await a.screenshot(), contentType: "image/png" });
 
         const results: Record<string, number[]> = {};
-        // Waits until both frames agree on paused/playing (a seek can leave one buffering), then samples the spread a few times.
+        // Waits until both frames agree on paused/playing (a seek can leave one buffering) and, for a seek, both reached `at`
+        // (a click seeks A locally at once; B only follows when the room's seek arrives: OME-2159), then samples the spread a few times.
         const measure = async (name: string, playing: boolean, at?: number): Promise<void> => {
           await expect
             .poll(async () => {
               const [sa, sb] = await Promise.all([sample(fa), sample(fb)]);
-              return sa.paused === !playing && sb.paused === !playing && (at === undefined || Math.abs(sa.currentTime - at) < 3);
+              return sa.paused === !playing && sb.paused === !playing && (at === undefined || (Math.abs(sa.currentTime - at) < 3 && Math.abs(sb.currentTime - at) < 3));
             }, { timeout: 15_000, intervals: [250], message: `${name}: both frames ${playing ? "playing" : "paused"}` })
             .toBe(true);
           const spreads: number[] = [];
