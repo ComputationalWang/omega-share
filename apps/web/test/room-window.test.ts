@@ -29,8 +29,8 @@ async function setup() {
   document.body.append(clip);
   const at = { home: { x: 480, y: 300 } };
   const labels: number[] = [];
-  const sides: [number, number, number][] = [];
-  const win = createRoomWindow(clip, stage, () => at.home, (k) => labels.push(k), (x0, x1, y1) => sides.push([x0, x1, y1]));
+  const sides: [number, number, number, number][] = [];
+  const win = createRoomWindow(clip, stage, () => at.home, (k) => labels.push(k), (x0, x1, y1, y0) => sides.push([x0, x1, y1, y0]));
   const key = (name: string): HTMLButtonElement => {
     const k = clip.querySelector<HTMLButtonElement>(`[data-testid="room-zoom-${name}"]`);
     if (k === null) throw new Error(`no ${name} key`);
@@ -104,6 +104,14 @@ describe("on a phone", () => {
     expect(x0).toBeCloseTo(win.pan().x, 5);
     expect(x1).toBeCloseTo(win.pan().x + (VIEW.w - 52) / zoom(), 5);
     expect(y1).toBeCloseTo(win.pan().y + VIEW.h / zoom(), 5);
+  });
+
+  // OME-2149 CI: a tag that rises over its owner's head must not leave the window's top either.
+  test("the window's settled sides carry its top edge in stage px", async () => {
+    const { win, key, sides } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    key("in").click();
+    expect(sides.at(-1)?.[3]).toBeCloseTo(win.pan().y, 5);
   });
 });
 
@@ -381,7 +389,7 @@ describe("on a computer", () => {
     const { win, clip, sides } = await setup();
     win.set(false, 0, 0);
     win.desk(1, { w: 900, h: 300 });
-    expect(sides.at(-1)).toEqual([30, 930, 450]);
+    expect(sides.at(-1)).toEqual([30, 930, 450, 150]);
     const told = sides.length;
     win.set(false, 0, 0);
     win.desk(1, { w: 900, h: 300 });
@@ -394,7 +402,7 @@ describe("on a computer", () => {
     await frame();
     expect(sides.length).toBe(told);
     mouse("pointerup", 400, 160);
-    expect(sides.at(-1)).toEqual([30, 930, 490]);
+    expect(sides.at(-1)).toEqual([30, 930, 490, 190]);
   });
 
   // OME-2148 CI: every refit (set, then desk) told the bubbles 1, then the fit's scale: a restack each time, which hung chat.

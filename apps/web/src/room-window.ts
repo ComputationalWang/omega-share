@@ -87,7 +87,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined, onSides: (x0: number, x1: number, y1: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined, onSides: (x0: number, x1: number, y1: number, y0: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
@@ -113,7 +113,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     showDesk(fit);
     // The band's edges too (OME-2160): a stacked tag dropped past its foot.
     const k = fit * deskView.zoom;
-    if (down === null) settleSides(deskView.pan.x, deskView.pan.x + deskBox.w / k, deskView.pan.y + deskBox.h / k);
+    if (down === null) settleSides(deskView.pan.x, deskView.pan.x + deskBox.w / k, deskView.pan.y + deskBox.h / k, deskView.pan.y);
   };
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
@@ -193,18 +193,18 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     }).observe(tagLayer, { childList: true });
   }
 
-  /** The window's sides (and bottom, for the tag stack, OME-2118) last handed to the stage (OME-1945): once it settles, never per drag or pinch frame. */
-  let sides = { x0: 0, x1: STAGE_W, y1: Infinity };
-  const settleSides = (x0: number, x1: number, y1: number): void => {
-    if (x0 === sides.x0 && x1 === sides.x1 && y1 === sides.y1) return;
-    sides = { x0, x1, y1 };
-    onSides(x0, x1, y1);
+  /** The window's sides (and bottom and top, for the tag stack, OME-2118/2149) last handed to the stage (OME-1945): once it settles, never per drag or pinch frame. */
+  let sides = { x0: 0, x1: STAGE_W, y1: Infinity, y0: -Infinity };
+  const settleSides = (x0: number, x1: number, y1: number, y0: number): void => {
+    if (x0 === sides.x0 && x1 === sides.x1 && y1 === sides.y1 && y0 === sides.y0) return;
+    sides = { x0, x1, y1, y0 };
+    onSides(x0, x1, y1, y0);
   };
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
     pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
-    if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
+    if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom, pan.y);
   };
   /** The window's centre now, stage px. */
   const shown = (): Point => ({ x: pan.x + view.w / (2 * zoom), y: pan.y + view.h / (2 * zoom) });
@@ -355,7 +355,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       pinch = null;
       settleLabels();
       storeZoom(zoom);
-      settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
+      settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom, pan.y);
     }
     fingers.delete(ev.pointerId);
     if (fingers.size === 0 && dragged && down === null) setTimeout(() => {
@@ -369,7 +369,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     }
     down = null;
     clip.classList.remove("is-dragging");
-    if (active) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom);
+    if (active) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom, pan.y);
     else if (desk !== null) applyDesk(desk, deskView);
     // A mouse drag's click comes in this same task, right after pointerup; a finger drag sends none. Either way the drop
     // ends here, so it can never eat a later click (a keyboard Enter on a seat, a switch or screen-reader activation).

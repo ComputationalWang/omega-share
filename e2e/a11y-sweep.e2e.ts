@@ -52,6 +52,9 @@ async function axe(page: Page): Promise<string[]> {
   for (const v of result.violations.filter((x) => x.impact === "serious" || x.impact === "critical")) {
     for (const n of v.nodes) {
       const [selector] = n.target;
+      // WCAG 2.5.8 is about pointer targets; axe also measures what pointers can't hit, like a name tag the phone window
+      // crops (room.css `.is-cropped`, OME-1330: keyboard only, its focus pans it into view).
+      if (v.id === "target-size" && typeof selector === "string" && (await page.locator(selector).first().evaluate((e) => getComputedStyle(e).pointerEvents === "none"))) continue;
       if (v.id !== "color-contrast" || typeof selector !== "string") {
         out.push(`${v.id} (${v.impact ?? "?"}) ${n.target.join(" ")} :: ${n.failureSummary?.replace(/\s+/g, " ").slice(0, 220) ?? v.help}`);
         continue;

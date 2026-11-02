@@ -2,7 +2,8 @@
 // screen" up to 2×; a pinch keeps the stage point under the fingers under the fingers; names and bubbles never shrink
 // below a readable size however far out you zoom.
 import { describe, expect, test } from "bun:test";
-import { MAX_ZOOM, ROOM_VIEW, ROOM_WALLS, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView } from "../src/layout";
+import { MAX_ZOOM, ROOM_VIEW, ROOM_WALLS, TAG_H, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, tagScale, wheelView } from "../src/layout";
+import { EMOTE_LIFT } from "../src/walk/animator";
 
 const PHONE = { w: 390, h: 270 };
 
@@ -164,5 +165,20 @@ describe("wheelView in a band smaller than the room", () => {
     const v = wheelView(1, from, at, 1.5, BAND);
     expect(v.pan.x + at.x / 1.5).toBeCloseTo(from.pan.x + at.x, 9);
     expect(v.pan.y + at.y / 1.5).toBeCloseTo(from.pan.y + at.y, 9);
+  });
+});
+
+// OME-2149 (design judge on OME-2122): on the phone, fitted, the name tags were as big as the avatars.
+describe("tagScale: a tag never outgrows an avatar", () => {
+  test("shown, a tag is never taller than a seated avatar, at any zoom down to a 320×180 window's fit", () => {
+    for (let z = minZoom({ w: 320, h: 180 }); z <= MAX_ZOOM; z += 0.01) {
+      expect(TAG_H * tagScale(z)).toBeLessThanOrEqual(EMOTE_LIFT.sit);
+      expect(tagScale(z)).toBeLessThanOrEqual(labelScale(z));
+    }
+  });
+
+  test("where that fits, a tag is as readable as any label", () => {
+    expect(tagScale(0.5)).toBe(labelScale(0.5));
+    expect(tagScale(1)).toBe(1);
   });
 });
