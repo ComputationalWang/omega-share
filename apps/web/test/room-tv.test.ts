@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { AnyEmbed, Member, RoomState } from "@omega/shared";
 import { createPlaybackController } from "../src/controls/playback";
@@ -155,5 +156,15 @@ describe("room TV", () => {
     expect(tv.personal.hidden).toBe(true);
     expect(tv.controls.childElementCount).toBe(2);
     expect(tv.controls.querySelector("[data-testid=not-synced]")?.textContent).toBe("Not synced");
+  });
+});
+
+// OME-2180: the empty TV's caption is a button (OME-2104), so it meets the target size: 40 px, 44 px on touch (e2e/wide-layout,
+// e2e/a11y-sweep), as a floor that leaves the caption's cqw scaling alone.
+describe("room.css: the empty-TV button's target", () => {
+  const css = readFileSync(new URL("../src/room.css", import.meta.url), "utf8");
+  test("at least 40 px tall, 44 px under a coarse pointer", () => {
+    expect(/\.tv-empty\s*\{([^}]*)\}/.exec(css)?.[1] ?? "").toMatch(/min-height:\s*40px/);
+    expect(css).toMatch(/@media \(pointer: coarse\)\s*\{\s*\.tv-empty\s*\{\s*min-height:\s*44px/);
   });
 });
