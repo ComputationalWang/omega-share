@@ -7,7 +7,7 @@ use super::body::{BodyError, declared_too_large, read_capped};
 use super::respond::{self, TEXT, failure, json, with_type};
 use crate::app::{App, lock};
 use crate::contract::constants::{
-    MAX_CREATE_BODY_BYTES, MAX_LISTED_ROOMS, MAX_REPORT_BODY_BYTES, MAX_ROOMS, MAX_SHARE_BODY_BYTES, RETRY_AFTER_MAX_MS,
+    MAX_CREATE_BODY_BYTES, MAX_LISTED_ROOMS, MAX_REPORT_BODY_BYTES, MAX_SHARE_BODY_BYTES, RETRY_AFTER_MAX_MS,
     ROOM_CREATE_RETRY_AFTER_MAX_MS,
 };
 use crate::contract::ids::{RoomId, ShareToken, parse_bearer};
@@ -249,7 +249,7 @@ pub async fn create(mut cx: Cx) -> Response {
         );
     }
     // Refuse, never evict: evicting would let anyone delete other people's rooms by creating new ones.
-    if app.registry.len() >= MAX_ROOMS {
+    if app.registry.len() >= app.config.max_rooms {
         return invalid(
             StatusCode::SERVICE_UNAVAILABLE,
             CreateRoomErrorCode::TooManyRooms,

@@ -43,7 +43,7 @@ import { spawnOwned } from "./support/owned";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
-import { TEST_ROOM_IDS } from "./support/test-rooms";
+import { E2E_MAX_ROOMS, TEST_ROOM_IDS } from "./support/test-rooms";
 import { takedownBridge } from "./support/takedown-bridge";
 import { serverArgv } from "./support/server-cmd";
 
@@ -308,6 +308,7 @@ function startServer(): { fixture: Fixture; stop: () => Promise<void> } {
     SITE_ORIGIN,
     TRUST_PROXY: "loopback",
     DB_PATH: db,
+    MAX_ROOMS: String(E2E_MAX_ROOMS),
     ADMIN_SOCKET: socketPath,
   };
   let output = "";

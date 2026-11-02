@@ -858,6 +858,24 @@ async fn creation_is_limited_server_wide_and_at_max_rooms() {
     assert_eq!(full.app.registry.len(), crate::contract::constants::MAX_ROOMS);
 }
 
+// OME-2164: the e2e harness raises the cap with MAX_ROOMS; the refusal is the same at the configured cap.
+#[tokio::test]
+async fn the_room_cap_follows_the_config() {
+    let fx = Fx::proxied(&[("MAX_ROOMS", "3")]).await;
+    while fx.app.registry.len() < 3 {
+        let i = fx.app.registry.len();
+        testing::add_room(&fx.app, &format!("fill{i:04}aaaaaaaaaaaaaaaaaaaaa"), RoomInit::default());
+    }
+    let res = fx.create_as("198.51.100.1", "x", "public").await;
+    assert_eq!((res.status, res.code()), (503, "too_many_rooms".to_owned()));
+
+    let roomy = Fx::proxied(&[("MAX_ROOMS", "1000")]).await;
+    for i in 0..crate::contract::constants::MAX_ROOMS {
+        testing::add_room(&roomy.app, &format!("fill{i:04}aaaaaaaaaaaaaaaaaaaaa"), RoomInit::default());
+    }
+    assert_eq!(roomy.create_as("198.51.100.1", "x", "public").await.status, 201);
+}
+
 // apps/server/test/room-create.test.ts:244
 #[tokio::test]
 async fn a_store_that_cannot_write_is_a_typed_503_and_the_creation_is_given_back() {

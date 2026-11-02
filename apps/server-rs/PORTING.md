@@ -135,6 +135,7 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | Socket timers (join timeout, `member-status` interval) | `setTimeout` (real time) | real time too; only the hold expiry follows the app clock (`schedule` in TS). The status interval is measured on the process's own monotonic clock |
 | `pong` and `chat` `at` | `Date.now()` (not the injected `wallNow`) | the system clock, not the virtual one |
 | Config knobs `MAX_CONNECTIONS_PER_IP`, `JOIN_TIMEOUT_MS`, `STATUS_INTERVAL_MS` | `startServer` options only | also environment variables (the black-box harness maps the options onto them) |
+| `MAX_ROOMS` environment variable (ADR 0061) | none: the cap is the contract's 500 | the room cap, default 500, 1 to 10 000; only the e2e servers set it (1000), because the seed alone nears 500. Production leaves it unset |
 | Usage lines of the operator tools | `usage: cli.ts rooms list …`, `usage: backup.ts snapshot …` | `usage: omega-server admin …`, `usage: omega-server backup …` (the command is the binary) |
 | CLI: a date outside the JS `Date` range (more than 8.64e15 ms from the epoch) in an answer | `toISOString` throws, the CLI dies with a stack | `unexpected answer from the server`, exit 1 |
 | `backup restore` with `ADMIN_SOCKET=off` (residual risk) | n/a | no socket to ask whether a server runs, so only the checkpoint's busy check (the server holds the DB) guards the swap |
