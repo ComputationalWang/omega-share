@@ -467,9 +467,9 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
   if (pane === null || win === null || dock === null) throw new Error("not laid out");
   expect(pane.width, "room picture width").toBe(412);
   expect(pane.height, "room picture height").toBe(win.height);
-  // The window takes the free height: nothing but the chat strip between it and the panel keys.
-  const log = await page.locator(site.chatLog).boundingBox();
-  expect(dock.y - (win.y + win.height) - (log?.height ?? 0), "empty band under the window").toBeLessThanOrEqual(40);
+  // The window takes the free height: no chat yet, so the empty chat strip is folded too (QA OME-2186).
+  await expect(page.locator(site.chatLogLine)).toHaveCount(0);
+  expect(dock.y - (win.y + win.height), "empty band under the window").toBeLessThanOrEqual(40);
   for (const k of await page.locator('[data-testid^="room-zoom-"]').all()) {
     const b = await k.boundingBox();
     if (b === null) throw new Error("key not laid out");
