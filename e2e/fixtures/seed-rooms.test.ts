@@ -8,7 +8,7 @@ import { E2E_MAX_ROOMS, SEED_HEADROOM } from "../support/test-rooms";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
-test(`the seed leaves at least ${SEED_HEADROOM} rooms under the e2e room cap (OME-2164)`, () => {
+test(`the seed leaves at least ${String(SEED_HEADROOM)} rooms under the e2e room cap (OME-2164)`, () => {
   const db = join(mkdtempSync(join(tmpdir(), "omega-seed-headroom-")), "omega.db");
   const seeded = spawnSync("bun", ["e2e/fixtures/seed-rooms.ts", db], { cwd: ROOT, encoding: "utf8" });
   expect(seeded.status, seeded.stderr).toBe(0);
@@ -17,7 +17,7 @@ test(`the seed leaves at least ${SEED_HEADROOM} rooms under the e2e room cap (OM
   conn.close();
   const rooms = row !== null && typeof row === "object" && "n" in row && typeof row.n === "number" ? row.n : NaN;
   expect(rooms).toBeGreaterThan(0);
-  expect(E2E_MAX_ROOMS - rooms, `${rooms} seeded rooms of E2E_MAX_ROOMS ${E2E_MAX_ROOMS}: share rooms between specs or raise E2E_MAX_ROOMS`).toBeGreaterThanOrEqual(SEED_HEADROOM);
+  expect(E2E_MAX_ROOMS - rooms, `${String(rooms)} seeded rooms of E2E_MAX_ROOMS ${String(E2E_MAX_ROOMS)}: share rooms between specs or raise E2E_MAX_ROOMS`).toBeGreaterThanOrEqual(SEED_HEADROOM);
 }, 30_000);
 
 test("every server booted from the full seed takes the e2e room cap", () => {
