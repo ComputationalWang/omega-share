@@ -438,6 +438,16 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let me: Point | null = null;
   /** The desktop band's fit (OME-2148): its inputs and scale, null in every other layout. */
   let band: { readonly scale: number; readonly h: number; readonly k: number } | null = null;
+  // Room view (OME-2170, ADR 0060): this tab's choice only, never stored. The TV and stage are re-boxed, never rebuilt.
+  let roomView = false;
+  const roomViewKey = el("button", { type: "button", className: "ui-button self room-view-key", textContent: "Room view", hidden: true }, "room-view-key");
+  roomViewKey.ariaPressed = "false";
+  roomViewKey.addEventListener("click", () => {
+    roomView = !roomView;
+    roomViewKey.ariaPressed = String(roomView);
+    fit();
+  });
+  clip.after(roomViewKey);
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -472,6 +482,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       else e.dataset["chrome"] = String(zoom);
     }
     if (fs.mode() !== "off") {
+      // Hidden only where it doesn't show: hiding the key drops its focus (QA OME-2183), so a fit that keeps it never does.
+      roomViewKey.hidden = true;
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
       boxTv(l, wrap.clientHeight, l.at);
@@ -521,15 +533,20 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight));
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), roomView);
+      roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       if ("stage" in l) {
+        // In the band's top corner, over its backdrop beside the room.
+        roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
         // A touch screen whose band can't hold the room at its scale (a phone held sideways) gets the phone's window: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves (windowH:
         // the keys beside it in a row, OME-1841); where that's too little (Twitch's taller TV, QA OME-1330 R1) the keys'
         // column height, so every seat row shows whole beside the keys; the wrap grows to hold it and the column scrolls.
         if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
           const rw = Math.min(w, STAGE_W);
+          // The phone's window keeps its own keys: the Room view key covered a seat there (QA OME-1330 R1).
+          roomViewKey.hidden = true;
           // Where the wrap leaves too little (844×390, OME-1929), to the column's foot: what plays under the wrap (the
           // reaction bar) is reached by scrolling, as it is when it shows after the fit; fitted with it there, the window
           // lost 34 px and took the keys' column. Where the wrap holds the window, its foot: the reaction keys stay on screen
@@ -561,6 +578,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       wrap.style.height = "";
       return;
     }
+    roomViewKey.hidden = true;
     const onPhone = phone.matches;
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))

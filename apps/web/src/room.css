@@ -342,6 +342,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .stage-clip.is-phone[data-keys="column"] > .stage-pane { right: 52px; }
 .stage-clip.is-phone[data-keys="row"] > .stage-pane { bottom: 52px; }
 .stage-clip.is-phone[data-keys="side"] > .stage-pane { right: 148px; }
+.room-view-key { position: absolute; right: 4px; z-index: 1; margin: 0; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
 .stage-clip[data-keys="column"] > .room-zoom { flex-direction: column; }
 /* The column's band reads as a rail, not an empty strip beside the room (OME-1597): panel fill, a wall-light edge. */

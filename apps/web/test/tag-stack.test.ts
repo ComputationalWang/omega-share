@@ -131,6 +131,19 @@ describe("stackTags: tags keep off heads and by their owner", () => {
     });
   });
 
+  // OME-2170 CI (320×640, the keys in a row): a 76 px phone window; the front tag hung 7 px past its bottom, on the zoom
+  // key under it, and above the head was past the top. A tag that starts in the window ends in it.
+  test("a tag that starts in a short window but hangs past its bottom rises into it; one whose owner is below stays", () => {
+    const tags = [member({ x: 448, y: 444 }, 40, false), member({ x: 512, y: 444 }, 29, false), member({ x: 300, y: 600 }, 40, false)];
+    const [minY, maxY] = [391, 467];
+    const placed = stackTags(tags, H, maxY, minY);
+    expect(overlaps(tags, placed, H)).toEqual([]);
+    tags.slice(0, 2).forEach((t, i) => {
+      expect(t.y + (placed[i]?.dy ?? 0) + H).toBeLessThanOrEqual(maxY);
+    });
+    expect(placed[2]?.dy).toBe(0);
+  });
+
   // Every seat sat on and every standing spot stood on, in every preset, from either side; three-letter names and the
   // widest tags, at 1× and at the phone's largest tag scale.
   const presets = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "living", "lounge", "penthouse", "studio"];

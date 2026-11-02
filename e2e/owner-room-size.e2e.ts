@@ -53,6 +53,15 @@ async function ownerAndGuest(browser: Browser, name: OwnedRoomName, owner: Brows
   await expect(host.locator(site.controlPolicy)).toBeAttached();
   const kitTag = host.locator(`${site.nicknameTag}[role=button]`).filter({ hasText: `kit${n}` });
   await expect(kitTag).toHaveCount(1);
+  // The guest walks in from the door on the host's page: the checks are of the room at rest (OME-2170: mid-walk, the
+  // guest's tag stacked over the host's and met a seat key).
+  let last = "";
+  await expect.poll(async () => {
+    const now = await kitTag.evaluate((e) => e.style.translate);
+    const still = now === last;
+    last = now;
+    return still;
+  }, { message: "the guest's walk-in ends", intervals: [400], timeout: 15_000 }).toBe(true);
   return { host, kit, kitTag };
 }
 

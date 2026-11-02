@@ -196,7 +196,7 @@ export function roomScale(width: number, height: number): number {
  * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits. The band's
  * backdrop reaches the column's edges past it (OME-1843, room-layout.ts).
  */
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1): RoomLayout {
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
@@ -204,13 +204,21 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const rest = Math.max(0, h - (TV_BEZEL + GAP + barH + GAP));
   const split = rest * WIDE_TV_SHARE;
   const tvFit = provider === null ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
-  const tvW = Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((tvFit * 16) / 9)));
-  const tv = { x: Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const room = roomView && provider !== null;
+  const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((tvFit * 16) / 9)));
+  const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;
+  // Room view (OME-2170): the TV at its floor, left, and its shelf beside it where the shelf's keys fit, so the room
+  // gets the column under the picture.
+  const beside = room && w - (2 * TV_BEZEL + tvW + GAP + 2 * SHELF_SPEAKER) >= keysMin;
+  const tv = { x: beside ? TV_BEZEL : Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   // A TV narrower than the zoomed shelf's keys (People open, QA OME-1696) gets a wider shelf, centred under it. 1× as before.
-  const keysW = chrome > 1 ? (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome : 0;
+  const keysW = chrome > 1 ? keysMin : 0;
   const cw = Math.max(tv.w, Math.min(w, keysW));
-  const controls = { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
-  const sy = controls.y + controls.h + GAP;
+  const sx = tv.x + tv.w + TV_BEZEL + GAP + SHELF_SPEAKER;
+  const controls = beside
+    ? { x: sx, y: tv.y + tv.h - barH, w: w - SHELF_SPEAKER - sx, h: barH }
+    : { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
+  const sy = beside ? tv.y + tv.h + GAP : controls.y + controls.h + GAP;
   const band = Math.max(0, h - sy);
   const scale = Math.max(1, Math.min(maxScale, Math.floor(band / BAND_MIN_H)));
   const sw = Math.min(w, ROOM_VIEW.w * scale);
@@ -460,6 +468,8 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
  */
 /** The top of the tallest wall art (ROOM_VIEW): the band shows the back wall from here (OME-2148). */
 export const BAND_WALL_TOP = 113;
+/** The floor's front corner (the front cell's foot): the lowest thing the room's shell shows (OME-2170). */
+export const FLOOR_FOOT = ORIGIN_Y + FLOOR_CELLS * TILE_H;
 /** The band never fits the room below half size: shorter, it keeps the seats whole as before (OME-1864). */
 const BAND_MIN_FIT = 0.5;
 
@@ -470,12 +480,19 @@ const BAND_MIN_FIT = 0.5;
 export function bandFit(scale: number, bandH: number, audience: readonly Point[], me: Point | null): number {
   const points = me === null ? audience : [...audience, me];
   if (points.length === 0) return scale;
-  const need = Math.max(...points.map((p) => p.y)) + TAG_FOOT + 1 - BAND_WALL_TOP;
+  const need = roomFoot(points) - BAND_WALL_TOP;
   for (let k = scale; k >= 1; k--) if (need * k <= bandH) return k;
   return Math.max(BAND_MIN_FIT, Math.min(1, bandH / need));
 }
 
+/** The room's foot (OME-2170): the lowest name tag's (the audience's, or mine), or the floor's front corner if lower. */
+const roomFoot = (points: readonly Point[]): number => Math.max(FLOOR_FOOT, ...points.map((p) => p.y + TAG_FOOT)) + 1;
+
 export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
+  // A band that holds the room (bandFit), back wall's art to its foot, shows it all: from the north the lowest tag is
+  // above the floor's front corner, and looking at the tags cut the front rows' furniture (OME-2170).
+  const points = me === null ? [...seats, ...standing] : [...seats, ...standing, me];
+  if (points.length > 0 && roomFoot(points) - BAND_WALL_TOP <= view.h) return { x: STAGE_W / 2, y: (BAND_WALL_TOP + roomFoot(points)) / 2 };
   const c = audienceHome(seats, standing, view.h);
   if (me === null) return c;
   const y = Math.max(me.y + TAG_FOOT + 1 - view.h / 2, Math.min(me.y - AVATAR_TOP + view.h / 2, c.y));

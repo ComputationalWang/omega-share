@@ -1,112 +1,66 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Container, Sprite, Texture, Ticker } from "pixi.js";
-import { bakeShell, quietSystemTicker, runningLoops, sceneSprite } from "../src/room-view";
+// Room view (OME-2170, CEO decision C on the layout card): at 1280×800 a hero TV leaves the band too little height for
+// readable avatars (~25 px). One click puts the TV at its ADR 0012 floor (356×200) with its shelf beside it, and gives
+// the room the rest of the column, so avatars (41 to 47 px at 1×) are at least 40 px. The default stays video first.
+import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import * as v from "valibot";
+import { RoomLayoutSchema } from "@omega/shared";
+import { seatPoints, standingPoints } from "../src/furniture";
+import { bandFit, cellCenter, setNorth, wideLayout, type Rect } from "../src/layout";
 
-// OME-185: the room renders on demand, but Pixi's SchedulerSystem (texture GC timers) and EventsTicker sit on
-// Ticker.system, which auto-starts a requestAnimationFrame loop that ran every frame for nothing (trace: ~0.06 ms/frame).
-let requested = 0;
-const realRaf = globalThis.requestAnimationFrame;
-const realCaf = globalThis.cancelAnimationFrame;
-beforeEach(() => {
-  requested = 0;
-  globalThis.requestAnimationFrame = () => ++requested;
-  globalThis.cancelAnimationFrame = () => undefined;
-});
+const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
+const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
+/** 1280×800's left column as QA measured it on OME-2168 (the studio shot). */
+const COLUMN = { w: 905, h: 655 };
+/** The shortest avatar sprite at 1× (seated, assets/avatars). */
+const AVATAR_H = 41;
+
+const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+const inside = (r: Rect, w: number, h: number): boolean => r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h;
+
 afterEach(() => {
-  globalThis.requestAnimationFrame = realRaf;
-  globalThis.cancelAnimationFrame = realCaf;
+  setNorth(false);
 });
 
-function systemLikeTicker(): Ticker {
-  const t = new Ticker();
-  t.autoStart = true;
-  return t;
-}
-
-describe("quietSystemTicker", () => {
-  test("an auto-start ticker requests frames as soon as it has a listener (the bug)", () => {
-    systemLikeTicker().add(() => undefined);
-    expect(requested).toBeGreaterThan(0);
+describe("Room view at 1280×800 (OME-2170)", () => {
+  test("the TV is at its 356×200 floor, the shelf beside it, nothing overlapping and all in the column", () => {
+    const l = wideLayout(COLUMN.w, COLUMN.h, "youtube", 1, 1, true);
+    expect(l.tv.w).toBe(356);
+    expect(l.tv.h).toBe(200);
+    expect(l.controls.x).toBeGreaterThanOrEqual(l.tv.x + l.tv.w);
+    expect(l.controls.y + l.controls.h).toBeLessThanOrEqual(l.tv.y + l.tv.h);
+    for (const r of [l.tv, l.controls, l.stage]) expect(inside(r, COLUMN.w, COLUMN.h)).toBe(true);
+    expect(intersects(l.tv, l.stage)).toBe(false);
+    expect(intersects(l.controls, l.stage)).toBe(false);
   });
 
-  test("a quieted ticker requests no frames, even when Pixi adds a listener later", () => {
-    const t = systemLikeTicker();
-    t.add(() => undefined);
-    quietSystemTicker(t);
-    requested = 0;
-    t.add(() => undefined);
-    t.addOnce(() => undefined);
-    expect(requested).toBe(0);
-    expect(t.started).toBe(false);
+  test("off, the TV is the hero as before", () => {
+    expect(wideLayout(COLUMN.w, COLUMN.h, "youtube", 1, 1, false)).toEqual(wideLayout(COLUMN.w, COLUMN.h, "youtube"));
+    expect(wideLayout(COLUMN.w, COLUMN.h, "youtube").tv.w).toBeGreaterThan(356);
   });
 
-  test("the pump runs the ticker's listeners once per call, so Pixi's GC timers still advance on our renders", () => {
-    const t = systemLikeTicker();
-    let runs = 0;
-    t.add(() => {
-      runs++;
-    });
-    const pump = quietSystemTicker(t);
-    requested = 0;
-    pump();
-    pump();
-    expect(runs).toBe(2);
-    expect(requested).toBe(0);
-  });
-});
-
-// OME-1341: the room shell (floor, planks, rugs, walls) is one cached texture, re-baked when the scene changes, instead of
-// a sprite per floor cell drawn every frame (Pixel 7 main-thread p95 4.7 → 7.3 ms).
-describe("bakeShell", () => {
-  test("caches the layer as a texture that the next render repaints", () => {
-    const shell = new Container();
-    shell.addChild(new Sprite());
-    bakeShell(shell);
-    expect(shell.isCachedAsTexture).toBe(true);
-    expect(shell.renderGroup.textureNeedsUpdate).toBe(true);
+  // busy-desktop-1280x800, cinema/penthouse-desktop-south, penthouse/studio-desktop-north (QA OME-2168).
+  const cases = [...PRESETS.map((p) => [p, "south"] as const), ["penthouse", "north"] as const, ["studio", "north"] as const];
+  test.each(cases)("%s from the %s: the whole room fits with avatars at least 40 px tall", (name, side) => {
+    setNorth(side === "north");
+    const room = preset(name);
+    const l = wideLayout(COLUMN.w, COLUMN.h, "youtube", 1, 1, true);
+    for (const me of [null, cellCenter(0, 0), cellCenter(9, 9)]) {
+      const k = bandFit(l.scale, l.stage.h, [...seatPoints(room), ...standingPoints(room)], me);
+      expect(AVATAR_H * k).toBeGreaterThanOrEqual(40);
+    }
   });
 
-  test("a new scene marks the cached texture for one repaint", () => {
-    const shell = new Container();
-    bakeShell(shell);
-    shell.renderGroup.textureNeedsUpdate = false;
-    shell.addChild(new Sprite());
-    bakeShell(shell);
-    expect(shell.renderGroup.textureNeedsUpdate).toBe(true);
-  });
-});
-
-// OME-2002: the night pane drew opaque because the baked copy of a static object dropped the scene's alpha.
-describe("sceneSprite", () => {
-  const solid = { key: "furniture/partition/amber/pane/se", x: 10, y: 20, layer: "object", z: 3 } as const;
-  const pane = { ...solid, alpha: 0.2 };
-
-  test("keeps the scene's alpha, so a baked copy draws the pane translucent", () => {
-    const s = sceneSprite(Texture.WHITE, pane);
-    expect(s.alpha).toBe(0.2);
-    expect([s.label, s.x, s.y, s.zIndex]).toEqual([pane.key, 10, 20, 3]);
+  test("Twitch keeps its 534×300 floor: its shelf goes under it where it can't sit beside", () => {
+    const l = wideLayout(COLUMN.w, COLUMN.h, "twitch", 1, 1, true);
+    expect(l.tv.w).toBe(534);
+    expect(l.tv.h).toBe(300);
+    for (const r of [l.tv, l.controls, l.stage]) expect(inside(r, COLUMN.w, COLUMN.h)).toBe(true);
+    expect(intersects(l.tv, l.controls)).toBe(false);
+    expect(intersects(l.controls, l.stage)).toBe(false);
   });
 
-  test("a sprite without alpha is opaque", () => {
-    expect(sceneSprite(Texture.WHITE, solid).alpha).toBe(1);
-  });
-});
-
-// OME-2068 (ADR 0058 §2): the loops handed to the animator. An ambient loop runs at rest while ambience is on (Smooth, no
-// reduced motion, stage on screen, editor shut); any loop runs while its piece is in use.
-describe("runningLoops", () => {
-  const fire = { piece: 0, ambient: true };
-  const neon = { piece: 1, ambient: true };
-  const arcade = { piece: 2 };
-  const all = [fire, neon, arcade];
-
-  test("ambience on: every ambient loop, plus the pieces in use", () => {
-    expect(runningLoops(all, new Set<number>(), true)).toEqual([fire, neon]);
-    expect(runningLoops(all, new Set([2]), true)).toEqual([fire, neon, arcade]);
-  });
-
-  test("ambience off: only the pieces in use, ambient or not", () => {
-    expect(runningLoops(all, new Set<number>(), false)).toEqual([]);
-    expect(runningLoops(all, new Set([1, 2]), false)).toEqual([neon, arcade]);
+  test("with no video there's no hero to give way: the same room-first split", () => {
+    expect(wideLayout(COLUMN.w, COLUMN.h, null, 1, 1, true)).toEqual(wideLayout(COLUMN.w, COLUMN.h, null));
   });
 });

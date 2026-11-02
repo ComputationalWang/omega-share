@@ -20,7 +20,7 @@ beforeEach(() => {
 
 const div = (): HTMLElement => document.createElement("div");
 
-async function setup(o: { wide?: boolean; short?: boolean } = {}) {
+async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coarse?: boolean } = {}) {
   const { createRoomLayout } = await import("../src/room-layout");
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
@@ -53,11 +53,11 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   root.append(roomTop, people, wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side, foot);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, poll, queue, notice, live: [notice], roomAway, roomTop, people, invite, foot, side, ownerBar, editorPanel,
+    root, wrap, clip, stage, tv: o.video === true ? { ...tv, provider: () => "youtube" as const } : tv, log, poll, queue, notice, live: [notice], roomAway, roomTop, people, invite, foot, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
-    coarse: { matches: false },
+    coarse: { matches: o.coarse === true },
     portrait: { matches: false },
     wide: { matches: o.wide === true },
     short: { matches: o.short === true },
@@ -67,7 +67,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, stage, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
+  return { layout, root, wrap, stage, tv, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -183,5 +183,71 @@ describe("room layout", () => {
     Object.defineProperty(wrap, "clientHeight", { value: 727 });
     layout.seats([{ x: 300, y: 200 }], [{ x: 600, y: 560 }]);
     expect(stage.style.getPropertyValue("--stage-scale")).toBe("1");
+  });
+
+  // OME-2170 (CEO decision C): one labelled key gives the room the column at 1280×800, and back. Per tab, no storage.
+  test("the Room view key shrinks the TV to its floor and fits the room at about 1×, without touching the player", async () => {
+    const { layout, wrap, stage, tv } = await setup({ wide: true, video: true });
+    Object.defineProperty(wrap, "clientWidth", { value: 905 });
+    Object.defineProperty(wrap, "clientHeight", { value: 655 });
+    layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+    const key = wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]');
+    expect(key?.tagName).toBe("BUTTON");
+    expect(key?.textContent).toBe("Room view");
+    expect(key?.hidden).toBe(false);
+    expect(key?.ariaPressed).toBe("false");
+    const player = tv.tv.firstChild;
+    const heroScale = Number(stage.style.getPropertyValue("--stage-scale"));
+    key?.click();
+    expect(key?.ariaPressed).toBe("true");
+    expect(tv.tv.style.width).toBe("356px");
+    expect(Number(stage.style.getPropertyValue("--stage-scale"))).toBeGreaterThan(heroScale);
+    expect(Number(stage.style.getPropertyValue("--stage-scale"))).toBeGreaterThanOrEqual(40 / 41);
+    expect(tv.tv.firstChild).toBe(player);
+    key?.click();
+    expect(key?.ariaPressed).toBe("false");
+    expect(Number(stage.style.getPropertyValue("--stage-scale"))).toBe(heroScale);
+    expect(localStorage.length).toBe(0);
+  });
+
+  // QA OME-2183: each fit hid the key first, and hiding it dropped its focus to <body>; a second Enter did nothing.
+  test("the Room view key keeps its focus across its own toggles, never hidden in between", async () => {
+    const { layout, wrap } = await setup({ wide: true, video: true });
+    Object.defineProperty(wrap, "clientWidth", { value: 905 });
+    Object.defineProperty(wrap, "clientHeight", { value: 655 });
+    layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+    const key = wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]');
+    if (key === null) throw new Error("no Room view key");
+    key.focus();
+    // happy-dom keeps focus on a hidden element; a browser blurs it. So watch the key never being hidden.
+    const hidden = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden");
+    let hides = 0;
+    Object.defineProperty(key, "hidden", {
+      get: (): boolean => hidden?.get?.call(key) === true,
+      set: (v: boolean) => {
+        if (v) hides++;
+        hidden?.set?.call(key, v);
+      },
+    });
+    key.click();
+    expect(document.activeElement).toBe(key);
+    key.click();
+    expect(document.activeElement).toBe(key);
+    expect(key.ariaPressed).toBe("false");
+    expect(hides).toBe(0);
+  });
+
+  // QA OME-1330 R1 in CI: the key sat over seat 4 of the touch window at 844×390. A phone sideways has its own window.
+  test("a touch screen's phone window has no Room view key over its seats", async () => {
+    const { layout, wrap } = await setup({ wide: true, video: true, coarse: true });
+    Object.defineProperty(wrap, "clientWidth", { value: 600 });
+    Object.defineProperty(wrap, "clientHeight", { value: 330 });
+    layout.seats([{ x: 480, y: 300 }], []);
+    expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.hidden ?? true).toBe(true);
+  });
+
+  test("without a video there's no Room view key to press", async () => {
+    const { wrap } = await setup({ wide: true });
+    expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.hidden ?? true).toBe(true);
   });
 });
