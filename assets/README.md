@@ -1580,7 +1580,8 @@ smoked wood (`wood`) is the spa.
 27 px avatar size. Now: the carpet is a lilac tweed flecked with the wainscot purple (was charcoal and brown), the deck is pale
 oak (`floor` ramp) with `wood` gaps (was smoked `wood` with charcoal gaps), and the panelling's boards and wainscot are one tone
 lighter on both faces (lit/unlit shading kept). The swap rooms' `pent`/`nook` floors reuse these tiles, so they lift too. Bytes:
-+~110 B in `furniture-v7.png`, `furniture-back.png` and `furniture-v8-shell.png`.
++157 B counted (judge): `furniture-v7.png` +65, `furniture-back.png` +65, `furniture-v8-shell.png` +11, `ui/edit.png` +13,
+`presets/thumbs/penthouse.png` +3. Art total 459 393 of 460 800 B; further art needs an ADR 0056 amendment first.
 
 The grid in the preview (`dungeon2Plan` in `src/build.ts`) is OME-1959's partition row, with `panel` cells, `panelglass` at
 cols 5–8 and the doorway at col 1. The other pieces:
