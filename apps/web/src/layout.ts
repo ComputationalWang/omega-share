@@ -208,7 +208,7 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((tvFit * 16) / 9)));
   const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;
   // Room view (OME-2170): the TV at its floor, left, and its shelf beside it where the shelf's keys fit, so the room
-  // gets the column under the picture.
+  // gets the column under the picture. OME-2195 (CEO decision B): only its keys wide, so it never floats at the far right.
   const beside = room && w - (2 * TV_BEZEL + tvW + GAP + 2 * SHELF_SPEAKER) >= keysMin;
   const tv = { x: beside ? TV_BEZEL : Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   // A TV narrower than the zoomed shelf's keys (People open, QA OME-1696) gets a wider shelf, centred under it. 1× as before.
@@ -216,7 +216,7 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const cw = Math.max(tv.w, Math.min(w, keysW));
   const sx = tv.x + tv.w + TV_BEZEL + GAP + SHELF_SPEAKER;
   const controls = beside
-    ? { x: sx, y: tv.y + tv.h - barH, w: w - SHELF_SPEAKER - sx, h: barH }
+    ? { x: sx, y: tv.y + tv.h - barH, w: keysMin, h: barH }
     : { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
   const sy = beside ? tv.y + tv.h + GAP : controls.y + controls.h + GAP;
   const band = Math.max(0, h - sy);
