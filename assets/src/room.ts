@@ -684,31 +684,33 @@ export function panelPaint(skin: PanelSkin, s: number, z: number, lit: boolean):
   if (z >= WALL_H - 12) return ["mustard", lit ? 0 : 1]; // the cove strip
   if (z >= WALL_H - 14) return (Math.floor(s * 2) + Math.floor(z)) % 2 === 0 ? ["mustard", 2] : [ramp, lit ? 1 : 2]; // its wash
   if (z >= 34 && z < 38) return ["wood", z >= 36 ? 0 : 2];
-  if (z < 34) return (((s + 4) % 32) + 32) % 32 < 1 || z < 6 ? ["wall", 2] : ["wall", lit ? 1 : 2];
+  if (z < 34) return (((s + 4) % 32) + 32) % 32 < 1 || z < 6 ? ["wall", 2] : ["wall", lit ? 0 : 1];
   if ((((s + 8) % 16) + 16) % 16 < 0.6) return [ramp, 2];
   const fleck = hash(Math.floor(s * 2) + 99, Math.floor(z / 7)) % 23 === 0;
-  return [ramp, lit ? (fleck ? 2 : 1) : fleck ? 1 : 2];
+  // One tone up from the concept on both faces (OME-2197): under the night tint the boards read as wood, not as a dark band.
+  return [ramp, lit ? (fleck ? 1 : 0) : fleck ? 2 : 1];
 }
 
-/** Bedroom carpet (OME-1977: one step lighter and warmer than the concept's): a taupe tweed (charcoal flecked with brown) with
- *  thin gold veins. Periodic in 16, so any tile joins any other; the variant only moves the tweed. */
+/** Bedroom carpet: a dusty plum tweed (lilac flecked with the wainscot's purple) with thin gold veins. OME-2197 lifted it from
+ *  charcoal so 27 px avatars read on it under the night tint. Periodic in 16, so any tile joins any other; the variant only moves the tweed. */
 export function carpetTile(variant: number): (u: number, v: number) => Paint {
   return (u, v) => {
     const a = (((u + 2.2 * Math.sin((v * Math.PI) / 8)) % 16) + 16) % 16;
     const b = (((v + 8 + 2 * Math.sin((u * Math.PI) / 8 + 1)) % 16) + 16) % 16;
-    if (a < 0.6 && b > 3 && b < 13) return ["mustard", 2]; // veins in short runs, not a full lattice
-    return hash(Math.floor((u + 8) * 2) + variant * 31, Math.floor((v + 8) * 2)) % 4 === 0 ? ["wood", 2] : ["charcoal", 0];
+    if (a < 0.6 && b > 3 && b < 13) return ["mustard", 1]; // veins in short runs, not a full lattice
+    return hash(Math.floor((u + 8) * 2) + variant * 31, Math.floor((v + 8) * 2)) % 4 === 0 ? ["wall", 0] : ["lilac", 2];
   };
 }
 
-/** Spa deck: wood slats along the col axis with dark gaps, staggered butt joints, a lighter slat here and there. */
+/** Spa deck: pale oak slats along the col axis with dark gaps, staggered butt joints, a lighter slat here and there (OME-2197:
+ *  oak, not the smoked wood, so avatars stand out on it under the night tint). */
 export function deckTile(variant: number): (u: number, v: number) => Paint {
   return (u, v) => {
-    if ((((v + 8) % 4) + 4) % 4 < 0.6) return ["charcoal", 2];
+    if ((((v + 8) % 4) + 4) % 4 < 0.6) return ["wood", 2];
     const lane = Math.floor((v + 8) / 4);
     const joint = -8 + ((lane * 5 + variant * 7 + 2) % 16);
-    if (Math.abs(u - joint) < 0.5) return ["charcoal", 2];
-    return ["wood", hash(lane + variant * 13, u < joint ? 0 : 1) % 3 === 0 ? 0 : 1];
+    if (Math.abs(u - joint) < 0.5) return ["wood", 2];
+    return ["floor", hash(lane + variant * 13, u < joint ? 0 : 1) % 3 === 0 ? 0 : 1];
   };
 }
 

@@ -1576,6 +1576,13 @@ The panelling (`panelPaint` in `src/room.ts`) is the concept's, unchanged: a dar
 under a wood rail, boards with a seam every 16, and a warm cove strip under the crown. Oak (the `floor` ramp) is the bedroom and
 smoked wood (`wood`) is the spa.
 
+**Contrast lift (OME-2197).** Under the `night` tint plus the cinema dim the shell sank to dark brown and navy at the default
+27 px avatar size. Now: the carpet is a lilac tweed flecked with the wainscot purple (was charcoal and brown), the deck is pale
+oak (`floor` ramp) with `wood` gaps (was smoked `wood` with charcoal gaps), and the panelling's boards and wainscot are one tone
+lighter on both faces (lit/unlit shading kept). The swap rooms' `pent`/`nook` floors reuse these tiles, so they lift too. Bytes:
++157 B counted (judge): `furniture-v7.png` +65, `furniture-back.png` +65, `furniture-v8-shell.png` +11, `ui/edit.png` +13,
+`presets/thumbs/penthouse.png` +3. Art total 459 393 of 460 800 B; further art needs an ADR 0056 amendment first.
+
 The grid in the preview (`dungeon2Plan` in `src/build.ts`) is OME-1959's partition row, with `panel` cells, `panelglass` at
 cols 5–8 and the doorway at col 1. The other pieces:
 - Bedroom: `tv/flat (0,0)`, beds `(2,0)` and `(4,0) nw`, `desk (7,0) sw`, `minibar/fridge (9,0) sw`, `wingback (8,2) nw`,
