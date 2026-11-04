@@ -80,6 +80,19 @@ describe("the first-visit tour", () => {
     expect(asked).toContain(0);
   });
 
+  test("on touch the floor chip says tap to walk and double-tap to jog", async () => {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (q: string) => (q === "(pointer: coarse)" ? Object.defineProperty(real(q), "matches", { value: true }) : real(q));
+    try {
+      const { hints } = await setup();
+      hints.show();
+      expect(hints.root.textContent).toContain("Tap the floor to walk, double-tap to jog");
+      hints.dismiss();
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+
   test("a status, not a dialog: role=status, no aria-modal, and it never takes focus", async () => {
     const { hints } = await setup();
     const field = document.createElement("input");
