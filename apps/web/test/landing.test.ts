@@ -149,13 +149,18 @@ describe("landing: explains the product before asking for anything", () => {
 });
 
 describe("install links", () => {
-  test("neither store lists the extension yet, so both say coming soon, behind one constant each", () => {
-    expect(FIREFOX_LISTING_URL).toBeNull();
-    expect(CHROME_LISTING_URL).toBeNull();
-    const row = /<p class="install"[^>]*>([\s\S]*?)<\/p>/.exec(served)?.[1] ?? "";
-    expect(text(row)).toContain("Firefox: coming soon");
-    expect(text(row)).toContain("Chrome: coming soon");
-    expect(row).not.toMatch(/<a\s/);
+  test("both published stores have Add links on the built and served landing", () => {
+    expect(FIREFOX_LISTING_URL).toBe("https://addons.mozilla.org/firefox/addon/omega-share/");
+    expect(CHROME_LISTING_URL).toBe("https://chromewebstore.google.com/detail/omega-share/ekigjfonnhaikceahleigjeioojgjlal");
+    for (const html of [built, served]) {
+      const row = /<p class="install"[^>]*>([\s\S]*?)<\/p>/.exec(html)?.[1] ?? "";
+      const links = [...row.matchAll(/<a\s[^>]*>[^<]*<\/a>/g)].map((m) => [text(m[0]), attrs(m[0])["href"]]);
+      expect(links).toEqual([
+        ["Add to Firefox", "https://addons.mozilla.org/firefox/addon/omega-share/"],
+        ["Add to Chrome", "https://chromewebstore.google.com/detail/omega-share/ekigjfonnhaikceahleigjeioojgjlal"],
+      ]);
+      expect(text(row)).not.toContain("coming soon");
+    }
   });
 
   test("a listing URL turns its entry into an 'Add to …' link that opens the store in a new tab", () => {
