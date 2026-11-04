@@ -119,12 +119,12 @@ const MEDIUM_GUTTER = 24;
  */
 export function roomLayout(containerWidth: number, provider: Provider | null = null, phone = false): RoomLayout {
   const width = Math.floor(containerWidth);
-  const min = minTvW(provider, width);
+  const min = phone && provider === "twitch" ? 400 : minTvW(provider, width);
   if (phone) {
     // Medium (a tablet held upright, OME-1846, design OME-1799 §2): the TV between gutters, at most MEDIUM_TV_MAX_W.
     const w = Math.max(min, width > PHONE_MAX_W ? Math.min(MEDIUM_TV_MAX_W, width - 2 * MEDIUM_GUTTER) : width);
     const x = Math.max(0, Math.floor((width - w) / 2));
-    const tv = { x, y: TV_BEZEL, w, h: tvH(w) };
+    const tv = { x, y: TV_BEZEL, w, h: Math.max(provider === "twitch" ? 300 : RMF_MIN, tvH(w)) };
     // Twitch's TV can be wider than the screen (it scrolls sideways); the shelf stays on screen (QA OME-1870).
     const controls = { x, y: tv.y + tv.h + GAP, w: Math.min(w, width), h: CONTROL_BAR_H };
     const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
