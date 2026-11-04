@@ -112,7 +112,7 @@ img { image-rendering: pixelated; }
 .steps li { grid-template-columns: 44px 1fr; }
 .phone-icon { display: none; }
 
-.room-page { --top-bar: 77px; background: #171620; height: 100dvh; display: grid; grid-template-rows: var(--top-bar) minmax(0, 1fr); overflow: hidden; }
+.room-page { --top-bar: 77px; background: #171620; min-height: 100dvh; display: grid; grid-template-rows: var(--top-bar) auto; }
 .room-head { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid #554b61; background: #211e2b; min-width: 0; }
 .room-heading { margin: 0 auto 0 10px; min-width: 0; }
 .room-heading h1 { font-size: 18px; letter-spacing: -.025em; overflow-wrap: anywhere; }
@@ -121,12 +121,12 @@ img { image-rendering: pixelated; }
 .room-head details { position: relative; flex-shrink: 0; }
 .room-head summary { display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; list-style: none; font-size: 13px; }
 summary::-webkit-details-marker { display: none; }
-.head-popover { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; padding: 20px; width: min(300px, 80vw); max-height: 70dvh; overflow-y: auto; border: 1px solid #a494b3; border-radius: 8px; background: #302838; box-shadow: 0 10px 32px #0008; }
+.head-popover { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; padding: 20px; width: min(300px, 80vw); border: 1px solid #a494b3; border-radius: 8px; background: #302838; box-shadow: 0 10px 32px #0008; }
 .head-popover h2 { font-size: 18px; margin-bottom: 12px; }
 .head-popover p, .head-popover li { font-size: 13px; }
 .head-popover ul { padding-left: 18px; margin: 0; }
 .room-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; max-width: 1920px; width: 100%; min-height: 0; margin: 0 auto; }
-.cinema { position: relative; min-width: 0; min-height: 0; padding: 16px 24px; display: flex; flex-direction: column; }
+.cinema { position: relative; min-width: 0; min-height: 696px; height: calc(100dvh - var(--top-bar)); padding: 16px 24px; display: flex; flex-direction: column; }
 /* Prototype uses the Twitch width floor (534px); other providers need 356px. Native room art is cropped, never shrunk. */
 .screen { flex-shrink: 0; position: relative; display: flex; flex-direction: column; justify-content: space-between; width: min(100%, max(534px, calc((100dvh - var(--top-bar) - 112px - 88px - 200px) * 16 / 9))); aspect-ratio: 16 / 9; margin-inline: auto; background: radial-gradient(ellipse at 50% 75%, #34233d 0%, #15131f 65%); padding: 16px; border: 1px solid #796481; box-shadow: 0 12px 32px #0005; }
 .screen-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #d2c4d4; font-size: 12px; }
@@ -158,7 +158,8 @@ summary::-webkit-details-marker { display: none; }
 .view-tools { flex-shrink: 0; display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 4px 0; }
 .view-tools h2 { margin-right: auto; font-size: 12px; font-weight: 500; }
 .view-tools button { padding: 8px 10px; font-size: 12px; }
-.drawer { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; border-left: 1px solid #80708b; background: #25212e; }
+.view-tools .fit-icon { display: none; }
+.drawer { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid #80708b; background: #25212e; }
 .drawer-header { padding: 16px 20px 12px; }
 .drawer-intro { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .drawer-intro h2 { font-size: 18px; }
@@ -171,7 +172,7 @@ summary::-webkit-details-marker { display: none; }
 .panel-tabs button { border: 0; border-radius: 0; border-bottom: 3px solid transparent; background: transparent; padding: 8px 4px; font-size: 13px; color: #d7cadb; }
 .panel-tabs button[aria-selected=true] { color: #ffe2ab; border-bottom-color: #f4cd83; }
 .panel-tabs button:focus-visible { outline-offset: -4px; }
-.panel-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 20px; }
+.panel-content { flex: 1; min-height: 0; padding: 20px; }
 .drawer-panel { min-width: 0; }
 .drawer-panel:focus-visible { outline-offset: -3px; }
 .panel-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 16px; }
@@ -183,7 +184,7 @@ summary::-webkit-details-marker { display: none; }
 .chat-lines time { color: #cbbdd5; margin-left: 6px; font-size: 12px; }
 .chat-lines .system { padding: 9px 10px; background: #37303f; border-left: 2px solid #bd9fce; color: #e1d5e8; font-size: 12px; }
 .chat-lines .emote { font-style: italic; color: #ddc8e9; }
-.composer { display: grid; grid-template-columns: 44px minmax(44px, 1fr) 56px; gap: 6px; align-items: center; border-top: 1px solid #a393ad; padding: 12px; }
+.composer { position: sticky; bottom: 0; z-index: 3; flex-shrink: 0; background: #25212e; display: grid; grid-template-columns: 44px minmax(44px, 1fr) 56px; gap: 6px; align-items: center; border-top: 1px solid #a393ad; padding: 12px; }
 .composer button { padding: 8px; height: 48px; }
 .composer .emote-key { font-size: 20px; }
 .prototype-note { font-size: 12px; color: #d5c6d7; margin-top: 10px; }
@@ -256,10 +257,11 @@ summary::-webkit-details-marker { display: none; }
   .room-heading p, .wide-label { display: none; }
   .phone-icon { display: inline; }
   .room-head summary { width: 44px; padding: 8px; font-size: 16px; }
-  .room-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 276px; }
-  .cinema { padding: 8px 12px 0; }
+  .room-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+  .cinema { height: calc(100dvh - var(--top-bar) - 276px); min-height: 396px; padding: 8px 12px 0; }
   /* Phone preview reserves 200px; Twitch needs 300px, with letterboxing when the 16:9 picture is shorter. */
-  .screen { width: 100%; min-height: 200px; padding: 8px; margin-bottom: 4px; }
+  /* The 276px sheet reserve includes its invite, chat excerpt, tabs and composer; smaller windows scroll the page. */
+  .screen { width: min(100%, calc(max(200px, 100dvh - var(--top-bar) - 88px - 96px - 276px - 12px) * 16 / 9)); min-height: 200px; padding: 8px; margin-bottom: 4px; }
   .screen-top { font-size: 12px; }
   .screen-top > span:first-child { letter-spacing: 0; }
   .screen-top > span:last-child { display: none; }
@@ -278,8 +280,8 @@ summary::-webkit-details-marker { display: none; }
   .view-tools { position: absolute; z-index: 2; right: 18px; bottom: 6px; min-height: 52px; height: 52px; padding: 4px; gap: 4px; border-radius: 5px; background: #191725ed; }
   .view-tools h2 { display: none; }
   .view-tools button { font-size: 12px; padding: 8px; }
-  .drawer { grid-template-rows: auto minmax(128px, 1fr) 44px 56px; border: 1px solid #a393ad; border-bottom: 0; border-radius: 14px 14px 0 0; }
-  .drawer-header { grid-row: 1; padding: 0 12px; }
+  .drawer { min-height: 276px; border: 1px solid #a393ad; border-bottom: 0; border-radius: 14px 14px 0 0; }
+  .drawer-header { order: 1; padding: 0 12px; }
   .drawer-intro { display: none; }
   .invite { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 6px; align-items: center; }
   .invite label { margin: 0; line-height: 1.2; }
@@ -287,12 +289,25 @@ summary::-webkit-details-marker { display: none; }
   .invite input:not([type=radio]):not([type=checkbox]):not([type=range]) { min-height: 44px; height: 44px; padding: 8px; font-size: 16px; }
   .invite .compose-row { gap: 6px; }
   .invite button { padding: 8px; font-size: 12px; }
-  .panel-tabs { grid-row: 3; margin: 0; border-top: 1px solid #a393ad; border-bottom: 0; }
+  .panel-tabs { order: 3; position: sticky; bottom: 56px; z-index: 3; flex-shrink: 0; min-height: 44px; background: #25212e; margin: 0; border-top: 1px solid #a393ad; border-bottom: 0; }
   .panel-tabs button { font-size: 12px; }
-  .panel-content { grid-row: 2; min-height: 128px; padding: 12px; }
+  .panel-content { order: 2; min-height: 128px; padding: 12px; }
   .panel-title { margin-bottom: 12px; }
-  .composer { grid-row: 4; padding: 3px 12px 4px; }
+  .composer { order: 4; padding: 3px 12px 4px; }
   .composer input { font-size: 16px; }
+}
+@media (max-width: 1023px) and (max-height: 760px) {
+  /* Move the art and all tags together: Juno's 310px anchor lands 8px below the crop's top edge. */
+  .strip-scene { top: -302px; bottom: auto; left: calc(50% - 288px); }
+  .view-tools button { width: 44px; height: 44px; padding: 0; }
+  .view-tools .fit-label { display: none; }
+  .view-tools .fit-icon { display: inline; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) and (max-height: 800px) {
+  /* Twitch's 300px height floor is retained; the page grows when its minimum cinema no longer fits. */
+  .cinema { min-height: 584px; }
+  .screen { width: min(100%, calc(max(300px, 100dvh - var(--top-bar) - 112px - 96px - 52px - 24px) * 16 / 9)); }
+  .room-strip { height: 96px; min-height: 96px; flex: 1 0 96px; }
 }
 @media (max-width: 600px) {
   .doorstep { margin-top: 200px; }

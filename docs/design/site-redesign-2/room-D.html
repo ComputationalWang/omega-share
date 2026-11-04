@@ -15,7 +15,7 @@
   <button class="icon-button" type="button" disabled aria-label="Mute your audio (static preview)" title="Mute your audio · static preview">♪<span aria-hidden="true">×</span></button>
   <div class="room-heading"><h1>The late-night living room</h1><p>omega-share <span aria-hidden="true">/</span> Lobby · sample room</p></div>
   <details><summary aria-label="People — 4 in this sample room"><span class="wide-label">People · 4</span><span class="phone-icon" aria-hidden="true">👥</span></summary><div class="head-popover"><h2>Good company</h2><ul><li>Juno — you</li><li>Pip</li><li>Mo</li><li>Kiki</li></ul><p class="prototype-note">Illustrative people, no live presence.</p></div></details>
-  <details><summary aria-label="Room help"><span class="wide-label">Help </span><span aria-hidden="true">?</span></summary><div class="head-popover"><h2>A room to watch together</h2><p>Playback is shared with everyone. Volume is only yours. Chat, Up next and Room are in the panel.</p><p class="prototype-note">This is a design preview. Tabs, people and help work. Playback, chat, queue, invite and zoom controls are static. On phones, scroll the sheet for more content; the composer stays on screen.</p></div></details>
+  <details><summary aria-label="Room help"><span class="wide-label">Help </span><span aria-hidden="true">?</span></summary><div class="head-popover"><h2>A room to watch together</h2><p>Playback is shared with everyone. Volume is only yours. Chat, Up next and Room are in the panel.</p><p class="prototype-note">This is a design preview. Tabs, people and help work. Playback, chat, queue, invite and zoom controls are static. Scroll the page for more content; the composer stays within reach.</p></div></details>
 </header>
 <main class="room-layout">
   <section class="cinema" id="watch" tabindex="-1" aria-label="Cinema and room scene">
@@ -47,7 +47,7 @@
         <span class="room-person person-kiki"><b>Kiki</b><span class="avatar-sprite kiki" aria-hidden="true"></span></span>
       </div>
     </figure>
-    <div class="view-tools" id="scene-view" tabindex="-1" role="group" aria-label="Room view controls — static preview"><h2>Room view <span class="muted">· 1×</span></h2><button type="button" disabled aria-label="Zoom out room (static preview)">−</button><button type="button" disabled aria-label="Zoom in room (static preview)">+</button><button type="button" disabled>Fit room</button></div>
+    <div class="view-tools" id="scene-view" tabindex="-1" role="group" aria-label="Room view controls — static preview"><h2>Room view <span class="muted">· 1×</span></h2><button type="button" disabled aria-label="Zoom out room (static preview)">−</button><button type="button" disabled aria-label="Zoom in room (static preview)">+</button><button type="button" disabled aria-label="Fit room"><span class="fit-label">Fit room</span><span class="fit-icon" aria-hidden="true">⤢</span></button></div>
   </section>
   <aside class="drawer" id="room-drawer" aria-label="Chat, queue and room drawer">
     <header class="drawer-header">
@@ -118,7 +118,6 @@
       item.tabIndex = selected ? 0 : -1;
       document.getElementById(item.getAttribute('aria-controls')).hidden = !selected;
     }
-    document.querySelector('.panel-content').scrollTop = 0;
   }
   for (const tab of tabs) {
     tab.addEventListener('click', () => showPanel(tab));
