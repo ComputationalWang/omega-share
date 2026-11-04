@@ -94,12 +94,13 @@ export function createHints(o: HintsOptions): Hints {
     const h = root.offsetHeight;
     // An empty TV may be covered, but not its message (OME-2104).
     const tv = (o.tv.empty() ? o.tv.message : o.tv.box).getBoundingClientRect();
-    const onTv = (p: Spot): boolean => p.left < tv.right && tv.left < p.left + w && p.top < tv.bottom && tv.top < p.top + h;
+    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), root.parentElement?.querySelector(".portrait-keys")?.getBoundingClientRect()];
+    const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone.
-    if (at !== null && onTv(at)) at = spot(o.tv.empty() ? o.tv.message : o.tv.picture, "below", w, h);
-    // Nothing to sit beside (the stage behind People on a phone), or nowhere off the TV: out of sight until there is.
-    const away = at === null || onTv(at);
+    if (at !== null && blocked(at)) at = spot(o.tv.empty() ? o.tv.message : o.tv.picture, "below", w, h);
+    // Nothing to sit beside, or nowhere clear of the TV, composer and phone dock: out of sight until there is.
+    const away = at === null || blocked(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
     root.style.visibility = away ? "hidden" : "";
     if (at === null || away) return;

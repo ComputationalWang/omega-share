@@ -143,7 +143,12 @@ for (const [name, options] of [
     for (let i = 0; i < 3; i += 1) {
       await page.waitForTimeout(300);
       // Out of sight (nowhere off the TV) is allowed; on the TV never.
-      if (await hint.isVisible()) expect(await overlaps(hint, page.locator(site.tv)), `step ${String(i)}`).toBe(false);
+      if (await hint.isVisible()) {
+        expect(await overlaps(hint, page.locator(site.tv)), `step ${String(i)}`).toBe(false);
+        expect(await overlaps(hint, page.locator(site.chatInput)), `step ${String(i)}`).toBe(false);
+        const dock = page.locator(".portrait-keys");
+        if (await dock.isVisible()) expect(await overlaps(hint, dock), `step ${String(i)}`).toBe(false);
+      }
       await page.locator(site.hintNext).dispatchEvent("click");
     }
     await expect(hint).toBeHidden();
@@ -259,6 +264,7 @@ test("phone (touch, 390×844 portrait): each chip sits in the viewport clear of 
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
     expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
+    expect(await overlaps(hint, page.locator(".portrait-keys"))).toBe(false);
     expect(await overlaps(hint, page.locator(site.peopleKey))).toBe(false);
     expect(await overlaps(hint, page.locator(site.helpKey))).toBe(false);
     expect(await wide()).toBe(false);

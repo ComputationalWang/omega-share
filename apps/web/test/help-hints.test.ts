@@ -263,7 +263,7 @@ describe("the first-visit tour", () => {
     hints.show();
     expect(hints.root.style.visibility).toBe("hidden");
     const obstacle = control === "dock" ? dock : composer;
-    obstacle.getBoundingClientRect = () => DOMRect.fromRect();
+    obstacle.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 0, height: 0 });
     window.dispatchEvent(new Event("resize"));
     expect(hints.root.style.visibility).toBe("");
     expect(hints.root.style.top).toBe("608px");
