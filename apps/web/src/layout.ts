@@ -254,7 +254,7 @@ export type StripMode = "open" | "band";
 /**
  * Full screen in `width`×`height` CSS px. `at`: "side" (strip open beside the picture, landscape), "below" (strip open
  * under the picture, portrait or too narrow for both), "band" (collapsed to one bar under the picture).
- * `strip`: the strip's box, or in "band" the field and keys after the transport. The picture keeps 16:9, its ADR 0012
+ * `strip`: the strip's box, or in "band" the field and keys after the transport. The picture keeps its ADR 0012
  * minimum (Twitch's is larger), and the largest size that leaves the strip or band clear; nothing overlaps.
  */
 export interface FullscreenLayout {
@@ -274,12 +274,13 @@ export interface FullscreenLayout {
 export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode | "none" | "hidden"): FullscreenLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
-  const min = minTvW(provider, w);
+  const min = provider === "twitch" && w < h ? 400 : minTvW(provider, w);
+  const minTvH = provider === "twitch" ? 300 : tvH(min);
   const below = GAP + CONTROL_BAR_H;
-  /** The largest 16:9 picture in aw×ah, never under the minimum. */
+  /** The largest picture in aw×ah, letterboxing where 16:9 would be under the minimum. */
   const fitTv = (aw: number, ah: number): { w: number; h: number } => {
     const tw = Math.max(min, Math.min(aw, Math.floor((ah * 16) / 9)));
-    return { w: tw, h: tvH(tw) };
+    return { w: tw, h: Math.max(minTvH, tvH(tw)) };
   };
   /** The shelf under the picture, its speakers inside the picture's width when they fit. */
   const shelf = (tv: Rect): Rect => {
@@ -328,7 +329,6 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     // A second row cannot fit under Twitch's 300 px minimum on short phones. Drop the shelf's
     // speaker outsets and share one row instead; keep the composer's 44 px content plus its frame.
     const compactBandH = CONTROL_BAR_H + 4;
-    const minTvH = tvH(min);
     if (minTvH + below + GAP + bandH > h
       && h >= compactBandH
       && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
@@ -362,7 +362,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   const aw = w - stripW;
   // Keep the picture stable when collapsing into a phone band with its 4 px composer frame.
   const sideBelow = below + (w < FS_STRIP_WIDE_FROM ? 4 : 0);
-  const side = w > h && aw >= min && h - sideBelow >= tvH(min);
+  const side = w > h && aw >= min && h - sideBelow >= minTvH;
   if (side) {
     const pic = fitTv(aw, h - sideBelow);
     const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - sideBelow) / 2)), ...pic };
@@ -372,7 +372,6 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   }
   // Reserve the open strip's header, composer and frame before sizing a below-player picture.
   const openStripH = 112;
-  const minTvH = tvH(min);
   // Short landscape cannot hold the provider minimum plus an open strip. Show a compact band
   // until more space is available; the caller keeps the user's remembered open preference.
   // Below 356 px Twitch also needs vertical scrolling: its intact player stays above the band.
