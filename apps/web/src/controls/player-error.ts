@@ -41,7 +41,7 @@ export function mountErrorText(provider: Provider, reason: MountFailure): string
 }
 
 /**
- * A standing one-line hint under the TV for the shown provider, or null. Twitch gates mature channels behind its own
+ * A standing one-line hint above the TV for the shown provider, or null. Twitch gates mature channels behind its own
  * "Start Watching" interstitial while the video plays on behind it (OME-244). The player is cross-origin, so we can't
  * tell whether it's up: the hint shows for every Twitch embed.
  */
