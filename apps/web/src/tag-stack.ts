@@ -129,10 +129,20 @@ export interface PlaceWearer {
   readonly classList: { toggle(c: string, on: boolean): boolean };
 }
 
-/** Stub (OME-2213 red). */
+/** Write place `m` on a tag (`tag`: its pip classes too) or its hit pad, unless it already wears it: a walker's tag keeps
+ * one place for the whole walk, and re-writing it every walk frame cost the /conga row its headroom (OME-2213). */
 export function wearPlace(
-  _e: PlaceWearer,
-  _m: TagPlace,
-  _worn: WeakMap<object, TagPlace>,
-  _tag: boolean,
-): void {}
+  e: PlaceWearer,
+  m: TagPlace,
+  worn: WeakMap<object, TagPlace>,
+  tag: boolean,
+): void {
+  if (worn.get(e) === m) return;
+  worn.set(e, m);
+  e.style.marginLeft = `${String(m.dx)}px`;
+  e.style.marginTop = `${String(m.dy)}px`;
+  if (!tag) return;
+  e.classList.toggle("is-led", m.led);
+  // Over its owner the pip points down at the head; hung under the feet, up at them.
+  e.classList.toggle("is-above", m.dy < 0);
+}
