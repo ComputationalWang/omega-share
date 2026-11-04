@@ -34,7 +34,7 @@ export function installLinks(listings: Listings): string {
     const url = listings[key];
     return url === null
       ? `<span class="install-soon">${name}: coming soon</span>`
-      : `<a class="enter install-link" href="${escapeAttr(storeUrl(url, origin))}" target="_blank" rel="noopener noreferrer">Add to ${name}</a>`;
+      : `<a class="enter install-link" href="${escapeAttr(storeUrl(url, origin))}" target="_blank" rel="noopener noreferrer" aria-label="Add to ${name} (opens in a new tab)">Add to ${name}</a>`;
   }).join(" · ");
 }
 
