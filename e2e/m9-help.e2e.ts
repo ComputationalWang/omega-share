@@ -160,7 +160,7 @@ for (const [name, options] of [
   test(`${String(width)}×${String(height)}: the floor chip never covers the empty TV's message`, async ({ browser }) => {
     const page = await join(name, browser, false, options);
     const hint = page.locator(site.firstHint);
-    await expect(hint).toContainText("Click the floor");
+    await expect(hint).toContainText(name === "emw" ? "Click the floor" : "Tap the floor");
     await expect(page.locator(site.tvEmpty)).toBeVisible();
     await page.waitForTimeout(300);
     expect(await overlaps(hint, page.locator(site.tvEmpty))).toBe(false);
@@ -249,7 +249,7 @@ test("phone (touch, 390×844 portrait): each chip sits in the viewport clear of 
   if (viewport === null) throw new Error("no viewport");
   const hint = page.locator(site.firstHint);
   await expect(hint).toBeVisible();
-  await expect(hint).toContainText("Click the floor to walk");
+  await expect(hint).toContainText("Tap the floor to walk, double-tap to jog");
   const wide = (): Promise<boolean> => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth || document.body.scrollWidth > document.body.clientWidth);
   for (let i = 0; i < 3; i += 1) {
     const box = await hint.boundingBox();

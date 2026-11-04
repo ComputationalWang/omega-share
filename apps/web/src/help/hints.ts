@@ -120,7 +120,7 @@ export function createHints(o: HintsOptions): Hints {
     const a = o.anchor(to);
     if (a !== null) sized.observe(a);
     root.hidden = false;
-    text.textContent = s.text;
+    text.textContent = to === 0 && window.matchMedia("(pointer: coarse)").matches ? "Tap the floor to walk, double-tap to jog" : s.text;
     place();
   };
 
