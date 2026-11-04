@@ -2,68 +2,20 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import {
-  SEAT_COUNT,
-  type FloorCell,
-  type MemberId,
-  type ReactionKind,
-  type RoomLayout,
-} from "@omega/shared";
+import { SEAT_COUNT, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import {
-  doorAt,
-  layoutOf,
-  seatFacings as facingsOf,
-  piecesInUse,
-  sceneKey as keyOfLayout,
-  sceneOf,
-  seatPoints,
-  seatTiles,
-  standDepth,
-  standingPoints,
-  usesSetG,
-  usesV2,
-  usesV4,
-  usesV5,
-  usesV6,
-  usesV7,
-  usesV8,
-  usesBack,
-  viewVerdict,
-} from "./furniture";
+import { doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesBack, viewVerdict } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
-import {
-  doubleTap,
-  isStepKey,
-  lieIntent,
-  seatViews,
-  type StepKey,
-} from "./intents";
-import {
-  ROOM_VIEW,
-  SYSLINE_RAIL,
-  TAG_H,
-  TAG_MAX_SCALE,
-  TAG_OFFSET_Y,
-  cellCenter,
-  isNorth,
-  setNorth,
-  type Point,
-  type Rect,
-} from "./layout";
-import {
-  createRoomView,
-  type AvatarPlacement,
-  type RoomSound,
-  type RoomView,
-} from "./room-view";
+import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
+import { ROOM_VIEW, SYSLINE_RAIL, TAG_H, TAG_MAX_SCALE, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
+import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { LIE_KEY_LIFT, lieKeyPoint } from "./walk/lie";
@@ -76,13 +28,7 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
-import {
-  TAG_GAP,
-  stackTags,
-  wearPlace,
-  type TagBox,
-  type TagPlace,
-} from "./tag-stack";
+import { TAG_GAP, stackTags, wearPlace, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -93,10 +39,7 @@ export interface StageOptions {
   /** Draw again on the next frame (the furniture atlas arrived). */
   readonly requestRender: () => void;
   /** A new layout: its seats and its standing spots (the room window looks at them, the band at both, OME-1843). */
-  readonly onLayout?: (
-    seats: readonly Point[],
-    standing: readonly Point[],
-  ) => void;
+  readonly onLayout?: (seats: readonly Point[], standing: readonly Point[]) => void;
   /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
   readonly onMove?: (id: MemberId) => void;
   /** An avatar came to rest (/hug arrives, OME-1453). */
@@ -130,12 +73,7 @@ export interface Stage {
   readonly view: RoomView;
   /** Draw `s` with `layout` (the room's, or the owner's draft); `selfCatching` is my own player's catching-up flag; while
    * `editing`, the owner editor's hit layer has the floor, so the walk floor is inert. */
-  render(
-    s: StageState,
-    layout: RoomLayout,
-    selfCatching: boolean,
-    editing: boolean,
-  ): void;
+  render(s: StageState, layout: RoomLayout, selfCatching: boolean, editing: boolean): void;
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: AvatarEmote, s: StageState): void;
@@ -180,12 +118,7 @@ function place(e: HTMLElement, p: Point): void {
 }
 
 /** What a lie key's name calls each piece. */
-const LIE_NAMES: Readonly<Record<string, string>> = {
-  sofa: "sofa",
-  couch: "couch",
-  cat: "cat bed",
-  bed: "bed",
-};
+const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
@@ -194,12 +127,7 @@ const NO_GO_NOTE_MS = 1500;
 const TAG_SETTLE_MS = 500;
 
 function box(e: HTMLElement, r: Rect): void {
-  Object.assign(e.style, {
-    left: `${String(r.x)}px`,
-    top: `${String(r.y)}px`,
-    width: `${String(r.w)}px`,
-    height: `${String(r.h)}px`,
-  });
+  Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
 }
 
 export async function createStage(o: StageOptions): Promise<Stage> {
@@ -217,27 +145,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   });
   overlay.append(...seatButtons);
   // Lie keys (OME-1691): one per sofa, couch or cat bed of the layout, rebuilt on a layout change; `data-lie` is the piece's index.
-  let lieButtons: {
-    readonly b: HTMLButtonElement;
-    readonly piece: number;
-    readonly down: string;
-    readonly up: string;
-  }[] = [];
+  let lieButtons: { readonly b: HTMLButtonElement; readonly piece: number; readonly down: string; readonly up: string }[] = [];
   // Free walking (OME-1350): the floor under the seat keys, tags and bubbles takes clicks, taps and (focused) arrow keys.
-  const floorHit =
-    o.onFloor === undefined
-      ? null
-      : el(
-          "div",
-          {
-            className: "walk-floor",
-            tabIndex: -1,
-            role: "application",
-            ariaLabel:
-              "Room floor. Arrow keys walk your avatar one cell; with Shift, jog. S sits down or gets up.",
-          },
-          "walk-floor",
-        );
+  const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell; with Shift, jog. S sits down or gets up." }, "walk-floor");
   const floorNote = el("span", { className: "sr-only", role: "status" });
   const tags = el("div", { className: "tags" });
   // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
@@ -278,8 +188,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       place(tag, at);
       wearPlace(tag, moved, worn, true);
     }
-    const padEl =
-      pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
+    const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
       place(padEl, at);
       wearPlace(padEl, moved, worn, false);
@@ -296,19 +205,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       ids.push(id);
       at.push(p);
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
-      boxes.push({
-        x: p.x,
-        y: p.y + TAG_OFFSET_Y,
-        w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK,
-        top: p.y - liftOf(id),
-      });
+      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - liftOf(id) });
     }
-    const moved = stackTags(
-      boxes,
-      TAG_H * labelK,
-      Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom),
-      shownTop,
-    );
+    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop);
     ids.forEach((id, i) => {
       const p = at[i];
       // A walker's tag rides over its head: stacked, it'd flip its pip on every render as it passes heads (OME-2213).
@@ -332,11 +231,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
   };
-  const floats = createFloats(bubbles, {
-    reducedMotion: o.reducedMotion,
-    now: () => Date.now(),
-    ...timers,
-  });
+  const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), ...timers });
   const handoff = createHandoff();
   const speaking = new Set<MemberId>();
   /** Who shows typing dots, so a member who left takes theirs along. */
@@ -350,28 +245,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   };
   const badges = createEmoteBadges(bubbles, timers);
   const reactionLayer = el("div", { className: "reactions" });
-  const glyphs = createReactionGlyphs(reactionLayer, {
-    allowed: () => view.reactionsAllowed(),
-    now: () => performance.now(),
-    ...timers,
-  });
+  const glyphs = createReactionGlyphs(reactionLayer, { allowed: () => view.reactionsAllowed(), now: () => performance.now(), ...timers });
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
   let floorSat: ReadonlySet<MemberId> = new Set();
   /** Who arrives by a teleport pad (OME-1548) in the next placement; cleared once placed. */
   const teleporting = new Set<MemberId>();
-  const liftOf = (id: MemberId): number =>
-    seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle;
+  const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
   /** A tag's place unstacked (a walker's): TAG_GAP over its owner's head (OME-2172). */
-  const aboveHead = (id: MemberId): TagPlace => ({
-    dx: 0,
-    dy: -(liftOf(id) + TAG_OFFSET_Y + TAG_GAP + TAG_H * labelK),
-    led: false,
-  });
+  const aboveHead = (id: MemberId): TagPlace => ({ dx: 0, dy: -(liftOf(id) + TAG_OFFSET_Y + TAG_GAP + TAG_H * labelK), led: false });
   /** Bubbles, badges and the emote wheel float over the head and the tag on it. */
-  const overOf = (id: MemberId): number =>
-    liftOf(id) + TAG_GAP + TAG_H * labelK;
+  const overOf = (id: MemberId): number => liftOf(id) + TAG_GAP + TAG_H * labelK;
   // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
     ...(o.roomId === undefined ? {} : { roomId: o.roomId }),
@@ -407,26 +292,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(
-    view.canvas,
-    ...(o.dim === undefined ? [] : [o.dim]),
-    ...(floorHit === null ? [] : [floorHit, floorNote]),
-    overlay,
-    tags,
-    bubbles,
-    reactionLayer,
-    rail,
-  );
+  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
       const r = floorHit.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return null;
       const k = floorHit.offsetWidth / r.width;
-      const c = cellAt({
-        x: (ev.clientX - r.left) * k,
-        y: (ev.clientY - r.top) * k,
-      });
+      const c = cellAt({ x: (ev.clientX - r.left) * k, y: (ev.clientY - r.top) * k });
       return c < 0 ? null : { x: colOf(c), y: rowOf(c) };
     };
     let noGo: ReturnType<typeof setTimeout> | undefined;
@@ -450,9 +323,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (ev.pointerType === "touch") return;
       const c = cellUnder(ev);
       // The scale too: after a zoom or resize the same cell's diamond gets its new stroke.
-      const k =
-        floorHit.getBoundingClientRect().width /
-        Math.max(1, floorHit.offsetWidth);
+      const k = floorHit.getBoundingClientRect().width / Math.max(1, floorHit.offsetWidth);
       if (c?.x === hover?.x && c?.y === hover?.y && k === hoverScale) return;
       hover = c;
       hoverScale = k;
@@ -522,10 +393,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let recolours: RecolourSheets | null = null;
   const recolouring = new Set<string>();
   // One instance for every copy: two copies loading at once each made their own, and one copy was lost (OME-1495).
-  const recolourChunk = onceAsync(
-    async () =>
-      (recolours = (await import("./recolour-sheets")).recolourSheets()),
-  );
+  const recolourChunk = onceAsync(async () => (recolours = (await import("./recolour-sheets")).recolourSheets()));
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
   let layoutKey = "";
   let layoutBuilds = 0;
@@ -547,48 +415,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [
-      atlas,
-      v2Atlas,
-      v4Atlas,
-      v5Atlas,
-      v6Atlas,
-      v7Atlas,
-      v8Atlas,
-    ].flatMap((a) => (a === null ? [] : [a.manifest]));
-    scene = sceneOf(
-      l,
-      catalogues,
-      roomAtlas?.manifest ?? null,
-      backAtlas?.manifest ?? null,
-    );
-    view.setScene(
-      scene,
-      [
-        atlas,
-        v2Atlas,
-        v4Atlas,
-        v5Atlas,
-        v6Atlas,
-        v7Atlas,
-        v8Atlas,
-        backAtlas,
-        roomAtlas,
-        recolours,
-      ],
-      grid,
-    );
+    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null, backAtlas?.manifest ?? null);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, backAtlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
   };
 
   const sourceOf = (sheet: RecolourSheet): FurnitureAtlas | RoomAtlas | null =>
-    sheet === "room/room.png"
-      ? roomAtlas
-      : sheet === "furniture/furniture.png"
-        ? atlas
-        : sheet === "furniture/furniture-v2.png"
-          ? v2Atlas
-          : v4Atlas;
+    sheet === "room/room.png" ? roomAtlas : sheet === "furniture/furniture.png" ? atlas : sheet === "furniture/furniture-v2.png" ? v2Atlas : v4Atlas;
 
   /** The copies `l`'s new colours draw from, each once its source atlas is in; the chunk loads only for a layout with one. */
   const loadRecolours = (key: string, l: RoomLayout): void => {
@@ -602,28 +436,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         await (await recolourChunk()).load(kind, variant, source);
       };
       // A failed copy (chunk or sheet) is forgotten, so the next snapshot retries it.
-      lazyAtlas(
-        "recolour",
-        key,
-        l,
-        () =>
-          load().catch((e: unknown) => {
-            recolouring.delete(id);
-            throw e;
-          }),
-        () => undefined,
-      );
+      lazyAtlas("recolour", key, l, () => load().catch((e: unknown) => {
+        recolouring.delete(id);
+        throw e;
+      }), () => undefined);
     }
   };
 
   /** Load an atlas in its own chunk, then rebuild the scene if the room still shows `key`'s layout. */
-  const lazyAtlas = <T>(
-    what: string,
-    key: string,
-    l: RoomLayout,
-    load: () => Promise<T>,
-    keep: (loaded: T) => void,
-  ): void => {
+  const lazyAtlas = <T>(what: string, key: string, l: RoomLayout, load: () => Promise<T>, keep: (loaded: T) => void): void => {
     void load()
       .then((loaded) => {
         keep(loaded);
@@ -657,128 +478,50 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     const tiles = seatTiles(next);
     seatButtons.forEach((b, i) => {
       const p = tiles[i];
-      if (p !== undefined)
-        b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
+      if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
     for (const k of lieButtons) k.b.remove();
     lieButtons = next.furniture.flatMap((f, i) => {
       // The bed's key sits on a footprint cell (cellCenter follows the view); a sofa's is above the first lier's spot in
       // my view (OME-1961: from the north the piece is turned, so its south-view offset doesn't apply).
       const spot = scene.lies.get(i)?.[0];
-      const p =
-        f.kind === "bed"
-          ? lieKeyPoint(f)
-          : spot && { x: spot.at.x, y: spot.at.y - LIE_KEY_LIFT };
+      const p = f.kind === "bed" ? lieKeyPoint(f) : spot && { x: spot.at.x, y: spot.at.y - LIE_KEY_LIFT };
       if (p === undefined) return [];
-      const b = el(
-        "button",
-        { type: "button", className: "lie-key" },
-        "lie-key",
-      );
+      const b = el("button", { type: "button", className: "lie-key" }, "lie-key");
       b.dataset["lie"] = String(i);
       b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
       const name = LIE_NAMES[f.kind] ?? "sofa";
-      return [
-        {
-          b,
-          piece: i,
-          down: `Lie down on the ${name}`,
-          up: `Get up from the ${name}`,
-        },
-      ];
+      return [{ b, piece: i, down: `Lie down on the ${name}`, up: `Get up from the ${name}` }];
     });
     overlay.append(...lieButtons.map((k) => k.b));
     loadRecolours(key, next);
     if (roomAtlas === null) {
-      lazyAtlas(
-        "room",
-        key,
-        next,
-        () => import("./room-atlas").then((m) => m.loadRoomAtlas()),
-        (a) => (roomAtlas = a),
-      );
+      lazyAtlas("room", key, next, () => import("./room-atlas").then((m) => m.loadRoomAtlas()), (a) => (roomAtlas = a));
     }
     if (usesSetG(next) && atlas === null) {
-      lazyAtlas(
-        "furniture",
-        key,
-        next,
-        () => import("./furniture-atlas").then((m) => m.loadFurnitureAtlas()),
-        (a) => (atlas = a),
-      );
+      lazyAtlas("furniture", key, next, () => import("./furniture-atlas").then((m) => m.loadFurnitureAtlas()), (a) => (atlas = a));
     }
     if (usesV2(next) && v2Atlas === null) {
-      lazyAtlas(
-        "furniture v2",
-        key,
-        next,
-        () =>
-          import("./furniture-v2-atlas").then((m) => m.loadFurnitureV2Atlas()),
-        (a) => (v2Atlas = a),
-      );
+      lazyAtlas("furniture v2", key, next, () => import("./furniture-v2-atlas").then((m) => m.loadFurnitureV2Atlas()), (a) => (v2Atlas = a));
     }
     if (usesV6(next) && v6Atlas === null) {
-      lazyAtlas(
-        "furniture v6",
-        key,
-        next,
-        () =>
-          import("./furniture-v6-atlas").then((m) => m.loadFurnitureV6Atlas()),
-        (a) => (v6Atlas = a),
-      );
+      lazyAtlas("furniture v6", key, next, () => import("./furniture-v6-atlas").then((m) => m.loadFurnitureV6Atlas()), (a) => (v6Atlas = a));
     }
     if (usesV7(next) && v7Atlas === null) {
-      lazyAtlas(
-        "furniture v7",
-        key,
-        next,
-        () =>
-          import("./furniture-v7-atlas").then((m) => m.loadFurnitureV7Atlas()),
-        (a) => (v7Atlas = a),
-      );
+      lazyAtlas("furniture v7", key, next, () => import("./furniture-v7-atlas").then((m) => m.loadFurnitureV7Atlas()), (a) => (v7Atlas = a));
     }
     if (usesV8(next) && v8Atlas === null) {
-      lazyAtlas(
-        "furniture v8",
-        key,
-        next,
-        () =>
-          import("./furniture-v8-atlas").then((m) => m.loadFurnitureV8Atlas()),
-        (a) => (v8Atlas = a),
-      );
+      lazyAtlas("furniture v8", key, next, () => import("./furniture-v8-atlas").then((m) => m.loadFurnitureV8Atlas()), (a) => (v8Atlas = a));
     }
     if (usesBack(next) && backAtlas === null) {
-      lazyAtlas(
-        "furniture back",
-        key,
-        next,
-        () =>
-          import("./furniture-back-atlas").then((m) =>
-            m.loadFurnitureBackAtlas(),
-          ),
-        (a) => (backAtlas = a),
-      );
+      lazyAtlas("furniture back", key, next, () => import("./furniture-back-atlas").then((m) => m.loadFurnitureBackAtlas()), (a) => (backAtlas = a));
     }
     if (next.pairs === true) view.loadPairPoses();
     if (usesV4(next) && v4Atlas === null) {
-      lazyAtlas(
-        "furniture v4",
-        key,
-        next,
-        () =>
-          import("./furniture-v4-atlas").then((m) => m.loadFurnitureV4Atlas()),
-        (a) => (v4Atlas = a),
-      );
+      lazyAtlas("furniture v4", key, next, () => import("./furniture-v4-atlas").then((m) => m.loadFurnitureV4Atlas()), (a) => (v4Atlas = a));
     }
     if (usesV5(next) && v5Atlas === null) {
-      lazyAtlas(
-        "furniture v5",
-        key,
-        next,
-        () =>
-          import("./furniture-v5-atlas").then((m) => m.loadFurnitureV5Atlas()),
-        (a) => (v5Atlas = a),
-      );
+      lazyAtlas("furniture v5", key, next, () => import("./furniture-v5-atlas").then((m) => m.loadFurnitureV5Atlas()), (a) => (v5Atlas = a));
     }
   };
 
@@ -793,22 +536,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         glass.remove();
         hourglasses.delete(tag);
       } else {
-        const g = el("span", {
-          className: "ui-sprite ui-catchup",
-          ariaHidden: "true",
-        });
+        const g = el("span", { className: "ui-sprite ui-catchup", ariaHidden: "true" });
         tag.prepend(g);
         hourglasses.set(tag, g);
       }
     }
   };
 
-  const render = (
-    s: StageState,
-    nextLayout: RoomLayout,
-    selfCatching: boolean,
-    editing: boolean,
-  ): void => {
+  const render = (s: StageState, nextLayout: RoomLayout, selfCatching: boolean, editing: boolean): void => {
     if (nextLayout !== layout) applyLayout(nextLayout);
     seated = s.room?.seats ?? [];
     const views = seatViews(s);
@@ -825,33 +560,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const before = placedAt;
       placedAt = at;
       // Someone new (in my first snapshot, only me) on a door's front cell walked in through it (OME-1558, `join.via`).
-      const throughDoor = (id: MemberId, cell: FloorCell): boolean =>
-        !before.has(id) &&
-        (before.size > 0 || id === s.self) &&
-        doorAt(nextLayout, cell.x, cell.y) !== null;
+      const throughDoor = (id: MemberId, cell: FloorCell): boolean => !before.has(id) && (before.size > 0 || id === s.self) && doorAt(nextLayout, cell.x, cell.y) !== null;
       // Lying (OME-1691): on the piece's spot, in its facing, drawn between its back and front; they hold no seat, and their cell is where they get up to.
       for (const m of everyone) {
-        const spot =
-          m.lying === undefined
-            ? undefined
-            : scene.lies.get(m.lying)?.[m.sleeper ?? 0];
+        const spot = m.lying === undefined ? undefined : scene.lies.get(m.lying)?.[m.sleeper ?? 0];
         if (spot === undefined) continue;
-        const cover =
-          spot.cover === undefined
-            ? {}
-            : { cover: { ...spot.cover, at: spot.anchor } };
-        placements.push({
-          id: m.id,
-          avatar: m.avatar,
-          tint: m.tint ?? 0,
-          hair: m.hair ?? 0,
-          accessory: m.accessory ?? 0,
-          at: spot.at,
-          z: spot.z,
-          seatFacing: spot.dir,
-          lie: spot.style,
-          ...cover,
-        });
+        const cover = spot.cover === undefined ? {} : { cover: { ...spot.cover, at: spot.anchor } };
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: spot.at, z: spot.z, seatFacing: spot.dir, lie: spot.style, ...cover });
         at.set(m.id, spot.at);
       }
       for (const v of views) {
@@ -860,17 +575,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
           // A lounger's sitter lies back on it (OME-2123): their floor point is the lier's, their depth still the seat's.
           const lie = scene.seats[v.index]?.lie;
           const q = lie?.at ?? p;
-          placements.push({
-            id: v.member.id,
-            avatar: v.member.avatar,
-            tint: v.member.tint ?? 0,
-            hair: v.member.hair ?? 0,
-            accessory: v.member.accessory ?? 0,
-            at: q,
-            z: scene.seats[v.index]?.z ?? standDepth(p),
-            seatFacing: seatFacings[v.index] ?? null,
-            ...(lie === undefined ? {} : { lie: lie.style }),
-          });
+          placements.push({ id: v.member.id, avatar: v.member.avatar, tint: v.member.tint ?? 0, hair: v.member.hair ?? 0, accessory: v.member.accessory ?? 0, at: q, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null, ...(lie === undefined ? {} : { lie: lie.style }) });
           at.set(v.member.id, q);
         }
       }
@@ -878,29 +583,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const m of everyone) {
         if (m.cell === undefined || at.has(m.id)) continue;
         const p = cellCenter(m.cell.x, m.cell.y);
-        placements.push({
-          id: m.id,
-          avatar: m.avatar,
-          tint: m.tint ?? 0,
-          hair: m.hair ?? 0,
-          accessory: m.accessory ?? 0,
-          at: p,
-          z: standDepth(p),
-          seatFacing: null,
-          run: s.running.includes(m.id),
-          floorSit: m.floorSit === true,
-          ...(teleporting.has(m.id) ? { teleport: true } : {}),
-          ...(throughDoor(m.id, m.cell) ? { door: true } : {}),
-        });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id), floorSit: m.floorSit === true, ...(teleporting.has(m.id) ? { teleport: true } : {}), ...(throughDoor(m.id, m.cell) ? { door: true } : {}) });
         at.set(m.id, p);
       }
       // Sitting down or getting up in place moves no pixel, so no onMove: drop or lift their bubbles and badge here.
       const wasSat = floorSat;
-      floorSat = new Set(
-        everyone.flatMap((m) =>
-          m.floorSit === true && m.cell !== undefined ? [m.id] : [],
-        ),
-      );
+      floorSat = new Set(everyone.flatMap((m) => (m.floorSit === true && m.cell !== undefined ? [m.id] : [])));
       for (const id of new Set([...wasSat, ...floorSat])) {
         if (wasSat.has(id) === floorSat.has(id)) continue;
         const p = view.position(id) ?? at.get(id);
@@ -909,29 +597,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         floats.move(id, p.x, p.y - overOf(id));
       }
       const claimed = new Set<number>();
-      for (const m of everyone)
-        if (m.standingSlot !== undefined) claimed.add(m.standingSlot);
+      for (const m of everyone) if (m.standingSlot !== undefined) claimed.add(m.standingSlot);
       const standers = everyone.filter((m) => !at.has(m.id));
-      standSpots = standingPlacement(
-        standers,
-        claimed,
-        standing.length,
-        standSpots,
-      );
+      standSpots = standingPlacement(standers, claimed, standing.length, standSpots);
       for (const m of standers) {
         const i = standSpots.get(m.id);
         const p = i === undefined ? undefined : standing[i];
         if (p === undefined) continue;
-        placements.push({
-          id: m.id,
-          avatar: m.avatar,
-          tint: m.tint ?? 0,
-          hair: m.hair ?? 0,
-          accessory: m.accessory ?? 0,
-          at: p,
-          z: standDepth(p),
-          seatFacing: null,
-        });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null });
         at.set(m.id, p);
       }
       // Away dims the avatar in place; set before the update so a new avatar is made at its alpha. Seats stay.
@@ -940,33 +613,16 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const id of away.off) view.setAway(id, false);
       for (const id of away.on) view.setAway(id, true);
       awayIds = away.now;
-      view.update(
-        views.map((v) => v.member !== null),
-        placements,
-      );
+      view.update(views.map((v) => v.member !== null), placements);
       teleporting.clear();
-      standCells = new Set(
-        placements.flatMap((p) =>
-          p.seatFacing === null ? [cellAt(p.at)] : [],
-        ),
-      );
-      sitCells = new Set(
-        placements.flatMap((p) =>
-          p.seatFacing === null ? [] : [cellAt(p.at)],
-        ),
-      );
+      standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
+      sitCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [] : [cellAt(p.at)])));
       const mine = placements.find((p) => p.id === s.self);
       myCell = mine === undefined ? null : cellAt(mine.at);
       inUseStale = true;
     }
     // Per render, not per placement: the editor opening turns the view south (OME-1961). Cheap: one find over the furniture.
-    const verdict = viewVerdict(
-      nextLayout,
-      myCell,
-      behind,
-      editing,
-      backAtlas !== null,
-    );
+    const verdict = viewVerdict(nextLayout, myCell, behind, editing, backAtlas !== null);
     behind = verdict.behind;
     if (verdict.cut !== cut) {
       cut = verdict.cut;
@@ -985,9 +641,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     if (inUseStale || playing !== drawnPlaying) {
       inUseStale = false;
       drawnPlaying = playing;
-      view.setInUse(
-        piecesInUse(nextLayout, standCells, playing, sitCells, cut),
-      );
+      view.setInUse(piecesInUse(nextLayout, standCells, playing, sitCells, cut));
     }
     // A cat waits rather than walk into someone standing; the editor keeps it home. Cheap: it acts on a freeze change only.
     view.setCatRules(standCells, editing);
@@ -1003,18 +657,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       b.dataset["occupied"] = String(v.member !== null);
       b.disabled = s.status !== "open";
       b.classList.toggle("mine", v.isSelf);
-      b.ariaLabel =
-        v.member === null
-          ? `Seat ${String(v.index + 1)}, free`
-          : v.isSelf
-            ? `Seat ${String(v.index + 1)}, yours: stand up`
-            : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
+      b.ariaLabel = v.member === null ? `Seat ${String(v.index + 1)}, free` : v.isSelf ? `Seat ${String(v.index + 1)}, yours: stand up` : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
     }
 
     for (const { b, piece, down, up } of lieButtons) {
-      const mine =
-        s.room?.members.some((m) => m.id === s.self && m.lying === piece) ===
-        true;
+      const mine = s.room?.members.some((m) => m.id === s.self && m.lying === piece) === true;
       b.disabled = lieIntent(s, piece) === null;
       b.classList.toggle("mine", mine);
       b.ariaLabel = mine ? up : down;
@@ -1043,9 +690,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (e === undefined) {
         e = el("span", { className: "tag ui-tag" }, "nickname-tag");
         e.dataset["member"] = m.id;
-        e.append(
-          el("span", { className: "tag-name", textContent: m.nickname }),
-        );
+        e.append(el("span", { className: "tag-name", textContent: m.nickname }));
         if (hiddenIds.has(m.id)) e.classList.add("is-hidden");
         tagEls.set(m.id, e);
         tags.append(e);
@@ -1058,20 +703,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       e.classList.toggle("self", m.id === s.self);
       // Their shirt's colour on the tag's edge (OME-1375); a tint picked live changes it.
       const accent = tintAccent(TINTS, m.avatar, m.tint ?? 0) ?? "";
-      if (e.style.getPropertyValue("--tint") !== accent)
-        e.style.setProperty("--tint", accent);
+      if (e.style.getPropertyValue("--tint") !== accent) e.style.setProperty("--tint", accent);
       padEls.get(m.id)?.classList.toggle("self", m.id === s.self);
       // Away (OME-911): the tag is dimmed and says "Away" to screen readers; toggled only on a change.
       const isAway = m.away === true;
       if (e.classList.contains("is-away") !== isAway) {
         e.classList.toggle("is-away", isAway);
-        if (isAway)
-          e.append(
-            el("span", {
-              className: "sr-only tag-away",
-              textContent: " (Away)",
-            }),
-          );
+        if (isAway) e.append(el("span", { className: "sr-only tag-away", textContent: " (Away)" }));
         else e.querySelector(".tag-away")?.remove();
       }
     }
@@ -1088,19 +726,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const m = members.get(b.memberId);
       if (p === undefined || m === undefined) return false;
       const accent = tintAccent(TINTS, m.avatar, m.tint ?? 0);
-      floats.say({
-        id: b.memberId,
-        name: m.nickname,
-        text: b.text,
-        ...(accent === null ? {} : { accent }),
-        self: b.memberId === s.self,
-        mention:
-          b.memberId !== s.self &&
-          me !== undefined &&
-          mentions(b.text, me.nickname),
-        at: { x: p.x, y: p.y - overOf(b.memberId) },
-        startedAt: b.expiresAt - BUBBLE_MS,
-      });
+      floats.say({ id: b.memberId, name: m.nickname, text: b.text, ...(accent === null ? {} : { accent }), self: b.memberId === s.self, mention: b.memberId !== s.self && me !== undefined && mentions(b.text, me.nickname), at: { x: p.x, y: p.y - overOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
       return true;
     });
 
@@ -1126,14 +752,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       }
       const p = view.position(id) ?? placedAt.get(id);
       // The reach has no badge; room.ts never sends it under reduced motion.
-      if (p !== undefined && kind !== "reach")
-        badges.show(id, kind, { x: p.x, y: p.y - overOf(id) });
+      if (p !== undefined && kind !== "reach") badges.show(id, kind, { x: p.x, y: p.y - overOf(id) });
     },
     react(id, kind) {
       const p = view.position(id) ?? placedAt.get(id);
-      return p === undefined
-        ? 0
-        : glyphs.burst({ x: p.x, y: p.y - overOf(id) }, kind);
+      return p === undefined ? 0 : glyphs.burst({ x: p.x, y: p.y - overOf(id) }, kind);
     },
     teleported(id) {
       teleporting.add(id);
@@ -1171,9 +794,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     tag: (id) => {
       const p = view.position(id) ?? placedAt.get(id);
       const m = tagAt.get(id) ?? aboveHead(id);
-      return p === undefined
-        ? undefined
-        : { x: p.x + m.dx, y: p.y + TAG_OFFSET_Y + m.dy };
+      return p === undefined ? undefined : { x: p.x + m.dx, y: p.y + TAG_OFFSET_Y + m.dy };
     },
     spot: (id) => placedAt.get(id),
     catCells: () => view.catCells(),
