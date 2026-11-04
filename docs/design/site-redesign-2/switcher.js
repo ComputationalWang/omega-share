@@ -1,11 +1,11 @@
 // PROTOTYPE tooling, not part of the design: a floating bar that cycles the sibling files
 // entry-{A,B,C}.html and room-{A,B,C}.html (← → keys too). Throwaway.
 (() => {
-  const m = /(entry|room)-([A-C])\.html$/.exec(location.pathname);
+  const m = /(entry|room)-([A-D])\.html$/.exec(location.pathname);
   if (m === null) return;
-  const keys = ["A", "B", "C"];
+  const keys = ["A", "B", "C", "D"];
   const page = m[1], cur = m[2];
-  const go = (d) => { location.href = `${page}-${keys[(keys.indexOf(cur) + d + 3) % 3]}.html${location.search}`; };
+  const go = (d) => { location.href = `${page}-${keys[(keys.indexOf(cur) + d + 4) % 4]}.html${location.search}`; };
   const other = page === "entry" ? "room" : "entry";
   const bar = document.createElement("div");
   bar.setAttribute("role", "navigation");
