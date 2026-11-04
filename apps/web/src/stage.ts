@@ -210,7 +210,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop);
     ids.forEach((id, i) => {
       const p = at[i];
-      const m = moved[i];
+      // A walker's tag rides over its head: stacked, it'd flip its pip on every render as it passes heads (OME-2213).
+      const m = walkers.has(id) ? aboveHead(id) : moved[i];
       if (m === undefined) tagAt.delete(id);
       else tagAt.set(id, m);
       if (p !== undefined) placeTag(id, p.x, p.y, true);
@@ -267,7 +268,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       floats.move(id, x, head);
       if (!walkers.has(id)) {
         walkers.add(id);
-        tagAt.delete(id);
+        tagAt.set(id, aboveHead(id));
       }
       placeTag(id, x, y, false);
       o.onMove?.(id);
