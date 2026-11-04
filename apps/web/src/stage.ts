@@ -123,6 +123,8 @@ const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couc
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
 const NO_GO_NOTE_MS = 1500;
+/** How long a walker stands before its tag stacks with the others (OME-2213): past the /conga step (360 ms). */
+const TAG_SETTLE_MS = 500;
 
 function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
@@ -164,6 +166,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const tagW = new Map<Element, number>();
   /** Who is mid-walk: their tag rides just over their head (aboveHead) and the others stack again once they stop. */
   const walkers = new Set<MemberId>();
+  /** A stopped walker's tag stacks once it's stood TAG_SETTLE_MS: a /conga follower steps every 360 ms, and stacking
+   * it at each stop flipped its pip (a full repaint) twice a step (OME-2213). */
+  const settling = new Map<MemberId, ReturnType<typeof setTimeout>>();
   const tagAt = new Map<MemberId, TagPlace>();
   /** The phone's readable-zoom label scale (room.css --label-scale), capped at TAG_MAX_SCALE: tags show this many times their layout size. */
   let labelK = 1;
@@ -266,6 +271,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const head = y - overOf(id);
       badges.move(id, x, head);
       floats.move(id, x, head);
+      clearTimeout(settling.get(id));
+      settling.delete(id);
       if (!walkers.has(id)) {
         walkers.add(id);
         tagAt.set(id, aboveHead(id));
@@ -275,8 +282,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     onStop: (id, x, y) => {
       floats.settle(id, x, y - overOf(id));
-      walkers.delete(id);
-      restack();
+      clearTimeout(settling.get(id));
+      settling.set(
+        id,
+        setTimeout(() => {
+          settling.delete(id);
+          walkers.delete(id);
+          restack();
+        }, TAG_SETTLE_MS),
+      );
       o.onStop?.(id);
     },
   });
@@ -667,6 +681,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       tagW.delete(e);
       tagAt.delete(id);
       walkers.delete(id);
+      clearTimeout(settling.get(id));
+      settling.delete(id);
       tagEls.delete(id);
       padEls.get(id)?.remove();
       padEls.delete(id);
