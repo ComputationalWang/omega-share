@@ -325,6 +325,14 @@ describe("wearPlace", () => {
     ]);
   });
 
+  test("a restack's equal place, a new object, writes nothing", () => {
+    const { e, writes } = fake();
+    const worn = new WeakMap<object, TagPlace>();
+    wearPlace(e, { dx: 3, dy: -40, led: true }, worn, true);
+    wearPlace(e, { dx: 3, dy: -40, led: true }, worn, true);
+    expect(writes).toHaveLength(4);
+  });
+
   test("a hit pad wears only the margins", () => {
     const { e, writes } = fake();
     wearPlace(e, { dx: 1, dy: 2, led: true }, new WeakMap(), false);
