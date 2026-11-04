@@ -1,10 +1,9 @@
 /**
- * The landing's install row (OME-767). One constant per store: null until the listing is public, and the row says
- * "coming soon". AMO 0.1.x is still awaiting review (OME-777); the Chrome Web Store waits on the board (OME-591).
+ * The landing's install row (OME-767). Both store listings are public; one constant per store keeps their URLs here.
  * Plain text links, never a store badge or a remote image. A URL off the store's own https origin fails the build.
  */
-export const FIREFOX_LISTING_URL: string | null = null;
-export const CHROME_LISTING_URL: string | null = null;
+export const FIREFOX_LISTING_URL: string | null = "https://addons.mozilla.org/firefox/addon/omega-share/";
+export const CHROME_LISTING_URL: string | null = "https://chromewebstore.google.com/detail/omega-share/ekigjfonnhaikceahleigjeioojgjlal";
 
 export interface Listings {
   readonly firefox: string | null;
