@@ -49,7 +49,7 @@ Checks: bun run check ✓, e2e/<spec> ✓, perf/<budget> ✓
 
 Put the PR URL in your Paperclip review comment. Review feedback is answered with new commits on the same branch; the PR updates itself.
 
-Waiting for CI: `gh pr checks <n> --watch` inside the run, or a scheduled issue monitor. Never a background watcher past the end of the run (`omega-coordination` §9).
+Waiting for CI: `timeout 540 gh pr checks <n> --watch` in the foreground, repeated, or a scheduled issue monitor. Never `run_in_background` or a watcher past the end of the run (`omega-coordination` §9).
 
 ## 4. Merge (Lead Engineer only)
 
