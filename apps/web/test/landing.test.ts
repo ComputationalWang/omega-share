@@ -169,9 +169,12 @@ describe("install links", () => {
     expect(attrs(a)["href"]).toBe("https://addons.mozilla.org/firefox/addon/omega-share/");
     expect(attrs(a)["target"]).toBe("_blank");
     expect(attrs(a)["rel"]?.split(" ").sort()).toEqual(["noopener", "noreferrer"]);
+    expect(attrs(a)["aria-label"]).toBe("Add to Firefox (opens in a new tab)");
     expect(text(html)).toContain("Chrome: coming soon");
     const both = installLinks({ firefox: null, chrome: "https://chromewebstore.google.com/detail/omega-share/abcdefghijklmnopabcdefghijklmnop" });
     expect(both).toMatch(/>Add to Chrome<\/a>/);
+    const chrome = /<a\s[^>]*>Add to Chrome<\/a>/.exec(both)?.[0] ?? "";
+    expect(attrs(chrome)["aria-label"]).toBe("Add to Chrome (opens in a new tab)");
     expect(text(both)).toContain("Firefox: coming soon");
   });
 
