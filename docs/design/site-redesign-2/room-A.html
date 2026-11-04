@@ -1,0 +1,108 @@
+<!-- PROTOTYPE A: Front door — A cinema stage sits above a wide pixel-room strip, with conversation tucked into a tabbed side drawer. Throwaway, not product code. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Front door</title>
+  <link rel="stylesheet" href="A.css">
+</head>
+<body class="room-page">
+<a class="skip" href="#watch">Skip to the cinema</a>
+<header class="room-head">
+  <a class="button" href="entry-A.html"><span aria-hidden="true">←</span> Leave</a>
+  <button class="icon-button" type="button" disabled aria-label="Mute your audio (static preview)" title="Mute your audio · static preview">♪<span aria-hidden="true">×</span></button>
+  <div class="room-heading"><h1>The late-night living room</h1><p>omega-share <span aria-hidden="true">/</span> Lobby · sample room</p></div>
+  <details><summary>People · 4</summary><div class="head-popover"><h2>Good company</h2><ul><li>Juno — you</li><li>Pip</li><li>Mo</li><li>Kiki</li></ul><p class="prototype-note">Illustrative people, no live presence.</p></div></details>
+  <details><summary>Help <span aria-hidden="true">?</span></summary><div class="head-popover"><h2>A room to watch together</h2><p>Playback is shared with everyone. Volume is only yours. Chat, Up next and Room are in the panel.</p><p class="prototype-note">This is a design preview. Tabs, people and help open. Playback, chat, queue, invite and room controls are static.</p></div></details>
+  <input class="drawer-toggle" type="checkbox" id="drawer-toggle" aria-label="Show or hide chat and room drawer" aria-controls="room-drawer"><label class="open-drawer" for="drawer-toggle">Chat &amp; room ☰</label>
+</header>
+<main class="room-layout">
+  <section class="cinema" id="watch" tabindex="-1" aria-label="Cinema and room scene">
+    <div class="screen" role="img" aria-label="16 by 9 video placeholder, Night walks in Kyoto. No player is connected.">
+      <div class="screen-top"><span>NOW SHOWING <span aria-hidden="true">/</span> SCREEN 01</span><span>16:9</span></div>
+      <div class="screen-middle"><span class="play-art" aria-hidden="true">▶</span><h2>Night walks in Kyoto</h2><p>A quiet wander, with good company.</p></div>
+      <p class="screen-bottom">Video placeholder · no player connected</p>
+    </div>
+    <div class="transport" role="group" aria-label="Playback controls — static preview">
+      <button type="button" disabled aria-label="Pause for everyone (static preview)">Ⅱ</button>
+      <span class="time">12:34</span>
+      <input class="scrub" type="range" min="0" max="1850" value="754" aria-label="Video position (visual preview only)" aria-valuetext="12 minutes 34 seconds of 30 minutes 50 seconds">
+      <span class="time">30:50</span>
+    </div>
+    <div class="transport-options">
+      <span class="sync-label">↔ Everyone · in sync</span><span class="muted">Play &amp; pause affect everyone</span>
+      <label class="volume">Only you <span class="sr-only">— volume (visual preview only)</span><input type="range" min="0" max="100" value="65" aria-label="Your volume (visual preview only)"></label>
+      <button type="button" disabled aria-label="Pop out video (static preview)">↗ Pop-out</button>
+      <button type="button" disabled aria-label="Fullscreen video (static preview)">⛶ Fullscreen</button>
+    </div>
+    <figure class="room-strip" aria-label="Your cosy pixel room with four sample guests">
+      <figcaption class="strip-heading">PULL UP A SEAT <span aria-hidden="true">/</span> 4 here tonight</figcaption>
+      <div class="strip-scene">
+        <img class="strip-image" src="../../../assets/site/website-room.png" alt="An isometric living room with a starry rug, warm lighting and colourful sofas." width="656" height="536">
+        <span class="room-person person-juno"><b>Juno · you</b><span class="avatar-sprite juno" aria-hidden="true"></span></span>
+        <span class="room-person person-pip"><b>Pip</b><span class="avatar-sprite pip" aria-hidden="true"></span></span>
+        <span class="room-person person-mo"><b>Mo</b><span class="avatar-sprite mo" aria-hidden="true"></span></span>
+        <span class="room-person person-kiki"><b>Kiki</b><span class="avatar-sprite kiki" aria-hidden="true"></span></span>
+      </div>
+    </figure>
+    <div class="view-tools" role="group" aria-label="Room view controls — static preview"><h2>Room view <span class="muted">· 1×</span></h2><button type="button" disabled aria-label="Zoom out room (static preview)">−</button><button type="button" disabled aria-label="Zoom in room (static preview)">+</button><button type="button" disabled>Fit room</button></div>
+    <p class="room-note">Design preview · playback, room movement and messages are static.</p>
+  </section>
+  <aside class="drawer" id="room-drawer" aria-label="Chat, queue and room drawer">
+    <div class="drawer-intro"><h2>A little company.</h2><span>4 in the room</span></div>
+    <input class="panel-radio" type="radio" name="panel" id="panel-chat" checked aria-label="Chat panel" aria-controls="chat-panel">
+    <input class="panel-radio" type="radio" name="panel" id="panel-queue" aria-label="Up next panel" aria-controls="queue-panel">
+    <input class="panel-radio" type="radio" name="panel" id="panel-room" aria-label="Room panel" aria-controls="room-panel">
+    <div class="panel-tabs" role="group" aria-label="Choose a room panel"><label for="panel-chat">Chat</label><label for="panel-queue">Up next · 2</label><label for="panel-room">Room</label></div>
+    <section class="drawer-panel" id="chat-panel" aria-labelledby="chat-title">
+      <div class="panel-title"><h3 id="chat-title">The conversation</h3><span>Sample messages</span></div>
+      <ol class="chat-lines" aria-label="Sample chat history">
+        <li class="system">Pip pulled up a seat. Make yourself at home.</li>
+        <li><b>Juno</b><time datetime="22:12">22:12</time><p>okay, this is exactly the pace I needed</p></li>
+        <li><b>Pip</b><time datetime="22:12">22:12</time><p>the little lanterns 🥹</p></li>
+        <li><b>Mo</b><time datetime="22:13">22:13</time><p>headphones on, tea acquired</p></li>
+        <li><b>Kiki</b><time datetime="22:13">22:13</time><p>saving that café for someday</p></li>
+        <li class="emote"><b>Mo</b> settles into the sofa ☕</li>
+        <li><b>Juno</b><time datetime="22:14">22:14</time><p>who’s picking the next one?</p></li>
+        <li><b>Pip</b><time datetime="22:14">22:14</time><p>put a rainy train ride in the queue!</p></li>
+        <li><b>Kiki</b><time datetime="22:14">22:14</time><p>one more, then definitely bed</p></li>
+        <li><b>Mo</b><time datetime="22:15">22:15</time><p>famous last words.</p></li>
+      </ol>
+      <div class="composer">
+        <label for="message">Say something</label>
+        <div class="compose-row"><input id="message" placeholder="Make yourself heard…" maxlength="280" aria-describedby="chat-preview"><button class="primary" type="button" disabled>Say</button></div>
+        <div class="composer-tools"><button type="button" disabled aria-label="Open emote wheel (static preview)">☺ Emote wheel</button><span>Just for this room</span></div>
+        <p class="prototype-note" id="chat-preview">Composer preview · messages aren’t sent.</p>
+      </div>
+    </section>
+    <section class="drawer-panel" id="queue-panel" aria-labelledby="queue-title">
+      <div class="panel-title"><h3 id="queue-title">Up next</h3><span>2 videos · sample queue</span></div>
+      <ol class="queue">
+        <li><div><h3>A rainy train ride through the mountains</h3><p>Vimeo · 18:24 <span aria-hidden="true">/</span> added by Pip</p></div></li>
+        <li><div><h3>After hours at the little jazz café</h3><p>YouTube · 24:08 <span aria-hidden="true">/</span> added by Mo</p></div></li>
+      </ol>
+      <div class="add-video"><label for="video-link">Paste a video link</label><div class="compose-row"><input id="video-link" type="url" placeholder="https://…" aria-describedby="queue-preview"><button class="primary" type="button" disabled>Add</button></div><p class="prototype-note" id="queue-preview">YouTube, Twitch or Vimeo · adding is static.</p></div>
+      <details class="empty-example"><summary>Preview an empty queue</summary><p>Nothing up next. Bring a video you love — paste its link above, or share it with the extension.</p></details>
+    </section>
+    <section class="drawer-panel" id="room-panel" aria-labelledby="room-title">
+      <div class="panel-title"><h3 id="room-title">There’s room for a friend.</h3></div>
+      <div class="invite"><label for="invite-link">Invite link</label><div class="compose-row"><input id="invite-link" value="omega-share.example/r/late-night" readonly aria-describedby="invite-preview"><button class="primary" type="button" disabled>Copy</button></div><p id="invite-preview">Example link only · copying and invites are static.</p></div>
+      <dl class="room-facts"><dt>Room</dt><dd>The late-night living room</dd><dt>Here tonight</dt><dd>Juno, Pip, Mo, Kiki</dd><dt>Playback</dt><dd>Everyone, together</dd><dt>Volume</dt><dd>Only you</dd></dl>
+      <button class="report" type="button" disabled>⚑ Report room</button><p class="prototype-note">Reporting is a static control in this preview.</p>
+    </section>
+  </aside>
+</main>
+<footer class="site-footer" aria-label="Site information">
+  <a href="../../../apps/web/privacy.html">Privacy</a><span aria-hidden="true">·</span>
+  <a href="../../../apps/web/terms.html">Terms</a><span aria-hidden="true">·</span>
+  <a href="../../../apps/web/contact.html">Contact</a><span aria-hidden="true">·</span>
+  <a href="../../../apps/web/licenses.html">Licences</a><span aria-hidden="true">·</span>
+  <a href="https://github.com/ComputationalWang/omega-share" target="_blank" rel="noopener noreferrer" aria-label="Source (opens in a new tab)">Source ↗</a><span aria-hidden="true">·</span>
+  <a href="https://github.com/ComputationalWang/omega-share/issues" target="_blank" rel="noopener noreferrer" aria-label="Feedback (opens in a new tab)">Feedback ↗</a><span aria-hidden="true">·</span>
+  <span class="version">version A.02 · design prototype</span>
+</footer>
+<script src="switcher.js"></script>
+</body>
+</html>

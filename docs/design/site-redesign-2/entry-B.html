@@ -1,0 +1,148 @@
+<!-- PROTOTYPE B: Notice board — A roomy editorial invitation, with a numbered welcome and larger-than-life pixel people. Throwaway, not product code. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Watch videos together in a cosy pixel room.">
+  <title>Notice board</title>
+  <link rel="stylesheet" href="B.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+  <header class="masthead">
+    <a class="brand" href="entry-B.html"><span class="brand-mark" aria-hidden="true"></span>omega-share</a>
+    <p class="mast-note">A little corner of the internet</p>
+  </header>
+  <main id="main">
+    <section class="hero" aria-labelledby="welcome-title">
+      <div>
+        <p class="eyebrow">The door is open.</p>
+        <h1 id="welcome-title">Good videos.<br><span>Better<br>company.</span></h1>
+        <p class="promise">Watch videos together in a cosy pixel room.</p>
+        <p class="hero-foot"><span>No account needed</span><span>Just take a seat</span></p>
+      </div>
+      <figure class="room-poster">
+        <div class="poster-heading">Somewhere to spend the evening</div>
+        <div class="poster-art"><img src="../../../assets/site/website-room.png" width="656" height="536" alt="An isometric pixel room with warm lamplight, bookshelves, mismatched sofas and a blue rug."></div>
+        <figcaption><span class="open-sign">A room for your people</span><span>Make yourself at home ↗</span></figcaption>
+      </figure>
+    </section>
+    <form class="entry-form" id="welcome-form" action="room-B.html" novalidate>
+      <section class="form-step" aria-labelledby="name-title">
+        <div class="step-number" aria-hidden="true">01 /</div>
+        <div class="name-line">
+          <div><h2 id="name-title" class="step-title">What should we call you?</h2><p class="small">A familiar face starts with a name.</p></div>
+          <div class="name-field">
+            <label for="nickname">Nickname</label>
+            <input id="nickname" type="text" autocomplete="nickname" maxlength="20" required placeholder="Your name in the room" aria-describedby="nickname-hint nickname-error">
+            <p class="small" id="nickname-hint">1–20 characters. You can change it later.</p>
+            <p class="error" id="nickname-error" role="status" hidden>Please add a nickname before you come in.</p>
+          </div>
+        </div>
+      </section>
+      <section class="form-step" aria-labelledby="look-title">
+        <div class="step-number" aria-hidden="true">02 /</div>
+        <div>
+          <h2 id="look-title" class="step-title">Find your pixel self.</h2>
+          <p class="small">Four good characters. A little room to make one yours.</p>
+          <fieldset>
+            <legend class="sr-only">Choose your avatar</legend>
+            <div class="avatars">
+              <div class="choice"><input id="avatar-juno" type="radio" name="avatar" value="Juno" checked><label class="avatar-label" for="avatar-juno"><span class="avatar-stage"><span class="avatar-sprite" aria-hidden="true"></span></span><span class="avatar-caption">Juno <span class="radio-mark" aria-hidden="true">✓</span></span></label></div>
+              <div class="choice"><input id="avatar-pip" type="radio" name="avatar" value="Pip"><label class="avatar-label" for="avatar-pip"><span class="avatar-stage"><span class="avatar-sprite pip" aria-hidden="true"></span></span><span class="avatar-caption">Pip <span class="radio-mark" aria-hidden="true">✓</span></span></label></div>
+              <div class="choice"><input id="avatar-mo" type="radio" name="avatar" value="Mo"><label class="avatar-label" for="avatar-mo"><span class="avatar-stage"><span class="avatar-sprite mo" aria-hidden="true"></span></span><span class="avatar-caption">Mo <span class="radio-mark" aria-hidden="true">✓</span></span></label></div>
+              <div class="choice"><input id="avatar-kiki" type="radio" name="avatar" value="Kiki"><label class="avatar-label" for="avatar-kiki"><span class="avatar-stage"><span class="avatar-sprite kiki" aria-hidden="true"></span></span><span class="avatar-caption">Kiki <span class="radio-mark" aria-hidden="true">✓</span></span></label></div>
+            </div>
+          </fieldset>
+          <div class="look-options">
+            <fieldset><legend>Shirt colour</legend><div class="swatch-row">
+              <div class="choice"><input id="shirt-mustard" type="radio" name="shirt" value="Mustard" checked><label class="swatch-label" for="shirt-mustard" style="--swatch:#d6ae52"><span class="sr-only">Mustard</span></label></div>
+              <div class="choice"><input id="shirt-teal" type="radio" name="shirt" value="Teal"><label class="swatch-label" for="shirt-teal" style="--swatch:#448c8c"><span class="sr-only">Teal</span></label></div>
+              <div class="choice"><input id="shirt-lilac" type="radio" name="shirt" value="Lilac"><label class="swatch-label" for="shirt-lilac" style="--swatch:#a58bbd"><span class="sr-only">Lilac</span></label></div>
+              <div class="choice"><input id="shirt-olive" type="radio" name="shirt" value="Olive"><label class="swatch-label" for="shirt-olive" style="--swatch:#7d854c"><span class="sr-only">Olive</span></label></div>
+              <div class="choice"><input id="shirt-ice" type="radio" name="shirt" value="Ice"><label class="swatch-label" for="shirt-ice" style="--swatch:#b9dce1"><span class="sr-only">Ice</span></label></div>
+              <div class="choice"><input id="shirt-denim" type="radio" name="shirt" value="Denim"><label class="swatch-label" for="shirt-denim" style="--swatch:#566b9d"><span class="sr-only">Denim</span></label></div>
+            </div></fieldset>
+            <fieldset><legend>Hair colour</legend><div class="swatch-row">
+              <div class="choice"><input id="hair-dark" type="radio" name="hair" value="Dark" checked><label class="swatch-label" for="hair-dark" style="--swatch:#39303f"><span class="sr-only">Dark</span></label></div>
+              <div class="choice"><input id="hair-ginger" type="radio" name="hair" value="Ginger"><label class="swatch-label" for="hair-ginger" style="--swatch:#b4683e"><span class="sr-only">Ginger</span></label></div>
+              <div class="choice"><input id="hair-blonde" type="radio" name="hair" value="Blonde"><label class="swatch-label" for="hair-blonde" style="--swatch:#e0bd71"><span class="sr-only">Blonde</span></label></div>
+              <div class="choice"><input id="hair-silver" type="radio" name="hair" value="Silver"><label class="swatch-label" for="hair-silver" style="--swatch:#c9c8cd"><span class="sr-only">Silver</span></label></div>
+              <div class="choice"><input id="hair-cherry" type="radio" name="hair" value="Cherry"><label class="swatch-label" for="hair-cherry" style="--swatch:#a34560"><span class="sr-only">Cherry</span></label></div>
+              <div class="choice"><input id="hair-sky" type="radio" name="hair" value="Sky"><label class="swatch-label" for="hair-sky" style="--swatch:#7eafd0"><span class="sr-only">Sky</span></label></div>
+            </div></fieldset>
+          </div>
+          <fieldset class="accessories"><legend>Accessory · one finishing touch</legend><div class="swatch-row">
+            <div class="choice"><input id="acc-none" type="radio" name="accessory" value="None" checked><label class="accessory-label" for="acc-none"><span aria-hidden="true">∅</span><span class="sr-only">No accessory</span></label></div>
+            <div class="choice"><input id="acc-party" type="radio" name="accessory" value="Party hat"><label class="accessory-label" for="acc-party"><span aria-hidden="true">🎉</span><span class="sr-only">Party hat</span></label></div>
+            <div class="choice"><input id="acc-crown" type="radio" name="accessory" value="Crown"><label class="accessory-label" for="acc-crown"><span aria-hidden="true">♛</span><span class="sr-only">Crown</span></label></div>
+            <div class="choice"><input id="acc-headphones" type="radio" name="accessory" value="Headphones"><label class="accessory-label" for="acc-headphones"><span aria-hidden="true">🎧</span><span class="sr-only">Headphones</span></label></div>
+            <div class="choice"><input id="acc-beanie" type="radio" name="accessory" value="Beanie"><label class="accessory-label" for="acc-beanie"><span aria-hidden="true">🧶</span><span class="sr-only">Beanie</span></label></div>
+            <div class="choice"><input id="acc-cap" type="radio" name="accessory" value="Cap"><label class="accessory-label" for="acc-cap"><span aria-hidden="true">🧢</span><span class="sr-only">Cap</span></label></div>
+            <div class="choice"><input id="acc-flower" type="radio" name="accessory" value="Flower"><label class="accessory-label" for="acc-flower"><span aria-hidden="true">✿</span><span class="sr-only">Flower</span></label></div>
+            <div class="choice"><input id="acc-bow" type="radio" name="accessory" value="Bow"><label class="accessory-label" for="acc-bow"><span aria-hidden="true">🎀</span><span class="sr-only">Bow</span></label></div>
+            <div class="choice"><input id="acc-halo" type="radio" name="accessory" value="Halo"><label class="accessory-label" for="acc-halo"><span aria-hidden="true">◎</span><span class="sr-only">Halo</span></label></div>
+          </div></fieldset>
+          <p class="small look-note">Prototype: choices select; colours and accessories do not change the sprite.</p>
+        </div>
+      </section>
+      <section class="form-step" aria-labelledby="enter-title">
+        <div class="step-number" aria-hidden="true">03 /</div>
+        <div>
+          <div class="enter-line">
+            <div><h2 class="step-title" id="enter-title">Pull up a chair.</h2><p class="small">Your next good evening starts here.</p><p class="demo-note">Enter opens the room design preview.</p></div>
+            <div class="entry-actions"><button class="primary" type="submit">Enter lobby <span aria-hidden="true">↗</span></button><button type="button" class="secondary" id="find-room">Find or create a room</button></div>
+          </div>
+          <p id="entry-status" class="status" role="status"></p>
+        </div>
+      </section>
+    </form>
+    <section class="how" aria-labelledby="how-title">
+      <p class="eyebrow" style="margin-bottom:12px">How it works</p>
+      <h2 class="section-heading" id="how-title">A good evening, in three steps.</h2>
+      <ol>
+        <li><h3>Bring something good.</h3><p>Find a video on YouTube, Twitch or Vimeo. Or share a page with the extension.</p></li>
+        <li><h3>Leave the door open.</h3><p>Send your room link to a friend. They choose a name and come right in.</p></li>
+        <li><h3>Be here, together.</h3><p>Press play, chat a little, stay a while. Supported videos play in sync.</p></li>
+      </ol>
+    </section>
+    <section class="install" aria-labelledby="install-title">
+      <div><h2 id="install-title">Found a video? Bring it over.</h2><p class="small">The browser extension makes sharing easy.</p><p class="demo-note">Store listings pending. Links open setup instructions in a new tab.</p></div>
+      <div class="install-links">
+        <a class="button" href="../../../apps/extension/README.md" target="_blank" rel="noopener noreferrer" aria-label="Add to Firefox — setup instructions, opens in a new tab">Add to Firefox <span aria-hidden="true">↗</span></a>
+        <a class="button" href="../../../apps/extension/README.md" target="_blank" rel="noopener noreferrer" aria-label="Add to Chrome — setup instructions, opens in a new tab">Add to Chrome <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <nav aria-label="Footer"><a href="../../../apps/web/privacy.html">Privacy</a><span aria-hidden="true">·</span><a href="../../../apps/web/terms.html">Terms</a><span aria-hidden="true">·</span><a href="../../../apps/web/contact.html">Contact</a><span aria-hidden="true">·</span><a href="../../../apps/web/licenses.html">Licences</a><span aria-hidden="true">·</span><a href="https://github.com/ComputationalWang/omega-share" target="_blank" rel="noopener noreferrer" aria-label="Source, opens in a new tab">Source ↗</a><span aria-hidden="true">·</span><a href="https://github.com/ComputationalWang/omega-share/issues" target="_blank" rel="noopener noreferrer" aria-label="Feedback, opens in a new tab">Feedback ↗</a></nav>
+    <span class="version">Original pixel art · CC BY-SA 4.0 · version B / prototype</span>
+  </footer>
+</div>
+<script>
+const form = document.querySelector('#welcome-form');
+const nickname = document.querySelector('#nickname');
+const error = document.querySelector('#nickname-error');
+form.addEventListener('submit', event => {
+  if (!nickname.value.trim()) {
+    event.preventDefault();
+    error.hidden = false;
+    nickname.setAttribute('aria-invalid', 'true');
+    nickname.focus();
+  }
+});
+nickname.addEventListener('input', () => {
+  if (nickname.value.trim()) {
+    error.hidden = true;
+    nickname.removeAttribute('aria-invalid');
+  }
+});
+document.querySelector('#find-room').addEventListener('click', () => {
+  document.querySelector('#entry-status').textContent = 'The room directory is not included in this design prototype.';
+});
+</script>
+<script src="switcher.js"></script>
+</body>
+</html>
