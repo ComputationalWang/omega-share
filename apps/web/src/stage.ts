@@ -3,6 +3,7 @@
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
+import type { Texture } from "pixi.js";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
@@ -29,7 +30,7 @@ import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
 import { placeAt } from "./tag-place";
-import { TAG_GAP, stackTags, wearPlace, type TagBox, type TagPlace } from "./tag-stack";
+import { TAG_GAP, screenBoxes, stackTags, wearPlace, type Box, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -174,6 +175,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let shownBottom = Infinity;
   /** …and its top (-Infinity off the phone): a tag never rises past it (OME-2149). */
   let shownTop = -Infinity;
+  /** The room's screen as drawn (stage px, OME-2196): tags keep off it. Set with each scene. */
+  let screens: readonly Box[] = [];
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
@@ -203,7 +206,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - liftOf(id) });
     }
-    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop);
+    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
     ids.forEach((id, i) => {
       const p = at[i];
       // A walker's tag rides over its head: stacked, it'd flip its pip on every render as it passes heads (OME-2213).
@@ -413,8 +416,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const buildScene = (l: RoomLayout): void => {
     const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null, backAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, backAtlas, roomAtlas, recolours], grid);
+    const sheets = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, backAtlas, roomAtlas, recolours];
+    view.setScene(scene, sheets, grid);
     drawnSeats = undefined;
+    screens = screenBoxes(scene.sprites, (key) => {
+      const t = sheets.reduce<Texture | undefined>((found, sheet) => found ?? sheet?.texture(key), undefined);
+      return t === undefined ? undefined : { w: t.width, h: t.height, ax: t.defaultAnchor?.x ?? 0, ay: t.defaultAnchor?.y ?? 0 };
+    });
+    restack();
   };
 
   const sourceOf = (sheet: RecolourSheet): FurnitureAtlas | RoomAtlas | null =>

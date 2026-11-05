@@ -1010,6 +1010,7 @@ Map {
     {
       "key": "tv/0",
       "layer": "wall",
+      "screen": true,
       "x": 480,
       "y": 236,
       "z": 61962256,
@@ -2260,6 +2261,7 @@ Map {
     {
       "key": "tv/0",
       "layer": "wall",
+      "screen": true,
       "x": 480,
       "y": 524,
       "z": 137459728,

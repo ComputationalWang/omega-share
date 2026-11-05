@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
 import { FurnitureManifestSchema, RoomManifestSchema, cutaway, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, type Scene } from "../src/furniture";
@@ -761,5 +762,19 @@ describe("partitions (OME-1960)", () => {
     const cells = new Set([cellOf(1, 5)]);
     expect(piecesInUse(row, cells, false, new Set(), true)).toEqual(new Set([1, 2, 3]));
     expect(piecesInUse(row, cells, false, new Set(), false)).toEqual(new Set());
+  });
+});
+
+// OME-2196: name tags keep off the room's screen, so the scene says which sprites draw it.
+describe("sceneOf: the screen's sprites", () => {
+  const CINEMA: RoomLayout = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../../assets/presets/cinema.json", import.meta.url), "utf8")));
+  test.each([
+    ["classic", CLASSIC],
+    ["cinema", CINEMA],
+  ] as const)("%s: only the screen piece's sprites are marked", (_, l) => {
+    const s = sceneOf(l, [manifest, v2, v4, v5, v6], room);
+    const marked = s.sprites.filter((x) => x.screen === true).map((x) => x.key);
+    expect(marked.length).toBeGreaterThan(0);
+    expect(marked.every((k) => /(^|\/)(tv|bigscreen|wallscreen|projector)\//.test(k))).toBe(true);
   });
 });
