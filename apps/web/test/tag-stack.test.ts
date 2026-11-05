@@ -6,7 +6,7 @@ import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
 import { TAG_OFFSET_Y, cellCenter, setNorth } from "../src/layout";
-import { HEAD_H, HEAD_W, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
+import { HEAD_H, HEAD_W, screenBoxes, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
 import { EMOTE_LIFT } from "../src/walk/animator";
 
 const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
@@ -273,3 +273,11 @@ describe("wearPlace", () => {
   });
 });
 
+// OME-2196: the screen's box (stage px) from its sprites' frames, each drawn from its anchor.
+describe("screenBoxes", () => {
+  test("each marked sprite's frame, around its anchor; unmarked or unloaded ones give nothing", () => {
+    const frames: Record<string, { w: number; h: number; ax: number; ay: number }> = { s: { w: 100, h: 60, ax: 0.5, ay: 0.75 }, o: { w: 10, h: 10, ax: 0, ay: 0 } };
+    const sprites = [{ key: "s", x: 200, y: 300, screen: true as const }, { key: "o", x: 0, y: 0 }, { key: "gone", x: 5, y: 5, screen: true as const }];
+    expect(screenBoxes(sprites, (k) => frames[k])).toEqual([{ x0: 150, x1: 250, y0: 255, y1: 315 }]);
+  });
+});

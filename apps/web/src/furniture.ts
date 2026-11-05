@@ -321,6 +321,8 @@ export interface FurnitureSprite {
   readonly walker?: CatWalker;
   /** Drawn translucent (the night pane mask); absent is opaque. */
   readonly alpha?: number;
+  /** Part of the room's screen piece (SCREEN_KINDS): name tags keep off it (OME-2196). */
+  readonly screen?: true;
 }
 
 export interface SceneSeat {
