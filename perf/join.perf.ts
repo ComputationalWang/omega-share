@@ -4,10 +4,13 @@
 // Rows: join.longTask.desktop (≤ 50 ms), join.longTask.phone4x (Pixel 7, 4× CPU throttle, ≤ 150 ms).
 import { devices, expect, test, type Browser, type BrowserContextOptions } from "@playwright/test";
 import { PENDING, available } from "../e2e/support/apps";
+import type { RoomLayout } from "@omega/shared";
 import { watchCsp } from "../e2e/support/csp";
 import { stubExternalNetwork } from "../e2e/support/network";
 import { testRoom } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
+import { presetFile, showLayout } from "./show-layout";
+import { existsSync } from "node:fs";
 import { BUDGETS, evaluate } from "./budgets";
 import { median } from "./landing";
 import { recordMetric } from "./metrics";
@@ -95,17 +98,20 @@ const NETWORKS = {
   fast4g: { offline: false, latency: 60 * 2.75, downloadThroughput: (9e6 * 0.9) / 8, uploadThroughput: (1.5e6 * 0.9) / 8 },
 } as const;
 const TYPING_MS = 2000;
+/** The Theatre row's window after the click; the page waits this long (wall clock) before reading the long tasks. */
+const JOIN_WINDOW_MS = 2000;
 
 interface OpenStore {
-  __joinOpen: { click: number; loading: number; open: number };
+  __joinOpen: { click: number; loading: number; open: number; tasks: { start: number; duration: number }[] };
   __omega?: { room: { roomRenders: () => number } | null };
 }
 
 /** One cold, throttled join: ms from the click to the loading state and to the room's first frame. */
-async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof NETWORKS, n: number): Promise<{ loading: number; open: number }> {
+async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof NETWORKS, n: number, layout?: RoomLayout): Promise<{ loading: number; open: number; longest: number }> {
   const context = await watchCsp(await browser.newContext(devices["Pixel 7"]));
   try {
     await stubExternalNetwork(context);
+    if (layout !== undefined) await showLayout(context, layout);
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
     await cdp.send("Network.enable");
@@ -117,13 +123,16 @@ async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof
     await page.locator(site.nicknameInput).fill(`open-${String(n)}`);
     await page.evaluate((join) => {
       const s = globalThis as unknown as OpenStore;
-      const t = { click: 0, loading: 0, open: 0 };
+      const t: OpenStore["__joinOpen"] = { click: 0, loading: 0, open: 0, tasks: [] };
       s.__joinOpen = t;
       const button = document.querySelector<HTMLButtonElement>(join);
       button?.addEventListener(
         "click",
         () => {
           t.click = performance.now();
+          new PerformanceObserver((list) => {
+            for (const e of list.getEntries()) t.tasks.push({ start: e.startTime - t.click, duration: e.duration });
+          }).observe({ type: "longtask" });
           const tick = (): void => {
             const now = performance.now();
             const opened = (s.__omega?.room?.roomRenders() ?? 0) > 0;
@@ -138,8 +147,10 @@ async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof
     }, site.joinButton);
     await page.locator(site.joinButton).click();
     await expect.poll(() => page.evaluate(() => (globalThis as unknown as OpenStore).__joinOpen.open), { timeout: 30_000 }).toBeGreaterThan(0);
+    if (layout !== undefined) await page.waitForTimeout(JOIN_WINDOW_MS);
     const t = await page.evaluate(() => (globalThis as unknown as OpenStore).__joinOpen);
-    return { loading: t.loading, open: t.open };
+    const longest = Math.max(0, ...t.tasks.filter((k) => k.start <= JOIN_WINDOW_MS).map((k) => k.duration));
+    return { loading: t.loading, open: t.open, longest };
   } finally {
     await context.close();
   }
@@ -169,5 +180,36 @@ test("joining a room on a throttled phone: Join answers at once and the room ope
     if (!budget) throw new Error(`no budget ${m.id}`);
     const r = evaluate(budget, m);
     expect.soft(r.status, `${budget.metric}: ${m.value.toFixed(0)} ms vs ${budget.comparator} ${String(budget.limit)} (${m.note})`).toBe("pass");
+  }
+});
+
+// OME-2261: the same throttled join (Slow 4G, Pixel 7 at 4× CPU) into the dearest preset, the Theatre. The server keeps the
+// room's own layout; the page shows the preset (perf/show-layout.ts), so its art loads as it would in a Theatre room.
+// Rows: join.theatre.open.slow4g (click -> first draw, ≤ 1000 ms), join.theatre.longTask.slow4g (no long task > 100 ms in the first 2 s).
+const THEATRE = process.env["OMEGA_PERF_THEATRE_LAYOUT"] ?? (existsSync(new URL("../assets/presets/theatre.json", import.meta.url)) ? "theatre" : "cinema");
+
+test("joining the Theatre preset on a throttled phone: first draw within a second, no long task over 100 ms", async ({ browser }) => {
+  const ids = ["join.theatre.open.slow4g", "join.theatre.longTask.slow4g"];
+  const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
+  if (why !== null) {
+    for (const id of ids) recordMetric({ id, pending: why });
+    test.skip(true, why);
+    return;
+  }
+  test.setTimeout(240_000);
+  const layout = presetFile(THEATRE);
+  const url = testRoom("join-open", "theatre").url;
+  const runs = [];
+  for (let i = 0; i < RUNS; i++) runs.push(await openRoom(browser, url, "slow4g", i, layout));
+  const ms = (xs: readonly number[]): string => xs.map((x) => x.toFixed(0)).join(", ");
+  const rows = [
+    { id: ids[0] ?? "", value: median(runs.map((r) => r.open)), note: `${String(RUNS)} cold joins, Slow 4G, ${THEATRE}: ${ms(runs.map((r) => r.open))} ms` },
+    { id: ids[1] ?? "", value: median(runs.map((r) => r.longest)), note: `${String(RUNS)} cold joins, Slow 4G, ${THEATRE}: longest task in the first 2 s ${ms(runs.map((r) => r.longest))} ms` },
+  ];
+  for (const m of rows) {
+    recordMetric(m);
+    const budget = BUDGETS.find((b) => b.id === m.id);
+    if (!budget) throw new Error(`no budget ${m.id}`);
+    expect.soft(evaluate(budget, m).status, `${budget.metric}: ${m.value.toFixed(0)} ms vs ${budget.comparator} ${String(budget.limit)} (${m.note})`).toBe("pass");
   }
 });
