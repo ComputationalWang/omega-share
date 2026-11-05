@@ -14,7 +14,7 @@ const apart = (a: number, b: number): number => Math.min(Math.abs(a - b), 360 - 
 
 test("Pip's beanie hue sits ≥ 30° from the crown's mustard and Pip's ginger hair", () => {
   const pip = AVATARS.find((a) => a.id === "pip");
-  const knit = pip?.roles.A?.ramp;
+  const knit = pip?.roles["A"]?.ramp;
   if (!knit) throw new Error("pip has no beanie role A");
   for (const other of ["mustard", "hairGinger"] as const)
     for (const k of [0, 1, 2] as const) expect(apart(hue(RAMPS[knit][k]), hue(RAMPS[other][k]))).toBeGreaterThanOrEqual(30);
