@@ -28,6 +28,7 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
+import { placeAt } from "./tag-place";
 import { TAG_GAP, stackTags, wearPlace, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
@@ -112,11 +113,6 @@ export interface Stage {
   layoutBuilds(): number;
 }
 
-/** A name tag's anchor: `translate`, so room.css's centring and readable-zoom scale stay in `transform` / `scale`. */
-function place(e: HTMLElement, p: Point): void {
-  e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
-}
-
 /** What a lie key's name calls each piece. */
 const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
@@ -185,12 +181,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     const moved = tagAt.get(id) ?? aboveHead(id);
     const tag = tagEls.get(id);
     if (tag !== undefined) {
-      place(tag, at);
+      placeAt(tag, at.x, at.y);
       wearPlace(tag, moved, worn, true);
     }
     const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
-      place(padEl, at);
+      placeAt(padEl, at.x, at.y);
       wearPlace(padEl, moved, worn, false);
     }
   };
