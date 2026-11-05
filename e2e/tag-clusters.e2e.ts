@@ -162,5 +162,18 @@ test("six seated in classic at 1280×800: each tag on its own head, none over an
       },
       { down: TAG_GAP + TAG_H, headH: HEAD_H, headW: HEAD_W },
     );
+  // Everyone in their chair: no head moves for longer than a walk's tag takes to settle (stage.ts TAG_SETTLE_MS).
+  const heads = (): Promise<string> =>
+    watcher.page.evaluate(() => {
+      const room = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { members: { id: string }[] } }; head: (id: string) => { x: number; y: number } | undefined };
+      return JSON.stringify(room.state().room.members.map((m) => room.head(m.id) ?? null));
+    });
+  await expect
+    .poll(async () => {
+      const a = await heads();
+      await watcher.page.waitForTimeout(1500);
+      return a === (await heads());
+    }, { timeout: 30_000 })
+    .toBe(true);
   await expect.poll(check, { timeout: 20_000 }).toEqual([]);
 });

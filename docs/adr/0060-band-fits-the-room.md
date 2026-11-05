@@ -27,3 +27,5 @@
 - Rows of the room below the lowest name tag (the floor's front corner) can sit under the band's foot, and a wheel drag still reaches them.
 - A fractional band scale gives the bubbles a fractional label scale, and float rounding can then leave a sub-pixel overlap that `floats.ts resolve()` never cleared (a frozen tab, QA OME-2156). Overlap under 1e-6 px counts as none (`SLACK`).
 - Reversing: drop `bandFit` from `room-layout.ts`. The band is then ADR 0059's again. Room view goes with its key and `wideLayout`'s `roomView` branch.
+
+**Amendment 6 (2026-11-05, [OME-2246](/OME/issues/OME-2246), judge round 7 on [OME-2061](/OME/issues/OME-2061)):** the drop to clear the TV (`ROOM_FILL_DROP`, amendment 5) left ~35 px of nothing between the shelf and the room at 1280×800. Room view's box now sits `GAP` (8 px) under the shelf and only goes right to clear the TV; past the column's edge the player hangs over the left wall's top, as before. Name tags keep off a screen's box only down to its anchor: classic's TV is one frame, console and all, and its front's last pixel pushed the back row's tags 165 px over their heads.
