@@ -65,6 +65,15 @@ describe("Room view at 1280×800 (OME-2170)", () => {
     expect(c.x).toBe(480);
   });
 
+  // QA OME-2239: a seated visitor's tag on the front row reached past the floor's front corner, the box (sized to the
+  // corner) no longer held walls' tops to that tag, and the camera fell back to the old framing: 34 px of wall cut.
+  test.each([[888, 618], [905, 655]] as const)("at %i×%i the walls' tops show with anyone on the front corner cell", (w, h) => {
+    const l = wideLayout(w, h, "youtube", 1, 1, true);
+    const room = preset("penthouse");
+    const c = bandHome(seatPoints(room), standingPoints(room), { w: l.stage.w, h: l.stage.h }, cellCenter(9, 9));
+    expect(c.y - l.stage.h / 2).toBe(60);
+  });
+
   // OME-2195 (CEO decision B): the shelf sits flush beside the TV at its keys' width, not stretched to the far right.
   test.each([[COLUMN.w, 1], [1100, 1.25]] as const)("at %i px (zoom %d) the shelf hugs the TV and holds just its keys", (w, chrome) => {
     const l = wideLayout(w, COLUMN.h, "youtube", chrome, 1, true);
