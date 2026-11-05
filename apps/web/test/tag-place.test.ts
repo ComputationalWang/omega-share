@@ -14,41 +14,33 @@ afterAll(async () => {
 // fed major GCs into the Pixel 7 /conga frames. A write that changes nothing is skipped (a value written behind the
 // helper's back stays, which is how these tests see a skip).
 
-test("the first placement writes the anchor and the stack move", () => {
+test("the first placement writes the anchor", () => {
   const e = document.createElement("span");
-  placeAt(e, 10, 20, -16, -30);
+  placeAt(e, 10, 20);
   expect(e.style.translate).toBe("10px 20px");
-  expect(e.style.marginLeft).toBe("-16px");
-  expect(e.style.marginTop).toBe("-30px");
 });
 
 test("the same placement again writes nothing", () => {
   const e = document.createElement("span");
-  placeAt(e, 10, 20, -16, -30);
+  placeAt(e, 10, 20);
   e.style.translate = "1px 1px";
-  e.style.marginLeft = "1px";
-  e.style.marginTop = "1px";
-  placeAt(e, 10, 20, -16, -30);
-  expect([e.style.translate, e.style.marginLeft, e.style.marginTop]).toEqual(["1px 1px", "1px", "1px"]);
+  placeAt(e, 10, 20);
+  expect(e.style.translate).toBe("1px 1px");
 });
 
-test("only what changed is written", () => {
+test("a moved anchor is written", () => {
   const e = document.createElement("span");
-  placeAt(e, 10, 20, -16, -30);
-  e.style.marginLeft = "1px";
-  e.style.marginTop = "1px";
-  placeAt(e, 11, 20, -16, -30);
-  expect([e.style.translate, e.style.marginLeft, e.style.marginTop]).toEqual(["11px 20px", "1px", "1px"]);
-  placeAt(e, 11, 20, 0, -30);
-  expect([e.style.translate, e.style.marginLeft, e.style.marginTop]).toEqual(["11px 20px", "0px", "1px"]);
-  placeAt(e, 11, 20, 0, 4);
-  expect(e.style.marginTop).toBe("4px");
+  placeAt(e, 10, 20);
+  placeAt(e, 11, 20);
+  expect(e.style.translate).toBe("11px 20px");
+  placeAt(e, 11, 21);
+  expect(e.style.translate).toBe("11px 21px");
 });
 
 test("each element keeps its own record", () => {
   const a = document.createElement("span");
   const b = document.createElement("span");
-  placeAt(a, 10, 20, 0, 0);
-  placeAt(b, 10, 20, 0, 0);
+  placeAt(a, 10, 20);
+  placeAt(b, 10, 20);
   expect(b.style.translate).toBe("10px 20px");
 });

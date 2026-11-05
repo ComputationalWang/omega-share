@@ -85,3 +85,24 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
   }
   return out;
 }
+
+/** What `wearPlace` writes: a tag's or hit pad's style and classes. */
+export interface PlaceWearer {
+  readonly style: { marginLeft: string; marginTop: string };
+  readonly classList: { toggle(c: string, on: boolean): boolean };
+}
+
+/** Write place `m` on a tag (`tag`: its pip classes too) or its hit pad, unless it already wears an equal one: a walker's
+ * tag keeps one place for the whole walk and a render's restack mostly repeats the last, and re-writing them cost the
+ * /conga row its headroom (OME-2213). */
+export function wearPlace(e: PlaceWearer, m: TagPlace, worn: WeakMap<object, TagPlace>, tag: boolean): void {
+  const was = worn.get(e);
+  if (was?.dx === m.dx && was.dy === m.dy && was.led === m.led) return;
+  worn.set(e, m);
+  e.style.marginLeft = `${String(m.dx)}px`;
+  e.style.marginTop = `${String(m.dy)}px`;
+  if (!tag) return;
+  e.classList.toggle("is-led", m.led);
+  // Over its owner the pip points down at the head; hung under the feet, up at them.
+  e.classList.toggle("is-above", m.dy < 0);
+}

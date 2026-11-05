@@ -6,7 +6,7 @@ import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
 import { TAG_OFFSET_Y, setNorth } from "../src/layout";
-import { HEAD_H, HEAD_W, stackTags, type TagBox } from "../src/tag-stack";
+import { HEAD_H, HEAD_W, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
 import { EMOTE_LIFT } from "../src/walk/animator";
 
 const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
@@ -184,4 +184,53 @@ describe("stackTags: tags keep off heads and by their owner", () => {
       });
     },
   );
+});
+
+// OME-2213: a walker's tag gets the same place every walk frame, and a render's restack mostly the same places again;
+// re-writing their margins and classes cost the /conga row its headroom. A place is worn once.
+describe("wearPlace", () => {
+  const fake = () => {
+    const writes: string[] = [];
+    const style = {
+      set marginLeft(v: string) {
+        writes.push(`left ${v}`);
+      },
+      set marginTop(v: string) {
+        writes.push(`top ${v}`);
+      },
+    };
+    const classList = {
+      toggle: (c: string, on: boolean) => {
+        writes.push(`${c} ${String(on)}`);
+        return on;
+      },
+    };
+    return { e: { style, classList }, writes };
+  };
+
+  test("writes a place's margins and classes once, and again only for a new place", () => {
+    const { e, writes } = fake();
+    const worn = new WeakMap<object, TagPlace>();
+    const over: TagPlace = { dx: 0, dy: -40, led: false };
+    wearPlace(e, over, worn, true);
+    expect(writes).toEqual(["left 0px", "top -40px", "is-led false", "is-above true"]);
+    wearPlace(e, over, worn, true);
+    expect(writes).toHaveLength(4);
+    wearPlace(e, { dx: 5, dy: 8, led: true }, worn, true);
+    expect(writes.slice(4)).toEqual(["left 5px", "top 8px", "is-led true", "is-above false"]);
+  });
+
+  test("a restack's equal place, a new object, writes nothing", () => {
+    const { e, writes } = fake();
+    const worn = new WeakMap<object, TagPlace>();
+    wearPlace(e, { dx: 3, dy: -40, led: true }, worn, true);
+    wearPlace(e, { dx: 3, dy: -40, led: true }, worn, true);
+    expect(writes).toHaveLength(4);
+  });
+
+  test("a hit pad wears only the margins", () => {
+    const { e, writes } = fake();
+    wearPlace(e, { dx: 1, dy: 2, led: true }, new WeakMap(), false);
+    expect(writes).toEqual(["left 1px", "top 2px"]);
+  });
 });
