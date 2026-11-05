@@ -3,7 +3,7 @@
 // 1280×720 and up nothing you need while watching is below the fold. The volume pod sits in the TV's shelf, right under
 // the picture, on every layout. Enter (nothing that takes Enter focused) jumps to the chat field; Esc hands the keys
 // back. The pure geometry is apps/web/test/wide-layout.test.ts; the key decision is apps/web/test/chat-enter.test.ts.
-import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
 import { presetFile, showLayout } from "../perf/show-layout";
@@ -25,8 +25,15 @@ test.afterEach(async () => {
   clients = [];
 });
 
-async function one(browser: Browser, name: RoomName<"wide">, options: BrowserContextOptions): Promise<Page> {
-  clients = await joinRoom(browser, { roomUrl: testRoom("wide", name).url, count: 1, nicknamePrefix: `wd${name}`, contextOptions: () => options });
+/** The viewer chose the video-first layout on an earlier visit (OME-2195): Room view is the default from 1100 px. */
+const videoFirst = async (context: BrowserContext): Promise<void> => {
+  await context.addInitScript(() => {
+    localStorage.setItem("omega.roomView", "off");
+  });
+};
+
+async function one(browser: Browser, name: RoomName<"wide">, options: BrowserContextOptions, setup?: (context: BrowserContext) => Promise<void>): Promise<Page> {
+  clients = await joinRoom(browser, { roomUrl: testRoom("wide", name).url, count: 1, nicknamePrefix: `wd${name}`, contextOptions: () => options, ...(setup === undefined ? {} : { setup }) });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
   await expect(c.page.locator(site.chatInput)).toBeVisible();
@@ -94,13 +101,15 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560
 
 // OME-1803 (design OME-1799 §2): with a video playing the TV was a small island, 25–30 % of a big monitor's width. It's
 // the hero now: at least 45 % of the window (43 % at 1920×1080, where the band holds half the room, ADR 0059) and as wide as its shelf, with the room and the transport still in view and
-// the page unscrolled. At 1280×800 it's no smaller than before (360 px).
+// the page unscrolled. At 1280×800 it's no smaller than before (360 px). Room view opens first from 1100 px (OME-2195):
+// these viewers chose video first.
 for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440, 900, 0.45], ["hero1920", 1920, 1080, 0.43], ["hero2560", 2560, 1440, 0.45]] as const) {
   test(`${String(w)}×${String(h)} with a video: the TV is the hero, the room and the transport stay in view`, async ({ browser, request }) => {
     const room = testRoom("wide", name);
     await shareVideo(request, room.id);
-    const page = await one(browser, name, DESKTOP(w, h));
+    const page = await one(browser, name, DESKTOP(w, h), videoFirst);
     await waitPlaying(clients);
+    await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
     const tv = await box(page.locator(site.tv));
     const shelf = await box(page.locator(".ui-tv-shelf"));
     expect(tv.width).toBeGreaterThanOrEqual(Math.max(360, share * w));
@@ -110,6 +119,43 @@ for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440
     expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(h);
   });
 }
+
+// OME-2195 (judge round 4, ADR 0060 amendment 3): at 1280×800 video first left avatars ~27 px. From 1100 px wide the room
+// opens in Room view: the TV at its floor, avatars at least 39 px. The viewer's choice is kept: off stays off next visit.
+test("1280×800 with a video: a fresh visit opens in Room view; turned off, it stays off", async ({ browser, request }) => {
+  const room = testRoom("wide", "rv1280");
+  await shareVideo(request, room.id);
+  const page = await one(browser, "rv1280", DESKTOP(1280, 800));
+  await waitPlaying(clients);
+  const key = page.locator(site.roomViewKey);
+  await expect(key).toHaveAttribute("aria-pressed", "true");
+  expect((await box(page.locator(site.tv))).width).toBeLessThanOrEqual(357);
+  // I stand (just joined): a standing avatar is 47 px at 1× (ADR 0060 amendment 2: 41 seated to 47), as the judge measured it.
+  const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
+  expect(47 * k).toBeGreaterThanOrEqual(40);
+  for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow]) await inView(page, page.locator(l));
+
+  await key.click();
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+  // The next visit, same browser: video first, as chosen.
+  const c = clients[0];
+  if (c === undefined) throw new Error("no client");
+  const again = await c.context.newPage();
+  await again.goto(room.url);
+  await again.locator(site.nicknameInput).fill("wdrv-again");
+  await again.locator(site.joinButton).click();
+  await again.locator(site.room).waitFor();
+  await expect(again.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
+  expect((await box(again.locator(site.tv))).width).toBeGreaterThan(360);
+});
+
+test("1024×768 with a video: below 1100 px a fresh visit stays video first", async ({ browser, request }) => {
+  const room = testRoom("wide", "rv1024");
+  await shareVideo(request, room.id);
+  const page = await one(browser, "rv1024", DESKTOP(1024, 768));
+  await waitPlaying(clients);
+  await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
+});
 
 // OME-1811 (design OME-1799 §2, F2; OME-1809 item 3): the room was drawn at fractional scales (0.87× at 2560, 1.17× at
 // 1920), so its pixel rows doubled unevenly. On every large screen it's 1× or 2× now, nearest-neighbour, at DPR 1 and 2.

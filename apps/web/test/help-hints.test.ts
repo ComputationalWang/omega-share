@@ -223,6 +223,42 @@ describe("the first-visit tour", () => {
     expect(hints.root.style.top).toBe("192px");
   });
 
+  // OME-2195: Room view (the default from 1100 px) re-boxes the TV when a video arrives, after the screen swap: the chip
+  // placed on the swap sat on the TV's new box (m9-help at 1280×800). A TV that changes size re-places the chip.
+  test("the TV changing size re-places the chip off its new box", async () => {
+    const Real = globalThis.ResizeObserver;
+    const watched = new Map<Element, () => void>();
+    globalThis.ResizeObserver = class {
+      private readonly cb: () => void;
+      constructor(cb: () => void) {
+        this.cb = cb;
+      }
+      observe(t: Element): void {
+        watched.set(t, this.cb);
+      }
+      unobserve(): void {
+        // Nothing to stop: the test fires the callback by hand.
+      }
+      disconnect(): void {
+        watched.clear();
+      }
+    } as unknown as typeof ResizeObserver;
+    try {
+      const { hints, tv } = await setup();
+      tv.empty = false;
+      tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 50, height: 50 });
+      hints.show();
+      expect(hints.root.style.top).toBe("192px");
+      // Re-boxed over the chip's spot: under the picture instead.
+      tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });
+      tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 450 });
+      watched.get(tv.box)?.();
+      expect(hints.root.style.top).toBe("458px");
+    } finally {
+      globalThis.ResizeObserver = Real;
+    }
+  });
+
   test("on an empty TV a chip never covers its message: it goes under the message, on the curtain, not under the picture where the chat bar is on a small phone (OME-2104)", async () => {
     const { hints, tv } = await setup();
     tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });

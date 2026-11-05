@@ -119,6 +119,8 @@ export function createHints(o: HintsOptions): Hints {
     sized.disconnect();
     const a = o.anchor(to);
     if (a !== null) sized.observe(a);
+    // Room view re-boxes the TV after a video's screen swap (OME-2195): its new box moves the chip too.
+    sized.observe(o.tv.box);
     root.hidden = false;
     text.textContent = s.text;
     place();

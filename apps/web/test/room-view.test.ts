@@ -34,6 +34,13 @@ describe("Room view at 1280×800 (OME-2170)", () => {
     expect(intersects(l.controls, l.stage)).toBe(false);
   });
 
+  // OME-2195 (CEO decision B): the shelf sits flush beside the TV at its keys' width, not stretched to the far right.
+  test.each([[COLUMN.w, 1], [1100, 1.25]] as const)("at %i px (zoom %d) the shelf hugs the TV and holds just its keys", (w, chrome) => {
+    const l = wideLayout(w, COLUMN.h, "youtube", chrome, 1, true);
+    expect(l.controls.x).toBe(l.tv.x + l.tv.w + 6 + 8 + 38);
+    expect(l.controls.w).toBe(420 * chrome);
+  });
+
   test("off, the TV is the hero as before", () => {
     expect(wideLayout(COLUMN.w, COLUMN.h, "youtube", 1, 1, false)).toEqual(wideLayout(COLUMN.w, COLUMN.h, "youtube"));
     expect(wideLayout(COLUMN.w, COLUMN.h, "youtube").tv.w).toBeGreaterThan(356);
