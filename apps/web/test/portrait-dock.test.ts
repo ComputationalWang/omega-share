@@ -221,7 +221,7 @@ test("docking reads the viewport before it writes any class or style", async () 
     const write = (what: string) => (target: object, key: string): void => {
       const fn: unknown = Reflect.get(target, key);
       if (typeof fn !== "function") throw new Error(key);
-      Reflect.set(target, key, (...a: unknown[]) => { log.push(`write ${what}`); return Reflect.apply(fn, target, a); });
+      Reflect.set(target, key, (...a: unknown[]): unknown => { log.push(`write ${what}`); const r: unknown = Reflect.apply(fn, target, a); return r; });
     };
     write("style")(root.style, "setProperty");
     write("class")(root.classList, "toggle");
