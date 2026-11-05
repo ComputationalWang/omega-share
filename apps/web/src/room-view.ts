@@ -805,7 +805,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     return true;
   }
 
-  // The theme's effect (ADR 0052): particles on a small overlay canvas over the effect's band only, at 1 px per stage px
+  // The theme's effect (ADR 0052): particles on a small canvas under the effect's band only, at 1 px per stage px
   // (QA OME-1211), drawn without reading any canvas (OME-1212); a tick never renders the room (OME-1206). Its own rAF
   // loop at ≤ 30 Hz; off under reduced motion and once the tier settles Basic; stops while the room is paused, and rAF
   // stops with a hidden tab.
@@ -885,10 +885,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     particles = createParticles(m, max, Math.random);
     painter = createEffectPainter({ ctx, image, frames, origin: b });
     if (effectAllowed()) {
-      // In the DOM only for an effect, right over the room canvas: a room without one keeps its DOM unchanged. Hidden
-      // with visibility, not display, so the observer can still see where it is.
+      // In the DOM only for an effect, right under the transparent room canvas (OME-2248): the walls hide the particles,
+      // so they show only in the margin and through glass, never on an opaque wall. A room without one keeps its DOM
+      // unchanged. Hidden with visibility, not display, so the observer can still see where it is.
       fxCanvas.style.visibility = "hidden";
-      app.canvas.after(fxCanvas);
+      app.canvas.before(fxCanvas);
       fxObserver.observe(fxCanvas);
     }
   };
