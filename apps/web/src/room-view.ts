@@ -27,6 +27,7 @@ import { ambienceFor, type Ambience } from "./theme/ambience";
 import { livePieces, type LivePieces } from "./live-pieces";
 import { clockFace, handSteps, minuteTicks, type HandSteps } from "./wall-clock";
 import { EMOTE_SOUNDS } from "./emote/emotes";
+import { inkLift } from "./ink";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
@@ -97,6 +98,8 @@ export interface RoomView {
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
   /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
   position(id: MemberId): Point | undefined;
+  /** How far over their point an avatar's drawn hair or hat reaches at rest (stage px, OME-2252); undefined until drawn from a readable sheet. */
+  headLift(id: MemberId): number | undefined;
   /** The owner editor's layer (set (h) grid and footprint markers): over the floor, rugs and walls, under seats and objects. */
   readonly editLayer: Container;
   /** Free walking (OME-1350): the editor's cursor diamond on the floor cell under the pointer, or none. Draws once per change. `scale`: screen px per stage px. */
@@ -217,6 +220,8 @@ interface Entry {
   hat: Sprite | null;
   /** Their accessory (OME-1391), 0 none; drawn once the accessories sheet is in. */
   accessory: number;
+  /** Their drawn head top over their point at rest, body or hat (inkLift), as last measured on a rest frame. */
+  lift: number | undefined;
 }
 
 /** A piece that can play its "in use" loop: its sprite, idle texture and loop textures. */
@@ -231,6 +236,9 @@ interface Loop extends FurnitureLoop {
 export function runningLoops<L extends { readonly piece: number; readonly ambient?: boolean }>(loops: readonly L[], inUse: ReadonlySet<number>, ambient: boolean): L[] {
   return loops.filter((l) => inUse.has(l.piece) || (ambient && l.ambient === true));
 }
+
+/** An avatar's own rest frame (`juno/sit/se/0`): the head top a tag sits on (OME-2252). */
+const REST_FRAME = /^[a-z]+\/(?:sit|idle)\/[a-z]{2}\/\d+$/;
 
 /** A texture swap keeps the old anchor; a partition's cut stub (OME-1960) has its own. */
 function setLoopFrame(sprite: Sprite, t: Texture): void {
@@ -511,8 +519,17 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     wearHat(entry);
     if (entry.tint !== 0 || entry.hair !== 0) relook(id, entry, entry.tint, entry.hair);
   };
-  /** Put the member's accessory, else the theme's hat, over the avatar's frame (the sprite is the difference to the hatted frame), or take it off. */
+  /** Put the member's hat on or off (putHat), then measure their head top on a rest frame: a sit or idle frame of their own
+   * (`juno/sit/se/0`), not a breath, gesture or reaction, so a tag on it never bobs. */
   const wearHat = (entry: Entry): void => {
+    putHat(entry);
+    if (entry.frame === null || !REST_FRAME.test(entry.frame) || !(entry.node instanceof Sprite)) return;
+    const drawn = inkLift(entry.node);
+    const hat = entry.hat?.visible === true ? inkLift(entry.hat) : undefined;
+    entry.lift = drawn === undefined ? undefined : Math.max(drawn, hat ?? drawn);
+  };
+  /** Put the member's accessory, else the theme's hat, over the avatar's frame (the sprite is the difference to the hatted frame), or take it off. */
+  const putHat = (entry: Entry): void => {
     // A hat fitted to the bare head waits for it: on their own headwear it would misfit.
     const own = wearsBare(entry.avatar, entry.accessory) && bare === null ? null : accessories;
     // No lying frames in the hat sheets (assets/README.md, Lying pose): hide the overlay.
@@ -1252,7 +1269,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         }
         const g = new Graphics({ label: `avatar:${a.id}`, alpha: alphaOf(a.id) });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, hair: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null, accessory: a.accessory });
+        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, hair: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null, accessory: a.accessory, lift: undefined });
         objectLayer.addChild(g);
         const added = pool.get(a.id);
         if (added !== undefined && (a.tint !== 0 || a.hair !== 0)) relook(a.id, added, a.tint, a.hair);
@@ -1385,6 +1402,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         hatAnchored: e.hat?.visible === true && e.hat.anchor.x === (e.hat.texture.defaultAnchor?.x ?? 0) && e.hat.anchor.y === (e.hat.texture.defaultAnchor?.y ?? 0),
       };
     },
+    headLift: (id) => pool.get(id)?.lift,
     position(id) {
       const e = pool.get(id);
       return e === undefined || Number.isNaN(e.x) ? undefined : { x: e.x, y: e.y };
