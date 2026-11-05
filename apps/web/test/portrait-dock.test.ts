@@ -198,3 +198,42 @@ test("the portrait room marks the body, so its page rules need no body:has() (OM
   dock.setActive(false);
   expect(document.body.classList.contains("room-is-portrait")).toBe(false);
 });
+
+// OME-2265: docking runs inside the room's first render on a phone. A viewport read after a style write forces a
+// layout; reading the viewport first keeps it to the one layout the render needs anyway.
+test("docking reads the viewport before it writes any class or style", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const native = Object.getOwnPropertyDescriptor(window, "visualViewport");
+  const nativeInner = Object.getOwnPropertyDescriptor(window, "innerHeight");
+  const log: string[] = [];
+  const viewport = new EventTarget();
+  for (const [k, v] of [["height", 500], ["offsetTop", 0], ["scale", 1]] as const) Object.defineProperty(viewport, k, { get: () => { log.push(`read ${k}`); return v; } });
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+  Object.defineProperty(window, "innerHeight", { configurable: true, get: () => { log.push("read innerHeight"); return 800; } });
+  try {
+    const root = document.createElement("section");
+    const log2 = document.createElement("div");
+    const composer = document.createElement("form");
+    const queue = document.createElement("section");
+    root.append(log2, composer, queue);
+    document.body.replaceChildren(root);
+    const dock = createPortraitDock({ root, log: log2, composer, queue, settings: [], queueLayout: () => { log.push("write queue"); } });
+    const write = (what: string) => (target: object, key: string): void => {
+      const fn: unknown = Reflect.get(target, key);
+      if (typeof fn !== "function") throw new Error(key);
+      Reflect.set(target, key, (...a: unknown[]) => { log.push(`write ${what}`); return Reflect.apply(fn, target, a); });
+    };
+    write("style")(root.style, "setProperty");
+    write("class")(root.classList, "toggle");
+    write("body class")(document.body.classList, "toggle");
+    dock.setActive(true);
+    const firstWrite = log.findIndex((l) => l.startsWith("write"));
+    expect(firstWrite).toBeGreaterThan(0);
+    expect(log.slice(firstWrite).filter((l) => l.startsWith("read"))).toEqual([]);
+    expect(root.style.getPropertyValue("--portrait-height")).toBe("500px");
+    expect(root.classList.contains("portrait-typing")).toBe(true);
+  } finally {
+    Object.defineProperty(window, "visualViewport", native ?? { configurable: true, value: undefined });
+    if (nativeInner !== undefined) Object.defineProperty(window, "innerHeight", nativeInner);
+  }
+});

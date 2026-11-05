@@ -70,6 +70,19 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coar
   return { layout, root, wrap, clip, stage, tv, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
 }
 
+// OME-2265: building the layout runs while the room's DOM is half made; a window size read there forces a layout of it.
+test("building the room's layout reads no window size", async () => {
+  const native = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  let reads = 0;
+  Object.defineProperty(window, "innerWidth", { configurable: true, get: () => (reads++, 390) });
+  try {
+    await setup();
+  } finally {
+    if (native !== undefined) Object.defineProperty(window, "innerWidth", native);
+  }
+  expect(reads).toBe(0);
+});
+
 describe("room layout", () => {
   test("in the page the chat sits right under the notices", async () => {
     const { log, poll, form, notice, side } = await setup();
