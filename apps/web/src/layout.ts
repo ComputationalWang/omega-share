@@ -236,16 +236,10 @@ export function wideLayout(width: number, height: number, provider: Provider | n
 const ROOM_FILL_W = ROOM_WALLS.w + 40;
 
 /**
- * How far Room view's box drops under the shelf to clear the TV (OME-2241, judge round 6): sunk to the column's foot, it
- * left a 100 px empty band between the shelf and the room. At most this, the walls' corner is under 60 px from the shelf.
- */
-const ROOM_FILL_DROP = 40;
-
-/**
  * Room view where the column holds the whole room (OME-2233, judge round 5): the shelf tops the TV's side, and the room's
  * box, walls' tops (with ROOM_HEAD's sky over them, less where the column is short) to the lowest name tag, sits under the
- * shelf, centred where the TV clears the left wall, else lower (ROOM_FILL_DROP at most), then right, as far as the walls'
- * ends stay in the column. The walls are a ^ (corner at the stage's top, sloping 1:2 to their ends), so the TV takes the
+ * shelf (GAP under it: OME-2246, judge round 7, the drop to clear the TV left ~35 px of nothing), centred where the TV
+ * clears the left wall, else right, as far as the walls' ends stay in the column. The walls are a ^ (corner at the stage's top, sloping 1:2 to their ends), so the TV takes the
  * free corner above the left wall; past that the player hangs over the wall's top, by design (ADR 0058). `null` where it
  * doesn't fit.
  */
@@ -260,10 +254,9 @@ function roomViewFill(w: number, h: number, tv: Rect, controls: Rect, maxScale: 
     // The walls' corner (stage y 0) under the box's top.
     const corner = head - ROOM_VIEW.y * k;
     const x0 = Math.floor((w - sw) / 2);
+    const y = Math.min(h - sh, top);
     // The left wall's top where the TV's frame ends is the corner + (the box's half width - what of it the TV covers) / 2:
-    // as low as a centred box needs, never above the shelf, nor past the drop or the column's foot.
-    const y = Math.min(h - sh, top + ROOM_FILL_DROP * k, Math.max(top, Math.ceil(clear - corner - (x0 + sw / 2 - frameRight) / 2)));
-    // Short of width, the margins beside the walls' ends give way (QA OME-2239), never the walls: the box stays on the corner.
+    // the box goes right until that clears the TV. Short of width, the margins beside the walls' ends give way (QA OME-2239), never the walls: the box stays on the corner.
     const cx = Math.min(w - (ROOM_WALLS.w * k) / 2, Math.max(x0, Math.ceil(2 * (clear - y - corner) - sw / 2 + frameRight)) + sw / 2);
     const bw = Math.min(sw, 2 * (w - cx));
     if (bw < ROOM_WALLS.w * k || head < 0) continue;
