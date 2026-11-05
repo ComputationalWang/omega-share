@@ -134,6 +134,16 @@ test("1280×800 with a video: a fresh visit opens in Room view; turned off, it s
   const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
   expect(47 * k).toBeGreaterThanOrEqual(40);
   for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow]) await inView(page, page.locator(l));
+  // OME-2233 (judge round 5): no empty strip between the TV and its shelf; the shelf tops the TV's side.
+  const tv = await box(page.locator(site.tv));
+  const shelf = await box(page.locator(".controls.ui-tv-shelf"));
+  expect(Math.abs(shelf.y - tv.y)).toBeLessThanOrEqual(2);
+  // The room shows from its walls' tops (stage y 60) to the floor's front corner (540): the band isn't cut at the top.
+  const win = await box(page.locator(site.roomWindow));
+  expect(win.height).toBeGreaterThanOrEqual((541 - 60) * k - 1);
+  expect(win.y).toBeGreaterThanOrEqual(shelf.y + shelf.height);
+  const top = await page.locator(`${site.roomWindow} .stage`).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).f);
+  expect(top).toBeGreaterThanOrEqual(-60 * k - 1);
 
   await key.click();
   await expect(key).toHaveAttribute("aria-pressed", "false");
