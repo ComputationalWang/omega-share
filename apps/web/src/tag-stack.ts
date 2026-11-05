@@ -29,7 +29,7 @@ export const TAG_GAP = 2;
 const NEAR = 12;
 
 /** A box on the stage (stage px). */
-interface Box {
+export interface Box {
   readonly x0: number;
   readonly x1: number;
   readonly y0: number;
@@ -45,7 +45,8 @@ const NUDGES = [0, -16, 16];
  * what it hits. Only where that leaves `minY`–`maxY` (the shown room) does it hang under the feet, dropping under what
  * it hits or, past `maxY`, rising over it. A tag more than NEAR px off its owner's head is `led` (wears a leader pip).
  */
-export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, minY = -Infinity): TagPlace[] {
+export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, minY = -Infinity, avoid: readonly Box[] = []): TagPlace[] {
+  void avoid;
   const out: TagPlace[] = tags.map(() => ({ dx: 0, dy: 0, led: false }));
   // Back row first, then left to right: the same tags stack the same way in any order.
   const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
