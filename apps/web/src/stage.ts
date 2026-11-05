@@ -28,7 +28,7 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
-import { TAG_GAP, stackTags, type TagBox, type TagPlace } from "./tag-stack";
+import { TAG_GAP, stackTags, wearPlace, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -123,6 +123,8 @@ const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couc
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
 const NO_GO_NOTE_MS = 1500;
+/** How long a walker stands before its tag stacks with the others (OME-2213): past the /conga step (360 ms). */
+const TAG_SETTLE_MS = 500;
 
 function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
@@ -164,7 +166,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const tagW = new Map<Element, number>();
   /** Who is mid-walk: their tag rides just over their head (aboveHead) and the others stack again once they stop. */
   const walkers = new Set<MemberId>();
+  /** A stopped walker's tag stacks once it's stood TAG_SETTLE_MS: a /conga follower steps every 360 ms, and stacking
+   * it at each stop flipped its pip (a full repaint) twice a step (OME-2213). */
+  const settling = new Map<MemberId, ReturnType<typeof setTimeout>>();
   const tagAt = new Map<MemberId, TagPlace>();
+  /** The place each tag and hit pad last wore (wearPlace). */
+  const worn = new WeakMap<object, TagPlace>();
   /** The phone's readable-zoom label scale (room.css --label-scale), capped at TAG_MAX_SCALE: tags show this many times their layout size. */
   let labelK = 1;
   /** The phone window's bottom (stage px; Infinity off the phone): a stacked tag never drops past it or the room's. */
@@ -176,22 +183,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
     const at = { x, y: y + TAG_OFFSET_Y };
     const moved = tagAt.get(id) ?? aboveHead(id);
-    const left = `${String(moved.dx)}px`;
-    const drop = `${String(moved.dy)}px`;
     const tag = tagEls.get(id);
     if (tag !== undefined) {
       place(tag, at);
-      tag.style.marginLeft = left;
-      tag.style.marginTop = drop;
-      tag.classList.toggle("is-led", moved.led);
-      // Over its owner the pip points down at the head; hung under the feet, up at them.
-      tag.classList.toggle("is-above", moved.dy < 0);
+      wearPlace(tag, moved, worn, true);
     }
     const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
       place(padEl, at);
-      padEl.style.marginLeft = left;
-      padEl.style.marginTop = drop;
+      wearPlace(padEl, moved, worn, false);
     }
   };
   /** Stack the tags of everyone standing still and place every tag. */
@@ -210,7 +210,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop);
     ids.forEach((id, i) => {
       const p = at[i];
-      const m = moved[i];
+      // A walker's tag rides over its head: stacked, it'd flip its pip on every render as it passes heads (OME-2213).
+      const m = walkers.has(id) ? aboveHead(id) : moved[i];
       if (m === undefined) tagAt.delete(id);
       else tagAt.set(id, m);
       if (p !== undefined) placeTag(id, p.x, p.y, true);
@@ -265,17 +266,26 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const head = y - overOf(id);
       badges.move(id, x, head);
       floats.move(id, x, head);
+      clearTimeout(settling.get(id));
+      settling.delete(id);
       if (!walkers.has(id)) {
         walkers.add(id);
-        tagAt.delete(id);
+        tagAt.set(id, aboveHead(id));
       }
       placeTag(id, x, y, false);
       o.onMove?.(id);
     },
     onStop: (id, x, y) => {
       floats.settle(id, x, y - overOf(id));
-      walkers.delete(id);
-      restack();
+      clearTimeout(settling.get(id));
+      settling.set(
+        id,
+        setTimeout(() => {
+          settling.delete(id);
+          walkers.delete(id);
+          restack();
+        }, TAG_SETTLE_MS),
+      );
       o.onStop?.(id);
     },
   });
@@ -666,6 +676,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       tagW.delete(e);
       tagAt.delete(id);
       walkers.delete(id);
+      clearTimeout(settling.get(id));
+      settling.delete(id);
       tagEls.delete(id);
       padEls.get(id)?.remove();
       padEls.delete(id);
