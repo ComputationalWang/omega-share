@@ -236,6 +236,13 @@ for (const preset of ["classic", "penthouse", "studio", "dank-dungeon"] as const
     // Nothing but sky from the shelf to it, the width of the column right of the TV (the walls slope away from the tip): at
     // most 60 px tall.
     expect(first - (shelfFoot + sky)).toBeLessThanOrEqual(60);
+    // OME-2246 (judge round 7): ~35 px of nothing between the shelf and the room's window. At most the layout's 8 px
+    // GAP; the walls' tip is the window's top plus its sky (the room's first painted row, 8 px under it).
+    expect(top - shelfFoot).toBeLessThanOrEqual(8);
+    expect(first - shelfFoot).toBeLessThanOrEqual(20);
+    // The Room view key stays on top of the room: its centre is the key.
+    const key = await box(page.locator(site.roomViewKey));
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid]")?.getAttribute("data-testid") ?? null, [key.x + key.width / 2, key.y + key.height / 2] as const)).toBe(await page.locator(site.roomViewKey).getAttribute("data-testid"));
   });
 }
 

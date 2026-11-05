@@ -291,6 +291,14 @@ describe("screenBoxes", () => {
   test("each marked sprite's frame, around its anchor; unmarked or unloaded ones give nothing", () => {
     const frames: Record<string, { w: number; h: number; ax: number; ay: number }> = { s: { w: 100, h: 60, ax: 0.5, ay: 0.75 }, o: { w: 10, h: 10, ax: 0, ay: 0 } };
     const sprites = [{ key: "s", x: 200, y: 300, screen: true as const }, { key: "o", x: 0, y: 0 }, { key: "gone", x: 5, y: 5, screen: true as const }];
-    expect(screenBoxes(sprites, (k) => frames[k])).toEqual([{ x0: 150, x1: 250, y0: 255, y1: 315 }]);
+    expect(screenBoxes(sprites, (k) => frames[k])).toEqual([{ x0: 150, x1: 250, y0: 255, y1: 300 }]);
+  });
+
+  // OME-2246 (judge round 7): classic's TV console is one frame, the picture over its anchor and the console's front
+  // under it; the front's last px kept the back row's tags off their heads, 165 px up. A wall screen hangs over its anchor.
+  test("a screen ends at its anchor: what's under it is the stand's front, not the picture", () => {
+    const frames: Record<string, { w: number; h: number; ax: number; ay: number }> = { tv: { w: 162, h: 62, ax: 0.5, ay: 37 / 62 }, wall: { w: 62, h: 70, ax: 0.5, ay: 1.5 } };
+    const sprites = [{ key: "tv", x: 480, y: 236, screen: true as const }, { key: "wall", x: 100, y: 200, screen: true as const }];
+    expect(screenBoxes(sprites, (k) => frames[k])).toEqual([{ x0: 399, x1: 561, y0: 199, y1: 236 }, { x0: 69, x1: 131, y0: 95, y1: 165 }]);
   });
 });
