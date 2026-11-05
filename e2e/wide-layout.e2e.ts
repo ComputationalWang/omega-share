@@ -201,9 +201,10 @@ for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["a
     const band = await box(page.locator(site.roomWindow));
     const column = await box(page.locator(".stage-wrap"));
     // The band's backdrop and dim bleed past the room's box to the column's edges.
-    const bleed = await page.locator(site.roomWindow).evaluate((el) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue("--bleed")) : 0));
-    expect(band.x - bleed).toBeLessThanOrEqual(column.x + 1);
-    expect(band.x + band.width + bleed).toBeGreaterThanOrEqual(column.x + column.width - 1);
+    // Each side bleeds its own width (OME-2233: Room view's box can sit right of centre).
+    const bleed = (side: "l" | "r"): Promise<number> => page.locator(site.roomWindow).evaluate((el, v) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue(v)) : 0), `--bleed-${side}`);
+    expect(band.x - (await bleed("l"))).toBeLessThanOrEqual(column.x + 1);
+    expect(band.x + band.width + (await bleed("r"))).toBeGreaterThanOrEqual(column.x + column.width - 1);
     // Once everyone has walked to their spot (a joiner walks in from the room's edge).
     await expect(async () => {
       for (const tag of await tags.all()) {
