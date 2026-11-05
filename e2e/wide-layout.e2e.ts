@@ -221,20 +221,20 @@ for (const preset of ["classic", "penthouse", "studio", "dank-dungeon"] as const
     await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "true");
     const tv = await box(page.locator(site.tv));
     const shelf = await box(page.locator(".controls.ui-tv-shelf"));
-    const key = await box(page.locator(site.roomViewKey));
     const win = await box(page.locator(site.roomWindow));
-    // Right of the TV's frame and left of the Room view key: the sky over the room, the walls' corner under it.
-    const x0 = Math.ceil(tv.x + tv.width + 8);
-    const x1 = Math.floor(key.x - 2);
+    // The box is centred on the walls' corner (stage x 480), its tip the room's highest pixel; the sky's colour at the
+    // box's top beside it. The canvas ends at the stage's top, so no star is over the tip.
     const shelfFoot = Math.ceil(shelf.y + shelf.height);
     const top = Math.round(win.y);
-    const { rows } = await scan(page, { x0, x1, y0: shelfFoot, y1: top + 120, bg: [x0, top + 1], wx0: 0, wx1: 0 });
-    // Past the shelf's frame, the sky; then the room's first row: more than a few stars' worth of pixels off the sky's colour.
-    const sky = rows.findIndex((n) => n <= 12);
-    const first = shelfFoot + sky + rows.slice(sky).findIndex((n) => n > 12);
+    const mid = Math.round(win.x + win.width / 2);
+    const { rows } = await scan(page, { x0: mid - 40, x1: mid + 40, y0: shelfFoot, y1: top + 120, bg: [Math.ceil(tv.x + tv.width + 8), top + 1], wx0: 0, wx1: 0 });
+    // Past the shelf's frame, the sky; then the room's first row.
+    const sky = rows.findIndex((n) => n === 0);
+    const first = shelfFoot + sky + rows.slice(sky).findIndex((n) => n > 0);
     expect(sky).toBeGreaterThanOrEqual(0);
     expect(first).toBeGreaterThanOrEqual(top + 8);
-    // Nothing but sky from the shelf to it, the width of the column right of the TV: at most 60 px tall.
+    // Nothing but sky from the shelf to it, the width of the column right of the TV (the walls slope away from the tip): at
+    // most 60 px tall.
     expect(first - (shelfFoot + sky)).toBeLessThanOrEqual(60);
   });
 }
@@ -261,8 +261,10 @@ test("1280×800 Room view, a busy room: the floor's focus ring outlines the room
   const y1 = Math.floor(win.y + win.height);
   // Anywhere across the column: the bar was the stage's left edge, wherever the box puts it.
   const { white } = await scan(page, { x0: 0, x1: 0, y0, y1, bg: [0, 0], wx0: Math.max(0, Math.round(column.x) - 2), wx1: Math.round(column.x + column.width) });
-  // The judge measured 437 px; the TV covers its top here, so any column of white over 200 px (no art is) counts.
-  expect(Math.max(...white)).toBeLessThan(200);
+  // The judge measured 437 px; the TV covers its top here, so any column of white over 200 px (no art is) counts, but
+  // the ring's own sides at the window's edges.
+  const tall = white.flatMap((n, i) => (n >= 200 ? [Math.max(0, Math.round(column.x) - 2) + i] : []));
+  for (const x of tall) expect(Math.min(Math.abs(x - win.x), Math.abs(x - (win.x + win.width)))).toBeLessThanOrEqual(5);
   // Still a visible ring: on the room's window.
   expect(await page.locator(site.roomWindow).evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
 });
