@@ -201,8 +201,12 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     sides = { x0, x1, y1, y0 };
     onSides(x0, x1, y1, y0);
   };
+  // The window crops the room (a 412 px phone at 1×, OME-2234): say so, over its corner, so no one misses a sofa.
+  const hint = el("p", { className: "room-pan-hint", hidden: true, textContent: "Swipe sideways or tap Fit to see the whole room" }, "room-pan-hint");
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
+    const crops = zoom > minZoom(view) + 1e-6;
+    if (hint.hidden === crops) hint.hidden = !crops;
     pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
     if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom, pan.y);
@@ -253,7 +257,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   key("in", "Zoom in", "+", () => zoom * ZOOM_STEP);
   key("out", "Zoom out", "−", () => zoom / ZOOM_STEP);
   key("fit", "Fit the room", "Fit", () => minZoom(view));
-  clip.append(keys);
+  clip.append(keys, hint);
 
   /** When the last press in the window began (event time, ms). */
   let pressedAt = -Infinity;
@@ -476,6 +480,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).
       clip.style.visibility = on && h < windowMinH(w) ? "hidden" : "";
       keys.hidden = !on;
+      if (!on) hint.hidden = true;
       if (on) {
         apply();
         settleLabels();
