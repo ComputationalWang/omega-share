@@ -219,7 +219,8 @@
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
         "e2e/view-swap.e2e.ts",
-        "perf/view-swap.perf.ts"
+        "perf/view-swap.perf.ts",
+        "e2e/tag-clusters.e2e.ts"
       ],
       "why": "room core: stage, state, connection, layout, routes"
     },
