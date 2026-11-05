@@ -111,10 +111,10 @@ function sofa(k: Kit, c: RampName): void {
     if (f === "top") return [c, 0];
     const face: LFace = ne ? "back" : "front";
     // Tufts on the face the sitter leans on: the inner face (front) is what we see when the sofa faces the camera.
-    if (!ne && f === face && p.z > 10 && p.z < 18 && Math.abs(((p.x + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 11) % 4) - 2) < 0.6) return [c, 2];
+    if (!ne && f === face && p.z > 10 && p.z < 15 && Math.abs(((p.x + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 11) % 4) - 2) < 0.6) return [c, 2];
     return null;
   };
-  k.box(-7, 23, 5, 7, 5, 19, c, { paint: tuft, front: ne });
+  k.box(-7, 23, 5, 7, 5, 16, c, { paint: tuft, front: ne }); // as low as the armchair's (OME-2235)
 }
 
 /** Low lounge couch: a plinth, deep seat, two slouchy back cushions over a low frame, short bolster arms. */
@@ -127,14 +127,15 @@ function couch(k: Kit, c: RampName): void {
   const ne = k.dir === "ne" || k.dir === "nw";
   k.box(-8, 24, 5, 7, 6, 12, c, { front: ne });
   // Back cushions lean on the frame, taller than it, with a crease across the middle.
-  const crease: LPaint = (p, f) => (f === "top" ? [c, 0] : Math.abs(p.z - 12.5) < 0.5 ? [c, 2] : null);
-  k.box(-7, 7.4, 3, 6, 8, 17, c, { paint: crease, front: ne });
-  k.box(8.6, 23, 3, 6, 8, 17, c, { paint: crease, front: ne });
+  // OME-2235: 15, not 17, so a sitter seen from behind keeps ≥ 80 % of the torso over them.
+  const crease: LPaint = (p, f) => (f === "top" ? [c, 0] : Math.abs(p.z - 11.5) < 0.5 ? [c, 2] : null);
+  k.box(-7, 7.4, 3, 6, 8, 15, c, { paint: crease, front: ne });
+  k.box(8.6, 23, 3, 6, 8, 15, c, { paint: crease, front: ne });
   k.box(-8, -6, -7, 5, 6, 11, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null) });
   k.box(22, 24, -7, 5, 6, 11, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null), front: true });
 }
 
-/** Leather wingback reading chair: a back as high as the club sofa's (OME-2120: it was 27, and a sitter seen from behind showed
+/** Leather wingback reading chair: a back about as high as the club sofa's (OME-2120: it was 27, and a sitter seen from behind showed
  *  only hair), side wings, brass studs along the arm fronts, tapered legs. */
 function wingback(k: Kit, c: RampName): void {
   for (const [x, y] of [[-5, -5], [4, -5], [-5, 4], [4, 4]] as const) k.box(x, x + 1, y, y + 1, 0, 3, "wood");
@@ -151,14 +152,15 @@ function wingback(k: Kit, c: RampName): void {
   // Channel stitching down the back, on the side we see.
   const channels: LPaint = (p, f) => {
     if (f === "top") return [c, 0];
-    if ((f === "front" || f === "back") && p.z > 9 && p.z < 17 && Math.abs(((p.x + 8) % 3) - 1.5) < 0.4) return [c, 2];
+    if ((f === "front" || f === "back") && p.z > 9 && p.z < 15 && Math.abs(((p.x + 8) % 3) - 1.5) < 0.4) return [c, 2];
     return null;
   };
-  k.box(-6, 6, 4, 6, 6, 17, c, { paint: channels, front: ne });
-  k.box(-5, 5, 4, 6, 17, 19, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null), front: ne });
+  // OME-2235: 2 lower than OME-2120's, so the torso band stays ≥ 80 % visible from behind; the wings follow.
+  k.box(-6, 6, 4, 6, 6, 15, c, { paint: channels, front: ne });
+  k.box(-5, 5, 4, 6, 15, 17, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null), front: ne });
   const wing: LPaint = (_p, f) => (f === "top" ? [c, 0] : null);
   // Wings step down toward the front in three 1 px stairs, so they read as a curve at 1×.
-  for (const [y0, z1] of [[3, 17], [0.5, 15.5], [-1.5, 14]] as const) {
+  for (const [y0, z1] of [[3, 15], [0.5, 14], [-1.5, 13]] as const) {
     k.box(-6, -4.5, y0, 6, 12, z1, c, { paint: wing, front: ne });
     k.box(4.5, 6, y0, 6, 12, z1, c, { paint: wing, front: true });
   }
