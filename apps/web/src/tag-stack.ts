@@ -36,17 +36,22 @@ export interface Box {
   readonly y1: number;
 }
 
+/** Heads closer than this (stage px) to a tag than its owner's still count as a tie: avatars on one spot share their tags' spots. */
+const TIE = 4;
+
 /** The sideways nudges (stage px) a tag tries over its owner's head before it stacks away. */
 const NUDGES = [0, -16, 16];
 
 /**
- * Where each tag of height `h` goes so no two overlap and none covers a head, its owner's included (OME-2149,
- * OME-2172). A tag sits TAG_GAP above its owner's head, nudged sideways if that's taken; else it stacks upward over
- * what it hits. Only where that leaves `minY`–`maxY` (the shown room) does it hang under the feet, dropping under what
- * it hits or, past `maxY`, rising over it. A tag more than NEAR px off its owner's head is `led` (wears a leader pip).
+ * Where each tag of height `h` goes so no two overlap and none covers a head (its owner's included) or an `avoid` box
+ * (the screen, OME-2196) (OME-2149, OME-2172). A tag sits TAG_GAP above its owner's head, nudged sideways if that's
+ * taken; else it stacks upward over what it hits; else it hangs under the feet, nudged likewise. Each of those spots
+ * must lie in `minY`–`maxY` (the shown room) and nearer its owner's head than any other (OME-2196: in a cluster a tag
+ * stacked over the heads behind named the wrong avatar). Failing all, it stacks upward, or under the feet where that
+ * leaves the window, dropping under what it hits or, past `maxY`, rising over it. A tag more than NEAR px off its
+ * owner's head is `led` (wears a leader pip).
  */
 export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, minY = -Infinity, avoid: readonly Box[] = []): TagPlace[] {
-  void avoid;
   const out: TagPlace[] = tags.map(() => ({ dx: 0, dy: 0, led: false }));
   // Back row first, then left to right: the same tags stack the same way in any order.
   const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
@@ -55,7 +60,7 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
   /** What a tag at (x0, x1, y) would cover first: a tag placed before it, or a head. */
   const blocker = (x0: number, x1: number, y: number): Box | undefined => {
     const hit = (b: Box): boolean => x0 < b.x1 && b.x0 < x1 && y < b.y1 && b.y0 < y + h;
-    return placed.find(hit) ?? heads.find(hit);
+    return placed.find(hit) ?? heads.find(hit) ?? avoid.find(hit);
   };
   // Each hit moves the tag strictly one way, past a box it hit: at most one pass per box.
   const settle = (x0: number, x1: number, y0: number, down: boolean): number => {
@@ -70,10 +75,18 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
     const over = t.top - TAG_GAP - h;
     const x0 = t.x - t.w / 2;
     const x1 = t.x + t.w / 2;
-    let at = NUDGES.map((dx) => ({ dx, y: over })).find(({ dx, y }) => y >= minY && y + h <= maxY && blocker(x0 + dx, x1 + dx, y) === undefined);
+    /** A spot in the window, nearest its owner's head (within TIE). */
+    const mine = ({ dx, y }: { dx: number; y: number }): boolean => {
+      if (y < minY || y + h > maxY) return false;
+      const d = (o: TagBox): number => Math.hypot(o.x - t.x - dx, o.top + HEAD_H / 2 - y - h / 2);
+      const own = d(t);
+      return tags.every((o) => d(o) + TIE >= own);
+    };
+    const free = ({ dx, y }: { dx: number; y: number }): boolean => mine({ dx, y }) && blocker(x0 + dx, x1 + dx, y) === undefined;
+    const up = { dx: 0, y: settle(x0, x1, over, false) };
+    let at = NUDGES.map((dx) => ({ dx, y: over })).find(free) ?? (mine(up) ? up : NUDGES.map((dx) => ({ dx, y: t.y })).find(free));
     if (at === undefined) {
-      const up = settle(x0, x1, over, false);
-      if (up >= minY) at = { dx: 0, y: up };
+      if (up.y >= minY) at = up;
       else {
         const below = settle(x0, x1, t.y, true);
         // A tag that starts in the window ends in it (OME-2170); one whose owner is below the window leaves with them.
