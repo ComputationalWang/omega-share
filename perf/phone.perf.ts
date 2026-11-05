@@ -128,6 +128,13 @@ test("phone: frames per provider on a Pixel-class phone in the watch layout (8 a
         el.scrollIntoView({ block: "start" });
       });
       await expect(win).toBeInViewport();
+      if ((await lines.count()) === 0) {
+        // joinRoom joins in parallel: an observer that joins last sees no join lines, and an empty log has no area to
+        // be in the viewport (OME-2228). One line from a sender gives it one.
+        await senders[0]?.page.locator(site.chatInput).fill("seed");
+        await senders[0]?.page.locator(site.chatInput).press("Enter");
+        await expect(lines.first()).toBeAttached();
+      }
       await expect(observer.page.locator(site.chatLog)).toBeInViewport();
       await observer.page.waitForTimeout(CHAT_EVERY_MS);
     };
