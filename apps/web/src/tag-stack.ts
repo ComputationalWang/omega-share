@@ -103,9 +103,13 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
 /** The boxes (stage px) of the sprites marked `screen` (furniture.ts), each its frame around its anchor; `frame` gives a
  * loaded frame's size and anchor. Tags keep off them (OME-2196). */
 export function screenBoxes(sprites: readonly { readonly key: string; readonly x: number; readonly y: number; readonly screen?: true }[], frame: (key: string) => { w: number; h: number; ax: number; ay: number } | undefined): Box[] {
-  void sprites;
-  void frame;
-  return [];
+  return sprites.flatMap(({ key, x, y, screen }) => {
+    const f = screen === true ? frame(key) : undefined;
+    if (f === undefined) return [];
+    const x0 = x - f.ax * f.w;
+    const y0 = y - f.ay * f.h;
+    return [{ x0, x1: x0 + f.w, y0, y1: y0 + f.h }];
+  });
 }
 
 /** What `wearPlace` writes: a tag's or hit pad's style and classes. */

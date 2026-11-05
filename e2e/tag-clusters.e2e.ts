@@ -2,11 +2,13 @@
 // else's head than its own. Six members on a 2×3 block at 1280×800, Room view (the default) and the band: no two tags
 // overlap, and each tag is nearest its own owner's head.
 import { expect, test } from "./support/csp";
+import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { TAG_H, cellCenter } from "../apps/web/src/layout";
 import { HEAD_H, TAG_GAP } from "../apps/web/src/tag-stack";
+import { EMOTE_LIFT } from "../apps/web/src/walk/animator";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -55,15 +57,36 @@ async function clickCell(page: Client["page"], x: number, y: number): Promise<vo
   await page.mouse.click(box.left + p.x * box.k, box.top + p.y * box.k);
 }
 
-test("six tags on a 2×3 block: none overlap, each nearest its own head, in Room view and the band", async ({ browser }) => {
+test("six tags on a 2×3 block: none overlap, each nearest its own head, in Room view and the band", async ({ browser, request }) => {
   test.setTimeout(90_000);
-  clients = await joinRoom(browser, { roomUrl: testRoom("tag-clusters", "busy").url, count: 6, nicknamePrefix: "t", contextOptions: () => ({ viewport: { width: 1280, height: 800 } }) });
+  const room = testRoom("tag-clusters", "busy");
+  // A video playing: the Room view key shows (the band is the other choice), and Room view opens first at 1280 (OME-2195).
+  await shareVideo(request, room.id);
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 6, nicknamePrefix: "t", contextOptions: () => ({ viewport: { width: 1280, height: 800 } }) });
   const [watcher] = clients;
   if (watcher === undefined) throw new Error("no client");
+  await waitPlaying([watcher]);
   for (const [i, c] of clients.entries()) {
     const [x, y] = CELLS[i] ?? [3, 3];
     await clickCell(c.page, x, y);
   }
+  // Everyone is on their cell: stage.ts `head` is the anchor less the lift (a sitter's is lower: two cells have armchairs),
+  // the gap and the tag.
+  const want = CELLS.map(([x, y]) => cellCenter(x, y)).map((p) => `${String(Math.round(p.x))},${String(Math.round(p.y))}`).sort();
+  await expect
+    .poll(async () => {
+      const heads = await watcher.page.evaluate(() => {
+        const room = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { members: { id: string }[] } }; head: (id: string) => { x: number; y: number } | undefined };
+        return room.state().room.members.flatMap((m) => room.head(m.id) ?? []);
+      });
+      return heads
+        .map((h) => {
+          const at = (lift: number): string => `${String(Math.round(h.x))},${String(Math.round(h.y + lift + TAG_GAP + TAG_H))}`;
+          return want.includes(at(EMOTE_LIFT.sit)) ? at(EMOTE_LIFT.sit) : at(EMOTE_LIFT.idle);
+        })
+        .sort();
+    }, { timeout: 20_000 })
+    .toEqual(want);
   const settled = async (): Promise<Awaited<ReturnType<typeof tags>>> => {
     let t: Awaited<ReturnType<typeof tags>> = [];
     await expect
