@@ -158,6 +158,34 @@ describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => 
   });
 });
 
+describe("on a phone, the pan hint (OME-2234)", () => {
+  const hint = (clip: HTMLElement): HTMLElement => {
+    const h = clip.querySelector<HTMLElement>('[data-testid="room-pan-hint"]');
+    if (h === null) throw new Error("no pan hint");
+    return h;
+  };
+
+  test("a window that crops the room (412×839 phone, 1×) says it pans and how to see it all; Fit hides it", async () => {
+    const { win, clip, key } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    expect(hint(clip).hidden).toBe(false);
+    expect(hint(clip).textContent).toMatch(/swipe sideways.*fit/i);
+    key("fit").click();
+    expect(hint(clip).hidden).toBe(true);
+    key("in").click();
+    expect(hint(clip).hidden).toBe(false);
+  });
+
+  test("a window that holds the whole room, or one off the phone, has none", async () => {
+    const { win, clip } = await setup();
+    win.set(true, 900, 700);
+    expect(hint(clip).hidden).toBe(true);
+    win.set(true, VIEW.w, VIEW.h);
+    win.set(false, 960, 600);
+    expect(hint(clip).hidden).toBe(true);
+  });
+});
+
 describe("on a phone, edges", () => {
   test("the bubbles hear the label scale with the CSS, once per change", async () => {
     const { win, key, labels } = await setup();
