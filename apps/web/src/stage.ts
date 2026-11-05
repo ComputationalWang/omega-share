@@ -204,7 +204,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       ids.push(id);
       at.push(p);
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
-      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - liftOf(id) });
+      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - headOf(id) });
     }
     const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
     ids.forEach((id, i) => {
@@ -252,6 +252,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** Who arrives by a teleport pad (OME-1548) in the next placement; cleared once placed. */
   const teleporting = new Set<MemberId>();
   const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
+  /** A still tag's head top over its owner's point: a sitter's drawn hair or hat (OME-2252: the nominal lift left their tags
+   * 8–13 px over it and the front row's on the back row's chairs), else the nominal lift. */
+  const headOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? (view.headLift(id) ?? EMOTE_LIFT.sit) : EMOTE_LIFT.idle);
   /** A tag's place unstacked (a walker's): TAG_GAP over its owner's head (OME-2172). */
   const aboveHead = (id: MemberId): TagPlace => ({ dx: 0, dy: -(liftOf(id) + TAG_OFFSET_Y + TAG_GAP + TAG_H * labelK), led: false });
   /** Bubbles, badges and the emote wheel float over the head and the tag on it. */
