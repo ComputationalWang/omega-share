@@ -245,15 +245,17 @@ function roomViewFill(w: number, h: number, tv: Rect, controls: Rect, maxScale: 
   const clear = tv.y + tv.h + TV_BEZEL;
   for (let k = maxScale; k >= 1; k--) {
     const sw = ROOM_FILL_W * k;
-    const sh = (FLOOR_FOOT + 1 - ROOM_VIEW.y) * k;
+    const sh = (ROOM_FILL_FOOT - ROOM_VIEW.y) * k;
     const top = controls.y + controls.h + GAP;
     const x0 = Math.floor((w - sw) / 2);
     // The left wall's top where the TV's frame ends is y + (the box's half width - what of it the TV covers) / 2: as low
     // as a centred box needs, at least the middle of what's under the shelf, at most the column's foot.
     const y = Math.min(h - sh, Math.max(Math.floor((top + h - sh) / 2), Math.ceil(clear - (x0 + (sw / 2) - frameRight) / 2)));
-    const x = Math.max(x0, Math.ceil(2 * (clear - y) - sw / 2 + frameRight));
-    if (x + sw > w || y < top) continue;
-    const stage = { x, y, w: sw, h: sh };
+    const cx = Math.max(x0, Math.ceil(2 * (clear - y) - sw / 2 + frameRight)) + sw / 2;
+    // Short of width, the margins beside the walls' ends give way (QA OME-2239), never the walls: the box stays on the corner.
+    const bw = Math.min(sw, 2 * (w - cx));
+    if (bw < ROOM_WALLS.w * k || y < top) continue;
+    const stage = { x: cx - bw / 2, y, w: bw, h: sh };
     const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
     return { tv, controls, stage, scale: k, height: h, compact };
   }
@@ -503,6 +505,8 @@ export function seatsHome(points: readonly Point[], h: number, foot = SEAT_HIT_H
 export const BAND_WALL_TOP = 113;
 /** The floor's front corner (the front cell's foot): the lowest thing the room's shell shows (OME-2170). */
 export const FLOOR_FOOT = ORIGIN_Y + FLOOR_CELLS * TILE_H;
+/** Room view's room box's foot (QA OME-2239): the lowest name tag the floor can hold, on the front corner cell, under the floor's corner. */
+const ROOM_FILL_FOOT = FLOOR_FOOT - TILE_H / 2 + TAG_FOOT + 1;
 /** The band never fits the room below half size: shorter, it keeps the seats whole as before (OME-1864). */
 const BAND_MIN_FIT = 0.5;
 
@@ -525,8 +529,9 @@ export function bandHome(seats: readonly Point[], standing: readonly Point[], vi
   // A band that holds the room (bandFit), back wall's art to its foot, shows it all: from the north the lowest tag is
   // above the floor's front corner, and looking at the tags cut the front rows' furniture (OME-2170).
   const points = me === null ? [...seats, ...standing] : [...seats, ...standing, me];
-  // A band that holds the walls' tops too shows them (OME-2233): Room view's box is that tall.
-  if (points.length > 0 && roomFoot(points) - ROOM_VIEW.y <= view.h) return { x: STAGE_W / 2, y: (ROOM_VIEW.y + roomFoot(points)) / 2 };
+  // A band that holds the walls' tops too shows them from there (OME-2233): Room view's box is that tall, and its TV sits
+  // in the free corner above the left wall only with the corner at the box's top.
+  if (points.length > 0 && roomFoot(points) - ROOM_VIEW.y <= view.h) return { x: STAGE_W / 2, y: ROOM_VIEW.y + view.h / 2 };
   if (points.length > 0 && roomFoot(points) - BAND_WALL_TOP <= view.h) return { x: STAGE_W / 2, y: (BAND_WALL_TOP + roomFoot(points)) / 2 };
   const c = audienceHome(seats, standing, view.h);
   if (me === null) return c;
