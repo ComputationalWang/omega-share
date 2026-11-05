@@ -28,6 +28,12 @@ export const TAG_GAP = 2;
 /** A tag further than this (stage px) from its owner's head wears a leader pip (OME-2172). */
 const NEAR = 12;
 
+/** A tag's spot: its sideways move and its top (stage px). */
+interface Spot {
+  readonly dx: number;
+  readonly y: number;
+}
+
 /** A box on the stage (stage px). */
 export interface Box {
   readonly x0: number;
@@ -45,11 +51,11 @@ const NUDGES = [0, -16, 16];
 /**
  * Where each tag of height `h` goes so no two overlap and none covers a head (its owner's included) or an `avoid` box
  * (the screen, OME-2196) (OME-2149, OME-2172). A tag sits TAG_GAP above its owner's head, nudged sideways if that's
- * taken; else it stacks upward over what it hits; else it hangs under the feet, nudged likewise. Each of those spots
- * must lie in `minY`–`maxY` (the shown room) and nearer its owner's head than any other (OME-2196: in a cluster a tag
- * stacked over the heads behind named the wrong avatar). Failing all, it stacks upward, or under the feet where that
- * leaves the window, dropping under what it hits or, past `maxY`, rising over it. A tag more than NEAR px off its
- * owner's head is `led` (wears a leader pip).
+ * taken; else it stacks upward over what it hits; else it hangs under the feet, nudged likewise. Of those spots in
+ * `minY`–`maxY` (the shown room) it takes the first nearer its owner's head than any other (OME-2196: in a cluster a tag
+ * stacked over the heads behind named the wrong avatar), else the one nearest it by the most. With none in the window,
+ * it stacks upward, or under the feet where that leaves the window, dropping under what it hits or, past `maxY`,
+ * rising over it. A tag more than NEAR px off its owner's head is `led` (wears a leader pip).
  */
 export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, minY = -Infinity, avoid: readonly Box[] = []): TagPlace[] {
   const out: TagPlace[] = tags.map(() => ({ dx: 0, dy: 0, led: false }));
@@ -75,16 +81,19 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
     const over = t.top - TAG_GAP - h;
     const x0 = t.x - t.w / 2;
     const x1 = t.x + t.w / 2;
-    /** A spot in the window, nearest its owner's head (within TIE). */
-    const mine = ({ dx, y }: { dx: number; y: number }): boolean => {
-      if (y < minY || y + h > maxY) return false;
+    /** How much nearer its owner's head a spot is than any other head (negative: another is nearer; Infinity alone). */
+    const margin = ({ dx, y }: Spot): number => {
       const d = (o: TagBox): number => Math.hypot(o.x - t.x - dx, o.top + HEAD_H / 2 - y - h / 2);
       const own = d(t);
-      return tags.every((o) => d(o) + TIE >= own);
+      return tags.reduce((m, o, j) => (j === i ? m : Math.min(m, d(o) - own)), Infinity);
     };
-    const free = ({ dx, y }: { dx: number; y: number }): boolean => mine({ dx, y }) && blocker(x0 + dx, x1 + dx, y) === undefined;
     const up = { dx: 0, y: settle(x0, x1, over, false) };
-    let at = NUDGES.map((dx) => ({ dx, y: over })).find(free) ?? (mine(up) ? up : NUDGES.map((dx) => ({ dx, y: t.y })).find(free));
+    // Over the head, stacked upward, under the feet: the free ones in the window, the first nearest its owner's head, else
+    // the one nearest it by the most.
+    const spots = [...NUDGES.map((dx) => ({ dx, y: over })), up, ...NUDGES.map((dx) => ({ dx, y: t.y }))].filter(
+      (c) => c.y >= minY && c.y + h <= maxY && (c === up || blocker(x0 + c.dx, x1 + c.dx, c.y) === undefined),
+    );
+    let at = spots.find((c) => margin(c) + TIE >= 0) ?? spots.reduce<Spot | undefined>((b, c) => (b === undefined || margin(c) > margin(b) ? c : b), undefined);
     if (at === undefined) {
       if (up.y >= minY) at = up;
       else {
