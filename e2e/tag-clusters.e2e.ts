@@ -145,7 +145,7 @@ test("six seated in classic at 1280×800: each tag on its own head, none over an
           const r = e.getBoundingClientRect();
           return { name: e.querySelector(".tag-name")?.textContent ?? "", l: r.left, r: r.right, t: r.top, b: r.bottom };
         });
-        type B = { l: number; r: number; t: number; b: number };
+        interface B { l: number; r: number; t: number; b: number }
         const hit = (a: B, b: B): boolean => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
         const out: string[] = tags.length === 6 ? [] : [`${String(tags.length)} tags`];
         for (const t of tags) {
