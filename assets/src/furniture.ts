@@ -1897,11 +1897,16 @@ function partition(k: Kit, colour: string, cut: boolean): void {
   const band = colour === "panelglass" ? PANEL_BAND : PARTITION_BAND;
   const face = (f: LFace): boolean => f === "front" || f === "back";
   const wall: LPaint = (p, f) => (f === "top" ? ["wall", 0] : face(f) ? paint(p.x, p.z, lit, f === "back") : paint(p.y, p.z, !lit, false));
+  // OME-2259: a chair rail just under the top of a sill or stub (a dark groove, a lit lip, clear of the cap's overhang), so they
+  // don't read as flat slabs.
+  const railed = (top: number, base: LPaint): LPaint => (p, f) =>
+    f === "top" || p.z < top - 7 || p.z >= top - 2 ? base(p, f) : p.z < top - 5 ? ["wood", 2] : ["wood", face(f) === lit ? 0 : 1];
   // The wainscot without its panel inset, which a sill or a stub would cut in half.
   const wood: LPaint = (p, f) => (f === "top" ? ["wood", 0] : p.z < 5 ? ["wood", 2] : ["wood", face(f) === lit ? 1 : 2]);
   const frame = (z0: number, z1: number): void => { k.box(-8, 8, -T - 0.5, T + 0.5, z0, z1, "charcoal", { tones: { top: 1, sw: 2, se: 2 } }); };
   if (cut) {
-    k.box(-8, 8, -T, T, 0, glass ? PARTITION_STUB - 2 : PARTITION_STUB, "wood", { paint: wood });
+    const top = glass ? PARTITION_STUB - 2 : PARTITION_STUB;
+    k.box(-8, 8, -T, T, 0, top, "wood", { paint: railed(top, wood) });
     if (glass) frame(PARTITION_STUB - 2, PARTITION_STUB);
     return;
   }
@@ -1909,7 +1914,7 @@ function partition(k: Kit, colour: string, cut: boolean): void {
     k.box(-8, 8, -T, T, 0, WALL_H, "wall", { paint: wall });
     return;
   }
-  k.box(-8, 8, -T, T, 0, SILL, "wood", { paint: colour === "panelglass" ? wall : wood });
+  k.box(-8, 8, -T, T, 0, SILL, "wood", { paint: railed(SILL, colour === "panelglass" ? wall : wood) });
   frame(SILL, SILL + 2);
   // OME-2023: the pane's stripe is a muted sheen (base / shade), not the white highlight, so it doesn't streak across the beds.
   k.box(-8, 8, -0.5, 0.5, band[0], band[1], "glow", { tones: { top: 1, sw: 1, se: 2 } });

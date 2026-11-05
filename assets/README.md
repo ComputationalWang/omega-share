@@ -1438,6 +1438,11 @@ For the two-compartment rework (spike OME-1957, phase A; contract kind `partitio
   black cap, so the window still reads. **Unlike a door's open frame, a stub has its own tight rect and anchor** (the same floor point),
   so draw it as its own sprite at the cell instead of swapping the texture into the tall one.
 - **Doorway:** a plain gap in the row (OME-1958 dropped the doorframe variant). The wall ends show their wainscot end faces.
+- **Chair rail on sills and stubs (OME-2259):** every glass / panelglass sill and every cut stub carries the shell's chair rail just
+  under its top (a 2 px groove in wood shade, a 3 px lip in wood highlight on the lit face, 2 px clear of the black cap's overhang), in
+  the `back`, `cut` and turned (`furniture-back`) frames, so the Studio's and Penthouse's partitions no longer read as flat slabs. The
+  full solid / panel walls already had theirs. Bytes (gzip -6): `furniture-v6.png` +102, `furniture-v7.png` +57, `furniture-back.png`
+  +61, thumbs +3, `ui/edit.png` −7: **+216 B**.
 
 **The reworked preset's grid** (for OME-1960; `partitionPlan()` in `src/build.ts`, constants `PARTITION_ROW` / `PARTITION_GLASS` /
 `PARTITION_DOOR`). The bedroom is the far compartment, so from the one camera of phase A the beds are what you see through the glass,
