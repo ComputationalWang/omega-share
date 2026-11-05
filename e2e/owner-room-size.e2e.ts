@@ -182,7 +182,11 @@ const NARROW: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
 
 const targetSize = async (page: Page): Promise<string[]> => {
   const { violations } = await new AxeBuilder({ page }).include(site.room).withRules(["target-size"]).analyze();
-  return violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`));
+  const found = violations.flatMap((v) => v.nodes.map((n) => ({ target: String(n.target[0]), line: `${n.target.join(" ")}: ${n.failureSummary ?? ""}` })));
+  // axe ignores `pointer-events`: a tag the window crops is off to pointers by design (OME-1325, focus pans it into view),
+  // so it is no pointer target. exposedSmall checks every tag a pointer can reach (OME-2210).
+  const off = await page.evaluate((ts) => ts.map((t) => { const e = document.querySelector(t); return e !== null && getComputedStyle(e).pointerEvents === "none"; }), found.map((f) => f.target));
+  return found.filter((_, i) => off[i] !== true).map((f) => f.line);
 };
 
 /**
