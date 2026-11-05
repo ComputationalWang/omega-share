@@ -558,6 +558,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on);
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
+      // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
+      wrap.classList.toggle("is-tv-corner", "stage" in l && l.stage.y < l.tv.y + l.tv.h && l.stage.x < l.tv.x + l.tv.w);
       if ("stage" in l) {
         // In the band's top corner, over its backdrop beside the room.
         roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
@@ -586,11 +588,13 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           const video = tvBox.provider() !== null;
           const k = video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
-          const r = { x: Math.floor((w - sw) / 2), y: l.stage.y, w: sw, h: l.stage.h };
+          // Room view's box (OME-2233) keeps its place: centred where the TV clears the walls, else right of centre.
+          const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: l.stage.h };
           box(clip, r);
           // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
           clip.classList.toggle("is-bleed", r.w < w);
-          clip.style.setProperty("--bleed", `${String(Math.ceil((w - r.w) / 2))}px`);
+          clip.style.setProperty("--bleed-l", `${String(r.x)}px`);
+          clip.style.setProperty("--bleed-r", `${String(w - r.x - r.w)}px`);
           roomWindow.set(false, 0, 0);
           roomWindow.desk(k, r);
           stage.style.setProperty("--stage-scale", String(k));
@@ -601,6 +605,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       return;
     }
     roomViewKey.hidden = true;
+    wrap.classList.remove("is-tv-corner");
     const onPhone = phone.matches;
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))

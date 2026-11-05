@@ -88,7 +88,8 @@ describe("the Dank Dungeon's band (OME-1945)", () => {
 describe("the band's bleed (room.css)", () => {
   test("clipped to the column's edges, top and bottom at the band's; the dim's spread fills it", async () => {
     const css = await Bun.file(new URL("../src/room.css", import.meta.url)).text();
-    expect(css).toMatch(/\.stage-clip\.is-bleed \{ overflow: visible; clip-path: inset\(0 calc\(-1 \* var\(--bleed\)\)\); \}/);
+    // Each side its own (OME-2233): Room view's box can sit right of centre.
+    expect(css).toMatch(/\.stage-clip\.is-bleed \{ overflow: visible; clip-path: inset\(0 calc\(-1 \* var\(--bleed-r\)\) 0 calc\(-1 \* var\(--bleed-l\)\)\); \}/);
     expect(css).toMatch(/\.cinema-dim\.is-on \{[^}]*box-shadow: 0 0 0 100vmax rgb\(8 6 18 \/ 0\.45\)/);
   });
 });

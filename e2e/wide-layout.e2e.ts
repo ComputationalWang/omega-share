@@ -134,6 +134,16 @@ test("1280×800 with a video: a fresh visit opens in Room view; turned off, it s
   const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
   expect(47 * k).toBeGreaterThanOrEqual(40);
   for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow]) await inView(page, page.locator(l));
+  // OME-2233 (judge round 5): no empty strip between the TV and its shelf; the shelf tops the TV's side.
+  const tv = await box(page.locator(site.tv));
+  const shelf = await box(page.locator(".controls.ui-tv-shelf"));
+  expect(Math.abs(shelf.y - tv.y)).toBeLessThanOrEqual(2);
+  // The room shows from its walls' tops (stage y 60) to the floor's front corner (540): the band isn't cut at the top.
+  const win = await box(page.locator(site.roomWindow));
+  expect(win.height).toBeGreaterThanOrEqual((541 - 60) * k - 1);
+  expect(win.y).toBeGreaterThanOrEqual(shelf.y + shelf.height);
+  const top = await page.locator(`${site.roomWindow} .stage`).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).f);
+  expect(top).toBeGreaterThanOrEqual(-60 * k - 1);
 
   await key.click();
   await expect(key).toHaveAttribute("aria-pressed", "false");
@@ -191,9 +201,10 @@ for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["a
     const band = await box(page.locator(site.roomWindow));
     const column = await box(page.locator(".stage-wrap"));
     // The band's backdrop and dim bleed past the room's box to the column's edges.
-    const bleed = await page.locator(site.roomWindow).evaluate((el) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue("--bleed")) : 0));
-    expect(band.x - bleed).toBeLessThanOrEqual(column.x + 1);
-    expect(band.x + band.width + bleed).toBeGreaterThanOrEqual(column.x + column.width - 1);
+    // Each side bleeds its own width (OME-2233: Room view's box can sit right of centre).
+    const bleed = (side: "l" | "r"): Promise<number> => page.locator(site.roomWindow).evaluate((el, v) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue(v)) : 0), `--bleed-${side}`);
+    expect(band.x - (await bleed("l"))).toBeLessThanOrEqual(column.x + 1);
+    expect(band.x + band.width + (await bleed("r"))).toBeGreaterThanOrEqual(column.x + column.width - 1);
     // Once everyone has walked to their spot (a joiner walks in from the room's edge).
     await expect(async () => {
       for (const tag of await tags.all()) {
