@@ -98,14 +98,20 @@ export function createPortraitDock(o: PortraitDockOptions) {
   upNext.addEventListener("click", () => { open("queue", upNext); });
   chat.addEventListener("click", () => { open("chat", chat); });
   settings.addEventListener("click", () => { open("settings", settings); });
-  const viewport = (): void => {
-    if (!active) return;
+  /** Every viewport read comes before a write: a read after one forces a layout (OME-2265). */
+  const measure = (): { height: number; top: number; typing: boolean } => {
     const v = window.visualViewport ?? null;
-    o.root.style.setProperty("--portrait-height", `${String(v?.height ?? window.innerHeight)}px`);
-    o.root.style.setProperty("--portrait-top", `${String(v?.offsetTop ?? 0)}px`);
-    const typing = v !== null && v.scale === 1 && window.innerHeight - v.height > 100;
-    o.root.classList.toggle("portrait-typing", typing);
-    pictureScrollFocus(typing);
+    const inner = window.innerHeight;
+    return { height: v?.height ?? inner, top: v?.offsetTop ?? 0, typing: v !== null && v.scale === 1 && inner - v.height > 100 };
+  };
+  const show = (m: ReturnType<typeof measure>): void => {
+    o.root.style.setProperty("--portrait-height", `${String(m.height)}px`);
+    o.root.style.setProperty("--portrait-top", `${String(m.top)}px`);
+    o.root.classList.toggle("portrait-typing", m.typing);
+    pictureScrollFocus(m.typing);
+  };
+  const viewport = (): void => {
+    if (active) show(measure());
   };
   const resized = (): void => { viewport(); o.onViewport?.(); };
   window.visualViewport?.addEventListener("resize", resized);
@@ -115,6 +121,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
     keys, link, sheet, close,
     setActive(on: boolean): void {
       if (on === active) { if (on) viewport(); return; }
+      const m = on ? measure() : null;
       close();
       active = on;
       o.queueLayout?.(on);
@@ -123,7 +130,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
       document.body.classList.toggle("room-is-portrait", on);
       o.queue.classList.toggle("portrait-stowed", on);
       for (const node of o.settings) node.classList.toggle("portrait-stowed", on);
-      if (on) { o.composer.before(keys); o.composer.insertBefore(link, o.composer.querySelector(":scope > .chat-field, :scope > input")); viewport(); }
+      if (on) { o.composer.before(keys); o.composer.insertBefore(link, o.composer.querySelector(":scope > .chat-field, :scope > input")); if (m !== null) show(m); }
       else {
         link.remove();
         pictureScrollFocus(false);
