@@ -212,6 +212,19 @@ describe("stackTags: clusters and the screen", () => {
     });
   });
 
+  // The judge's observer (busy-dpr2-tall) stood in front of the block: no spot by Dee is nearest Dee, and the tag stacked
+  // over the heads and tags behind, by the screen. It takes the spot that names Dee best: under the feet.
+  test("where no spot is nearest its owner, the tag takes the one nearest by the most: under the feet, not over the heads behind", () => {
+    const tags = [...CELLS.map(([c, r], i) => member(cellCenter(c, r), [46, 32, 28, 32, 24, 30][i] ?? 30)), member({ x: cellCenter(5, 5).x - 31, y: cellCenter(5, 5).y + 80 }, 34)];
+    const placed = stackTags(tags, H);
+    expect(overlaps(tags, placed, H)).toEqual([]);
+    const dee = tags[3];
+    const p = placed[3];
+    if (dee === undefined || p === undefined) throw new Error("no Dee");
+    expect(dee.y + p.dy).toBeGreaterThanOrEqual(dee.top + HEAD_H);
+    expect(p.led).toBe(true);
+  });
+
   test("a tag whose spot over the head lies on the screen goes off it, by its owner", () => {
     const t = member({ x: 200, y: 300 }, 40);
     const screen = { x0: 150, x1: 260, y0: 160, y1: t.top - 4 };
