@@ -10,6 +10,7 @@ const ROOT = join(import.meta.dir, "..");
 interface Rect { x: number; y: number; w: number; h: number }
 interface Frame { frame: Rect; anchor: { x: number; y: number } }
 interface Seat { col: number; row: number; dir: string }
+interface Point { x: number; y: number }
 interface Piece { id: string; colours: string[]; seatsByDir?: Record<string, Seat[]>; layersByDir: Record<string, string[]> }
 interface Atlas { frames: Record<string, Frame>; meta: { image: string; omega: { pieces?: Piece[] } } }
 interface Sheet { atlas: Atlas; w: number; px: Uint8Array }
@@ -35,10 +36,10 @@ function sheet(file: string): Sheet {
 }
 
 /** Opaque pixels of a frame, as screen points relative to its anchor. */
-function ink(s: Sheet, key: string): { x: number; y: number }[] {
+function ink(s: Sheet, key: string): Point[] {
   const f = s.atlas.frames[key];
   if (!f) throw new Error(`no frame ${key}`);
-  const ax = Math.round(f.anchor.x * f.frame.w), ay = Math.round(f.anchor.y * f.frame.h), out: { x: number; y: number }[] = [];
+  const ax = Math.round(f.anchor.x * f.frame.w), ay = Math.round(f.anchor.y * f.frame.h), out: Point[] = [];
   for (let y = 0; y < f.frame.h; y++) for (let x = 0; x < f.frame.w; x++) {
     if ((s.px[(f.frame.y + y) * s.w + f.frame.x + x] ?? 0) !== 0) out.push({ x: x - ax, y: y - ay });
   }
@@ -53,7 +54,6 @@ const sitters = (who: string, dir: string): Point[][] => [
   ...Object.keys(avatars.atlas.frames).filter((k) => k.startsWith(`${who}/sit/${dir}/`)).map((k) => ink(avatars, k)),
   ...Object.keys(watching.atlas.frames).filter((k) => k.startsWith("watch/") && k.endsWith(`/${who}/${dir}/0`)).map((k) => ink(watching, k)),
 ];
-type Point = { x: number; y: number };
 
 /** Lowest share of the upper body left showing over every avatar, pose and seat of one `front` frame: rows above the seat
  *  surface, down from `top` (−Infinity: head and torso; −22: the torso band from the shoulders down). */
@@ -97,4 +97,3 @@ test("the measurement sees every armchair facing and every sofa colour and facin
   expect(fronts.length).toBe(4 + 4 * (2 + 2 + 1));
 });
 
-if (process.env.SEAT_REPORT) for (const [k, f, seats] of fronts) console.log(k, (minVisible(f, seats) * 100).toFixed(1), (minVisible(f, seats, -SEAT_HEIGHT - 14) * 100).toFixed(1));

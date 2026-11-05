@@ -171,6 +171,6 @@ function darkestFloorContrast(): { tile: string; ratio: number } {
 
 test("a dark-haired avatar on the darkest dungeon floor tile is ≥ 3:1 under the night mood (OME-2235)", () => {
   const { tile, ratio } = darkestFloorContrast();
-  if (process.env.SEAT_REPORT) console.log(tile, ratio.toFixed(2));
+  expect({ tile, ratio: Number(ratio.toFixed(2)) }).toEqual({ tile: "floor/carpet/0", ratio: 3.1 }); // assets/README.md records it
   expect(ratio).toBeGreaterThanOrEqual(3);
 });

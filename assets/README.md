@@ -178,7 +178,7 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 | `wall/corner` | | `(0,0)` | Top cap of the back corner. |
 | `wall/l/end`, `wall/r/end` | | `(0,9)`, `(9,0)` | Open wall ends at the front. |
 | `armchair/<ne\|nw>/back`, `…/front` | 52×36 | seat cell | Faces the TV (sitter seen from behind). Draw `back`, then the seated avatar, then `front`. Seat surface is 8 px above the anchor (`seatHeight`). |
-| `armchair/<se\|sw>/back`, `…/front` | 52×44 | seat cell | Faces the camera (sitter's face visible, use `sit/se` / `sit/sw`). Same three-layer draw; `front` is just the near armrest. For seats that face into the room rather than the TV. |
+| `armchair/<se\|sw>/back`, `…/front` | 52×41 | seat cell | Faces the camera (sitter's face visible, use `sit/se` / `sit/sw`). Same three-layer draw; `front` is just the near armrest. For seats that face into the room rather than the TV. |
 | `tv/0` | 162×62 | `(0,0)` | Corner media console with a little retro projector (lit lens, two film reels), a succulent and a tape stack. Since M1b the live screen is page chrome above the stage (ADR 0012, see *M1b TV frame* below), so there's no TV on the wall. |
 | `plant/0`, `lamp/0` | | any free cell | Floor props. |
 
@@ -1578,10 +1578,25 @@ smoked wood (`wood`) is the spa.
 
 **Contrast lift (OME-2197).** Under the `night` tint plus the cinema dim the shell sank to dark brown and navy at the default
 27 px avatar size. Now: the carpet is a lilac tweed flecked with the wainscot purple (was charcoal and brown), the deck is pale
-oak (`floor` ramp) with `wood` gaps (was smoked `wood` with charcoal gaps), and the panelling's boards and wainscot are one tone
+oak (`floor` ramp) with `wood` gaps (was smoked `wood` with charcoal gaps; both lifted again by OME-2235, below), and the panelling's boards and wainscot are one tone
 lighter on both faces (lit/unlit shading kept). The swap rooms' `pent`/`nook` floors reuse these tiles, so they lift too. Bytes:
 +157 B counted (judge): `furniture-v7.png` +65, `furniture-back.png` +65, `furniture-v8-shell.png` +11, `ui/edit.png` +13,
 `presets/thumbs/penthouse.png` +3. Art total 459 393 of 460 800 B; further art needs an ADR 0056 amendment first.
+
+**Dark hair reads on the darkest floor (OME-2235).** Measured by `src/dungeon2.test.ts`: the WCAG non-text contrast between
+`hairDark` base (`#3a2a2a`, Juno and Mo) and the mean relative luminance of each floor tile, both after the room's night multiply
+(`room.css` `.cinema-dim[data-mood="night"]`, rgb(36 48 110 / 0.5), which covers avatars and floor alike). Before → after:
+
+| Tile | Before | After |
+|---|---|---|
+| `floor/carpet/0`, `/1` (the darkest) | 1.71:1 | **3.10:1** |
+| `floor/deck/0`, `/1` | 2.59 / 2.80:1 | 3.24 / 3.25:1 |
+| `floor/split/0`, `/1` | 2.16 / 2.38:1 | 3.18 / 3.19:1 |
+
+The carpet is now `lilac` 0 flecked with `lilac` 1 (was `lilac` 2 flecked with `wall` 0), with the same gold veins. The deck is
+`floor` 0 slats with the odd `cream` 2 slat and `floor` 2 gaps and joints (was `floor` 1 / 0 slats, `wood` 2 gaps). The test fails below
+3:1. With a video playing, the cinema dim adds rgb(8 6 18 / 0.2), and the carpet measures 2.51:1 then (was 1.52:1). Lights-down is a deliberate
+state for every room, so the 3:1 bar is the room as it opens.
 
 The grid in the preview (`dungeon2Plan` in `src/build.ts`) is OME-1959's partition row, with `panel` cells, `panelglass` at
 cols 5–8 and the doorway at col 1. The other pieces:
@@ -1990,3 +2005,25 @@ eager unchanged. Source: `src/responsive.ts`. The proposal, CSS and mockups are 
   `{ avatar: 2 (mo), tint: 3, hair: 2, accessory: 5 (cap) }`, Pip = `{ avatar: 1 (pip), tint: 4, hair: 4, accessory: 6 (flower) }`.
 
 Net art bytes −326 B gz (all files under `assets/` except `src/`, `preview/` and this README).
+
+## Seated sitters stay visible (OME-2235)
+
+Judge round 5: Fay and Eli looked half-covered by the lounge's armchairs. `src/seat-visibility.test.ts` composites every avatar's
+`sit/<dir>` frames and its `watch/*/<dir>/0` poses at each seat of every armchair, sofa, couch and wingback `front` layer (seat offsets
+from `seatsByDir`), then counts the sitter's pixels above the seat surface that the `front` layer hides. Two shares, both ≥ 80 %:
+head + torso (everything above the seat), and the torso band alone (the 14 rows above the seat, so a big head of hair can't carry it).
+
+| Piece (worst facing: ne/nw, sitter seen from behind) | Head + torso, before → after | Torso band, before → after |
+|---|---|---|
+| room `armchair` | 95.6 → 100 % | 90.0 → 100 % |
+| `sofa` (both colours) | 95.6 → 100 % | 90.0 → 100 % |
+| `couch` (both colours) | 90.3 → 95.6 % | 77.9 → 90.0 % |
+| `wingback` | 89.5 → 94.8 % | 76.1 → 88.3 % |
+
+Camera-facing seats (se/sw) are 100 % in both before and after. The changes: the armchair's and the club sofa's backrest top is z 16
+(was 19), and their tufts stop at z 15. The couch's back cushions top out at 15 (was 17; the crease follows to 11.5). The wingback's back
+is 15 with its crown at 17 (was 17 / 19), and the wings step 15 / 14 / 13 (were 17 / 15.5 / 14). Same keys and anchors; `armchair/<se|sw>`
+is now 52×41 (was 52×44, anchor y 30/41), and `armchair/<ne|nw>` stays 52×36. Bytes (gzip -6) on top of the floor lift above, for the
+whole branch: `furniture.png` −310, `room.png` −29, `furniture-v8-shell.png` −64, `furniture-v7.png` +18, `furniture-back.png` +13,
+`ui/edit.png` +114, `presets/thumbs/dank-dungeon.png` +23, JSON and CSS −6: **−231 B** net. Previews: `preview/seats@4x.png`,
+`preview/furniture-room@2x.png`, `preview/dungeon2-room-night@1x.png` / `@2x`.

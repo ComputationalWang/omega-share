@@ -272,7 +272,7 @@ export function armchairSolids(dir: SeatDir): { back: Solid[]; front: Solid[] } 
     // Button tufts on the backrest's sitting face: sw (+v) when it faces NE, se (+u) when it faces SE.
     const along = facingCamera ? p.v : p.u;
     const face: Facing = facingCamera ? "se" : "sw";
-    if (f === face && p.z > 10 && p.z < 18 && Math.abs(((along + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 11) % 4) - 2) < 0.6) return ["velvet", 2];
+    if (f === face && p.z > 10 && p.z < 15 && Math.abs(((along + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 11) % 4) - 2) < 0.6) return ["velvet", 2];
     if (f === "top") return ["velvet", 0];
     return null;
   };
@@ -286,13 +286,13 @@ export function armchairSolids(dir: SeatDir): { back: Solid[]; front: Solid[] } 
     const cushion = B(-4, 4, -5, 4, 5, SEAT_HEIGHT, "velvet", { tones: { top: 0, sw: 1, se: 2 }, paint: seam });
     const armFar = B(-6, -4, -6, 7, 5, 11, "velvet", { paint: cap });
     const armNear = B(4, 6, -6, 7, 5, 11, "velvet", { paint: cap });
-    const backrest = B(-6, 6, 5, 7, 5, 19, "velvet", { paint: tuft });
+    const backrest = B(-6, 6, 5, 7, 5, 16, "velvet", { paint: tuft }); // OME-2235: low enough to show the sitter's back
     return { back: [...legs.slice(0, 2), base, cushion, armFar], front: [...legs.slice(2), armNear, backrest] };
   }
   // Facing SE: backrest on the far (−u) side, arms along u. Only the near (+v) arm draws over the sitter.
   const legs = [B(-6, -5, -5, -4, 0, 2, "wood"), B(-6, -5, 4, 5, 0, 2, "wood"), B(4, 5, -5, -4, 0, 2, "wood"), B(4, 5, 4, 5, 0, 2, "wood")];
   const base = B(-7, 6, -6, 6, 2, 5, "velvet", { paint: piping });
-  const backrest = B(-7, -5, -6, 6, 5, 19, "velvet", { paint: tuft });
+  const backrest = B(-7, -5, -6, 6, 5, 16, "velvet", { paint: tuft });
   const cushion = B(-5, 5, -4, 4, 5, SEAT_HEIGHT, "velvet", { tones: { top: 0, sw: 1, se: 2 }, paint: seam });
   const armFar = B(-7, 6, -6, -4, 5, 11, "velvet", { paint: cap });
   const armNear = B(-7, 6, 4, 6, 5, 11, "velvet", { paint: cap });
@@ -698,7 +698,8 @@ export function carpetTile(variant: number): (u: number, v: number) => Paint {
     const a = (((u + 2.2 * Math.sin((v * Math.PI) / 8)) % 16) + 16) % 16;
     const b = (((v + 8 + 2 * Math.sin((u * Math.PI) / 8 + 1)) % 16) + 16) % 16;
     if (a < 0.6 && b > 3 && b < 13) return ["mustard", 1]; // veins in short runs, not a full lattice
-    return hash(Math.floor((u + 8) * 2) + variant * 31, Math.floor((v + 8) * 2)) % 4 === 0 ? ["wall", 0] : ["lilac", 2];
+    // OME-2235: two steps up again (lilac 0, lilac 1 flecks), so dark hair on it is ≥ 3:1 under the night tint.
+    return hash(Math.floor((u + 8) * 2) + variant * 31, Math.floor((v + 8) * 2)) % 4 === 0 ? ["lilac", 1] : ["lilac", 0];
   };
 }
 
@@ -706,11 +707,12 @@ export function carpetTile(variant: number): (u: number, v: number) => Paint {
  *  oak, not the smoked wood, so avatars stand out on it under the night tint). */
 export function deckTile(variant: number): (u: number, v: number) => Paint {
   return (u, v) => {
-    if ((((v + 8) % 4) + 4) % 4 < 0.6) return ["wood", 2];
+    // OME-2235: the palest oak and floor-shade gaps, so dark hair on it is ≥ 3:1 under the night tint.
+    if ((((v + 8) % 4) + 4) % 4 < 0.6) return ["floor", 2];
     const lane = Math.floor((v + 8) / 4);
     const joint = -8 + ((lane * 5 + variant * 7 + 2) % 16);
-    if (Math.abs(u - joint) < 0.5) return ["wood", 2];
-    return ["floor", hash(lane + variant * 13, u < joint ? 0 : 1) % 3 === 0 ? 0 : 1];
+    if (Math.abs(u - joint) < 0.5) return ["floor", 2];
+    return hash(lane + variant * 13, u < joint ? 0 : 1) % 3 === 0 ? ["cream", 2] : ["floor", 0];
   };
 }
 
