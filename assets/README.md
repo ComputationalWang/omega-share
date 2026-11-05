@@ -2027,3 +2027,9 @@ is now 52×41 (was 52×44, anchor y 30/41), and `armchair/<ne|nw>` stays 52×36.
 whole branch: `furniture.png` −310, `room.png` −29, `furniture-v8-shell.png` −64, `furniture-v7.png` +18, `furniture-back.png` +13,
 `ui/edit.png` +114, `presets/thumbs/dank-dungeon.png` +23, JSON and CSS −6: **−231 B** net. Previews: `preview/seats@4x.png`,
 `preview/furniture-room@2x.png`, `preview/dungeon2-room-night@1x.png` / `@2x`.
+
+## Pip's beanie is pale blue (OME-2253)
+
+Judge round 8: in a 3× seated crop, Pip's cream beanie (42° hue) read close to a crowned Pip's gold crown (42°) and ginger hair (25°).
+The knit (`A` in `src/avatars.ts`) now uses the shared `glow` ramp (190–193°), ≥ 146° from both. The ribbed band and pom-pom still follow the
+shirt tint. No new colours. Net art +28 B (459 074 → 459 102 of 460 800, as `bun assets/src/build.ts` measures it).

@@ -259,7 +259,7 @@ const JUNO: AvatarDef = {
 const PIP: AvatarDef = {
   id: "pip",
   label: "Pip",
-  blurb: "Slouchy cream beanie with a pom-pom, round glasses, striped teal jumper.",
+  blurb: "Slouchy pale-blue beanie with a pom-pom, round glasses, striped teal jumper.",
   swatch: "teal",
   roles: {
     ...face("skinLight"),
@@ -269,7 +269,8 @@ const PIP: AvatarDef = {
     L: { ramp: "navy" },
     F: { ramp: "rust" },
     H: { ramp: "hairGinger", hi: true },
-    A: { ramp: "cream", hi: true },
+    // Pale-blue knit (OME-2253): cream sat within a few degrees of a crowned Pip's gold and ginger.
+    A: { ramp: "glow", hi: true },
     b: { ramp: "teal" },
     P: { ramp: "teal", hi: true },
     G: { ramp: "rust", tone: 2 },

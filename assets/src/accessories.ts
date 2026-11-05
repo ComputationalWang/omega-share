@@ -263,7 +263,7 @@ export const CAP: HatDef = { roles: CAP_ROLES, replaces: false, rows: (id, view)
 
 // ---------------------------------------------------------------- flower
 
-/** A pink bloom with a ginger heart and an olive leaf, tucked above the near ear: in Juno's hair, on Pip's cream beanie, on Mo's olive
+/** A pink bloom with a ginger heart and an olive leaf, tucked above the near ear: in Juno's hair, on Pip's pale-blue beanie, on Mo's olive
  *  hat, on Kiki's cream hair band (pink would sink into her pink hair).
  *  Worn over the avatar's own headwear, so nobody goes bare-headed. */
 const FLOWER_ROLES: RoleMap = {
