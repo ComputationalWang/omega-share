@@ -81,9 +81,10 @@ export interface RoomWindow {
   rehome(): void;
   /**
    * Off the phone (OME-1490): the room at `scale` in a `box` (CSS px, default its whole ROOM_VIEW); the wheel zooms it
-   * from there. A box smaller than the room (OME-1811's band) looks at the seats first, and a drag looks around.
+   * from there. A box smaller than the room (OME-1811's band) looks at the seats first, and a drag looks around. A band's
+   * `head` (stage px) lets it look that far over the room's top, at the sky over the walls (wheelView, OME-2241).
    */
-  desk(scale: number, box?: { readonly w: number; readonly h: number }): void;
+  desk(scale: number, box?: { readonly w: number; readonly h: number; readonly head?: number }): void;
   /** Where the window looks now (stage px, top-left), for checks. */
   readonly pan: () => Point;
 }
@@ -100,7 +101,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   const roomTopLeft: Point = { x: ROOM_VIEW.x, y: ROOM_VIEW.y };
   let deskView: DeskView = { zoom: storedZoom(DESK_ZOOM_STORAGE_KEY) ?? 1, pan: roomTopLeft };
   /** The room's box off the phone (CSS px): ROOM_VIEW at the fit, or a band smaller than the room (OME-1811). */
-  let deskBox = { w: 0, h: 0 };
+  let deskBox: { readonly w: number; readonly h: number; readonly head?: number } = { w: 0, h: 0 };
   /** Off the phone, whether the viewer moved the view (wheel, drag): until then it follows `home`, as the phone's does. */
   let deskMoved = false;
   const keys = el("div", { className: "room-zoom", hidden: true });

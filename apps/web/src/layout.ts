@@ -48,7 +48,8 @@ export interface Rect {
 
 /**
  * The part of the stage the page shows (OME-1050): full width, from 60 px (headroom for bubbles over the tallest wall
- * art, whose top is y 113) down past the caption rail (y 588). The rest is empty, so layouts fit this, not 960×600.
+ * art, whose top is y 113) down past the caption rail (y 588). The rest is empty, so layouts fit this, not 960×600. The
+ * walls themselves reach y 0: a band that holds the room looks over this top (ROOM_HEAD, OME-2241).
  */
 export const ROOM_VIEW: Rect = { x: 0, y: 60, w: STAGE_W, h: 532 };
 
@@ -235,26 +236,37 @@ export function wideLayout(width: number, height: number, provider: Provider | n
 const ROOM_FILL_W = ROOM_WALLS.w + 40;
 
 /**
+ * How far Room view's box drops under the shelf to clear the TV (OME-2241, judge round 6): sunk to the column's foot, it
+ * left a 100 px empty band between the shelf and the room. At most this, the walls' corner is under 60 px from the shelf.
+ */
+const ROOM_FILL_DROP = 40;
+
+/**
  * Room view where the column holds the whole room (OME-2233, judge round 5): the shelf tops the TV's side, and the room's
- * box, walls' tops to the floor's front corner, sits centred under the shelf where the TV clears the left wall, else lower,
- * then right, until it does. The walls are a ^ (corner at ROOM_VIEW's top, sloping 1:2 to their ends), so the TV takes the
- * free corner above the left wall: no strip beside the TV, no wall top under it. `null` where it doesn't fit.
+ * box, walls' tops (with ROOM_HEAD's sky over them, less where the column is short) to the lowest name tag, sits under the
+ * shelf, centred where the TV clears the left wall, else lower (ROOM_FILL_DROP at most), then right, as far as the walls'
+ * ends stay in the column. The walls are a ^ (corner at the stage's top, sloping 1:2 to their ends), so the TV takes the
+ * free corner above the left wall; past that the player hangs over the wall's top, by design (ADR 0058). `null` where it
+ * doesn't fit.
  */
 function roomViewFill(w: number, h: number, tv: Rect, controls: Rect, maxScale: number): RoomLayout | null {
   const frameRight = tv.x + tv.w + TV_BEZEL;
   const clear = tv.y + tv.h + TV_BEZEL;
   for (let k = maxScale; k >= 1; k--) {
     const sw = ROOM_FILL_W * k;
-    const sh = (ROOM_FILL_FOOT - ROOM_VIEW.y) * k;
     const top = controls.y + controls.h + GAP;
+    const head = Math.min(ROOM_HEAD * k, h - top - (ROOM_FILL_FOOT - ROOM_VIEW.y) * k);
+    const sh = (ROOM_FILL_FOOT - ROOM_VIEW.y) * k + head;
+    // The walls' corner (stage y 0) under the box's top.
+    const corner = head - ROOM_VIEW.y * k;
     const x0 = Math.floor((w - sw) / 2);
-    // The left wall's top where the TV's frame ends is y + (the box's half width - what of it the TV covers) / 2: as low
-    // as a centred box needs, at least the middle of what's under the shelf, at most the column's foot.
-    const y = Math.min(h - sh, Math.max(Math.floor((top + h - sh) / 2), Math.ceil(clear - (x0 + (sw / 2) - frameRight) / 2)));
-    const cx = Math.max(x0, Math.ceil(2 * (clear - y) - sw / 2 + frameRight)) + sw / 2;
+    // The left wall's top where the TV's frame ends is the corner + (the box's half width - what of it the TV covers) / 2:
+    // as low as a centred box needs, never above the shelf, nor past the drop or the column's foot.
+    const y = Math.min(h - sh, top + ROOM_FILL_DROP * k, Math.max(top, Math.ceil(clear - corner - (x0 + sw / 2 - frameRight) / 2)));
     // Short of width, the margins beside the walls' ends give way (QA OME-2239), never the walls: the box stays on the corner.
+    const cx = Math.min(w - (ROOM_WALLS.w * k) / 2, Math.max(x0, Math.ceil(2 * (clear - y - corner) - sw / 2 + frameRight)) + sw / 2);
     const bw = Math.min(sw, 2 * (w - cx));
-    if (bw < ROOM_WALLS.w * k || y < top) continue;
+    if (bw < ROOM_WALLS.w * k || head < 0) continue;
     const stage = { x: cx - bw / 2, y, w: bw, h: sh };
     const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
     return { tv, controls, stage, scale: k, height: h, compact };
@@ -507,6 +519,11 @@ export const BAND_WALL_TOP = 113;
 export const FLOOR_FOOT = ORIGIN_Y + FLOOR_CELLS * TILE_H;
 /** Room view's room box's foot (QA OME-2239): the lowest name tag the floor can hold, on the front corner cell, under the floor's corner. */
 const ROOM_FILL_FOOT = FLOOR_FOOT - TILE_H / 2 + TAG_FOOT + 1;
+/**
+ * How far over ROOM_VIEW's top a band that holds the room looks (stage px, OME-2241, judge round 6): the walls' art reaches
+ * the stage's top (the corner cap, y 0), and 8 px of sky over it. From ROOM_VIEW's top the walls read as cut flat.
+ */
+export const ROOM_HEAD = ROOM_VIEW.y + 8;
 /** The band never fits the room below half size: shorter, it keeps the seats whole as before (OME-1864). */
 const BAND_MIN_FIT = 0.5;
 
@@ -529,9 +546,9 @@ export function bandHome(seats: readonly Point[], standing: readonly Point[], vi
   // A band that holds the room (bandFit), back wall's art to its foot, shows it all: from the north the lowest tag is
   // above the floor's front corner, and looking at the tags cut the front rows' furniture (OME-2170).
   const points = me === null ? [...seats, ...standing] : [...seats, ...standing, me];
-  // A band that holds the walls' tops too shows them from there (OME-2233): Room view's box is that tall, and its TV sits
-  // in the free corner above the left wall only with the corner at the box's top.
-  if (points.length > 0 && roomFoot(points) - ROOM_VIEW.y <= view.h) return { x: STAGE_W / 2, y: ROOM_VIEW.y + view.h / 2 };
+  // A band that holds the walls' tops too shows them from there (OME-2233), with up to ROOM_HEAD of sky over them
+  // (OME-2241): Room view's box is that tall, and its TV sits in the free corner above the left wall.
+  if (points.length > 0 && roomFoot(points) - ROOM_VIEW.y <= view.h) return { x: STAGE_W / 2, y: Math.max(ROOM_VIEW.y - ROOM_HEAD, roomFoot(points) - view.h) + view.h / 2 };
   if (points.length > 0 && roomFoot(points) - BAND_WALL_TOP <= view.h) return { x: STAGE_W / 2, y: (BAND_WALL_TOP + roomFoot(points)) / 2 };
   const c = audienceHome(seats, standing, view.h);
   if (me === null) return c;
@@ -627,14 +644,15 @@ export interface DeskView {
 /**
  * The desktop wheel (OME-1490): the room fitted at `fit`, zoomed from `from` to `zoom` (clamped from the fit, 1, to
  * MAX_ZOOM) around `at` (px in the room's box): the stage point under `at` stays under it, and the view stays in ROOM_VIEW.
- * `view` is the room's box (CSS px): ROOM_VIEW at `fit`, or a band smaller than that (OME-1811).
+ * `view` is the room's box (CSS px): ROOM_VIEW at `fit`, or a band smaller than that (OME-1811). A band's `head` (stage px,
+ * ROOM_HEAD) lets it look that far over ROOM_VIEW's top, at the sky over the walls (OME-2241).
  */
-export function wheelView(fit: number, from: DeskView, at: Point, zoom: number, view: Size = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }): DeskView {
+export function wheelView(fit: number, from: DeskView, at: Point, zoom: number, view: Size & { readonly head?: number } = { w: ROOM_VIEW.w * fit, h: ROOM_VIEW.h * fit }): DeskView {
   const z = Number.isFinite(zoom) ? Math.max(1, Math.min(MAX_ZOOM, zoom)) : 1;
   const k0 = fit * from.zoom;
   const k1 = fit * z;
   const clamp = (v: number, lo: number, span: number, shown: number): number => Math.max(lo, Math.min(lo + Math.max(0, span - shown / k1), v));
-  return { zoom: z, pan: { x: clamp(from.pan.x + at.x / k0 - at.x / k1, ROOM_VIEW.x, ROOM_VIEW.w, view.w), y: clamp(from.pan.y + at.y / k0 - at.y / k1, ROOM_VIEW.y, ROOM_VIEW.h, view.h) } };
+  return { zoom: z, pan: { x: clamp(from.pan.x + at.x / k0 - at.x / k1, ROOM_VIEW.x, ROOM_VIEW.w, view.w), y: clamp(from.pan.y + at.y / k0 - at.y / k1, ROOM_VIEW.y - (view.head ?? 0), ROOM_VIEW.h + (view.head ?? 0), view.h) } };
 }
 
 /** A stage-space rect on the page. */

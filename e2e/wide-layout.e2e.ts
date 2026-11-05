@@ -167,6 +167,108 @@ test("1024×768 with a video: below 1100 px a fresh visit stays video first", as
   await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
 });
 
+/**
+ * The screenshot's rows and columns (DPR 1 contexts): `rows[i]` counts the pixels in [x0, x1) of row y0 + i that differ
+ * from `bg` (by more than 40 over the three channels); `white[j]` counts the near-white pixels (every channel ≥ 200) of
+ * column wx0 + j over [y0, y1). Decoded on a blank page of the same context.
+ */
+async function scan(page: Page, a: { x0: number; x1: number; y0: number; y1: number; bg: readonly [number, number]; wx0: number; wx1: number }): Promise<{ rows: number[]; white: number[] }> {
+  const png = (await page.screenshot()).toString("base64");
+  const blank = await page.context().newPage();
+  const out = await blank.evaluate(async ({ data, a }) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${data}`;
+    await img.decode();
+    const c = new OffscreenCanvas(img.width, img.height);
+    const g = c.getContext("2d");
+    if (g === null) throw new Error("no 2d");
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, img.width, img.height).data;
+    const at = (x: number, y: number): number[] => [...d.slice((y * img.width + x) * 4, (y * img.width + x) * 4 + 3)];
+    const bg = at(a.bg[0], a.bg[1]);
+    const rows: number[] = [];
+    for (let y = a.y0; y < a.y1; y++) {
+      let n = 0;
+      for (let x = a.x0; x < a.x1; x++) if (at(x, y).reduce((s, v, i) => s + Math.abs(v - (bg[i] ?? 0)), 0) > 40) n++;
+      rows.push(n);
+    }
+    const white: number[] = [];
+    for (let x = a.wx0; x < a.wx1; x++) {
+      let n = 0;
+      for (let y = a.y0; y < a.y1; y++) if (at(x, y).every((v) => v >= 200)) n++;
+      white.push(n);
+    }
+    return { rows, white };
+  }, { data: png, a });
+  await blank.close();
+  return out;
+}
+
+// OME-2241 (judge round 6 on OME-2061): Room view at 1280×800 left a ~520×100 px empty band between the shelf and the
+// room (the box sank to the column's foot so the TV cleared the left wall), and the walls' tops were cut flat at the box's
+// top. The room sits right under the shelf now, with sky over its walls. The player over the left wall's top is by design
+// (ADR 0058), not checked here.
+for (const preset of ["classic", "penthouse", "studio", "dank-dungeon"] as const) {
+  test(`1280×800 Room view, ${preset}: the walls' tops show with sky over them, no empty band between the shelf and the room`, async ({ browser, request }) => {
+    const name = `rv${preset}` as const;
+    const room = testRoom("wide", name);
+    await shareVideo(request, room.id);
+    const layout = presetFile(preset);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `wd${name}`, setup: (context) => showLayout(context, layout), contextOptions: () => DESKTOP(1280, 800) });
+    await waitPlaying(clients);
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "true");
+    const tv = await box(page.locator(site.tv));
+    const shelf = await box(page.locator(".controls.ui-tv-shelf"));
+    const win = await box(page.locator(site.roomWindow));
+    // The box is centred on the walls' corner (stage x 480), its tip the room's highest pixel; the sky's colour at the
+    // box's top beside it. The canvas ends at the stage's top, so no star is over the tip.
+    const shelfFoot = Math.ceil(shelf.y + shelf.height);
+    const top = Math.round(win.y);
+    const mid = Math.round(win.x + win.width / 2);
+    const { rows } = await scan(page, { x0: mid - 40, x1: mid + 40, y0: shelfFoot, y1: top + 120, bg: [Math.ceil(tv.x + tv.width + 8), top + 1], wx0: 0, wx1: 0 });
+    // Past the shelf's frame, the sky; then the room's first row.
+    const sky = rows.findIndex((n) => n === 0);
+    const first = shelfFoot + sky + rows.slice(sky).findIndex((n) => n > 0);
+    expect(sky).toBeGreaterThanOrEqual(0);
+    expect(first).toBeGreaterThanOrEqual(top + 8);
+    // Nothing but sky from the shelf to it, the width of the column right of the TV (the walls slope away from the tip): at
+    // most 60 px tall.
+    expect(first - (shelfFoot + sky)).toBeLessThanOrEqual(60);
+  });
+}
+
+// OME-2241 (judge r6): the walk floor's focus ring is the stage's size (960×600), so in a band only its left edge showed, a
+// 4 px white bar down the band. The ring is the room window's now, whole.
+test("1280×800 Room view, a busy room: the floor's focus ring outlines the room's window, no stray bar at the column's edge", async ({ browser, request }) => {
+  const room = testRoom("wide", "rvbusy");
+  await shareVideo(request, room.id);
+  const layout = presetFile("classic");
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 4, nicknamePrefix: "wdrvbusy", setup: (context) => showLayout(context, layout), contextOptions: () => DESKTOP(1280, 800) });
+  await waitPlaying(clients);
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "true");
+  // Keyboard modality, then the floor's focus (as walking with the arrow keys leaves it).
+  await page.keyboard.press("Shift");
+  const floor = page.locator(site.walkFloor);
+  await floor.focus();
+  expect(await floor.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  const win = await box(page.locator(site.roomWindow));
+  const column = await box(page.locator(".stage-wrap"));
+  const y0 = Math.ceil(win.y);
+  const y1 = Math.floor(win.y + win.height);
+  // Anywhere across the column: the bar was the stage's left edge, wherever the box puts it.
+  const { white } = await scan(page, { x0: 0, x1: 0, y0, y1, bg: [0, 0], wx0: Math.max(0, Math.round(column.x) - 2), wx1: Math.round(column.x + column.width) });
+  // The judge measured 437 px; the TV covers its top here, so any column of white over 200 px (no art is) counts, but
+  // the ring's own sides at the window's edges.
+  const tall = white.flatMap((n, i) => (n >= 200 ? [Math.max(0, Math.round(column.x) - 2) + i] : []));
+  for (const x of tall) expect(Math.min(Math.abs(x - win.x), Math.abs(x - (win.x + win.width)))).toBeLessThanOrEqual(5);
+  // Still a visible ring: on the room's window.
+  expect(await page.locator(site.roomWindow).evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
+});
+
 // OME-1811 (design OME-1799 §2, F2; OME-1809 item 3): the room was drawn at fractional scales (0.87× at 2560, 1.17× at
 // 1920), so its pixel rows doubled unevenly. On every large screen it's 1× or 2× now, nearest-neighbour, at DPR 1 and 2.
 for (const [name, w, h] of [["int1280", 1280, 800], ["int1920", 1920, 1080], ["int2560", 2560, 1440]] as const) {

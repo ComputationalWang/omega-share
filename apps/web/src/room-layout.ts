@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandFit, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
 
@@ -596,7 +596,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           clip.style.setProperty("--bleed-l", `${String(r.x)}px`);
           clip.style.setProperty("--bleed-r", `${String(w - r.x - r.w)}px`);
           roomWindow.set(false, 0, 0);
-          roomWindow.desk(k, r);
+          // A band may show the sky over the walls (OME-2241): its home does where it holds the whole room.
+          roomWindow.desk(k, video ? { ...r, head: ROOM_HEAD } : r);
           stage.style.setProperty("--stage-scale", String(k));
           band = video ? { scale: l.scale, h: l.stage.h, k } : null;
         }
