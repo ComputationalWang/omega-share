@@ -4,7 +4,7 @@ import { expect, test } from "bun:test";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
-import { colorIndex } from "./palette";
+import { PALETTE, colorIndex } from "./palette";
 
 const ROOT = join(import.meta.dir, "..");
 interface F { frame: { x: number; y: number; w: number; h: number }; anchor: { x: number; y: number } }
@@ -137,4 +137,40 @@ test("the glass partitions' stripe is a muted sheen, no white glow highlight str
     for (let y = 0; y < b.frame.h; y++) for (let x = 0; x < b.frame.w; x++) if (px(b.frame.x + x, b.frame.y + y) === white) hot++;
     expect(hot, `${colour}/${d}`).toBe(0);
   }
+});
+
+// OME-2235 (judge round 5): a dark-haired avatar reads on the Dank Dungeon's darkest floor tile under its night mood: WCAG
+// non-text contrast ≥ 3:1 between the hair's base tone and the tile's mean luminance, both after room.css's night multiply
+// (`.cinema-dim[data-mood="night"]`: rgb(36 48 110 / 0.5), the room as it opens; it covers the avatar and the floor alike).
+const NIGHT = { rgb: [36, 48, 110], a: 0.5 } as const;
+const nightLum = ({ r, g, b }: { r: number; g: number; b: number }): number => {
+  const lin = (c: number, k: number): number => {
+    const s = (c * (1 - NIGHT.a + (NIGHT.a * (NIGHT.rgb[k] ?? 0)) / 255)) / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r, 0) + 0.7152 * lin(g, 1) + 0.0722 * lin(b, 2);
+};
+function darkestFloorContrast(): { tile: string; ratio: number } {
+  const v7 = atlas("furniture/furniture-v7.json"), px = indexed("furniture/furniture-v7.png");
+  const hair = nightLum(PALETTE[colorIndex("hairDark", 1)] ?? { r: 0, g: 0, b: 0 });
+  let worst = { tile: "", ratio: Infinity };
+  for (const tile of ["carpet", "deck", "split"].flatMap((t) => [0, 1].map((n) => `floor/${t}/${String(n)}`))) {
+    const f = v7.frames[tile]?.frame;
+    if (!f) throw new Error(`no ${tile}`);
+    const lums: number[] = [];
+    for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) {
+      const i = px(x, y);
+      if (i !== 0) lums.push(nightLum(PALETTE[i] ?? { r: 0, g: 0, b: 0 }));
+    }
+    const floor = lums.reduce((s, l) => s + l, 0) / lums.length;
+    const ratio = (Math.max(floor, hair) + 0.05) / (Math.min(floor, hair) + 0.05);
+    if (ratio < worst.ratio) worst = { tile, ratio };
+  }
+  return worst;
+}
+
+test("a dark-haired avatar on the darkest dungeon floor tile is ≥ 3:1 under the night mood (OME-2235)", () => {
+  const { tile, ratio } = darkestFloorContrast();
+  if (process.env.SEAT_REPORT) console.log(tile, ratio.toFixed(2));
+  expect(ratio).toBeGreaterThanOrEqual(3);
 });
