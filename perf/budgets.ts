@@ -164,7 +164,7 @@ const ROOM_CLS_PROFILES = { desktop: "desktop Chromium", landscape: "Pixel 7 lan
 const ROOM_CLS: readonly Budget[] = Object.entries(ROOM_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.fsCls.${p}`, area: "Site", metric: `Cumulative Layout Shift in the room over a full-screen enter + exit, ${pl}`, docMetric: "Cumulative Layout Shift in the room over a full-screen enter + exit", unit: "score", limit: 0.01, comparator: "<" }));
 
 // OME-2261: layout shift loading a room cold, a returning guest (perf/room-cls.perf.ts).
-const COLD_CLS_PROFILES = { desktop: "desktop 1280×800", phone4x: "Pixel 7 at 4× CPU" } as const;
+const COLD_CLS_PROFILES = { desktop: "desktop 1280×800", phone4x: "Pixel 7 at 4× CPU", phoneLate: "Pixel 7 at 4× CPU, room chunk and server messages held 1.5 s (a late settle, OME-2281)", landscapeLate: "Pixel 7 landscape (915×412) at 4× CPU, the same late settle (OME-2281)" } as const;
 const COLD_CLS: readonly Budget[] = Object.entries(COLD_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.coldCls.${p}`, area: "Site", metric: `Cumulative Layout Shift loading a room cold, ${pl}`, docMetric: "Cumulative Layout Shift loading a room cold", unit: "score", limit: 0.05, comparator: "<" }));
 
 // OME-2261: join into the Theatre preset on a Pixel 7 at 4× CPU on Slow 4G (perf/join.perf.ts).
