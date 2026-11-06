@@ -20,7 +20,7 @@ beforeEach(() => {
 
 const div = (): HTMLElement => document.createElement("div");
 
-async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coarse?: boolean } = {}) {
+async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coarse?: boolean; portrait?: boolean } = {}) {
   const { createRoomLayout } = await import("../src/room-layout");
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
@@ -58,7 +58,7 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coar
     settings: [],
     phone: { matches: false },
     coarse: { matches: o.coarse === true },
-    portrait: { matches: false },
+    portrait: { matches: o.portrait === true },
     wide: { matches: o.wide === true },
     short: { matches: o.short === true },
     stageShown: () => true,
@@ -81,6 +81,32 @@ test("building the room's layout reads no window size", async () => {
     if (native !== undefined) Object.defineProperty(window, "innerWidth", native);
   }
   expect(reads).toBe(0);
+});
+
+// OME-2280: the stage hands over its seats inside the room's render, after it has written. Only the desktop band frames
+// them; any other refit there reads the wrap's size and forces a layout for nothing.
+test("new seats read no layout unless the band frames them", async () => {
+  const { layout, wrap } = await setup();
+  let reads = 0;
+  for (const k of ["clientWidth", "clientHeight"] as const) Object.defineProperty(wrap, k, { configurable: true, get: () => (reads++, 600) });
+  layout.seats([{ x: 10, y: 10 }], []);
+  expect(reads).toBe(0);
+});
+
+// OME-2280: on a phone the Room sheet starts under the picture. Measuring that in every fit (the first one runs inside the
+// room's render) forced a layout; it's measured when the sheet opens.
+test("a portrait fit measures the sheet's top only when the sheet opens", async () => {
+  const { layout, root, tv } = await setup({ portrait: true });
+  let reads = 0;
+  tv.tv.getBoundingClientRect = () => (reads++, new DOMRect(0, 0, 390, 220));
+  layout.syncPortrait();
+  layout.fit();
+  expect(layout.portraitOn()).toBe(true);
+  expect(reads).toBe(0);
+  layout.dock.link.click();
+  expect(layout.dock.sheet.open).toBe(true);
+  expect(reads).toBe(1);
+  expect(root.style.getPropertyValue("--portrait-sheet-top")).toMatch(/^\d+px$/);
 });
 
 describe("room layout", () => {
