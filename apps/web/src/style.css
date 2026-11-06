@@ -60,8 +60,6 @@ html[data-view]:not([data-booted]) .site-footer { visibility: hidden; }
 .skip-link:focus { top: max(8px, env(safe-area-inset-top)); }
 main:focus, .privacy h1:focus { outline: none; }
 /* Rooms panel lists (OME-409): the not-found page's too. The home page's own look is the Dusk block at the end. */
-.invite input { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--field-border); background: var(--bg); }
-.invite input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
 .room-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .room-list a { color: var(--accent); }
 .room-list .role, .room-list .count { color: var(--muted); font-size: 0.9em; }
@@ -362,18 +360,18 @@ legend { padding: 0; margin-bottom: 6px; }
 /* ---- The wide room page's frame (OME-642), here and not in room.css so it holds before the room chunk lands: main.ts
  * sets body.room-is-wide (and data-chrome) when it opens the room view, and main and the footer don't move (OME-2262). ---- */
 /* The page is the viewport: the room's column takes what the footer (Source, Privacy) leaves, the footer under it. */
-/* --wide-side: the chat column with the right notch inset. A phone held sideways (OME-1297, ≤ 500 px tall) gets 256 px:
+/* --wide-side: the panel column with the right notch inset, 300 px to 1279 px (Doorstep desk, OME-2306). A phone held sideways (OME-1297, ≤ 500 px tall) gets 256 px:
  * the field keeps 120 px beside the emote and send keys, and at 667 px the room's column still holds the 356 px picture.
  * The left inset pads the room's column. */
-body.room-is-wide { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
+body.room-is-wide { --wide-side: calc(300px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
 /* Up to 288 px when the room's column keeps the 356 px picture (OME-1595: the fields showed 15 characters at 740 px);
  * 288 still leaves Twitch's 534 px picture its column at 844 px. */
 @media (max-height: 500px) { body.room-is-wide { --wide-side: calc(clamp(256px, 100vw - 384px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 288px) + env(safe-area-inset-right, 0px)); } }
 /* Chrome zoom (OME-1667, board: "scalings on 2k"): from 1920×900 (1.5×) and 2560×1200 (2×, layout.ts chromeZoom) the
  * page is 1280's chrome, zoomed: every key at least 40 px. Not the stage, which scales itself; the shelf's zoom is
  * room-layout.ts's (it's placed in px). The chat column zooms its children, so its fixed box stays in page px. */
-body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(480px + env(safe-area-inset-right, 0px)); }
-body.room-is-wide[data-chrome="2"] { --wide-side: calc(640px + env(safe-area-inset-right, 0px)); }
+body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(450px + env(safe-area-inset-right, 0px)); }
+body.room-is-wide[data-chrome="2"] { --wide-side: calc(600px + env(safe-area-inset-right, 0px)); }
 /* From 1280 px the column is 360 px of 1280's chrome (OME-1804, design OME-1799 §2): at 320 the composer said "Press Enter to ch". */
 @media (min-width: 1280px) and (min-height: 501px) {
   body.room-is-wide { --wide-side: calc(360px + env(safe-area-inset-right, 0px)); }

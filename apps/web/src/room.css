@@ -504,15 +504,15 @@ body.room-is-pseudo-fs { overflow: hidden; }
 /* Editing, the column is the editor's sheet (OME-1927; every two-column screen since OME-2283: a column of its own beside
  * the room left the room 576×320 at 1280×800, 18 % of the screen). Done and the editor scroll as one, the room keeps the
  * left column for the clicks that place a piece. With People open the bar and the editor end it: only they show. */
-.room-side > .editor-panel:empty { display: none; }
-body.room-editing .room-side > :not(.edit-bar, .editor-panel, .people:has(> .edit-bar)), body.room-editing .room-side > .people > :not(.edit-bar, .editor-panel) { display: none; }
+.room-side :where(.room-panel, .panel-body) > .editor-panel:empty { display: none; }
+body.room-editing .room-side .room-panel > :not(.panel-room), body.room-editing .room-side .panel-room > :not(.edit-bar, .editor-panel) { display: none; }
 /* It scrolls with no bar of its own on most screens (OME-2301: at 1280×800 Who controls playback ran 54 px past the edge):
  * a 32 px fade says there is more, and the end padding lets the last card scroll clear of it (as .preset-list, OME-2284). */
 body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 44px; mask-image: linear-gradient(#000 calc(100% - 32px), transparent); }
 /* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
-body.room-editing .room-side > .edit-bar { display: contents; }
-body.room-editing .room-side > .edit-bar > * { flex: none; }
-body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
+body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar { display: contents; }
+body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > * { flex: none; }
+body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod-policy { order: 1; }
 .room-side .editor-panel { flex: none; }
 .room-side .editor-panel > .editor { margin: 0; }
 .room-side .editor-panel :is(.ui-tabs, .ui-tray, .editor-mood-options) { flex-wrap: wrap; }
@@ -527,19 +527,14 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
   .room-side .editor-panel .editor-mood-options > .ui-button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
   .room-side .editor-panel :is(.editor-mine, .editor-settings) > .ui-input { flex: 1 1 140px; min-width: 0; }
 }
-.room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
-.room-side > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.room-side :where(.room-panel, .panel-body) > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
+.room-side :where(.room-panel, .panel-body) > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* People open is the column's People tab (OME-1805): it has the log's height but three lines (OME-1842: with the log
  * gone only the field said there was a chat); Up next folds to its head, the invite steps aside (Copy is back with
  * People closed) and the owner's bar ends the tab (room-layout.ts), so People shows its look and first person at 1024×768. */
 .room-side.people-open { gap: 4px; }
-.room-side.people-open > .poll-card { display: none; }
-.room-side.people-open > .chat-log { flex: none; height: 76px; }
-.room-side.people-open > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form, .queue-next) { display: none; }
-.room-side.people-open > .invite { display: none; }
-/* 800 px tall or less, Up next's head steps aside too (as on a short screen): with CI's wider font it cut the first person. */
-@media (max-height: 800px) { .room-side.people-open > .queue-panel { display: none; } }
-.room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
+.room-side.people-open :where(.room-panel, .panel-body) > .poll-card { display: none; }
+.room-side.people-open :where(.room-panel, .panel-body) > .chat-log { flex: none; height: 76px; }
 /* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
  * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
  * finger (44 px keys) the name gets a line of its own too. */
@@ -566,15 +561,10 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
 /* An open poll (QA OME-1460): beside the owner's invite row and bar at 1280×720 it pushed Close poll and the composer
  * below the fold. Up next gives way first (down to its head, its content scrolling), then the card, its options
  * scrolling between its question and Close; the log keeps three lines. */
-@media (min-height: 501px) { .room-side.poll-open > .queue-panel { flex: 0 9 auto; min-height: 64px; } }
-.room-side.poll-open > .poll-card { flex: 0 1 auto; min-height: 0; }
-.room-side.poll-open > .chat-log { min-height: 60px; }
-.room-side > .poll-card > .poll-options { min-height: 0; overflow-y: auto; }
-/* An on-screen keyboard is up (room-layout.ts, OME-1297): the invite and Up next step aside unless you're typing in them. */
-.room-side.is-typing > :is(.invite, .queue-panel):not(:focus-within) { display: none; }
-/* Typing a link: the chat steps aside too, so Up next's field has the column. */
-.room-side.is-typing:has(> .queue-panel:focus-within) > :is(.chat-log, .chat, .chat-away) { display: none; }
-.room-side > .chat-away, .room-side > .room-away { max-width: none; }
+.room-side.poll-open :where(.room-panel, .panel-body) > .poll-card { flex: 0 1 auto; min-height: 0; }
+.room-side.poll-open :where(.room-panel, .panel-body) > .chat-log { min-height: 60px; }
+.room-side :where(.room-panel, .panel-body) > .poll-card > .poll-options { min-height: 0; overflow-y: auto; }
+.room-side :where(.room-panel, .panel-body) > .chat-away, .room-side > .room-away { max-width: none; }
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
 .room-side .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 .room-side .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
@@ -596,13 +586,11 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
   .room-side .ui-qempty > :first-child { display: none; }
   /* QA OME-1305: no 40 % cap; Up next sizes to its content, its list scrolling above a link field
    * that stays put (the portrait sheet's pattern). The field gets the row: the link glyph goes, Add keeps only its icon. */
-  .room-side > .queue-panel { display: flex; flex-direction: column; gap: 4px; flex-shrink: 1; min-height: 0; max-height: none; padding: 4px; overflow: hidden; }
+  .room-side :where(.room-panel, .panel-body) > .queue-panel { display: flex; flex-direction: column; gap: 4px; flex-shrink: 1; min-height: 0; max-height: none; padding: 4px; overflow: hidden; }
   /* Never under its head (Play next's 44 px key) and the link field's row: only the list gives way (OME-1841: the head row's
    * title line and a poll squeezed it until Add was clipped). */
-  .ui-touch .room-side > .queue-panel { min-height: 112px; }
+  .ui-touch .room-side :where(.room-panel, .panel-body) > .queue-panel { min-height: 112px; }
   /* An open poll has the room instead (as on a tall screen, QA OME-1460): Up next gives way to its head, count included. */
-  .room-side.poll-open > .queue-panel { min-height: 0; }
-  .room-side.poll-open > .queue-panel :is(.queue-content > :not(.queue-head), .queue-form) { display: none; }
   .room-side .queue-panel > * { flex: none; }
   /* The head is one row: its glyph goes, "Up next" stays beside the count (OME-1841: "0 / 20" alone named nothing). */
   .room-side { gap: 4px; }
@@ -612,7 +600,7 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
    * chat line). */
   .room-side .queue-head > h3 { flex: none; white-space: nowrap; }
   /* The log takes what's left but keeps three lines (QA OME-1309); past that Up next shrinks, its list scrolling. */
-  .room-side > .chat-log { flex: 1 1 0; min-height: 60px; }
+  .room-side :where(.room-panel, .panel-body) > .chat-log { flex: 1 1 0; min-height: 60px; }
   .room-side .queue-panel > .queue-content { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; }
   .room-side .queue-content > * { flex: none; }
   /* The list scrolls, not its box: an empty queue leaves no scroll region without a focusable stop (axe). */
@@ -630,28 +618,18 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
   /* OME-1841: the footer's 44 px row gives the room window its height (it showed a 76 px strip); its pages, Source
    * included, are in Help, the "?" key at the head of the chat column (help/dialog.ts). */
   body.room-is-wide > .site-footer { display: none; }
-  /* The head row with the invite's Copy key (Copy is how a phone shares the link), its label beside it (OME-1841: a bare
-   * grey Copy said nothing). The title has the line above to itself, so it isn't cut to "QA own…" by the keys. */
+  /* The head row heads the column; the title has the line above to itself, so it isn't cut to "QA own…" by the keys. */
   .room-side { padding-inline: 4px max(4px, env(safe-area-inset-right)); }
   .room-side > .room-top { flex-wrap: wrap; align-items: center; gap: 4px; }
   .room-side > .room-top > .room-title { order: -1; flex: 1 1 100%; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
-  .room-side > .room-top > .invite { display: contents; }
   /* Leave takes the camera key's place in the column's one head row (OME-1967); /snap still works, as in portrait. */
   .room-side > .room-top > .snap-key { display: none; }
-  .room-side > .room-top .invite-note { order: 1; flex: 1 1 100%; margin: 0; font-size: 12px; }
-  .room-side > .room-top > .invite > input { display: none; }
-  .room-side > .room-top > .invite > label { font-size: 12px; white-space: nowrap; }
-  /* People open is the column's tab (OME-1841): Up next steps aside too, or People squeezed it until its field and Add
-   * were clipped. */
-  .room-side.people-open > :is(.queue-panel, .chat-log) { display: none; }
-  /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
-  body:not(.room-editing) .room-side:not(.people-open) > :is(.edit-bar, .room-foot) { display: none; }
   /* The tray scrolls in half the screen, so the piece's keys, Mood and Save are a short scroll away. */
-  .room-side > .editor-panel .ui-tray { max-height: 50dvh; overflow: hidden auto; }
+  .room-side :where(.room-panel, .panel-body) > .editor-panel .ui-tray { max-height: 50dvh; overflow: hidden auto; }
   /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */
   .room-side.people-open { overflow-y: auto; overscroll-behavior: contain; }
-  .room-side.people-open > .people { flex: none; overflow: visible; }
-  .room-side.people-open > .chat { position: sticky; bottom: 0; z-index: 1; margin-top: auto; background: var(--bg); box-shadow: 0 12px 0 var(--bg), 0 -4px 0 var(--bg); }
+  .room-side.people-open :where(.room-panel, .panel-body) > .people { flex: none; overflow: visible; }
+  .room-side.people-open :where(.room-panel, .panel-body) > .chat { position: sticky; bottom: 0; z-index: 1; margin-top: auto; background: var(--bg); box-shadow: 0 12px 0 var(--bg), 0 -4px 0 var(--bg); }
   .room-side.is-typing > .room-top:not(:focus-within) { display: none; }
   /* CI's wider fonts (DejaVu) need ~133 px for 15 characters: every px of the row goes to the field. */
   .room-side .chat { gap: 2px; }
@@ -815,83 +793,34 @@ body.room-is-portrait { height: 100dvh; overflow: hidden; }
 /* A downward swipe in the room must not pull-to-refresh it mid-video (OME-1240); pinch zoom is unaffected. */
 :root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
 body.room-is-portrait > main { max-width: none; padding: 0; }
-/* The footer's links live in the Room sheet (OME-1846, design OME-1799 §2), not in a cramped line under the dock. */
 body.room-is-portrait > .site-footer { display: none; }
-.portrait-sheet-content > .site-footer { margin: 4px 0; padding: 0; text-align: left; font-size: max(12px, 0.85rem); }
-/* The room is a touch surface even with a mouse (.ui-touch): each link a 44 px key, as on a touch screen (style.css). */
-.portrait-sheet-content > .site-footer a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; vertical-align: middle; }
-.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: var(--portrait-height, 100dvh); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
+/* When the picture's floors, the room strip's 96 px and the panel don't all fit, this page box scrolls as the page does
+ * (HANDOFF "Layout": never an inner cinema or chat box); the tabs and the composer stay docked at its foot. */
+.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: var(--portrait-height, 100dvh); box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden auto; overscroll-behavior: contain; }
 .room-portrait > * { flex: none; }
 .room-portrait > .tv-hint { margin-inline: 8px; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
 /* The camera key (OME-1565) would wrap a long title off the portrait bar and push the room out; /snap still works. */
 .room-portrait .room-top > .snap-key { display: none; }
 .room-portrait .room-top > .snap-key + .ui-button { margin-left: auto; }
-.room-portrait > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.room-portrait > .stage-wrap:not(.is-fs) { flex: 2 1 0; min-height: var(--portrait-room-min, 0px); overflow: hidden; }
 .room-portrait > .status:empty, .room-portrait > .editor-panel:empty, .room-portrait > .room-bar:empty { display: none; }
-/* The strip sizes to its lines, up to 76 px: one line (the owner's hint) mustn't leave a dark band over it (QA OME-2186). */
-.room-portrait > .chat-log { max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
-/* Focused (a Tab stop, QA OME-1614), an empty strip still shows as a 44 px target. */
-.room-portrait > .chat-log:focus { min-height: 44px; }
-/* A short portrait phone (360×640, OME-1612): the strip would leave the room ~100 px, so it's only visually hidden (still
- * the live log for screen readers); the Chat key's sheet shows it and bubbles show in the room. Typing, or under 500 px
- * (a keyboard's resize, no room window left), or focused (it's a Tab stop, QA OME-1614), it's back. */
-@media (min-height: 501px) and (max-height: 700px) {
-  .room-portrait:not(.portrait-typing) > .chat-log:not(:focus) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
-}
-/* No chat yet: the empty strip would read as a dark band under the room (QA OME-2186), so the room takes its height
- * until the first line. Only visually hidden, so it stays the live log and a Tab stop, as above. */
-.room-portrait:not(.portrait-typing) > .chat-log:empty:not(:focus) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
-.room-portrait > .chat { margin: 0; gap: 4px; padding: 4px; min-width: 0; }
+.room-portrait .room-panel > .chat { margin: 0; gap: 4px; padding: 4px 0; min-width: 0; }
 .room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
 /* The field stays 16 px (no iOS zoom); its hint is 14 px so "Say something…" fits at 360 px, and ellipsizes, never cuts mid-letter (OME-1597). */
 .room-portrait .chat input::placeholder { font-size: 14px; }
 .room-portrait .chat input { text-overflow: ellipsis; }
 .room-portrait .chat > .ui-button { flex: none; min-width: 44px; min-height: 44px; padding-inline: 6px; }
-.room-portrait .portrait-keys { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; }
-.room-portrait .portrait-keys .ui-button { flex: 1; min-height: 44px; }
-.room-portrait > .portrait-stowed { display: none; }
-.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 0; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px max(8px, env(safe-area-inset-bottom)); overflow: hidden; }
-.portrait-sheet[open] { display: flex; flex-direction: column; }
-.portrait-sheet::backdrop { background: transparent; }
-.portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
-.portrait-sheet-head h2 { flex: 1; margin: 0; font-size: 18px; }
-.portrait-sheet-head .ui-button { min-height: 44px; }
-.portrait-sheet-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
-.portrait-sheet-content > .chat-log { flex: 1; min-height: 0; max-height: none; }
-.portrait-sheet-content > .chat { margin: 4px 0 0; flex: none; }
-.portrait-sheet-content > .queue-panel { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 4px; margin: 0; padding: 4px; }
-.portrait-sheet .queue-head { flex-wrap: wrap; }
-.portrait-sheet .ui-qlist { flex: 1; min-height: 0; overflow-y: auto; }
-.portrait-sheet .ui-qrow { min-height: 44px; }
-.portrait-sheet .queue-form { flex: none; gap: 4px; }
-.portrait-sheet .queue-form input { font-size: 16px; }
-.portrait-sheet .ui-qx, .portrait-sheet .queue-move { min-width: 44px; min-height: 44px; }
-.portrait-sheet-content > .portrait-stowed { margin: 4px 0; }
 .room-portrait.portrait-typing { padding-top: 0; }
-.room-portrait.portrait-typing > .room-top, .room-portrait.portrait-typing > .portrait-keys { display: none; }
 .room-portrait.portrait-typing .stage-clip, .room-portrait.portrait-typing .controls { visibility: hidden; }
-.room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
-.room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
-.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top)); }
-@media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
+.room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); min-height: 0; max-height: calc(var(--portrait-height) - 180px); overflow: auto; overscroll-behavior: contain; }
+.room-portrait.portrait-typing > .room-top:not(:focus-within), .room-portrait.portrait-typing .panel-head:not(:focus-within) { display: none; }
 
 .room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
 .room-portrait .chat .emote-picker { flex: none; }
 .room-portrait .chat input { min-width: 140px; }
 .room-portrait .ui-wheel-slot { width: 44px; height: 44px; }
-/* One frame around a sheet leaves room for its fixed paste row when the keyboard is up. */
-.portrait-sheet { --ui-px: 1px; background: var(--ui-panel); }
-.portrait-sheet-content > .queue-panel { border: 0; }
 
-/* Raster faces remain on top; solid underpaint gives contrast tools the same palette as the artwork. */
-.portrait-sheet .queue-form .ui-button:not(:disabled) { background-color: var(--ui-accent); background-clip: padding-box; }
-/* Match the fresh cream and settled night card interiors without painting faded words-only lines. */
-.portrait-sheet .ui-fs-line { background-clip: padding-box; }
-.portrait-sheet .ui-fs-line:not(.is-settled):not(.is-faded) { background-color: #f4ead2; }
-.portrait-sheet .ui-fs-line.is-settled,
-.portrait-sheet .chat-log:hover .ui-fs-line.is-faded,
-.portrait-sheet .chat-log:focus-within .ui-fs-line.is-faded { background-color: #343766; }
 /* Scrolling uses the physical button box, so a focused shelf key brings its whole touch target into view. */
 .room-portrait .controls .ui-button.icon { flex: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
 /* OME-1845: the portrait shelf fits the screen instead of scrolling (a scrolled row hid the duration under the full-screen
@@ -911,15 +840,8 @@ body.room-is-portrait > .site-footer { display: none; }
 /* Keep the list's close toggle and a complete wrapped chat line reachable while the keyboard is open. */
 .room-portrait.portrait-typing:has(> .people:not([hidden])) > .room-top,
 .room-portrait.portrait-typing > .room-top:focus-within { display: flex; }
-.room-portrait.portrait-typing:has(> .people:not([hidden])) > .chat-log { min-height: 64px; }
 
-/* Only the queue content scrolls in sheets. The paste row needs no keyboard-size inference. */
 .queue-content { display: contents; }
-.portrait-sheet-content > .queue-panel.portrait-stowed { margin: 0; }
-.portrait-sheet .queue-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; }
-.portrait-sheet .queue-content > * { flex: none; }
-.portrait-sheet .queue-content .ui-qlist { max-height: none; overflow: visible; }
-.portrait-sheet .queue-form .ui-button { min-width: 44px; min-height: 44px; }
 /* A tag the phone window crops (room-window.ts) is off to pointers, pad and all; focus still reaches it and pans it whole. */
 .tags.pickable .tag.is-cropped, .tags.pickable .tag-pad.is-cropped { pointer-events: none; }
 /* Free walking (OME-1350): the floor layer under the seat keys; a blocked click or step flashes not-allowed. */
@@ -991,3 +913,40 @@ body.room-is-portrait > .site-footer { display: none; }
 }
 /* OME-1845: the wheel chip's key digit (9 px in reference.css) at 12 px; its 2× key face holds it. */
 .emote-picker .ui-kbd.is-small { font-size: var(--text-xs); }
+
+/* ---- The Doorstep desk panel (OME-2306, docs/design/site-redesign-2/HANDOFF.md "Layout"): the invite heads it on its
+ * ticket, then Chat / Up next / Room (room-panel.ts), the composer at its foot. One panel: the wide page's column, else
+ * right under the room. ---- */
+.room-panel { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.room-panel > * { flex: none; margin: 0; }
+.panel-head > .invite { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; margin: 0; }
+.panel-head > .invite > label { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--ui-muted); }
+/* The link on the atlas ticket at 16 px (no iOS focus zoom); it fades at its end rather than cut a letter in half. */
+.panel-head > .invite > input.ui-ticket { box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding-block: 0; font: 600 16px/1 ui-monospace, monospace; text-overflow: ellipsis; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+.panel-head > .invite > input.ui-ticket:focus { -webkit-mask-image: none; mask-image: none; }
+.panel-head > .invite > input.ui-ticket:focus-visible { outline: 3px solid var(--ui-accent, #f4cd83); outline-offset: 2px; }
+.panel-head > .invite > .invite-copy { min-width: 44px; min-height: 44px; }
+.panel-head > .invite > .invite-note { grid-column: 1 / -1; font-size: 12px; }
+.panel-tabs { display: flex; gap: 4px; }
+.panel-tabs > .ui-tab { flex: 1 1 0; justify-content: center; min-width: 0; min-height: 44px; font-size: 14px; }
+.panel-tabs > .ui-tab:focus-visible { outline: 3px solid var(--ui-accent, #f4cd83); outline-offset: 2px; }
+.panel-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.panel-body[hidden] { display: none; }
+.panel-body > * { flex: none; margin: 0; }
+.panel-body > .queue-panel { margin: 0; }
+.panel-room > .site-footer { margin: 4px 0; padding: 0; text-align: left; font-size: max(12px, 0.85rem); }
+.panel-room > .site-footer a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; vertical-align: middle; }
+/* The wide column (from 1024 px): the panel fills it; its open tab takes the height, the log or the tab's content scrolling. */
+.room-side > .room-panel { flex: 1 1 auto; }
+.room-side .panel-body:not([hidden]) { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+.room-side .panel-chat:not([hidden]) { overflow: hidden; }
+.room-side .panel-queue > .queue-panel { flex: 1 1 auto; }
+/* Below 1024 px the panel is a sheet under the room strip: its content scrolls inside (at least 128 px), its tabs sit
+ * right over the docked composer (D: 48 px keys, 3 px over and 4 px under them, a 1 px rule). */
+.room-portrait > .room-panel { flex: 1 1 0; min-height: calc(128px + 168px); padding: 0 8px; }
+.room-portrait .room-panel > .panel-body:not([hidden]) { flex: 1 1 0; min-height: 128px; overflow-y: auto; overscroll-behavior: contain; }
+.room-portrait .room-panel > .panel-body > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; margin: 0; }
+.room-portrait .room-panel > .panel-tabs { position: sticky; bottom: 56px; z-index: 2; padding-top: 4px; background: var(--bg); }
+.room-portrait .room-panel > .chat { position: sticky; bottom: 0; z-index: 2; box-sizing: border-box; min-height: 56px; padding: 3px 0 4px; border-top: 1px solid #3a3452; background: var(--bg); }
+.room-portrait.portrait-typing > .room-panel { min-height: 0; }
+.room-portrait.portrait-typing .room-panel > .panel-tabs { display: none; }

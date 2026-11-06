@@ -65,7 +65,9 @@ for (const { name, w, h, touch } of SIZES) {
     const tv = await box(page.locator(site.tv));
     if (w >= 1024) {
       expect(p.x, "the panel is a column right of the picture").toBeGreaterThanOrEqual(tv.x + tv.width);
-      expect(p.width).toBe(w < 1280 ? 300 : 360);
+      // 300 px to 1279, 360 above: of 1280's chrome, which a 1920×1080 page zooms 1.5× (OME-1667).
+      const chrome = Number(await page.evaluate(() => document.body.dataset["chrome"] ?? "1"));
+      expect((await box(page.getByTestId("room-side"))).width).toBe((w < 1280 ? 300 : 360) * chrome);
     } else {
       expect(p.y, "the panel under the room strip").toBeGreaterThanOrEqual(win.y + win.height - 1);
       const tabs = await box(page.getByRole("tablist", { name: "Room panel" }));

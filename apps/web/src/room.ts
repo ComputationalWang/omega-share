@@ -445,10 +445,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onProvider: () => {
       layout.fit();
     },
-    // Upright on a phone the field is in the Up next sheet: the composer's Link key opens it with the field focused.
+    // The curtain's link opens Up next with its field focused.
     onCurtain: () => {
-      if (layout.portraitOn()) layout.dock.link.click();
-      else queuePanel.root.querySelector("input")?.focus();
+      layout.panel.select("queue");
+      queuePanel.root.querySelector("input")?.focus();
     },
   });
   const { tv, controls } = tvBox;
@@ -522,7 +522,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Over my own head when it's in the room's window; else (watch-only, panned away, room popped out) docked. It may
     // overlap the TV and its shelf (it's brief): a scaled-down stage alone rarely has 196 px above a head.
     locate: () => {
-      if (layout.portraitOn() && (layout.dock.sheet.open || opts.root.classList.contains("portrait-typing"))) return null;
+      if (layout.portraitOn() && opts.root.classList.contains("portrait-typing")) return null;
       const visible = (r: DOMRect): Rect => {
         const x = Math.max(0, r.left);
         const y = Math.max(0, r.top);
@@ -853,8 +853,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     side,
     ownerBar: editBar,
     editorPanel,
-    // The footer joins the Room sheet on a phone or tablet held upright (OME-1846); room.css hides it under the dock.
-    settings: [editBar, tvBox.personal, invite, cards.foot, ...document.querySelectorAll<HTMLElement>("body > .site-footer")],
     foot: cards.foot,
     phone,
     coarse,
@@ -1482,10 +1480,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
     if (cards.reportOpen() || help.isOpen()) return;
-    if (layout.dock.sheet.open) {
-      if (ev.target instanceof Node && picker.root.contains(ev.target) && picker.key(ev)) ev.preventDefault();
-      return;
-    }
     // Esc ends the first-visit tour and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
     // Tab peeks full screen's hidden chat (OME-1668), so it can take the focus; focus elsewhere lets it go again.

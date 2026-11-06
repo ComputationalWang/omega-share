@@ -4,32 +4,6 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 beforeAll(() => { GlobalRegistrator.register(); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-test("sharing opens the existing queue in a sheet and closing returns focus to its link key", async () => {
-  const { createPortraitDock } = await import("../src/portrait-dock");
-  const root = document.createElement("section");
-  const log = document.createElement("ol");
-  log.setAttribute("role", "log");
-  log.setAttribute("aria-live", "polite");
-  const composer = document.createElement("form");
-  const field = document.createElement("input");
-  composer.append(field);
-  const queue = document.createElement("section");
-  const url = document.createElement("input");
-  queue.append(url);
-  root.append(log, composer, queue);
-  document.body.replaceChildren(root);
-  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
-  dock.setActive(true);
-  dock.link.click();
-  expect(dock.sheet.open).toBe(true);
-  expect(dock.sheet.contains(queue)).toBe(true);
-  expect(document.activeElement).toBe(url);
-  dock.close();
-  expect(queue.parentElement).toBe(root);
-  expect(document.activeElement).toBe(dock.link);
-  expect(log.getAttribute("aria-live")).toBe("polite");
-});
-
 test("portrait room gives up its crop height before pushing the composer below the viewport", async () => {
   const { portraitLayout } = await import("../src/layout");
   const full = portraitLayout(360, 430, null, false);
@@ -40,41 +14,6 @@ test("portrait room gives up its crop height before pushing the composer below t
   expect(keyboard.controls.h).toBe(0);
   expect(keyboard.tv.h).toBe(203);
   expect(keyboard.height).toBe(260);
-});
-
-test("joining portrait immediately docks the panel keys above the composer", async () => {
-  const { createPortraitDock } = await import("../src/portrait-dock");
-  const root = document.createElement("section");
-  const log = document.createElement("div");
-  const composer = document.createElement("form");
-  const queue = document.createElement("section");
-  root.append(log, composer, queue);
-  document.body.replaceChildren(root);
-  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
-  dock.setActive(true);
-  expect(composer.previousElementSibling).toBe(dock.keys);
-});
-
-test("the sheet wraps Tab from its last field to Close and ignores an old close event after reopening", async () => {
-  const { createPortraitDock } = await import("../src/portrait-dock");
-  const root = document.createElement("section");
-  const log = document.createElement("div");
-  const composer = document.createElement("form");
-  const queue = document.createElement("section");
-  const url = document.createElement("input");
-  queue.append(url);
-  root.append(log, composer, queue);
-  document.body.replaceChildren(root);
-  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
-  dock.setActive(true);
-  dock.link.click();
-  dock.close();
-  dock.link.click();
-  dock.sheet.dispatchEvent(new Event("close"));
-  expect(dock.sheet.contains(queue)).toBe(true);
-  url.focus();
-  url.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
-  expect(document.activeElement).toBe(dock.sheet.querySelector('[data-testid="portrait-sheet-close"]'));
 });
 
 test("viewport resize and scroll keep the portrait dock above the keyboard, then restore on rotation", async () => {
@@ -89,7 +28,7 @@ test("viewport resize and scroll keep the portrait dock above the keyboard, then
     const queue = document.createElement("section");
     root.append(log, composer, queue);
     document.body.replaceChildren(root);
-    const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+    const dock = createPortraitDock({ root });
     dock.setActive(true);
     viewport.height = window.innerHeight - 300;
     viewport.dispatchEvent(new Event("resize"));
@@ -121,7 +60,7 @@ test("focusing a portrait shelf key asks the browser to expose its whole box, wi
   // the committed CI hit probes verify actual scroll geometry and touch delivery.
   let requested: ScrollIntoViewOptions | boolean | undefined;
   mute.scrollIntoView = (options) => { requested = options; };
-  const dock = createPortraitDock({ root, log, composer, queue, shelf, settings: [] });
+  const dock = createPortraitDock({ root, shelf });
   dock.setActive(true);
   mute.focus();
   expect(requested).toEqual({ block: "nearest", inline: "nearest" });
@@ -148,7 +87,7 @@ test("the keyboard portrait picture can receive scroll focus and restores its or
     pictureRegion.tabIndex = -1;
     root.append(pictureRegion, log, composer, queue);
     document.body.replaceChildren(root);
-    const dock = createPortraitDock({ root, log, composer, queue, pictureRegion, settings: [] });
+    const dock = createPortraitDock({ root, pictureRegion });
     dock.setActive(true);
     viewport.height = window.innerHeight - 300;
     viewport.dispatchEvent(new Event("resize"));
@@ -167,23 +106,6 @@ test("the keyboard portrait picture can receive scroll focus and restores its or
 });
 
 // OME-1586: the message field sits in a `.chat-field` wrapper with the palette key; the link key still leads it.
-test("the link key goes before the field's wrapper when the field is wrapped", async () => {
-  const { createPortraitDock } = await import("../src/portrait-dock");
-  const root = document.createElement("section");
-  const log = document.createElement("ol");
-  const composer = document.createElement("form");
-  const wrap = document.createElement("span");
-  wrap.className = "chat-field";
-  wrap.append(document.createElement("input"));
-  composer.append(wrap);
-  const queue = document.createElement("section");
-  root.append(log, composer, queue);
-  document.body.replaceChildren(root);
-  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
-  dock.setActive(true);
-  expect(dock.link.nextElementSibling).toBe(wrap);
-});
-
 test("the portrait room marks the body, so its page rules need no body:has() (OME-1755)", async () => {
   const { createPortraitDock } = await import("../src/portrait-dock");
   const root = document.createElement("section");
@@ -192,7 +114,7 @@ test("the portrait room marks the body, so its page rules need no body:has() (OM
   const queue = document.createElement("section");
   root.append(log, composer, queue);
   document.body.replaceChildren(root);
-  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+  const dock = createPortraitDock({ root });
   dock.setActive(true);
   expect(document.body.classList.contains("room-is-portrait")).toBe(true);
   dock.setActive(false);
@@ -217,7 +139,7 @@ test("docking reads the viewport before it writes any class or style", async () 
     const queue = document.createElement("section");
     root.append(log2, composer, queue);
     document.body.replaceChildren(root);
-    const dock = createPortraitDock({ root, log: log2, composer, queue, settings: [], queueLayout: () => { log.push("write queue"); } });
+    const dock = createPortraitDock({ root, queueLayout: () => { log.push("write queue"); } });
     const write = (what: string) => (target: object, key: string): void => {
       const fn: unknown = Reflect.get(target, key);
       if (typeof fn !== "function") throw new Error(key);

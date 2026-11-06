@@ -7,8 +7,9 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
+import { createRoomPanel, type RoomPanel } from "./room-panel";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
 
 /** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
@@ -101,8 +102,6 @@ export interface RoomLayoutOptions {
   /** The owner's bar (Edit room, Who controls playback) and the editor's panel under it. */
   readonly ownerBar: HTMLElement;
   readonly editorPanel: HTMLElement;
-  /** What the portrait dock's settings sheet holds. */
-  readonly settings: readonly HTMLElement[];
   readonly phone: { readonly matches: boolean };
   /** A coarse pointer: touch hit areas (.ui-touch) even past the phone layout's width (QA OME-1324 G1). */
   readonly coarse: { readonly matches: boolean };
@@ -133,7 +132,8 @@ export interface RoomLayout {
   /** Portrait follows the state: true if it changed (then refit). */
   readonly syncPortrait: () => boolean;
   readonly portraitOn: () => boolean;
-  readonly dock: ReturnType<typeof createPortraitDock>;
+  /** The invite, the Chat / Up next / Room tabs and the composer (OME-2306). */
+  readonly panel: RoomPanel;
   /** A new layout's seats and standing spots: the phone's window looks at the seats, the band at both (OME-1843). */
   readonly seats: (points: readonly Point[], standing: readonly Point[]) => void;
   /** I sat down: the phone's window centres on my seat. */
@@ -352,25 +352,36 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (!on) focusBefore = null;
   };
 
-  const dock = createPortraitDock({ root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: o.settings, onViewport: () => { fit(); tvBox.place(); }, beforeOpen: () => { placeSheet(); } });
-  /** The Room sheet starts under the picture. Read only while it shows: a fit that read it forced a layout (OME-2280). */
-  const placeSheet = (): void => {
-    root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
-  };
+  const dock = createPortraitDock({ root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, onViewport: () => { fit(); tvBox.place(); } });
+  // The Doorstep desk panel (OME-2306): the invite on top, then Chat / Up next / Room, the composer at its foot. One
+  // panel for every layout: the wide page's right-hand column, else right under the room.
+  const panel = createRoomPanel({
+    onSelect: () => {
+      o.hint.dismiss();
+      fit();
+    },
+  });
+  // The site's footer joins the Room tab while the page is the viewport (OME-1846): under the dock it never shows.
+  const footer = document.querySelector<HTMLElement>("body > .site-footer");
+  const footerHome = document.createComment("site footer home");
+  footer?.before(footerHome);
   let portraitOn = false;
-  // Wide: People takes the log's place in the chat column while open (OME-1805), never above the TV.
-  // Portrait dock (a phone, or a tablet since OME-1802): under the picture, so the TV stays put and the room gives way.
+  // Wide: People takes the log's place in the Chat tab while open (OME-1805), never above the TV.
+  // Below the wide page: under the picture, so the TV stays put and the room gives way.
   const placePeople = (two: boolean): void => {
     if (two && fs.mode() === "off") chatLog.root.before(o.people);
     else if (portraitOn) wrap.after(o.people);
     else o.roomTop.after(o.people);
   };
   const syncPortrait = (): boolean => {
-    const on = o.portrait.matches && fs.mode() === "off" && o.stageShown();
+    const on = !wide.matches && fs.mode() === "off" && o.stageShown();
     if (on === portraitOn) return false;
     portraitOn = on;
     dock.setActive(on);
+    if (footer !== null) {
+      if (on) panel.panels.room.append(footer);
+      else footerHome.after(footer);
+    }
     placePeople(wide.matches);
     return true;
   };
@@ -384,67 +395,49 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       for (const h of held) h.e.scrollTop = h.foot ? h.e.scrollHeight : h.top;
     };
   };
-  let sideTabOn = false;
-  // Tall, the owner's bar ends People inside its scroll while it's open (OME-1842: beside it, it left People ~110 px);
-  // short, the column scrolls as one, the bar and Report room after People (OME-1841).
-  const placeTabFoot = (): void => {
-    if (!sideTabOn) return;
-    // Only if it moves: a move resets the bar's focus and scroll.
-    if (!o.short.matches && !o.people.hidden) {
-      if (o.people.lastElementChild !== o.ownerBar) o.people.append(o.ownerBar);
-    } else if (o.people.nextElementSibling !== o.ownerBar) o.people.after(o.ownerBar);
-    // The editor follows its Done key (OME-1927): short, under the room it was off-screen, the floor filling the column;
-    // tall, a column of its own beside the room left the room 18 % of a 1280×800 screen (OME-2283).
-    if (o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
-    if (o.short.matches && o.editorPanel.nextElementSibling !== o.foot) o.editorPanel.after(o.foot);
-  };
-  new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
+  // People opens on the Chat tab, where it takes the log's place.
+  new MutationObserver(() => {
+    if (!o.people.hidden && panel.root.contains(o.people)) panel.select("chat");
+  }).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
   // Classes, not .room-side:has(): that re-styled the column on every chat line put in its log (OME-1985).
   const markSide = (): void => {
-    side.classList.toggle("people-open", o.people.parentElement === side && !o.people.hidden);
-    side.classList.toggle("poll-open", o.poll.parentElement === side && !o.poll.hidden);
+    side.classList.toggle("people-open", side.contains(o.people) && !o.people.hidden);
+    side.classList.toggle("poll-open", side.contains(o.poll) && !o.poll.hidden);
   };
   const sideWatch = new MutationObserver(markSide);
-  sideWatch.observe(side, { childList: true });
+  sideWatch.observe(panel.panels.chat, { childList: true });
   for (const e of [o.people, o.poll]) sideWatch.observe(e, { attributes: true, attributeFilter: ["hidden"] });
-  /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
+  /** Put the panel and what it holds where this screen keeps them; full screen takes the chat into its strip. */
   const placeChat = (): void => {
-    dock.close();
     syncPortrait();
     const two = wide.matches;
     root.classList.toggle("room-wide", two);
     // room.css's page rules key on this, not body:has(): that re-styled the page on every chat line (OME-1755).
     document.body.classList.toggle("room-is-wide", two);
     side.hidden = !two;
-    // Wide: the room's placeholder, the invite and Up next head the chat column; otherwise they're back in the page's flow.
-    // Short (a phone held sideways, OME-1595): the head row and the invite's Copy key share the column's first row, so
-    // the left column's height goes to the picture and the floor.
-    if (two && o.short.matches) {
-      side.prepend(roomAway, o.roomTop, queuePanel.root);
-      o.roomTop.prepend(invite);
-    } else root.prepend(o.roomTop);
-    // Short and wide, the foot gives the room window its row too (OME-1841): it ends the People tab instead (below).
-    if (o.foot.parentElement === side) side.after(o.foot);
-    if (two && !o.short.matches) side.prepend(roomAway, invite, queuePanel.root);
-    else if (!two) {
-      wrap.after(roomAway);
-      notice.after(invite);
-      tvBox.personal.after(queuePanel.root);
-    }
-    // Wide, the owner's bar ends the People tab (below, OME-1842): under the stage it cost the owner half the room
-    // (OME-1301), above People it left People ~110 px. Short, Report room joins it (OME-1841). Full screen, under Up next.
-    const sideTab = two && fs.mode() === "off";
-    if (side.contains(o.editorPanel) && !sideTab) wrap.after(o.editorPanel);
-    if (two && !sideTab) queuePanel.root.after(o.ownerBar);
-    else if (!sideTab) o.editorPanel.before(o.ownerBar);
+    // Short and wide (a phone held sideways, OME-1595): the head row heads the column, so the left column's height
+    // goes to the picture and the floor.
+    if (two && o.short.matches) side.prepend(roomAway, o.roomTop);
+    else root.prepend(o.roomTop);
+    if (two && !o.short.matches) side.prepend(roomAway);
+    else if (!two) wrap.after(roomAway);
+    if (two) side.append(panel.root);
+    else notice.after(panel.root);
+    if (invite.parentElement !== panel.head) panel.head.append(invite);
+    if (queuePanel.root.parentElement !== panel.panels.queue) panel.panels.queue.append(queuePanel.root);
+    const room = panel.panels.room;
+    if (o.ownerBar.parentElement !== room) room.prepend(o.ownerBar, o.editorPanel, tvBox.personal);
+    if (o.foot.parentElement !== room) o.editorPanel.after(o.foot);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
-    else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
-    else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
-    else notice.after(o.poll, chatLog.root, chatForm, chatAway);
+    else {
+      panel.panels.chat.append(o.poll, chatLog.root, chatAway);
+      panel.root.append(chatForm);
+    }
+    // The wide panel's tabs head it; below, they sit right over the docked composer (HANDOFF "Layout").
+    if (two) panel.head.after(panel.tabs);
+    else panel.panels.room.after(panel.tabs);
     placePeople(two);
-    sideTabOn = sideTab;
-    placeTabFoot();
-    if (portraitOn) chatForm.before(dock.keys);
+    markSide();
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).
     root.classList.toggle("ui-touch", phone.matches || o.coarse.matches);
@@ -619,14 +612,16 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     }
     roomViewKey.hidden = true;
     wrap.classList.remove("is-tv-corner");
-    const onPhone = phone.matches;
+    // Under the wide page the room strip is the touch window, framed on me (HANDOFF "Layout"), whatever the pointer.
+    const onPhone = phone.matches || portraitOn;
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"), tvBox.empty())
       : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone, onPhone && tvBox.empty());
     boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
-      if (dock.sheet.open) placeSheet();
+      // The room strip's floor (HANDOFF "Layout"): never under PHONE_ROOM_MIN_H; the page scrolls instead.
+      root.style.setProperty("--portrait-room-min", `${String(l.stage.y + PHONE_ROOM_MIN_H)}px`);
     }
     box(clip, l.stage);
     // room.css sizes the host's tag hit areas by it; the phone window keeps its own zoom.
@@ -655,7 +650,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     holdScroll,
     syncPortrait,
     portraitOn: () => portraitOn,
-    dock,
+    panel,
     seats: (points, standing) => {
       seatPoints = points;
       standingPoints = standing;

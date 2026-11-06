@@ -26,7 +26,7 @@ export function createRoomPanel(o: { readonly onSelect?: (kind: PanelTab) => voi
   const head = el("div", { className: "panel-head" });
   const tabs = el("div", { className: "panel-tabs", role: "tablist", ariaLabel: "Room panel" });
   const keys = TABS.map((t) => {
-    const b = el("button", { type: "button", className: "ui-button secondary panel-tab", role: "tab", id: `panel-tab-${t.kind}`, textContent: t.label }, t.testId);
+    const b = el("button", { type: "button", className: "ui-tab panel-tab", role: "tab", id: `panel-tab-${t.kind}`, textContent: t.label }, t.testId);
     b.setAttribute("aria-controls", `panel-${t.kind}`);
     return b;
   });
