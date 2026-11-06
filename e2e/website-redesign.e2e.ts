@@ -1,7 +1,7 @@
 // OME-935: the Dusk doorstep landing and room directory (design OME-933 53e938b, handoff OME-934). Entry: Enter lobby
 // joins the lobby (or Enter room, the addressed room), and a separate "Find or create a room" opens the directory
 // without a room socket or warming the room renderer. A returning profile lands on the directory; Edit profile goes
-// back. Layout at 360/412/1280/1920 and the 701–1103 px tablet range (one column, phone vignette).
+// back. Layout at the redesign's sign-off widths, 360 to 1920 (OME-2305).
 import type { Page, Request } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
@@ -111,44 +111,37 @@ test.describe("phone", () => {
   });
 });
 
-for (const [width, height] of [[360, 740], [412, 915], [1280, 800], [1920, 1080]] as const) {
-  test(`${String(width)} px: entry and directory fit the screen, and the hero is one file at native size`, async ({ page }) => {
+// The Doorstep desk (OME-2305): one hero file at every width, the room at 2× from 1024 px and 1× under it, cropped by the
+// page and never resampled; the card over it on a computer, under a ~200 px strip of it on a phone.
+for (const [width, height] of [[360, 740], [412, 915], [768, 1024], [900, 768], [1024, 768], [1280, 800], [1920, 1080]] as const) {
+  test(`${String(width)} px: entry and directory fit the screen, and the hero is one file at an integer scale`, async ({ page }) => {
+    const heroes: string[] = [];
+    page.on("request", (r) => {
+      if (/website-room|how-3-watch/.test(r.url())) heroes.push(r.url());
+    });
     await page.setViewportSize({ width, height });
     await page.goto(URLS.web);
-    const hero = page.locator(".entry-art img");
+    const hero = page.locator(".entry-scene");
     await expect.poll(() => hero.evaluate((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0)).toBe(true);
-    const src = await hero.evaluate((e) => (e instanceof HTMLImageElement ? e.currentSrc : ""));
-    const wide = width >= 1104;
-    expect(src).toContain(wide ? "website-room" : "how-3-watch");
-    const img = await box(page, ".entry-art img");
-    expect([img.width, img.height]).toEqual(wide ? [656, 552] : [368, 224]);
-    const form = await box(page, "#landing");
-    const art = await box(page, ".entry-art");
-    if (wide) expect(art.x).toBeGreaterThanOrEqual(form.x + form.width);
-    else expect(art.y + art.height).toBeLessThanOrEqual(form.y);
+    expect(heroes.length).toBe(1);
+    expect(heroes[0]).toContain("website-room");
+    const scale = width >= 1024 ? 2 : 1;
+    const img = await box(page, ".entry-scene");
+    expect([img.width, img.height]).toEqual([656 * scale, 552 * scale]);
+    const card = await box(page, ".doorstep");
+    if (width >= 1024) expect(card.width).toBe(512);
+    else expect(card.width).toBe(width - 32);
+    expect(card.y).toBeGreaterThan(img.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await openDirectory(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const wide = width >= 1104;
     const create = await box(page, ".create-room");
     const open = await box(page, ".rooms-public");
     if (wide) expect(open.x).toBeGreaterThanOrEqual(create.x + create.width);
     else expect(open.y).toBeGreaterThanOrEqual(create.y + create.height);
   });
 }
-
-test("tablet (800 px): one column with the phone vignette, never the wide crop", async ({ page }) => {
-  const heroes: string[] = [];
-  page.on("request", (r) => {
-    if (/website-room|how-3-watch/.test(r.url())) heroes.push(r.url());
-  });
-  await page.setViewportSize({ width: 800, height: 1000 });
-  await page.goto(URLS.web);
-  const form = await box(page, "#landing");
-  const art = await box(page, ".entry-art");
-  expect(art.y + art.height).toBeLessThanOrEqual(form.y);
-  expect(heroes.some((u) => u.includes("website-room"))).toBe(false);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(800);
-});
 
 test("the footer's own pages answer, and the source links point at the repository", async ({ page, request }) => {
   await page.goto(URLS.web);
