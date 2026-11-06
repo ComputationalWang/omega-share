@@ -506,7 +506,9 @@ body.room-is-pseudo-fs { overflow: hidden; }
  * left column for the clicks that place a piece. With People open the bar and the editor end it: only they show. */
 .room-side > .editor-panel:empty { display: none; }
 body.room-editing .room-side > :not(.edit-bar, .editor-panel, .people:has(> .edit-bar)), body.room-editing .room-side > .people > :not(.edit-bar, .editor-panel) { display: none; }
-body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+/* It scrolls with no bar of its own on most screens (OME-2301: at 1280×800 Who controls playback ran 54 px past the edge):
+ * a 32 px fade says there is more, and the end padding lets the last card scroll clear of it (as .preset-list, OME-2284). */
+body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 44px; mask-image: linear-gradient(#000 calc(100% - 32px), transparent); }
 /* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
 body.room-editing .room-side > .edit-bar { display: contents; }
 body.room-editing .room-side > .edit-bar > * { flex: none; }
