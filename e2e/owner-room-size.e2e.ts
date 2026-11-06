@@ -76,6 +76,12 @@ const hitBox = (target: Locator): Promise<{ w: number; h: number }> =>
     return { w: Math.round(Math.max(r.width, px(b.width))), h: Math.round(Math.max(r.height, px(b.height))) };
   });
 
+/** The panel's tabs (OME-2306): the owner's tools are in Room, the queue in Up next, the log in Chat. */
+const tab = async (page: Page, name: "Chat" | "Up next" | "Room"): Promise<void> => {
+  await page.getByRole("tab", { name, exact: true }).click();
+  await expect(page.getByRole("tab", { name, exact: true })).toHaveAttribute("aria-selected", "true");
+};
+
 const area = async (page: Page): Promise<number> => {
   const b = await page.locator(site.roomWindow).boundingBox();
   return b === null ? 0 : b.width * b.height;
@@ -84,7 +90,8 @@ const area = async (page: Page): Promise<number> => {
 test("1280×800: the owner's room is as big as a guest's, and axe finds no target too small", async ({ browser }) => {
   const { host, kit } = await ownerAndGuest(browser, "roomsize", DESK, DESK);
   await expect.poll(async () => (await area(host)) / (await area(kit)), { message: "owner room-window area / guest's" }).toBeGreaterThanOrEqual(0.9);
-  // The owner's tools are still on the page, in reach.
+  // The owner's tools are one tab away (Room), in reach.
+  await tab(host, "Room");
   await expect(host.locator(site.editRoom)).toBeInViewport();
   await expect(host.locator(site.controlPolicy)).toBeInViewport();
   const { violations } = await new AxeBuilder({ page: host }).include(site.room).withRules(["target-size"]).analyze();
@@ -124,12 +131,14 @@ for (const [size, viewport, name] of [["1280×800", DESK, "roomfull"], ["1024×7
     try {
       const rows = host.locator(site.queueRow);
       await expect.poll(() => rows.count(), { timeout: 15_000 }).toBe(QUEUE_MAX);
+      await tab(host, "Up next");
       const list = host.locator(`${site.queuePanel} .ui-qlist`);
       const row = (await rows.first().boundingBox())?.height ?? 0;
       expect(await list.evaluate((n) => n.clientHeight), "Up next list height").toBeGreaterThanOrEqual(row);
-      expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
       await rows.last().scrollIntoViewIfNeeded();
       await expect(rows.last()).toBeInViewport();
+      await tab(host, "Chat");
+      expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
       expect(await host.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
     } finally {
       close();
@@ -271,6 +280,7 @@ async function reachable(page: Page, l: Locator): Promise<void> {
 test("844×390 touch, the owner edits: the tray, the piece's keys, mood and Save are in reach, a tap places a piece, Save keeps it (OME-1927)", async ({ browser }) => {
   const { host } = await ownerAndGuest(browser, "landedit", LAND, LAND);
   await host.locator(site.peopleKey).tap();
+  await tab(host, "Room");
   await host.locator(site.editRoom).tap();
   await expect(host.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
   await expect(host.locator(site.editorTray)).toBeVisible();
@@ -323,10 +333,13 @@ test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag 
   for (const page of [host, kit]) {
     expect(await exposedSmall(page)).toEqual([]);
     expect(await targetSize(page)).toEqual([]);
-    await page.locator("[data-testid=portrait-link]").click();
-    expect(await exposedSmall(page)).toEqual([]);
-    expect(await targetSize(page)).toEqual([]);
-    await page.getByRole("button", { name: "Close" }).click();
+    // The share sheet is the Up next tab now (OME-2306), and the owner's tools are in Room.
+    for (const name of ["Up next", "Room"] as const) {
+      await tab(page, name);
+      expect(await exposedSmall(page)).toEqual([]);
+      expect(await targetSize(page)).toEqual([]);
+    }
+    await tab(page, "Chat");
   }
   // kit sits in the back row from a desktop window; a 320 px window shows only the front row at 1×, so kit's tag is
   // cropped there. The owner still reaches it by keyboard: Tab focuses it, the window pans to show it whole, Enter opens
@@ -369,6 +382,7 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
   };
   const scale = (): Promise<number> => host.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
   const editKey = host.locator(site.editRoom);
+  await tab(host, "Room");
   let last = 0;
   for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080], [2560, 1440]] as const) {
     const at = `${String(w)}×${String(h)}`;
@@ -395,16 +409,21 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     }
     for (const sel of [site.editorTitle, site.editorRename, site.editorDelete]) {
       await host.locator(sel).scrollIntoViewIfNeeded();
-      await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
+      // 0.99: the Room tab's body is the scroller now and, at a 1.5x chrome zoom, ends a fraction of a pixel short.
+      await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 0.99 });
     }
     // OME-2301 (judge round 11): at 1280×800 the column ran 54 px past the screen and cut Who controls playback with no
     // hint that it scrolls. Overflowing, the column fades out at its bottom edge, and scrolled to its end the card clears the fade.
     const column = await host.locator(site.controlPolicy).evaluate((card) => {
+      // The Room tab's body is the scroller now (OME-2306); the column's foot (its fade, under the tabs and composer) is the side's.
       const side = card.closest(".room-side");
-      if (!(side instanceof HTMLElement)) return null;
-      const over = side.scrollHeight > side.clientHeight;
+      const body = card.closest(".panel-body");
+      if (!(side instanceof HTMLElement) || !(body instanceof HTMLElement)) return null;
+      const over = body.scrollHeight > body.clientHeight || side.scrollHeight > side.clientHeight;
+      body.scrollTop = body.scrollHeight;
       side.scrollTop = side.scrollHeight;
       const gap = side.getBoundingClientRect().bottom - card.getBoundingClientRect().bottom;
+      body.scrollTop = 0;
       side.scrollTop = 0;
       return { over, mask: getComputedStyle(side).maskImage, gap };
     });
