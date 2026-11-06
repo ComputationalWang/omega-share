@@ -14,6 +14,7 @@ goals:
   - "M3: safety hardening"
   - "M4: hosting and SQLite; customizable rooms"
   - "M5: UX and visual polish"
+  - "M6: site redesign — Doorstep desk (hybrid DOM chrome + PixiJS scene UI; Paperclip OME-2304, design on branch proto/site-redesign-2)"
 ---
 
 Omega Share Studio has one product: **omega-share** (repo: https://github.com/ComputationalWang/omega-share, local checkout `/home/wang/Projects/omega-share`).
