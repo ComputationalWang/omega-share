@@ -462,7 +462,7 @@ test("reorder Up next: Move up/down and Alt+Arrow, focus stays, announced, the o
   await expect(a.page.locator(site.queueStatus)).toHaveText("Moved YouTube video 9bZkp7q19f0 to place 1 of 3.");
 });
 
-test("reorder in the phone's Up next sheet: 44 px keys, the move lands and focus stays", async ({ browser }) => {
+test("reorder in the phone's Up next tab: 44 px keys, the move lands and focus stays", async ({ browser }) => {
   test.setTimeout(90_000);
   clients = await joinRoom(browser, { roomUrl: testRoom("provider-queue", "reorderphone").url, count: 1, nicknamePrefix: "mvp",
     contextOptions: () => ({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
@@ -470,7 +470,8 @@ test("reorder in the phone's Up next sheet: 44 px keys, the move lands and focus
   if (page === undefined) throw new Error("No portrait client");
   await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
   await page.locator('[data-testid="portrait-queue"]').click();
-  await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
+  await expect(page.locator('[data-testid="portrait-queue"]')).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#panel-queue")).toBeVisible();
   const [x, y] = await fillQueue(page);
   if (x === undefined || y === undefined) throw new Error("two rows");
   expect(await size(page, site.queueMoveUp)).toBeGreaterThanOrEqual(44);
