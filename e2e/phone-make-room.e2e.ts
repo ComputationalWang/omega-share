@@ -76,3 +76,16 @@ test("412×915 touch: Create sits right under Private, the strip shows two whole
   expect(dot?.width ?? 0).toBeGreaterThanOrEqual(8);
   await context.close();
 });
+
+test("820×1180 touch tablet: the strip cuts no card outside a fade", async ({ browser }) => {
+  const context = await watchCsp(await browser.newContext({ viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true }));
+  const page = await context.newPage();
+  await page.goto(URLS.web);
+  await openDirectory(page, "Tablet");
+  const list = page.locator(site.createRoomForm).locator(".preset-list");
+  const edge = await list.evaluate((el) => ({ right: el.getBoundingClientRect().right, faded: getComputedStyle(el).maskImage.includes("gradient") }));
+  const cards = await list.locator(".preset").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right }; }));
+  // A card past the edge may show only inside a fade (32 px); without one, none of it may show.
+  for (const c of cards) if (c.right > edge.right) expect(Math.max(0, edge.right - c.left)).toBeLessThanOrEqual(edge.faded ? 32 : 0);
+  await context.close();
+});
