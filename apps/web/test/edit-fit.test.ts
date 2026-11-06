@@ -28,4 +28,8 @@ describe("wideLayout, editing", () => {
   test.each([[888, 652], [1048, 752]] as const)("%i×%i, a video: the TV at its floor (ADR 0012: 356 px), the room gets the rest", (w, h) => {
     expect(wideLayout(w, h, "youtube", 1, 1, false, false, true).tv.w).toBe(356);
   });
+  // QA OME-2297: Room view's corner TV left the editing room the width beside it (700×388 at 1920×1080, main 880×488).
+  test.each([[888, 652], [1048, 752], [1608, 1032]] as const)("%i×%i, a video in Room view: laid out as with Room view off", (w, h) => {
+    expect(wideLayout(w, h, "youtube", 1, 1, true, false, true)).toEqual(wideLayout(w, h, "youtube", 1, 1, false, false, true));
+  });
 });

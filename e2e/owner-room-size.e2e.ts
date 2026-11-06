@@ -274,6 +274,8 @@ test("844×390 touch, the owner edits: the tray, the piece's keys, mood and Save
   await host.locator(site.editRoom).tap();
   await expect(host.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
   await expect(host.locator(site.editorTray)).toBeVisible();
+  // QA OME-2297: People's frame, its rows hidden, sat empty over Done and pushed the tray down.
+  await expect(host.locator(site.peoplePanel)).toBeHidden();
   for (const l of [site.editRoom, site.editorTray, `${site.editorMood}[data-mood="night"]`, site.editorSave]) await reachable(host, host.locator(l));
   // Both playback tiles inside the setting's frame (OME-1945: Only me stuck 5 px past it in the 279 px column).
   const past = await host.locator(site.controlPolicy).evaluate((panel) => {
