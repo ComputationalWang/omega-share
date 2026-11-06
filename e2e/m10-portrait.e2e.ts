@@ -130,8 +130,9 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     const link = page.getByRole("tab", { name: "Up next", exact: true });
     const input = page.locator(site.chatInput);
     await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
-    // Sit first (OME-1297): once a video is up the phone's room strip is its 96 px floor and crops every seat (inert).
-    const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
+    // Sit first (OME-1297). The strip is framed on me, so a seat may be cropped (inert): Fit shows them all.
+    await page.getByTestId("room-zoom-fit").tap();
+    const seat = page.locator(`${site.seat}[data-occupied="false"]:not([inert])`).first();
     await seat.focus();
     await seat.press("Enter");
     await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
