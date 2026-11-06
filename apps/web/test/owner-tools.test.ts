@@ -40,6 +40,7 @@ async function setup(o: { owns?: boolean; phone?: boolean } = {}) {
     state: () => state,
     send: () => true,
     requestRender: () => undefined,
+    relayout: () => undefined,
     phone: () => o.phone === true,
     roomOut: () => false,
     log: (e) => lines.push(e),

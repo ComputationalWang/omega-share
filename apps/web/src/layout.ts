@@ -201,9 +201,10 @@ export function roomScale(width: number, height: number): number {
  * larger), the shelf right under it, and the room's band below. `chrome` is the page's zoom (chromeZoom): the shelf's
  * height and minimum width grow with it. The room is at `maxScale` (roomScale) where the band holds BAND_MIN_H per scale
  * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits. The band's
- * backdrop reaches the column's edges past it (OME-1843, room-layout.ts).
+ * backdrop reaches the column's edges past it (OME-1843, room-layout.ts). `editing`, the TV gives way to the whole room
+ * at the column's width (editFit, OME-2283), never under its floor.
  */
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false, empty = false): RoomLayout {
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false, empty = false, editing = false): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   // A player keeps its floor, whatever the caller says.
@@ -216,9 +217,9 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   // Nothing on (OME-2282): the curtain gives way so the band holds the whole room at its scale, the walls' art (with a
   // few px of sky over it) to the lowest name tag the floor can hold; where even a short curtain leaves too little (a phone
   // held sideways), the split.
-  const roomH = (ROOM_FILL_FOOT + 1 - BAND_WALL_TOP + FLOOR_CLEAR) * maxScale;
-  const split = curtain && rest - roomH >= CURTAIN_MIN_H * chrome ? Math.min(share, rest - roomH) : share;
-  const tvFit = provider === null ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
+  const roomH = editing ? Math.ceil(ROOM_VIEW.h * editFit(maxScale, w, Infinity)) : (ROOM_FILL_FOOT + 1 - BAND_WALL_TOP + FLOOR_CLEAR) * maxScale;
+  const split = (curtain || editing) && rest - roomH >= CURTAIN_MIN_H * chrome ? Math.min(share, rest - roomH) : share;
+  const tvFit = provider === null || editing ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
   const room = roomView && provider !== null;
   const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor(tvFit / ratio)));
   const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;

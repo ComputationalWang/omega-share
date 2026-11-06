@@ -393,8 +393,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (!o.short.matches && !o.people.hidden) {
       if (o.people.lastElementChild !== o.ownerBar) o.people.append(o.ownerBar);
     } else if (o.people.nextElementSibling !== o.ownerBar) o.people.after(o.ownerBar);
-    // Short, the editor follows its Done key (OME-1927): under the room it was off-screen, the floor filling the column.
-    if (o.short.matches && o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
+    // The editor follows its Done key (OME-1927): short, under the room it was off-screen, the floor filling the column;
+    // tall, a column of its own beside the room left the room 18 % of a 1280×800 screen (OME-2283).
+    if (o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
     if (o.short.matches && o.editorPanel.nextElementSibling !== o.foot) o.editorPanel.after(o.foot);
   };
   new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
@@ -433,7 +434,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     // Wide, the owner's bar ends the People tab (below, OME-1842): under the stage it cost the owner half the room
     // (OME-1301), above People it left People ~110 px. Short, Report room joins it (OME-1841). Full screen, under Up next.
     const sideTab = two && fs.mode() === "off";
-    if (o.editorPanel.parentElement === side && !(sideTab && o.short.matches)) wrap.after(o.editorPanel);
+    if (side.contains(o.editorPanel) && !sideTab) wrap.after(o.editorPanel);
     if (two && !sideTab) queuePanel.root.after(o.ownerBar);
     else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
@@ -561,7 +562,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const on = roomView();
       roomViewKey.ariaPressed = String(on);
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, tvBox.empty());
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, tvBox.empty(), document.body.classList.contains("room-editing"));
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.

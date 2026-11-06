@@ -253,7 +253,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .ui-touch .fs-unread { line-height: 14px; }
 .editor-mood-options { display: flex; gap: 4px; }
 .editor-mood .ui-button[aria-checked="true"] { outline: 2px solid var(--ui-text); outline-offset: -2px; }
-.editor-piece, .editor-mood, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.editor-piece, .editor-counts, .editor-mood, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .editor-picked, .editor-count, .editor-message { margin: 0; }
 .editor-count { color: var(--muted); }
 .editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }
@@ -498,31 +498,33 @@ body.room-is-pseudo-fs { overflow: hidden; }
 /* At least room for the TV at its minimum and a small room (the column scrolls under an open editor instead). */
 .room-wide > .stage-wrap:not(.is-fs) { flex: 1 0 420px; }
 .room-wide > .room-bar:not(:has(> :not([hidden]))) { display: none; }
-/* The open editor on a wide desktop (OME-1801): a column of its own beside the room, so the room keeps its size (under
- * it the room was 278 px wide at 1280 and 198 at 2560, the Mood and Save rows below the fold). --editor-w is in page
- * px before the chrome zoom (--editor-col after it); the column is zoomed with the rest, so its offset is divided by it. The tray wraps and
- * scrolls in what the column leaves; the rest of the editor scrolls under it. Below 1200 px it stays under the room. */
-@media (min-width: 1200px) and (min-height: 501px) {
-  body.room-is-wide.room-editing { --editor-w: 312px; --editor-col: 312px; }
-  body.room-is-wide.room-editing[data-chrome="1.5"] { --editor-col: 468px; }
-  body.room-is-wide.room-editing[data-chrome="2"] { --editor-col: 624px; }
-  body.room-is-wide.room-editing > .site-footer { margin-right: calc(var(--wide-side) + var(--editor-col)); }
-  body.room-editing .room-wide { padding-right: calc(var(--editor-col) + 16px); }
-  body.room-editing .room-wide > .editor-panel { position: fixed; top: 0; bottom: 0; right: calc(var(--wide-side) / var(--chrome, 1)); width: var(--editor-w); box-sizing: border-box; padding: 8px; overflow-y: auto; border-left: 1px solid #3a3452; background: var(--bg); }
-  body.room-editing .room-wide > .editor-panel > .editor { display: flex; flex-direction: column; gap: 4px; height: 100%; margin: 0; }
-  body.room-editing .room-wide > .editor-panel > .editor > * { flex: none; }
-  body.room-editing .room-wide > .editor-panel .ui-tabs { flex-wrap: wrap; }
-  /* OME-2264: everything down to Delete room in 800 px (720 at 1920×1080's 1.5×). The tray gives way to a row of pieces
-   * (it scrolls), Mood and its four keys share a row, and each name's label sits beside its field, its key under it. */
-  body.room-editing .room-wide > .editor-panel .ui-tray { flex: 0 1 auto; flex-wrap: wrap; min-height: calc(56 * var(--ui-px)); overflow: hidden auto; }
-  body.room-editing .room-wide > .editor-panel .editor-mood { flex-wrap: nowrap; }
-  body.room-editing .room-wide > .editor-panel .editor-mood-options { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 4px; }
-  body.room-editing .room-wide > .editor-panel .editor-mood-options > .ui-button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
-  body.room-editing .room-wide > .editor-panel :is(.editor-mine, .editor-settings) > .ui-input { flex: 1 1 140px; min-width: 0; }
-}
 .room-side { position: fixed; top: 0; right: 0; bottom: 0; width: var(--wide-side); box-sizing: border-box; padding: 12px max(12px, env(safe-area-inset-right)) 12px 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
 .room-side[hidden] { display: none; }
 .room-side > * { flex: none; margin: 0; }
+/* Editing, the column is the editor's sheet (OME-1927; every two-column screen since OME-2283: a column of its own beside
+ * the room left the room 576×320 at 1280×800, 18 % of the screen). Done and the editor scroll as one, the room keeps the
+ * left column for the clicks that place a piece. With People open the bar and the editor end it: only they show. */
+.room-side > .editor-panel:empty { display: none; }
+body.room-editing .room-side > :not(.edit-bar, .editor-panel, .people), body.room-editing .room-side > .people > :not(.edit-bar, .editor-panel) { display: none; }
+body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+/* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
+body.room-editing .room-side > .edit-bar { display: contents; }
+body.room-editing .room-side > .edit-bar > * { flex: none; }
+body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
+.room-side .editor-panel { flex: none; }
+.room-side .editor-panel > .editor { margin: 0; }
+.room-side .editor-panel :is(.ui-tabs, .ui-tray, .editor-mood-options) { flex-wrap: wrap; }
+/* Tall (OME-2264), everything down to Save as my layout without a scroll: the tray is a row of pieces (it scrolls), Mood
+ * and its four keys share a row, and each name's label sits beside its field, its key under it. */
+@media (min-height: 501px) {
+  .room-side .editor-panel > .editor { display: flex; flex-direction: column; gap: 4px; }
+  .room-side .editor-panel > .editor > * { flex: none; }
+  .room-side .editor-panel .ui-tray { max-height: calc(72 * var(--ui-px)); overflow: hidden auto; }
+  .room-side .editor-panel .editor-mood { flex-wrap: nowrap; }
+  .room-side .editor-panel .editor-mood-options { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 4px; }
+  .room-side .editor-panel .editor-mood-options > .ui-button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
+  .room-side .editor-panel :is(.editor-mine, .editor-settings) > .ui-input { flex: 1 1 140px; min-width: 0; }
+}
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* People open is the column's People tab (OME-1805): it has the log's height but three lines (OME-1842: with the log
@@ -642,17 +644,6 @@ body.room-is-pseudo-fs { overflow: hidden; }
   .room-side.people-open > :is(.queue-panel, .chat-log) { display: none; }
   /* The owner's bar and Report room end the People tab (room-layout.ts): under the room they cost the window its height. */
   body:not(.room-editing) .room-side:not(.people-open) > :is(.edit-bar, .room-foot) { display: none; }
-  /* Editing, the column is the editor's sheet (OME-1927): Done and the editor scroll as one, the room keeps the left
-   * column for the taps that place a piece. */
-  .room-side > .editor-panel:empty { display: none; }
-  body.room-editing .room-side > :not(.edit-bar, .editor-panel) { display: none; }
-  body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
-  /* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
-  body.room-editing .room-side > .edit-bar { display: contents; }
-  body.room-editing .room-side > .edit-bar > * { flex: none; }
-  body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
-  .room-side > .editor-panel { flex: none; }
-  .room-side > .editor-panel :is(.ui-tabs, .ui-tray, .editor-mood-options) { flex-wrap: wrap; }
   /* The tray scrolls in half the screen, so the piece's keys, Mood and Save are a short scroll away. */
   .room-side > .editor-panel .ui-tray { max-height: 50dvh; overflow: hidden auto; }
   /* Open, the tab scrolls as one (People, the owner's bar, Report room); the chat row stays at the column's foot. */
