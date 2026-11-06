@@ -54,12 +54,18 @@ async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l84
   return page;
 }
 
+const tab = (page: Page, id: "portrait-chat" | "portrait-queue" | "portrait-settings"): Promise<void> => page.getByTestId(id).click();
+
 for (const [name, width, height] of [["l932", 932, 430], ["l844", 844, 390], ["l667", 667, 375]] as const) {
   test(`${String(width)}×${String(height)} landscape: picture, shelf, Up next and chat fit unscrolled; the field stays above the keyboard`, async ({ browser }) => {
     const page = await open(browser, name, width, height);
     await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
     const input = page.locator(site.chatInput);
-    for (const l of [site.tv, site.playToggle, site.queueUrl, site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
+    for (const l of [site.tv, site.playToggle, site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
+    // Up next is a tab of the one panel: its field is in view once the tab is selected.
+    await tab(page, "portrait-queue");
+    await inside(page.locator(site.queueUrl), 0, height, 0, width);
+    await tab(page, "portrait-chat");
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(height);
     expect(await page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0)).toBeLessThanOrEqual(width);
@@ -67,7 +73,9 @@ for (const [name, width, height] of [["l932", 932, 430], ["l844", 844, 390], ["l
     const curtain = await box(page.locator(site.tv));
     expect(Math.abs(curtain.width / curtain.height - 21 / 9)).toBeLessThanOrEqual(0.03);
     expect((await box(input)).width).toBeGreaterThanOrEqual(120);
+    await tab(page, "portrait-queue");
     expect((await box(page.locator(site.queueUrl))).width).toBeGreaterThanOrEqual(120);
+    await tab(page, "portrait-chat");
 
     await input.fill("sideways hello");
     await input.press("Enter");
@@ -102,7 +110,8 @@ test("844×390 landscape with a notch: the room and the chat column keep clear o
   const cdp = await page.context().newCDPSession(page);
   const inset = 47;
   await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { left: inset, right: inset } });
-  for (const l of [site.tv, site.playToggle, site.queueUrl, site.chatInput, site.chatLog]) {
+  for (const [l, t] of [[site.tv, "portrait-chat"], [site.playToggle, "portrait-chat"], [site.queueUrl, "portrait-queue"], [site.chatInput, "portrait-chat"], [site.chatLog, "portrait-chat"]] as const) {
+    await tab(page, t);
     await expect.poll(async () => (await box(page.locator(l))).x).toBeGreaterThanOrEqual(inset);
     await inside(page.locator(l), 0, 390, inset, 844 - inset);
   }
@@ -118,7 +127,8 @@ for (const [name, width, height] of [["f844", 844, 390], ["f740", 740, 360]] as 
     const seats = page.locator(`${site.seat}:not([inert])`);
     await expect.poll(() => seats.count()).toBeGreaterThanOrEqual(1);
     await inside(seats.first(), 0, height, 0, width);
-    for (const l of [site.chatInput, site.queueUrl]) {
+    for (const [l, t] of [[site.chatInput, "portrait-chat"], [site.queueUrl, "portrait-queue"]] as const) {
+      await tab(page, t);
       const field = page.locator(l);
       await field.fill("abcdefghijklmno");
       expect(await field.evaluate((n) => n.scrollWidth <= n.clientWidth), l).toBe(true);
@@ -150,6 +160,7 @@ for (const [name, width, height] of [["q932", 932, 430], ["q844", 844, 390], ["q
     const page = await open(browser, name, width, height);
     const close = await fillQueue(testRoom("landscape-phone", name).id, name);
     try {
+      await tab(page, "portrait-queue");
       const rows = page.locator(site.queueRow);
       // At least: a retry reuses the room and its queue.
       await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(8);
@@ -162,8 +173,12 @@ for (const [name, width, height] of [["q932", 932, 430], ["q844", 844, 390], ["q
       // At 667×375 about half a row shows (CI's fonts give 23 px); the list scrolls to the rest, checked below.
       const list = page.locator(`${site.queuePanel} .ui-qlist`);
       expect(await list.evaluate((n) => n.clientHeight)).toBeGreaterThanOrEqual(20);
-      for (const l of [site.tv, site.playToggle, site.queueCount, site.queueUrl, site.queueAdd, site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
+      for (const l of [site.tv, site.playToggle, site.queueCount, site.queueUrl, site.queueAdd]) await inside(page.locator(l), 0, height, 0, width);
+      // The chat is the other tab: its log keeps three lines and the field its row.
+      await tab(page, "portrait-chat");
+      for (const l of [site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
       expect((await box(page.locator(site.chatLog))).height).toBeGreaterThanOrEqual(60);
+      await tab(page, "portrait-queue");
       // Rows redraw while the adds land: retry the scroll until the last one holds still.
       await expect(async () => {
         const last = rows.last();
@@ -293,7 +308,8 @@ test("844×390 touch, the owner: the head row labels Copy, keeps the title whole
   await expect(roomTitle).toHaveText(title);
   await inside(roomTitle, 0, 390, 0, 844);
   expect(await roomTitle.evaluate((n) => n.scrollWidth <= n.clientWidth), "title not cut").toBe(true);
-  // Up next keeps its heading.
+  // Up next keeps its heading (it is a tab of the panel).
+  await tab(page, "portrait-queue");
   const heading = page.locator(`${site.queuePanel} .queue-head h3`);
   await expect(heading).toHaveText("Up next");
   expect((await box(heading)).width).toBeGreaterThan(20);
@@ -306,11 +322,14 @@ test("844×390 touch, the owner: the head row labels Copy, keeps the title whole
   await page.waitForTimeout(300);
   expect(await box(page.locator(site.tv))).toEqual(tv);
   expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
+  // Opening People selects Chat; Up next's field is a tab away, whole or out of the way, never clipped.
+  await tab(page, "portrait-queue");
   for (const l of [site.queueUrl, site.queueAdd]) {
     if (await page.locator(l).isVisible()) await inside(page.locator(l), 0, 390, 0, 844);
   }
   await page.locator(site.peopleKey).click();
   await expect(page.locator(site.peoplePanel)).toBeHidden();
+  await tab(page, "portrait-queue");
   for (const l of [site.queueUrl, site.queueAdd]) await inside(page.locator(l), 0, 390, 0, 844);
   expect(await box(page.locator(site.tv))).toEqual(tv);
 });
@@ -344,8 +363,10 @@ for (const who of ["guest", "owner"] as const) {
     const video = ["dQw4w9WgXcQ", "M7lc1UVf-VE", "aqz-KE-bpKQ"][test.info().retry] ?? "9bZkp7q19f0";
     if (who === "guest") await shareProvider(request, `https://youtu.be/${video}`, testRoom("landscape-phone", "v844").id);
     else {
+      await tab(page, "portrait-queue");
       await page.locator(site.queueUrl).fill(`https://youtu.be/${video}`);
       await page.locator(site.queueAdd).click();
+      await tab(page, "portrait-chat");
     }
     await expect(page.locator(site.sharedVideo)).toBeVisible();
     const whole = async (): Promise<void> => {
@@ -413,6 +434,7 @@ for (const [name, , width, height] of PIXEL7) {
     await shareProvider(request, `https://youtu.be/${now}`, testRoom("landscape-phone", name).id);
     await expect(page.locator(site.sharedVideo)).toBeVisible();
     // The audit's state: one link up next, so the head carries Play next now.
+    await tab(page, "portrait-queue");
     await page.locator(site.queueUrl).fill(`https://youtu.be/${next}`);
     await page.locator(site.queueAdd).click();
     await expect(page.locator(site.queueRow).first()).toBeVisible();
@@ -434,13 +456,15 @@ for (const [name, , width, height] of PIXEL7) {
       return out;
     }, { message: "every tag inside the room window" }).toEqual([]);
 
-    // Up next sits above the chat log, never over it; its heading keeps one line.
+    // Up next and the chat are tabs of one panel now, so neither covers the other; nothing in the column overlaps.
     expect(await sideOverlaps(page)).toEqual([]);
     const heading = page.locator(`${site.queuePanel} .queue-head h3`);
     await expect(heading).toHaveText("Up next");
     expect(await heading.evaluate((n) => n.getClientRects().length === 1 && n.getBoundingClientRect().height < parseFloat(getComputedStyle(n).fontSize) * 2), "one line").toBe(true);
+    for (const l of [site.queueUrl, site.queueAdd]) await inside(page.locator(l), 0, height, 0, width);
+    await tab(page, "portrait-chat");
     expect((await box(page.locator(site.chatLog))).height).toBeGreaterThanOrEqual(60);
-    for (const l of [site.queueUrl, site.queueAdd, site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
+    await inside(page.locator(site.chatInput), 0, height, 0, width);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.locator("#room-root").evaluate((n) => n.scrollTop)).toBe(0);
   });
@@ -456,7 +480,7 @@ for (const [, owned, width, height] of PIXEL7) {
       }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })]); } });
     const page = clients[0]?.page;
     if (page === undefined) throw new Error("no client");
-    await page.locator(site.peopleKey).tap();
+    await page.getByTestId("portrait-settings").tap();
     await page.locator(site.editRoom).tap();
     await expect(page.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
     const tray = page.locator(site.editorTray);
