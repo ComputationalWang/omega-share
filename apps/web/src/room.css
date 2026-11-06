@@ -356,6 +356,8 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 /* The pan hint (OME-2234): over the bottom-left corner, clear of the keys (3×44 + gaps), never in a tap's way. Absolute, so no shift. */
 .room-pan-hint { position: absolute; left: 4px; bottom: 4px; max-width: calc(100% - 164px); margin: 0; padding: 2px 6px; font-size: var(--text-sm); line-height: 1.3; color: var(--ui-text); background: var(--ui-page); border: 1px solid var(--ui-accent); pointer-events: none; }
 .room-pan-hint[hidden] { display: none; }
+/* One hint at a time (OME-2263): the pan hint waits for the tour. */
+.hint-chip:not([hidden]) ~ .stage-wrap .room-pan-hint { display: none; }
 /* The column's band reads as a rail, not an empty strip beside the room (OME-1597): panel fill, a wall-light edge. */
 .stage-clip.is-phone[data-keys="side"] { background: linear-gradient(#8a6f9e, #8a6f9e) right 146px top 0 / 2px 100% no-repeat, linear-gradient(var(--ui-panel), var(--ui-panel)) right / 148px 100% no-repeat; }
 .room-zoom > .ui-button { display: inline-flex; align-items: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; font-size: 16px; font-weight: 700; }

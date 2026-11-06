@@ -177,3 +177,17 @@ describe("integer room scale (OME-1811)", () => {
     expect(wideLayout(1416, 828, null, 1.5, 1).scale).toBe(1);
   });
 });
+
+// OME-2263: a phone held sideways (Pixel 7, 915×412: a ~555 px left column) with nothing on: no player, so no 356×200
+// floor; the empty TV is a 21:9 curtain at the room-first split and the room gets over half the height.
+describe("nothing on (OME-2263)", () => {
+  test("the curtain is 21:9 at the split, under the player's floor; the room below it takes over half the column", () => {
+    const l = wideLayout(555, 412, null, 1, 1, false, true);
+    expect(l.tv.h).toBeLessThan(200);
+    expect(Math.abs(l.tv.w / l.tv.h - 21 / 9)).toBeLessThan(0.02);
+    expect(412 - l.stage.y).toBeGreaterThanOrEqual(412 / 2);
+  });
+  test("a player keeps its floor", () => {
+    expect(wideLayout(555, 412, "youtube", 1, 1, false, true).tv.h).toBeGreaterThanOrEqual(200);
+  });
+});

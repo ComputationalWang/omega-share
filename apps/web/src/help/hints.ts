@@ -39,6 +39,8 @@ export interface HintsOptions {
   readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement; readonly message: HTMLElement };
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
+  /** A touch screen: the floor chip says tap (OME-2263). */
+  readonly touch: () => boolean;
 }
 
 export interface Hints {
@@ -122,7 +124,7 @@ export function createHints(o: HintsOptions): Hints {
     // Room view re-boxes the TV after a video's screen swap (OME-2195): its new box moves the chip too.
     sized.observe(o.tv.box);
     root.hidden = false;
-    text.textContent = s.text;
+    text.textContent = to === 0 && o.touch() ? "Tap the floor to walk, double-tap to jog" : s.text;
     place();
   };
 

@@ -18,7 +18,7 @@ export interface RoomTvOptions {
   /** The full-screen element: the quality list hangs in it, under the shelf. */
   readonly wrap: HTMLElement;
   readonly fullscreen: () => boolean;
-  /** The shown provider changed: Twitch needs a larger TV (layout.ts). */
+  /** The shown provider changed (Twitch needs a larger TV), or the TV emptied or filled (the curtain, OME-2263): lay out again (layout.ts). */
   readonly onProvider: () => void;
   /** The empty TV's message was pressed: take the viewer to the paste field (OME-2104). */
   readonly onCurtain: () => void;
@@ -129,6 +129,8 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
   };
 
   let tvKey: string | null = null;
+  /** What the layout reads off the TV: the provider (Twitch's is larger) and, nothing on, the curtain (OME-2263). Laid out once the screen is in. */
+  const layoutKey = (): string => (tv.firstChild === tvEmpty ? "empty" : (tvProvider ?? "generic"));
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
   const mount = createPlayerMounter(PLAYERS);
@@ -178,12 +180,12 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
       o.extension.relock();
       showSyncChrome(true);
       const provider = tf === null ? null : (embed?.provider ?? null);
+      const was = layoutKey();
       if (provider !== tvProvider) {
         tvProvider = provider;
         const hint = provider === null ? null : providerHint(provider);
         tvHint.textContent = hint ?? "";
         tvHint.hidden = hint === null;
-        o.onProvider();
       }
       if (tf === null || embed === null) {
         tvScreen = null;
@@ -200,6 +202,7 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
         tv.replaceChildren(box);
         mountPlayer(embed, tf, box, null);
       }
+      if (layoutKey() !== was) o.onProvider();
     }
   };
 
@@ -267,15 +270,14 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     tvScreen = null;
     syncNotice.hidden = true;
     tvHint.hidden = true;
-    if (tvProvider !== null) {
-      tvProvider = null;
-      o.onProvider();
-    }
+    const was = layoutKey();
+    tvProvider = null;
     showSyncChrome(false);
     if (gf === null) {
       // Our own host or a malformed embed: render nothing from it.
       controls.replaceChildren(fsKey);
       tv.replaceChildren(tvEmpty);
+      if (layoutKey() !== was) o.onProvider();
       return;
     }
     const g: GenericTv = createGenericTv(gf, o.extension, () => {
@@ -284,6 +286,7 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
     tvScreen = g.screen;
     tv.replaceChildren(g.screen);
     genericShelf(g, false);
+    if (layoutKey() !== was) o.onProvider();
   };
 
   return {
