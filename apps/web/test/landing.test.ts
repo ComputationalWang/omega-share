@@ -16,10 +16,10 @@ import { startServer, type OmegaServer } from "../../server/src/server";
 const web = fileURLToPath(new URL("..", import.meta.url));
 const siteArt = fileURLToPath(new URL("../../../assets/site/", import.meta.url));
 
-/** The three steps of the Dusk doorstep landing (OME-933 design 53e938b): numbered captions, text only. */
-const STEPS = ["Find a video", "Share your room", "Watch in sync"] as const;
-/** The hero: the desktop room crop (≥1104 px) or the phone/tablet vignette, one file fetched, never both. */
-const HERO = { wide: "website-room.png", narrow: "how-3-watch.png" } as const;
+/** The three steps of the Doorstep desk landing (OME-2305, docs/design/site-redesign-2): numbered, text only. */
+const STEPS = ["Bring something good.", "Send a little invite.", "Press play, together."] as const;
+/** The hero: the room, one file at every width (2× from 1024 px, 1× under it, cropped by the page). */
+const HERO = "website-room.png";
 /** The four avatars, by id, with their original names (assets/avatars/avatars.json). */
 const AVATARS = ["Juno", "Pip", "Mo", "Kiki"] as const;
 
@@ -67,7 +67,7 @@ describe("landing: explains the product before asking for anything", () => {
     const section = how(served);
     expect(section).not.toBe("");
     expect(served.indexOf('id="how"')).toBeGreaterThan(served.indexOf('id="landing"'));
-    expect(section).toMatch(/<h2[^>]*id="how-title"[^>]*>How it works<\/h2>/);
+    expect(text(/<h2[^>]*id="how-title"[^>]*>([\s\S]*?)<\/h2>/.exec(section)?.[1] ?? "")).toMatch(/How it works$/);
     expect(served).toMatch(/<section[^>]*id="how"[^>]*aria-labelledby="how-title"/);
     expect(section).toMatch(/<ol[\s>]/);
     expect(count(section, /<li[\s>]/g)).toBe(3);
@@ -76,42 +76,26 @@ describe("landing: explains the product before asking for anything", () => {
     for (const step of STEPS) expect(s).toContain(step);
   });
 
-  test("the hero is one <picture>: the room crop from 1104 px, else the vignette; sized up front, decorative, not lazy", () => {
-    const pic = /<picture[^>]*>([\s\S]*?)<\/picture>/.exec(served)?.[1] ?? "";
-    expect(pic).not.toBe("");
-    // Before the form in the page (it is first on phones), but never focusable.
-    expect(served.indexOf("<picture")).toBeLessThan(served.indexOf('id="landing"'));
-    const sources = [...pic.matchAll(/<source\s[^>]*>/g)].map((m) => attrs(m[0]));
-    expect(sources).toHaveLength(1);
-    const wide = sources[0] ?? {};
-    expect(wide["media"]).toBe("(min-width: 1104px)");
-    expect(wide["srcset"]).toMatch(/^\/assets\/website-room-[A-Za-z0-9_-]+\.png$/);
-    expect([wide["width"], wide["height"]]).toEqual(["656", "552"]);
-    const img = attrs(/<img\s[^>]*>/.exec(pic)?.[0] ?? "");
-    expect(img["src"]).toMatch(/^\/assets\/how-3-watch-[A-Za-z0-9_-]+\.png$/);
-    expect([img["width"], img["height"]]).toEqual(["368", "224"]);
+  test("the hero is one <img>: the room, sized up front, decorative (it promises no identical room), not lazy", () => {
+    const tag = /<img\s[^>]*class="entry-scene"[^>]*>/.exec(served)?.[0] ?? "";
+    expect(tag).not.toBe("");
+    expect(count(served, /<img[\s>]/g)).toBe(1);
+    expect(served).not.toContain("<picture");
+    // Before the form in the page (it is above it on phones), but never focusable.
+    expect(served.indexOf(tag)).toBeLessThan(served.indexOf('id="landing"'));
+    const img = attrs(tag);
+    expect(img["src"]).toMatch(/^\/assets\/website-room-[A-Za-z0-9_-]+\.png$/);
+    expect([img["width"], img["height"]]).toEqual(["656", "552"]);
     expect(img["alt"]).toBe("");
     expect(img["loading"]).toBeUndefined();
   });
 
-  test("the hero's caption calls it an illustration and promises no identical room (judge's caution)", () => {
-    const fig = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/.exec(served)?.[1] ?? "";
-    expect(text(fig)).toMatch(/illustration/i);
-    expect(text(fig)).not.toMatch(/same|step into|exactly/i);
-  });
-
-  test("the hero files are served byte for byte from assets/site", async () => {
-    const pic = /<picture[^>]*>([\s\S]*?)<\/picture>/.exec(served)?.[1] ?? "";
-    const srcs: [string, string][] = [
-      [attrs(/<source\s[^>]*>/.exec(pic)?.[0] ?? "")["srcset"] ?? "", HERO.wide],
-      [attrs(/<img\s[^>]*>/.exec(pic)?.[0] ?? "")["src"] ?? "", HERO.narrow],
-    ];
-    for (const [src, file] of srcs) {
-      const res = await fetch(`${base()}${src}`);
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toContain("image/png");
-      expect(Buffer.from(await res.arrayBuffer()).equals(readFileSync(join(siteArt, file)))).toBe(true);
-    }
+  test("the hero file is served byte for byte from assets/site", async () => {
+    const src = attrs(/<img\s[^>]*class="entry-scene"[^>]*>/.exec(served)?.[0] ?? "")["src"] ?? "";
+    const res = await fetch(`${base()}${src}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("image/png");
+    expect(Buffer.from(await res.arrayBuffer()).equals(readFileSync(join(siteArt, HERO)))).toBe(true);
   });
 
   test("Enter lobby is the form's one submit; Find or create a room is a separate button outside the form", () => {

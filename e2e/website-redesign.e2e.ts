@@ -131,7 +131,8 @@ for (const [width, height] of [[360, 740], [412, 915], [768, 1024], [900, 768], 
     const card = await box(page, ".doorstep");
     if (width >= 1024) expect(card.width).toBe(512);
     else expect(card.width).toBe(width - 32);
-    expect(card.y).toBeGreaterThan(img.y);
+    // The card sits on the scene: the room shows behind or above it.
+    expect(card.y).toBeLessThan(img.y + img.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await openDirectory(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

@@ -58,7 +58,7 @@ const smallTargets = (page: Page): Promise<string[]> =>
       .filter((el) => el.checkVisibility())
       .map((el) => [el, el.getBoundingClientRect()] as const)
       .filter(([, r]) => r.width < 43.5 || r.height < 43.5)
-      .map(([el, r]) => `${el.tagName.toLowerCase()}.${el.className} "${el.getAttribute("aria-label") ?? el.textContent?.trim() ?? ""}" ${String(Math.round(r.width))}x${String(Math.round(r.height))}`),
+      .map(([el, r]) => `${el.tagName.toLowerCase()}.${el.classList.value} "${el.getAttribute("aria-label") ?? el.textContent.trim()}" ${String(Math.round(r.width))}x${String(Math.round(r.height))}`),
   );
 
 /** Something inside the entry scrolls on its own or sticks to the screen (the card flows with the page, OME-2305). */
@@ -67,7 +67,7 @@ const innerScrollOrSticky = (page: Page): Promise<string[]> =>
     [root, ...root.querySelectorAll<HTMLElement>("*")].flatMap((el) => {
       const cs = getComputedStyle(el);
       const scrolls = ["auto", "scroll"].includes(cs.overflowY) && el.scrollHeight > el.clientHeight + 1;
-      return scrolls || cs.position === "sticky" || cs.position === "fixed" ? [`${el.tagName.toLowerCase()}.${el.className} ${cs.position} ${cs.overflowY}`] : [];
+      return scrolls || cs.position === "sticky" || cs.position === "fixed" ? [`${el.tagName.toLowerCase()}.${el.classList.value} ${cs.position} ${cs.overflowY}`] : [];
     }),
   );
 
@@ -90,7 +90,7 @@ test("desktop: the doorstep card over the room at 2×, the 01 / 02 / 03 sequence
   expect(await page.locator(".doorstep").evaluate((e) => e.contains(document.querySelector("#landing")))).toBe(true);
   await expect(page.locator(".step-title")).toHaveText([/^01 \/\s*What should we call you\?/, /^02 \/\s*Pick your look/, /^03 \/\s*Take a seat/]);
   // Original avatars at 3×; every key is an atlas slice.
-  const sprite = await box(page, `${site.avatarOption} .avatar-sprite`);
+  const sprite = await box(page, ".a0 .avatar-sprite");
   expect([sprite.width, sprite.height]).toEqual([96, 192]);
   for (const sel of [site.joinButton, site.findRoom, `${site.avatarOption} .avatar-caption`, "[data-testid=tint-option]", "[data-testid=hair-option]", "[data-testid=accessory-option]", ".install-link"]) {
     expect(await borderImage(page, sel), sel).not.toBe("none");
@@ -169,7 +169,7 @@ test.describe("phone", () => {
     expect(strip).toBeGreaterThanOrEqual(180);
     expect(strip).toBeLessThanOrEqual(220);
     expect(card.width).toBe(360 - 32);
-    const sprite = await box(page, `${site.avatarOption} .avatar-sprite`);
+    const sprite = await box(page, ".a0 .avatar-sprite");
     expect([sprite.width, sprite.height]).toEqual([64, 128]);
     const how = await box(page, "#how");
     expect(how.y).toBeGreaterThanOrEqual(card.y + card.height);
