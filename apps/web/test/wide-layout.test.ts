@@ -191,3 +191,21 @@ describe("nothing on (OME-2263)", () => {
     expect(wideLayout(555, 412, "youtube", 1, 1, false, true).tv.h).toBeGreaterThanOrEqual(200);
   });
 });
+
+// OME-2282 (judge round 10): at 1280×800 with nothing on, the 16:9 TV left the room a 366 px band, so it looked at the
+// seats and the walls' art went under the shelf (and a back view's floor under the column's foot). The curtain gives way
+// first: the band holds the walls' art (stage y 113) down to the lowest name tag the floor can hold (555), at its whole scale.
+describe("nothing on at a desk (OME-2282)", () => {
+  const ROOM_H = 556 - 113;
+  test.each([
+    ["1280×800", 888, 652, 1, 1],
+    ["1920×1080", 1416, 828, 1.5, 1],
+    ["2560×1440", 1896, 1118, 2, 2],
+  ] as const)("%s: the band holds the whole room at its whole scale, under a 21:9 curtain", (_, w, h, zoom, scale) => {
+    const l = wideLayout(w, h, null, zoom, scale, false, true);
+    expect(l.scale).toBe(scale);
+    expect(l.stage.h).toBeGreaterThanOrEqual(ROOM_H * l.scale);
+    expect(Math.abs(l.tv.w / l.tv.h - 21 / 9)).toBeLessThan(0.02);
+    expect(l.stage.y + l.stage.h).toBeLessThanOrEqual(h);
+  });
+});

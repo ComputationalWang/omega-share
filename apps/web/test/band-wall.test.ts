@@ -188,3 +188,18 @@ describe("a band fitted below 1× keeps its seats clickable (room.css, OME-2148)
     for (const fit of [0.5, 0.6, 0.75, 0.9, 0.99]) expect(26 * fit * Math.max(1, k / fit)).toBeGreaterThanOrEqual(24);
   });
 });
+
+// OME-2282 (judge round 10): with nothing on, 1280×800's band (888×652 column as measured on 042c67b) was 366 px, so it
+// looked at the seats: the walls' art went under the shelf and, from the north, the floor under the column's foot.
+describe("1280×800 with nothing on (OME-2282)", () => {
+  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the walls' art and the floor's front corner, 8 px clear, are whole in the band", (name, side) => {
+    setNorth(side === "north");
+    const l = wideLayout(888, 652, null, 1, 1, false, true);
+    const room = preset(name);
+    const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
+    const c = bandHome(seatPoints(room), standingPoints(room), shown, standingPoints(room)[0] ?? null);
+    const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, l.stage).pan;
+    expect(pan.y).toBeLessThanOrEqual(BAND_WALL_TOP);
+    expect(pan.y + shown.h).toBeGreaterThanOrEqual(FLOOR_FOOT + 8);
+  });
+});
