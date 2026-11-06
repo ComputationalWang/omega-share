@@ -99,7 +99,10 @@ test("stacked: TV, shelf, room window, chat log, chat row; the room at 1×, no s
   // (Under 1024 px: from there, landscape, it is the two-column wide layout, wide-layout.e2e.ts.)
   await page.setViewportSize({ width: 1000, height: 900 });
   await expect.poll(async () => (await stageTransform(page)).scale).toBeLessThan(1.0001);
-  await expect.poll(async () => (await page.locator(site.roomWindow).boundingBox())?.height).toBeGreaterThan(400);
+  // The panel sits under the room in the page's flow now (OME-2306): the strip keeps its 96 px floor (HANDOFF "Layout":
+  // "Reserve at least 200px of room on desktop and 96px on short phones") and the panel's tabs follow it.
+  await expect.poll(async () => (await page.locator(site.roomWindow).boundingBox())?.height).toBeGreaterThanOrEqual(96);
+  expect(await top(page.getByTestId("room-panel"))).toBeGreaterThanOrEqual(await top(page.locator(site.roomWindow)));
 });
 
 test("touch targets: every key and field in the room is ≥ 44×44 CSS px to the finger", async ({ browser }) => {
@@ -338,6 +341,8 @@ test("no editor on a phone: the owner gets one line in chat instead; on a wide s
   expect(editorChunk).toBe(false);
 
   await page.setViewportSize({ width: 1280, height: 900 });
+  // The owner's bar lives in the panel's Room tab (OME-2306).
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(page.locator(site.editRoom)).toBeVisible();
   await page.locator(site.editRoom).click();
   await expect(page.locator(site.editorTray)).toBeVisible();
@@ -432,28 +437,24 @@ for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["
   });
 }
 
-// A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel keys, chat row and 44 px footer leave the room
-// window ~100 px with the chat strip under it. On a short portrait screen that strip goes (the Chat key's sheet holds the
-// log, bubbles still show in the room), so the room keeps ≥ 170 px and every seat shows whole, at 1×, without a pan.
-test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width, the empty one 21:9 (OME-2263), and the Chat sheet opens (OME-1612)", async ({ browser }) => {
+// A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel and composer leave the room strip its 96 px floor
+// (HANDOFF "Layout": "Reserve at least ... 96px on short phones"; the page scrolls below it, never an inner box), framed
+// on the local avatar (OME-2306). It used to keep ≥ 170 px with every seat whole by hiding the chat strip; the panel's
+// Chat tab replaced that strip, so the property now is: the floor holds, my avatar is in the strip, a seat tap sits.
+test("360×640 touch: the room strip keeps its 96 px floor with me in it and a tap sits; the TV is full width, the empty one 21:9 (OME-2263), and the Chat tab is open (OME-1612)", async ({ browser }) => {
   const page = await one(browser, "small360", { ...PHONE, viewport: { width: 360, height: 640 } });
   const tv = await page.locator(site.tv).boundingBox();
   if (tv === null) throw new Error("not laid out");
   expect(tv.width).toBe(360);
   expect(Math.abs(tv.height - (360 * 9) / 21)).toBeLessThanOrEqual(1);
   await frames(page);
+  const win = await page.locator(site.roomWindow).boundingBox();
+  if (win === null) throw new Error("not laid out");
+  expect(win.height, "room strip height").toBeGreaterThanOrEqual(96);
   const pane = await page.locator(".stage-pane").boundingBox();
-  if (pane === null) throw new Error("not laid out");
-  expect(pane.height, "room picture height").toBeGreaterThanOrEqual(170);
-  const seats = await page.locator(site.seat).all();
-  expect(seats.length).toBeGreaterThan(0);
-  for (const s of seats) {
-    const b = await s.boundingBox();
-    if (b === null) throw new Error("seat not laid out");
-    const cx = b.x + b.width / 2;
-    const cy = b.y + b.height / 2;
-    expect(cx >= pane.x && cx <= pane.x + pane.width && cy >= pane.y && cy <= pane.y + pane.height, "seat centre in the room picture").toBe(true);
-  }
+  const mine = await page.locator(site.nicknameTag).filter({ hasText: /^ph/ }).boundingBox();
+  if (mine === null || pane === null) throw new Error("my tag or the picture not laid out");
+  expect.soft(mine.y >= pane.y && mine.y + mine.height <= pane.y + pane.height, `my tag (${String(mine.y)}+${String(mine.height)}) in the room picture (${String(pane.y)}+${String(pane.height)})`).toBe(true);
   // Tapping a seat sits (the avatar walks from the door), and the window then centres on it.
   const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
   await seat.focus();
@@ -461,15 +462,9 @@ test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it a
   await seat.tap();
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(640);
-  // The hidden strip is still a Tab stop (a scrollable log): focused, it shows again, so focus is never lost (QA OME-1614).
-  const log = page.locator(site.chatLog);
-  await log.focus();
-  const shown = await log.boundingBox();
-  expect(shown?.height ?? 0, "focused chat log height").toBeGreaterThanOrEqual(44);
-  await log.blur();
-  await page.getByTestId("portrait-chat").click();
-  await expect(page.getByTestId("portrait-sheet")).toBeVisible();
-  await expect(page.getByTestId("portrait-sheet").locator(site.chatLog)).toBeVisible();
+  // The Chat tab is the one open, its composer on screen.
+  await expect(page.getByTestId("portrait-chat")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
 });
 
 // Design judge round 3 (OME-2169 request 5, OME-2171): at 412×915 the room was 360 px wide beside a column of zoom keys,
@@ -479,13 +474,13 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
   await frames(page);
   const pane = await page.locator(".stage-pane").boundingBox();
   const win = await page.locator(site.roomWindow).boundingBox();
-  const dock = await page.getByTestId("portrait-chat").boundingBox();
-  if (pane === null || win === null || dock === null) throw new Error("not laid out");
+  const panel = await page.getByTestId("room-panel").boundingBox();
+  if (pane === null || win === null || panel === null) throw new Error("not laid out");
   expect(pane.width, "room picture width").toBe(412);
   expect(pane.height, "room picture height").toBe(win.height);
-  // The window takes the free height: no chat yet, so the empty chat strip is folded too (QA OME-2186).
+  // The window takes the free height: the panel (OME-2306) starts right under it, no dead band between (QA OME-2186).
   await expect(page.locator(site.chatLogLine)).toHaveCount(0);
-  expect(dock.y - (win.y + win.height), "empty band under the window").toBeLessThanOrEqual(40);
+  expect(panel.y - (win.y + win.height), "empty band under the window").toBeLessThanOrEqual(1);
   for (const k of await page.locator('[data-testid^="room-zoom-"]').all()) {
     const b = await k.boundingBox();
     if (b === null) throw new Error("key not laid out");
@@ -518,14 +513,17 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
 });
 
 // QA OME-2186: the owner's log isn't empty (the "Arrange the room on a computer." line), so the strip under the room must
-// size to that line, not keep a 76 px strip with the line at its bottom and dark space above it.
-test("412×915 touch, the room's owner: no empty band between the room window and the hint line (OME-2171)", async ({ browser }) => {
+// not leave a dead band: since OME-2306 the panel starts right under the room window and the hint line is in its Chat tab.
+test("412×915 touch, the room's owner: no empty band between the room window and the panel with the hint line (OME-2171)", async ({ browser }) => {
   const page = await ownerOnPhone(browser, "phonefull", { ...PHONE, viewport: { width: 412, height: 915 } });
   const line = page.locator(site.chatLogLine).filter({ hasText: "Arrange the room on a computer." });
   await expect(line).toBeVisible();
+  await expect(line).toBeInViewport({ ratio: 1 });
   await frames(page);
   const win = await page.locator(site.roomWindow).boundingBox();
+  const panel = await page.getByTestId("room-panel").boundingBox();
   const first = await line.boundingBox();
-  if (win === null || first === null) throw new Error("not laid out");
-  expect(first.y - (win.y + win.height), "empty band between the window and the hint line").toBeLessThanOrEqual(40);
+  if (win === null || panel === null || first === null) throw new Error("not laid out");
+  expect(panel.y - (win.y + win.height), "empty band between the window and the panel").toBeLessThanOrEqual(1);
+  expect(first.y, "the hint line is inside the panel").toBeGreaterThanOrEqual(panel.y);
 });
