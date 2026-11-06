@@ -111,8 +111,10 @@ test("the host's pickable name tags each catch a 24×24 px square at 960 and at 
     const host = await open(browser, `${URLS.web}/r/${id}`, `host${name}`, options, secrets);
     const pickable = host.locator(`.tags.pickable ${site.nicknameTag}[role=button]`);
     await expect(pickable).toHaveCount(2);
+    // The short strip is framed on me (the host, standing at the door): Fit shows the seats, or their tags are cropped and inert.
+    await host.getByTestId("room-zoom-fit").click();
     await expect(host.locator(`${site.nicknameTag}[inert]`)).toHaveCount(0);
-    expect(await misses(host), `at ${name} wide`).toEqual({ kit: [], "longer-name": [] });
+    await expect.poll(() => misses(host), { message: `at ${name} wide`, timeout: 10_000 }).toEqual({ kit: [], "longer-name": [] });
     await leaveAll(clients.splice(-1));
   }
 });
