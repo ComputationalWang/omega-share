@@ -157,7 +157,8 @@ legend { padding: 0; margin-bottom: 6px; }
  * view, and the footer must already be below the fold when main.ts swaps in the directory. */
 .welcome { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-height: 100vh; min-height: 100dvh; align-content: start; }
 .welcome > * { min-width: 0; }
-.entry-art { position: relative; display: flex; justify-content: center; align-items: center; height: 154px; margin: 0; overflow: hidden; border-radius: 4px; }
+/* The vignette shows whole: a crop cut the sitters at the chest (OME-2285). */
+.entry-art { position: relative; display: flex; justify-content: center; align-items: center; height: 224px; margin: 0; overflow: hidden; border-radius: 4px; }
 .entry-art picture { display: contents; }
 .entry-art img { flex: none; width: 368px; height: 224px; image-rendering: pixelated; }
 .entry-art figcaption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -226,7 +227,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .directory > * { min-width: 0; }
 .home h2 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
 .home .create-room { display: grid; gap: 8px; padding: 0 24px 24px; overflow: hidden; border: 1px solid var(--dusk-divider); border-radius: 4px; background: var(--dusk-surface); }
-.home .create-room::before { content: ""; height: 100px; margin: 0 -24px 12px; background: url("../../../assets/site/how-3-watch.png") 50% 30% / 368px 224px no-repeat; image-rendering: pixelated; }
+/* The vignette's front, head to seat: the four sitters whole, the TV above the strip (OME-2285). */
+.home .create-room::before { content: ""; height: 136px; margin: 0 -24px 12px; background: url("../../../assets/site/how-3-watch.png") 50% 100% / 368px 224px no-repeat; image-rendering: pixelated; }
 .home .create-room h2 { margin-bottom: 4px; }
 .home .check { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; }
 .home .check input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
@@ -280,9 +282,10 @@ legend { padding: 0; margin-bottom: 6px; }
   :root:is([data-view="entry"], [data-view="directory"]) .footer-meta { flex-basis: auto; align-items: flex-end; margin: 0 0 0 auto; }
   .welcome { grid-template-columns: 360px minmax(0, 1fr); grid-template-areas: "entry art" "how how" "ext ext"; gap: 0 24px; }
   .entry { grid-area: entry; align-self: start; padding-top: 24px; }
-  .entry-art { grid-area: art; justify-content: flex-start; align-items: flex-start; height: 536px; border-radius: 0; }
-  .entry-art img { width: 656px; height: 536px; }
-  .entry-art figcaption { width: auto; height: auto; left: 40px; bottom: 8px; padding: 2px 8px; clip-path: none; background: rgb(32 27 43 / 85%); color: var(--dusk-muted); font-size: 13px; }
+  /* The caption sits under the art, not on it (OME-2285). */
+  .entry-art { grid-area: art; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: auto; border-radius: 0; }
+  .entry-art img { width: 656px; height: 552px; }
+  .entry-art figcaption { position: static; width: auto; height: auto; margin-top: 8px; clip-path: none; color: var(--dusk-muted); font-size: 13px; }
   .welcome h1 { font-size: 40px; }
   .avatars { grid-template-columns: repeat(4, 74px); }
   .how { grid-area: how; margin-top: 0; }
