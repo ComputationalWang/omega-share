@@ -629,7 +629,13 @@ body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod
   .room-side.people-open { overflow-y: auto; overscroll-behavior: contain; }
   .room-side.people-open :where(.room-panel, .panel-body) > .people { flex: none; overflow: visible; }
   .room-side.people-open :where(.room-panel, .panel-body) > .chat { position: sticky; bottom: 0; z-index: 1; margin-top: auto; background: var(--bg); box-shadow: 0 12px 0 var(--bg), 0 -4px 0 var(--bg); }
-  .room-side.is-typing > .room-top:not(:focus-within) { display: none; }
+  /* Typing, the keyboard takes half the column: the head row, the invite and the tabs step aside, as in portrait (OME-2306). */
+  .room-side.is-typing :is(.room-top, .panel-head, .panel-tabs):not(:focus-within) { display: none; }
+  /* The invite keeps its field and Copy; its label is read, not shown, and the note goes, so a full Up next keeps rows. */
+  .room-side .panel-head > .invite > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .room-side .panel-head > .invite > .invite-note { display: none; }
+  /* The composer docks under Chat only here: on Up next its row went to the list (667×375 showed no queued row). */
+  .room-side .room-panel:not([data-tab="chat"]) > .chat { display: none; }
   /* CI's wider fonts (DejaVu) need ~133 px for 15 characters: every px of the row goes to the field. */
   .room-side .chat { gap: 2px; }
   .ui-touch .room-side .chat-field > input { padding-inline: 44px 2px; }
