@@ -323,6 +323,8 @@ export interface FullscreenLayout {
   readonly controls: Rect;
   readonly strip: Rect;
   readonly compact: { readonly tv: boolean; readonly controls: boolean };
+  /** The shelf is narrower than its transport (a phone's shared band row, OME-905): it scrolls sideways, the full-screen key pinned. */
+  readonly scrollShelf?: true;
   /** The hide/show-chat handle (OME-1593), 44 px: on the open strip's edge, or the screen's while hidden. `arrow`: where tapping moves the chat. */
   readonly handle?: Rect & { readonly arrow: "left" | "right" | "up" | "down" };
 }

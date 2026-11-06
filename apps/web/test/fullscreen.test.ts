@@ -560,3 +560,14 @@ test.each([320, 533, 534, 540, 551, 552])("%p px Twitch phone exposes stacked co
     expect(intersects(l.controls, l.strip)).toBe(false);
   }
 });
+
+// OME-2313: only a shelf narrower than its transport scrolls sideways under a pinned full-screen key. Portrait's
+// collapsed band stacks the shelf at the screen's width, like the open strip's, so every key sits in it.
+test("a short phone's shared row scrolls the shelf; portrait's stacked band doesn't", () => {
+  expect(fullscreenLayout(568, 320, "twitch", "band").scrollShelf).toBe(true);
+  for (const [w, h] of [[412, 915], [390, 844], [320, 640]] as const) {
+    const l = fullscreenLayout(w, h, "twitch", "band");
+    expect(l.controls.w).toBe(w);
+    expect(l.scrollShelf).toBeUndefined();
+  }
+});
