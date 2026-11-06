@@ -57,7 +57,7 @@ test("desktop: the room art sits beside the form at one art pixel per CSS pixel;
   const form = await box(page, "#landing");
   const art = await box(page, ".entry-art img");
   expect(art.x).toBeGreaterThanOrEqual(form.x + form.width);
-  expect([art.width, art.height]).toEqual([656, 536]);
+  expect([art.width, art.height]).toEqual([656, 552]);
   const how = await box(page, "#how");
   expect(how.y).toBeGreaterThanOrEqual(form.y + form.height);
   await expect(page.locator("#how")).toContainText("How it works");
@@ -87,7 +87,7 @@ test.describe("phone", () => {
     const form = await box(page, "#landing");
     const art = await box(page, ".entry-art");
     expect(art.y + art.height).toBeLessThanOrEqual(form.y);
-    expect(art.height).toBe(154);
+    expect(art.height).toBe(224);
     const img = await box(page, ".entry-art img");
     expect([img.width, img.height]).toEqual([368, 224]);
     const how = await box(page, "#how");
