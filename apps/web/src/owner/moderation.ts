@@ -83,6 +83,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
   let dx = 0;
   let dy = 0;
   let half = 0;
+  let tall = 0;
   let room = 0;
   let asking = false;
   let shownMuted: boolean | null = null;
@@ -172,6 +173,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
     dx = st.left - l.left;
     dy = st.top - l.top;
     half = menu.offsetWidth / 2;
+    tall = menu.offsetHeight;
     room = layer.clientWidth;
     placedAt = "";
   };
@@ -187,13 +189,14 @@ export function mountModeration(o: ModerationOptions): Moderation {
   const resized = new ResizeObserver(replace);
 
   /** Over the member's tag (stage px × the stage's scale + its offset in the layer), kept inside the layer by the menu's
-   * own width; the tail keeps pointing at the member. */
+   * own width and height; the tail keeps pointing at the member. */
   const placeMenu = (id: MemberId): void => {
     const p = o.anchor(id);
     if (p === undefined) return;
     const px = dx + p.x * k;
     const x = Math.min(room - half, Math.max(half, px));
-    const transform = `translate(${String(x)}px, ${String(dy + p.y * k - TAIL_PX)}px)`;
+    // It hangs above its point by its height: never over the wrap's top (a 96 px room strip under the TV, OME-2306).
+    const transform = `translate(${String(x)}px, ${String(Math.max(tall, dy + p.y * k - TAIL_PX))}px)`;
     if (transform === placedAt) return;
     placedAt = transform;
     menu.style.transform = transform;
