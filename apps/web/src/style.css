@@ -80,10 +80,14 @@ legend { padding: 0; margin-bottom: 6px; }
 /* Room layout picker (OME-910): native radios in labels. A sideways row on a phone-width panel (one swipe, snap), thumbs
  * keep their 212:176 ratio from the width/height attributes so nothing shifts as they load. */
 .home .preset-picker, .home .saved-layouts { display: grid; gap: 6px; min-width: 0; }
-/* Two whole cards, then 24 px of the next under a 32 px fade (OME-2284): a cue that more sit to the side, with no cut label
+.preset-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
+.preset { flex: none; width: 140px; display: grid; gap: 2px; align-content: start; scroll-snap-align: start; padding: 6px; border: 2px solid transparent; border-radius: 8px; background: var(--bg); cursor: pointer; position: relative; }
+/* Two whole cards, then 24 px of the next under a 32 px fade on a phone (OME-2284): a cue that more sit to the side, with no cut label
  * to read. The end padding lets the last card scroll clear of the fade; it also shrinks the 100% a card is sized from. */
-.preset-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding: 0 32px 6px 0; mask-image: linear-gradient(to right, #000 calc(100% - 32px), rgb(0 0 0 / 25%) calc(100% - 24px), transparent); }
-.preset { flex: none; width: min(calc((100% - 8px) / 2), 160px); display: grid; gap: 2px; align-content: start; scroll-snap-align: start; padding: 6px; border: 2px solid transparent; border-radius: 8px; background: var(--bg); cursor: pointer; position: relative; }
+@media (max-width: 600px) {
+  .preset-list { padding: 0 32px 6px 0; mask-image: linear-gradient(to right, #000 calc(100% - 32px), rgb(0 0 0 / 25%) calc(100% - 24px), transparent); }
+  .preset { width: calc((100% - 8px) / 2); }
+}
 .preset:has(input:checked) { border-color: var(--accent); }
 .preset:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .preset img { width: 100%; height: auto; border-radius: 4px; image-rendering: pixelated; }
@@ -97,7 +101,7 @@ legend { padding: 0; margin-bottom: 6px; }
 /* A computer (OME-1810, design OME-1809): all 8 presets at once, a 4×2 grid with no sideways scroll; 2 columns under 360 px. */
 @media (min-width: 1024px) {
   .home .preset-picker { container-type: inline-size; }
-  .home .preset-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; padding: 0; mask-image: none; }
+  .home .preset-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; padding-bottom: 0; }
   .home .preset { width: auto; }
   .home .preset-dots { display: none; }
   @container (min-width: 360px) {
