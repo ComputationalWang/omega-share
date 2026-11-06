@@ -283,7 +283,8 @@ for (const [name, w, h] of [["e1280", 1280, 800], ["e1920", 1920, 1080], ["e2560
       return { size: Number.parseFloat(s.fontSize), sm: Number.parseFloat(s.getPropertyValue("--text-sm")), tv, width: el.getBoundingClientRect().width };
     });
     expect(m.size).toBeCloseTo(Math.min(40, Math.max(m.sm, 0.022 * m.tv)), 0);
-    expect(m.width).toBeLessThanOrEqual(0.8 * m.tv + 1);
+    // 90 % (OME-2323): two lines on the narrower corner curtain.
+    expect(m.width).toBeLessThanOrEqual(0.9 * m.tv + 1);
   });
 }
 
