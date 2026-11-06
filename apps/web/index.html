@@ -21,28 +21,29 @@
     <header class="site-head"><p class="brand"><span class="brand-mark" aria-hidden="true"></span>omega-share</p></header>
     <main id="app">
       <div class="welcome">
-        <figure class="entry-art">
-          <picture>
-            <source media="(min-width: 1104px)" srcset="../../assets/site/website-room.png" width="656" height="552" />
-            <img src="../../assets/site/how-3-watch.png" width="368" height="224" decoding="async" alt="" />
-          </picture>
-          <figcaption>An illustration of a watch room, in omega-share's pixel style.</figcaption>
-        </figure>
-        <div class="entry">
+        <div class="front-door">
+          <img class="entry-scene" src="../../assets/site/website-room.png" width="656" height="552" decoding="async" alt="" />
+          <p class="scene-caption" aria-hidden="true">Good videos. Better company.</p>
+        <div class="entry doorstep">
           <form id="landing" class="landing" novalidate>
-            <p class="eyebrow">A little room for good company</p>
-            <h1>Find your people. <span class="nowrap">Take a seat.</span></h1>
+            <p class="eyebrow">The door’s open</p>
+            <h1>Come in. Get comfy.</h1>
             <p class="lede">Watch videos together in a cosy pixel room. No account needed.</p>
-            <label for="nickname">Nickname</label>
-            <input id="nickname" name="nickname" type="text" maxlength="20" autocomplete="nickname" required placeholder="What should we call you?" data-testid="nickname-input" aria-describedby="nickname-error" />
-            <p id="nickname-error" class="error" data-testid="nickname-error" aria-live="polite"></p>
+            <div class="form-step">
+              <h2 class="step-title"><span aria-hidden="true">01 /</span> What should we call you?</h2>
+              <label for="nickname">Nickname <span>1–20 characters</span></label>
+              <input id="nickname" name="nickname" type="text" maxlength="20" autocomplete="nickname" required placeholder="What should we call you?" data-testid="nickname-input" aria-describedby="nickname-error" />
+              <p id="nickname-error" class="error" data-testid="nickname-error" aria-live="polite"></p>
+            </div>
+            <div class="form-step">
+            <h2 class="step-title"><span aria-hidden="true">02 /</span> Pick your look</h2>
             <fieldset>
               <legend>Choose your avatar</legend>
               <div class="avatars" role="radiogroup" aria-label="Avatar">
-                <button type="button" class="avatar a0" role="radio" aria-checked="true" aria-label="Juno" data-avatar="0" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span>Juno</button>
-                <button type="button" class="avatar a1" role="radio" aria-checked="false" aria-label="Pip" data-avatar="1" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span>Pip</button>
-                <button type="button" class="avatar a2" role="radio" aria-checked="false" aria-label="Mo" data-avatar="2" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span>Mo</button>
-                <button type="button" class="avatar a3" role="radio" aria-checked="false" aria-label="Kiki" data-avatar="3" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span>Kiki</button>
+                <button type="button" class="avatar a0" role="radio" aria-checked="true" aria-label="Juno" data-avatar="0" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span><span class="avatar-caption">Juno</span></button>
+                <button type="button" class="avatar a1" role="radio" aria-checked="false" aria-label="Pip" data-avatar="1" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span><span class="avatar-caption">Pip</span></button>
+                <button type="button" class="avatar a2" role="radio" aria-checked="false" aria-label="Mo" data-avatar="2" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span><span class="avatar-caption">Mo</span></button>
+                <button type="button" class="avatar a3" role="radio" aria-checked="false" aria-label="Kiki" data-avatar="3" data-testid="avatar-option"><span class="avatar-sprite" aria-hidden="true"></span><span class="avatar-caption">Kiki</span></button>
               </div>
               <div class="looks">
                 <div class="tints" role="radiogroup" aria-label="Shirt colour" data-testid="tint-row">
@@ -74,21 +75,26 @@
                 <button type="button" class="accessory" role="radio" aria-checked="false" tabindex="-1" aria-label="Halo" data-accessory="8" data-testid="accessory-option"><span aria-hidden="true">😇</span></button>
               </div>
             </fieldset>
-            <button type="submit" class="enter" data-testid="join-button" disabled>Enter lobby</button>
+            </div>
+            <div class="form-step">
+              <h2 class="step-title"><span aria-hidden="true">03 /</span> Take a seat</h2>
+              <button type="submit" class="enter" data-testid="join-button" disabled>Enter lobby</button>
+            </div>
           </form>
           <button type="button" class="find-room link" data-testid="find-room">Find or create a room <span aria-hidden="true">→</span></button>
         </div>
+        </div>
         <section id="how" class="how" aria-labelledby="how-title">
-          <h2 id="how-title" class="visually-hidden">How it works</h2>
+          <h2 id="how-title"><span class="how-range" aria-hidden="true">01 — 03</span> How it works</h2>
           <ol class="how-steps">
-            <li><p class="how-cap">Find a video</p><p>Open a video page and use the extension.</p></li>
-            <li><p class="how-cap">Share your room</p><p>Invite friends with the room's link.</p></li>
-            <li><p class="how-cap">Watch in sync</p><p>Take a seat, chat, and press play.</p></li>
+            <li><span class="step-number" aria-hidden="true">01 /</span><div><h3>Bring something good.</h3><p>Paste a YouTube, Twitch or Vimeo link, or share a video with the extension.</p></div></li>
+            <li><span class="step-number" aria-hidden="true">02 /</span><div><h3>Send a little invite.</h3><p>Copy your room’s link. There’s a seat for your friends and their excellent commentary.</p></div></li>
+            <li><span class="step-number" aria-hidden="true">03 /</span><div><h3>Press play, together.</h3><p>One shared video. Your own volume. Chat, react, and stay for one more.</p></div></li>
           </ol>
         </section>
         <section class="get-extension" aria-labelledby="get-extension-title">
           <div>
-            <h2 id="get-extension-title">Bring a video from your browser</h2>
+            <h2 id="get-extension-title">Found a video? Bring it over.</h2>
             <p>The extension finds it. You choose the room.</p>
           </div>
           <p class="install"><!--omega:install--></p>

@@ -1,8 +1,9 @@
-// OME-767 (M9 W1), redesigned as the Dusk doorstep (OME-935): the landing explains the product before asking for
-// anything. A skip link, then the nickname form (still the first control) beside the room illustration, then "How it
-// works" (three numbered steps) and the install row; the site footer under it all. Desktop: the art sits beside the
-// form. Phone: the vignette above it, nothing wider than the screen. Checked keyboard-only, with reduced motion, and
-// for layout shift. The perf budget is perf/landing.perf.ts.
+// OME-767 (M9 W1), redesigned as the Dusk doorstep (OME-935), then the Doorstep desk (OME-2305, design
+// docs/design/site-redesign-2): a skip link, then a cream doorstep card (an atlas panel) over the full-bleed pixel room,
+// its form a numbered 01 / 02 / 03 sequence (name, look, take a seat), then "How it works" and the install row; the
+// site footer under it all. Desktop: the room at 2× behind a 512 px card. Phone: about 200 px of the room at 1× above
+// the card. The room is cropped, never resampled; nothing scrolls inside the card and nothing sticks. Checked
+// keyboard-only, with reduced motion, and for layout shift. The perf budget is perf/landing.perf.ts.
 import type { BrowserContext, Page } from "@playwright/test";
 import * as v from "valibot";
 import { expect, test, watchCsp } from "./support/csp";
@@ -23,7 +24,7 @@ const box = async (page: Page, sel: string) => {
 
 /** The hero has decoded (the one file the viewport picked). */
 async function heroLoaded(page: Page): Promise<void> {
-  const img = page.locator(".entry-art img");
+  const img = page.locator(".entry-scene");
   await expect.poll(() => img.evaluate((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0)).toBe(true);
 }
 
@@ -50,29 +51,104 @@ test("keyboard only: the nickname field has focus on arrival, the skip link is s
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
 });
 
-test("desktop: the room art sits beside the form at one art pixel per CSS pixel; the steps below; the footer lists every page", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
+/** Every visible control in the entry view smaller than 44×44 CSS px. */
+const smallTargets = (page: Page): Promise<string[]> =>
+  page.locator(".welcome").evaluate((root) =>
+    [...root.querySelectorAll<HTMLElement>("a, button, input, [tabindex]")]
+      .filter((el) => el.checkVisibility())
+      .map((el) => [el, el.getBoundingClientRect()] as const)
+      .filter(([, r]) => r.width < 43.5 || r.height < 43.5)
+      .map(([el, r]) => `${el.tagName.toLowerCase()}.${el.classList.value} "${el.getAttribute("aria-label") ?? el.textContent.trim()}" ${String(Math.round(r.width))}x${String(Math.round(r.height))}`),
+  );
+
+/** Something inside the entry scrolls on its own or sticks to the screen (the card flows with the page, OME-2305). */
+const innerScrollOrSticky = (page: Page): Promise<string[]> =>
+  page.locator(".welcome").evaluate((root) =>
+    [root, ...root.querySelectorAll<HTMLElement>("*")].flatMap((el) => {
+      const cs = getComputedStyle(el);
+      const scrolls = ["auto", "scroll"].includes(cs.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      return scrolls || cs.position === "sticky" || cs.position === "fixed" ? [`${el.tagName.toLowerCase()}.${el.classList.value} ${cs.position} ${cs.overflowY}`] : [];
+    }),
+  );
+
+const borderImage = (page: Page, sel: string): Promise<string> => page.locator(sel).first().evaluate((e) => getComputedStyle(e).borderImageSource);
+
+test("desktop: the doorstep card over the room at 2×, the 01 / 02 / 03 sequence in atlas keys, large avatars, the steps below, the footer lists every page", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(URLS.web);
   await heroLoaded(page);
-  const form = await box(page, "#landing");
-  const art = await box(page, ".entry-art img");
-  expect(art.x).toBeGreaterThanOrEqual(form.x + form.width);
-  expect([art.width, art.height]).toEqual([656, 552]);
+  // The full-bleed room: one file at exactly 2× its pixels, cropped by the page, never resampled.
+  const scene = page.locator(".entry-scene");
+  const natural = await scene.evaluate((e) => (e instanceof HTMLImageElement ? [e.currentSrc, e.naturalWidth, e.naturalHeight] as const : ["", 0, 0] as const));
+  expect(natural[0]).toContain("website-room");
+  const art = await box(page, ".entry-scene");
+  expect([art.width, art.height]).toEqual([natural[1] * 2, natural[2] * 2]);
+  // The doorstep: a 512 px atlas panel holding the form, over the scene.
+  const card = await box(page, ".doorstep");
+  expect(card.width).toBe(512);
+  expect(await borderImage(page, ".doorstep")).not.toBe("none");
+  expect(await page.locator(".doorstep").evaluate((e) => e.contains(document.querySelector("#landing")))).toBe(true);
+  await expect(page.locator(".step-title")).toHaveText([/^01 \/\s*What should we call you\?/, /^02 \/\s*Pick your look/, /^03 \/\s*Take a seat/]);
+  // Original avatars at 3×; every key is an atlas slice.
+  const sprite = await box(page, ".a0 .avatar-sprite");
+  expect([sprite.width, sprite.height]).toEqual([96, 192]);
+  for (const sel of [site.joinButton, site.findRoom, `${site.avatarOption} .avatar-caption`, "[data-testid=tint-option]", "[data-testid=hair-option]", "[data-testid=accessory-option]", ".install-link"]) {
+    expect(await borderImage(page, sel), sel).not.toBe("none");
+  }
+  expect((await box(page, site.joinButton)).height).toBeGreaterThanOrEqual(48);
+  expect(await smallTargets(page)).toEqual([]);
+  expect(await innerScrollOrSticky(page)).toEqual([]);
   const how = await box(page, "#how");
-  expect(how.y).toBeGreaterThanOrEqual(form.y + form.height);
+  expect(how.y).toBeGreaterThanOrEqual(card.y + card.height);
   await expect(page.locator("#how")).toContainText("How it works");
   await expect(page.getByRole("link", { name: "Add to Firefox (opens in a new tab)", exact: true })).toHaveAttribute("href", "https://addons.mozilla.org/firefox/addon/omega-share/");
   await expect(page.getByRole("link", { name: "Add to Chrome (opens in a new tab)", exact: true })).toHaveAttribute("href", "https://chromewebstore.google.com/detail/omega-share/ekigjfonnhaikceahleigjeioojgjlal");
   await expect(page.locator(".install")).not.toContainText("coming soon");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
   const footer = page.locator(".site-footer");
   for (const name of ["Privacy", "Terms", "Contact", "Licences", "Source", "Feedback"]) await expect(footer.getByRole("link", { name: new RegExp(`^${name}\\b`) })).toBeVisible();
   await expect(footer).toContainText(/version ([0-9a-f]{7}|dev)/);
 });
 
+// D's focus: a 3 px honey outline 4 px out, with a plum ring behind it so it reads on the cream card.
+test("keyboard focus on the doorstep: 3 px honey outline, 4 px offset, a plum backing ring", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(URLS.web);
+  await page.locator(site.nicknameInput).fill("Ring");
+  const roving = (sel: string): string => `${sel}[tabindex="0"]`;
+  for (const sel of [site.nicknameInput, roving(site.avatarOption), roving("[data-testid=tint-option]"), roving("[data-testid=hair-option]"), roving("[data-testid=accessory-option]"), site.joinButton, site.findRoom]) {
+    const el = page.locator(sel);
+    // A key first: script focus after keyboard use is :focus-visible.
+    await page.keyboard.press("Shift");
+    await el.focus();
+    const ring = await el.evaluate((e) => {
+      const cs = getComputedStyle(e);
+      return { outline: `${cs.outlineStyle} ${cs.outlineWidth} ${cs.outlineColor}`, offset: cs.outlineOffset, shadow: cs.boxShadow };
+    });
+    expect(ring.outline, sel).toBe("solid 3px rgb(244, 205, 131)");
+    expect(ring.offset, sel).toBe("4px");
+    expect(ring.shadow, sel).toContain("rgb(41, 35, 51)");
+  }
+});
+
+// The invalid state keeps what was typed, says why (tied to the field) and puts focus back in it.
+test("an invalid nickname keeps its value, is marked invalid and described by the error, and takes focus", async ({ page }) => {
+  await page.goto(URLS.web);
+  const nickname = page.locator(site.nicknameInput);
+  await nickname.fill("   ");
+  await page.locator(site.joinButton).click();
+  await expect(page.locator("#nickname-error")).not.toHaveText("");
+  await expect(nickname).toHaveValue("   ");
+  await expect(nickname).toHaveAttribute("aria-invalid", "true");
+  await expect(nickname).toHaveAttribute("aria-describedby", "nickname-error");
+  await expect(nickname).toBeFocused();
+  await expect(page.locator(site.room)).toBeHidden();
+});
+
 test.describe("phone", () => {
   test.use({ viewport: { width: 360, height: 740 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
-  test("the vignette sits above the form, the steps below it, nothing is wider than the screen, and nothing shifts", async ({ page }) => {
+  test("about 200 px of the room at 1× above the card, avatars at 2×, the steps below, nothing wider than the screen, nothing scrolls inside or sticks, nothing shifts", async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as Window & { __cls?: number };
       w.__cls = 0;
@@ -85,14 +161,20 @@ test.describe("phone", () => {
     });
     await page.goto(URLS.web);
     await heroLoaded(page);
-    const form = await box(page, "#landing");
-    const art = await box(page, ".entry-art");
-    expect(art.y + art.height).toBeLessThanOrEqual(form.y);
-    expect(art.height).toBe(224);
-    const img = await box(page, ".entry-art img");
-    expect([img.width, img.height]).toEqual([368, 224]);
+    const img = await box(page, ".entry-scene");
+    expect([img.width, img.height]).toEqual([656, 552]);
+    const head = await box(page, ".site-head");
+    const card = await box(page, ".doorstep");
+    const strip = card.y - (head.y + head.height);
+    expect(strip).toBeGreaterThanOrEqual(180);
+    expect(strip).toBeLessThanOrEqual(220);
+    expect(card.width).toBe(360 - 32);
+    const sprite = await box(page, ".a0 .avatar-sprite");
+    expect([sprite.width, sprite.height]).toEqual([64, 128]);
     const how = await box(page, "#how");
-    expect(how.y).toBeGreaterThanOrEqual(form.y + form.height);
+    expect(how.y).toBeGreaterThanOrEqual(card.y + card.height);
+    expect(await smallTargets(page)).toEqual([]);
+    expect(await innerScrollOrSticky(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     await page.waitForLoadState("load");
     expect(await page.evaluate(() => (window as Window & { __cls?: number }).__cls ?? 1)).toBeLessThanOrEqual(0.05);
@@ -105,7 +187,9 @@ test.describe("phone", () => {
   });
 });
 
-// OME-1806: an invite link opened on a phone held sideways or an iPad in landscape shows the way in without a scroll.
+// OME-1806: an invite link opened on a phone held sideways or an iPad in landscape shows the nickname field without a
+// scroll. The Doorstep desk (OME-2305) drops the sticky Enter block: Enter flows with the card, one page scroll away,
+// and nothing is drawn over it when it gets there.
 for (const [width, height] of [[844, 390], [1024, 768]] as const) {
   test.describe(`${String(width)}×${String(height)} touch`, () => {
     test.use({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -114,7 +198,11 @@ for (const [width, height] of [[844, 390], [1024, 768]] as const) {
         await page.goto(`${URLS.web}${path}`);
         const enter = page.locator(site.joinButton);
         await expect(enter).toHaveText(label);
+        await expect(page.locator(site.nicknameInput)).toBeInViewport({ ratio: 1 });
+        expect(await page.evaluate(() => window.scrollY)).toBe(0);
+        expect(await enter.evaluate((e) => getComputedStyle(e).position)).not.toBe("sticky");
         for (const l of [page.locator(site.nicknameInput), enter]) {
+          await l.scrollIntoViewIfNeeded();
           await expect(l).toBeInViewport({ ratio: 1 });
           // In view and on top: the finger lands on it, not on something drawn over it.
           expect(await l.evaluate((node) => {
@@ -123,7 +211,6 @@ for (const [width, height] of [[844, 390], [1024, 768]] as const) {
             return hit !== null && (hit === node || node.contains(hit));
           })).toBe(true);
         }
-        expect(await page.evaluate(() => window.scrollY)).toBe(0);
       });
     }
   });
@@ -192,7 +279,7 @@ test.describe("reduced motion", () => {
     await page.keyboard.press("Tab");
     expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
     await expect(page.locator("#how li")).toHaveCount(3);
-    for (const name of ["Find a video", "Share your room", "Watch in sync"]) await expect(page.locator("#how")).toContainText(name);
+    for (const name of ["Bring something good.", "Send a little invite.", "Press play, together."]) await expect(page.locator("#how")).toContainText(name);
   });
 });
 

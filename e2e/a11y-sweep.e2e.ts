@@ -136,8 +136,9 @@ const measure = (page: Page): Promise<string[]> =>
       if (size > 0 && size < 11.5) out.push(`text under 12 px (touch): ${describe(el)} ${String(size)} px`);
     }
     for (const el of els) {
-      // Gone while focus visited the unseen controls above (a menu that closes on blur): not a target now.
-      if (!judged(el) || !el.checkVisibility()) continue;
+      // Gone while focus visited the unseen controls above (a menu that closes on blur): not a target now. The entry's
+      // keys are 44 px to a mouse too (Doorstep desk, OME-2305).
+      if (!(judged(el) || el.closest(".welcome") !== null) || !el.checkVisibility()) continue;
       // WCAG 2.5.8 inline exception: a link in running text. A footer's or a dialog's link list isn't running text.
       const parent = el.parentElement;
       if (el.tagName === "A" && el.closest("footer, dialog, [role=dialog]") === null && parent !== null && ["P", "LI", "DD", "SPAN", "SMALL", "TD"].includes(parent.tagName) && [...parent.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "")) continue;
