@@ -116,13 +116,13 @@ describe("on a phone", () => {
 });
 
 describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => {
-  test("a tall window has the keys floating on the room (OME-2171), a short one in a row under it, a sliver none at all", async () => {
+  test("a portrait window has the keys floating on the room (OME-2171), a short one too (OME-2306: a 96 px strip keeps all its height for me), a sliver none at all", async () => {
     const { win, clip } = await setup();
     win.set(true, VIEW.w, VIEW.h);
     expect(clip.dataset["keys"]).toBe("float");
     expect(clip.style.visibility).toBe("");
-    win.set(true, VIEW.w, 120);
-    expect(clip.dataset["keys"]).toBe("row");
+    win.set(true, VIEW.w, 96);
+    expect(clip.dataset["keys"]).toBe("float");
     expect(clip.style.visibility).toBe("");
     win.set(true, VIEW.w, 40);
     expect(clip.style.visibility).toBe("hidden");
@@ -135,7 +135,7 @@ describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => 
     win.set(true, 540, 120);
     expect(clip.dataset["keys"]).toBe("side");
     win.set(true, 390, 120);
-    expect(clip.dataset["keys"]).toBe("row");
+    expect(clip.dataset["keys"]).toBe("float");
   });
 
   test("a wide window shorter than the portrait floor (Pixel 7 landscape, 863×360, OME-2103) still shows the room beside its key row", async () => {
