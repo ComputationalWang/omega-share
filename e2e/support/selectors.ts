@@ -122,6 +122,7 @@ export const site = {
   editorCursor: id("editor-cursor"),
   editorMessage: id("editor-message"),
   editorSave: id("editor-save"),
+  editorReset: id("editor-reset"),
   editorMineName: id("editor-mine-name"),
   editorMineSave: id("editor-mine-save"),
   editorCount: id("editor-count"),

@@ -384,6 +384,8 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     expect(editing.w, `${at} editing width`).toBeGreaterThanOrEqual(Math.floor(960 * k));
     expect(editing.w, `${at} editing width vs the smaller window's`).toBeGreaterThanOrEqual(last);
     last = editing.w;
+    // OME-2283 (judge round 10): at 1280×800 the room was 576×320, 18 % of the screen, its people ≈ 15 px tall.
+    if (w === 1280) expect((editing.w * editing.h) / (w * h), `${at} editing: the room's share of the screen`).toBeGreaterThanOrEqual(0.25);
     // Nothing scrolls: each layout control is wholly in the viewport as laid out, Done and Save layout together, down to
     // Save as my layout (the audit's list). The room's own settings end the column: at worst its scroll, never the page's.
     for (const sel of [site.editRoom, site.editorTab, site.editorTray, site.editorRotate, site.editorRemove, site.editorMood, site.editorSave, site.editorMineName, site.editorMineSave]) {
@@ -395,4 +397,10 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     }
     expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
+  // OME-2283: nothing to save or undo, the two keys look alike, under the pointer too (a secondary key's hover face beat its disabled one).
+  const face = (sel: string): Promise<string> => host.locator(sel).evaluate((e) => { const c = getComputedStyle(e); return `${c.borderImageSource} ${c.color}`; });
+  await expect(host.locator(site.editorReset)).toBeDisabled();
+  await expect(host.locator(site.editorSave)).toBeDisabled();
+  await host.locator(site.editorReset).hover({ force: true });
+  expect(await face(site.editorReset), "Undo changes, disabled and hovered").toBe(await face(site.editorSave));
 });
