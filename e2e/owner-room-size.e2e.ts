@@ -384,10 +384,15 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     expect(editing.w, `${at} editing width`).toBeGreaterThanOrEqual(Math.floor(960 * k));
     expect(editing.w, `${at} editing width vs the smaller window's`).toBeGreaterThanOrEqual(last);
     last = editing.w;
-    // Nothing scrolls: each control is wholly in the viewport as laid out, Done and Save layout together.
-    for (const sel of [site.editRoom, site.editorTab, site.editorTray, site.editorRotate, site.editorRemove, site.editorMood, site.editorSave, site.editorMineName, site.editorMineSave, site.editorTitle, site.editorRename, site.editorDelete]) {
+    // Nothing scrolls: each layout control is wholly in the viewport as laid out, Done and Save layout together, down to
+    // Save as my layout (the audit's list). The room's own settings end the column: at worst its scroll, never the page's.
+    for (const sel of [site.editRoom, site.editorTab, site.editorTray, site.editorRotate, site.editorRemove, site.editorMood, site.editorSave, site.editorMineName, site.editorMineSave]) {
       await expect(host.locator(sel).last(), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
     }
-    expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight), `${at} the page doesn't scroll`).toBe(true);
+    for (const sel of [site.editorTitle, site.editorRename, site.editorDelete]) {
+      await host.locator(sel).scrollIntoViewIfNeeded();
+      await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
+    }
+    expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
 });
