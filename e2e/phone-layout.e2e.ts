@@ -505,12 +505,14 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
   expect(await targetSize(page)).toEqual([]);
   await page.getByTestId("room-zoom-fit").tap();
   await frames(page);
-  // At Fit the walls span the width and show whole, centred in the window's height. The window is taller than the
-  // room at that width, so Fit leaves equal margins over and under it: the price of seeing the whole room.
+  // At Fit the walls show whole and fill the window one way, centred the other (OME-2306: with the panel under it the
+  // window is wider than the room's shape, so Fit is held by the height): the price of seeing the whole room.
   const fit = await walls();
-  expect(fit.w, "fitted walls' width").toBeCloseTo(412, 0);
-  expect(fit.h, "fitted walls' height").toBeLessThanOrEqual(win.height);
-  expect(Math.abs(fit.y - (win.height - fit.y - fit.h)), "walls centred").toBeLessThanOrEqual(2);
+  expect(fit.w, "fitted walls' width").toBeLessThanOrEqual(412.5);
+  expect(fit.h, "fitted walls' height").toBeLessThanOrEqual(win.height + 0.5);
+  expect(Math.max(fit.w / 412, fit.h / win.height), "the walls fill the window one way").toBeCloseTo(1, 2);
+  expect(Math.abs(fit.x - (412 - fit.x - fit.w)), "walls centred across").toBeLessThanOrEqual(2);
+  expect(Math.abs(fit.y - (win.height - fit.y - fit.h)), "walls centred down").toBeLessThanOrEqual(2);
   expect(await targetSize(page)).toEqual([]);
 });
 
