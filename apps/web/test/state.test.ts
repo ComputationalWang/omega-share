@@ -222,15 +222,23 @@ describe("screen", () => {
   // stage inside it) or it pushes the room-full message below the fold (OME-6 QA).
   test("room-full takes the stage wrap and chat out of the flow and shows the message", () => {
     const s = server(joined(), { type: "room-full" });
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: true, refused: null, closed: false, kicked: false, notFound: false });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: true, refused: null, closed: false, kicked: false, notFound: false });
   });
 
   test("an open room shows the stage and chat, not the full message", () => {
-    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false, refused: null, closed: false, kicked: false, notFound: false });
+    expect(screen(joined())).toEqual({ stage: true, reserve: false, chat: true, full: false, refused: null, closed: false, kicked: false, notFound: false });
   });
 
-  test("before the first snapshot nothing is laid out", () => {
-    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: false });
+  // OME-2262: the wrap keeps its place, invisible, until the first snapshot, so the TV, its shelf, the room's foot and
+  // the footer don't move when it lands (cold-load CLS).
+  test("before the first snapshot the stage isn't shown but keeps its place", () => {
+    expect(screen(initialState)).toEqual({ stage: false, reserve: true, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: false });
+    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, reserve: true, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: false });
+  });
+
+  test("a room this page never got into keeps no place for the stage", () => {
+    expect(screen(server(reduce(initialState, { type: "connecting" }), { type: "room-full" })).reserve).toBe(false);
+    expect(screen(reduce(initialState, { type: "room-closed", takenDown: false })).reserve).toBe(false);
   });
 });
 
@@ -303,7 +311,7 @@ describe("refused joins (ADR 0016 §4)", () => {
       expect(s.status).toBe("refused");
       expect(s.refusal).toBe(code);
       expect(s.room).toBeNull();
-      expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: code, closed: false, kicked: false, notFound: false });
+      expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: code, closed: false, kicked: false, notFound: false });
     });
   }
 
@@ -427,7 +435,7 @@ describe("created rooms (ADR 0028)", () => {
   test("room-closed is terminal: the room leaves the screen and later connection events don't bring it back", () => {
     let s = reduce(joined(), { type: "room-closed" });
     expect(s.status).toBe("closed");
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: "deleted", kicked: false, notFound: false });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: null, closed: "deleted", kicked: false, notFound: false });
     s = reduce(s, { type: "disconnected" });
     s = reduce(s, { type: "connecting" });
     expect(s.status).toBe("closed");
@@ -435,7 +443,7 @@ describe("created rooms (ADR 0028)", () => {
 
   test("a takedown (4006, ADR 0033 §6) is terminal too, and the screen says it was taken down, not deleted", () => {
     let s = reduce(joined(), { type: "room-closed", takenDown: true });
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: "taken-down", kicked: false, notFound: false });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: null, closed: "taken-down", kicked: false, notFound: false });
     expect(s.room).toBeNull();
     s = reduce(s, { type: "disconnected" });
     s = reduce(s, { type: "connecting" });
@@ -447,18 +455,18 @@ describe("created rooms (ADR 0028)", () => {
   test("closed (4004) before any snapshot: not found, not 'this room was closed'", () => {
     const s = reduce(reduce(initialState, { type: "connecting" }), { type: "room-closed" });
     expect(s.status).toBe("not-found");
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: true });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: true });
   });
 
   test("taken down (4006) before any snapshot: the same not-found screen", () => {
     const s = reduce(reduce(initialState, { type: "connecting" }), { type: "room-closed", takenDown: true });
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: true });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: true });
   });
 
   test("invite_required before joining: the same not-found screen, never 'this room is private'", () => {
     const s = server(reduce(initialState, { type: "connecting" }), { type: "error", code: "invite_required", message: "private" });
     expect(s.status).toBe("not-found");
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: true });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: null, closed: false, kicked: false, notFound: true });
   });
 
   test("not found is terminal: later connection events don't change it", () => {
@@ -588,7 +596,7 @@ describe("owner moderation (ADR 0030, OME-507)", () => {
     let s = reduce(joined(), { type: "kicked", until: 600_000 });
     expect(s.status).toBe("kicked");
     expect(s.kickedUntil).toBe(600_000);
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: true, notFound: false });
+    expect(screen(s)).toEqual({ stage: false, reserve: false, chat: false, full: false, refused: null, closed: false, kicked: true, notFound: false });
     s = reduce(s, { type: "disconnected" });
     s = reduce(s, { type: "connecting" });
     expect(s.status).toBe("kicked");
