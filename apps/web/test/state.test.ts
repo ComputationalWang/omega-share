@@ -238,7 +238,7 @@ describe("screen", () => {
 
   test("a room this page never got into keeps no place for the stage", () => {
     expect(screen(server(reduce(initialState, { type: "connecting" }), { type: "room-full" })).reserve).toBe(false);
-    expect(screen(reduce(initialState, { type: "room-closed", takenDown: false })).reserve).toBe(false);
+    expect(screen(reduce(initialState, { type: "room-closed" })).reserve).toBe(false);
   });
 });
 

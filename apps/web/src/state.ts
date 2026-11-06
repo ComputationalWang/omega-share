@@ -443,5 +443,5 @@ export interface Screen {
 /** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
 export function screen(state: ViewState): Screen {
   const inRoom = state.room !== null && !stopped(state);
-  return { stage: inRoom, reserve: false, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked", notFound: state.status === "not-found" };
+  return { stage: inRoom, reserve: state.room === null && (state.status === "idle" || state.status === "connecting"), chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked", notFound: state.status === "not-found" };
 }

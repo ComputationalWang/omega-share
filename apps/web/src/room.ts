@@ -1010,7 +1010,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     owner.render(s);
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
-    wrap.hidden = !shown.stage;
+    // Until the first snapshot the wrap keeps its place, invisible (room.css), so nothing moves when it lands (OME-2262).
+    wrap.hidden = !shown.stage && !shown.reserve;
+    wrap.classList.toggle("is-reserved", shown.reserve);
     reactionBar.root.hidden = !shown.stage || s.status !== "open" || s.room?.embed == null;
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
@@ -1478,7 +1480,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Before the picker, shown or not: on some layouts Shift+digit types a digit, which the picker would take as an emote.
     else if (reactionBar.key(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
-    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
+    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && onStage && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
       // Enter with nothing that takes it focused jumps to the message field, here or in full screen; Esc hands back (OME-642).
       const k = chatKey(ev, chatInput);
