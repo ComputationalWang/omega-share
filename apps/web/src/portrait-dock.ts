@@ -10,6 +10,8 @@ export interface PortraitDockOptions {
   readonly pictureRegion?: HTMLElement;
   readonly settings: readonly HTMLElement[];
   readonly onViewport?: () => void;
+  /** Just before the sheet shows: place it (a read there is cheap; mid-fit it forced a layout, OME-2280). */
+  readonly beforeOpen?: () => void;
 }
 
 /** Reuses the room's DOM: no second log, queue state, renderer or connection. */
@@ -89,6 +91,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
       content.append(node);
       return { node, marker };
     });
+    o.beforeOpen?.();
     sheet.showModal();
     const target = focusInput ? content.querySelector<HTMLInputElement>("input:not(:disabled)") : kind === "chat" ? o.log : closeKey;
     target?.focus({ preventScroll: true });

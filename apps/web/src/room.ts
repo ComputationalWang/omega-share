@@ -252,6 +252,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       floorSit();
     },
   });
+  // The stage and the room's build are a task each (OME-2280): in one, a phone's join froze ~90 ms. Nothing of the room
+  // exists yet, so nothing can call into it meanwhile; the page still shows the join form.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   /** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell or get up; with no cell under me, say so. */
   function floorSit(): boolean {
     const msg = floorSitIntent(state);
@@ -1065,8 +1068,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The landing form held focus and is gone: once the room (or the card in its place) shows, its first key takes it.
     if (!landed && s.status !== "idle" && s.status !== "connecting" && s.status !== "reconnecting") {
       landed = true;
-      const a = document.activeElement;
-      if (a === null || a === document.body || (a instanceof HTMLElement && !a.checkVisibility())) firstKey(opts.root)?.focus({ preventScroll: true });
+      // Next frame: checking what shows here, mid-render, forced a layout (OME-2280).
+      requestAnimationFrame(() => {
+        const a = document.activeElement;
+        if (a === null || a === document.body || (a instanceof HTMLElement && !a.checkVisibility())) firstKey(opts.root)?.focus({ preventScroll: true });
+      });
     }
   };
 

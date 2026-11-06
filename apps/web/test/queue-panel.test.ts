@@ -369,6 +369,19 @@ test("turning portrait reads no layout: the list's resize re-checks its tab stop
   expect(reads).toBe(0);
 });
 
+// OME-2280: the room's first renders on joining draw an empty Up next, mid-render. An empty list can't scroll, so asking
+// whether it does (a size read) only forced a layout.
+test("drawing an empty Up next reads no layout", async () => {
+  const { server, q } = await setup();
+  const list = q("queue-list");
+  let reads = 0;
+  Object.defineProperty(list, "scrollHeight", { get: () => (reads++, 0) });
+  Object.defineProperty(list, "clientHeight", { get: () => (reads++, 0) });
+  server({ type: "queue-changed", queue: [], by: "kit" });
+  expect(reads).toBe(0);
+  expect(list.hasAttribute("tabindex")).toBe(false);
+});
+
 // OME-1250 (QA OME-1243 K2): reorder Up next with Move up/down keys and Alt+Arrow, on the rows a member may remove.
 describe("reorder Up next", () => {
   const three = (): RoomState => room({ queue: [item("a", yt("aaaaaaaaaaa"), "me"), item("b", yt("bbbbbbbbbbb"), "me"), item("c", yt("ccccccccccc"), "kit")] });

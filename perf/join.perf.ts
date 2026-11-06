@@ -212,4 +212,7 @@ test("joining the Theatre preset on a throttled phone: first draw within a secon
     if (!budget) throw new Error(`no budget ${m.id}`);
     expect.soft(evaluate(budget, m).status, `${budget.metric}: ${m.value.toFixed(0)} ms vs ${budget.comparator} ${String(budget.limit)} (${m.note})`).toBe("pass");
   }
+  // OME-2280: a median under the limit hid a 107 ms join (101/96/107); no single join may pass it.
+  const limit = BUDGETS.find((b) => b.id === ids[1])?.limit ?? 0;
+  expect.soft(Math.max(...runs.map((r) => r.longest)), `every Theatre join's longest task ≤ ${String(limit)} ms (${rows[1]?.note ?? ""})`).toBeLessThanOrEqual(limit);
 });

@@ -353,7 +353,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
 
   const dock = createPortraitDock({ root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: o.settings, onViewport: () => { fit(); tvBox.place(); } });
+    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: o.settings, onViewport: () => { fit(); tvBox.place(); }, beforeOpen: () => { placeSheet(); } });
+  /** The Room sheet starts under the picture. Read only while it shows: a fit that read it forced a layout (OME-2280). */
+  const placeSheet = (): void => {
+    root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
+  };
   let portraitOn = false;
   // Wide: People takes the log's place in the chat column while open (OME-1805), never above the TV.
   // Portrait dock (a phone, or a tablet since OME-1802): under the picture, so the TV stays put and the room gives way.
@@ -619,7 +623,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
-      root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
+      if (dock.sheet.open) placeSheet();
     }
     box(clip, l.stage);
     // room.css sizes the host's tag hit areas by it; the phone window keeps its own zoom.
@@ -652,8 +656,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     seats: (points, standing) => {
       seatPoints = points;
       standingPoints = standing;
-      // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle.
-      fit();
+      // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle. Only the band
+      // reads the seats: any other fit would force a layout mid-render for nothing (OME-2280).
+      if (band !== null) fit();
     },
     centre: (p) => {
       roomWindow.centre(p);
