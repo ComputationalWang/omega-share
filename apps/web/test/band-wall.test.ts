@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { FLOOR_CELLS, RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
+import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_HEAD, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
 
 const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
 const SIDES = ["south", "north"] as const;
@@ -201,5 +201,23 @@ describe("1280×800 with nothing on (OME-2282)", () => {
     const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, l.stage).pan;
     expect(pan.y).toBeLessThanOrEqual(BAND_WALL_TOP);
     expect(pan.y + shown.h).toBeGreaterThanOrEqual(FLOOR_FOOT + 8);
+  });
+});
+
+// OME-2300 (judge round 11): the band at 1280×800 with nothing on looked from the walls' art (stage y 113), so the
+// walls' corner (y 0) went under the shelf. The curtain takes the free corner over the left wall, as Room view's TV does
+// (OME-2233), and the room's box holds the walls' corner 8 px under its top, the shelf beside the curtain and over the box.
+describe("1280×800 with nothing on: the walls' corner (OME-2300)", () => {
+  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the walls' corner is 8 px inside the box, which the shelf ends over", (name, side) => {
+    setNorth(side === "north");
+    const l = wideLayout(888, 652, null, 1, 1, false, true);
+    const room = preset(name);
+    const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
+    const c = bandHome(seatPoints(room), standingPoints(room), shown, standingPoints(room)[0] ?? null);
+    const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, { ...l.stage, head: ROOM_HEAD }).pan;
+    expect(pan.y).toBeLessThanOrEqual(-8);
+    expect(pan.y + shown.h).toBeGreaterThanOrEqual(FLOOR_FOOT + 8);
+    expect(l.controls.y + l.controls.h).toBeLessThanOrEqual(l.stage.y);
+    expect(l.scale).toBe(1);
   });
 });
