@@ -221,3 +221,28 @@ describe("1280×800 with nothing on: the walls' corner (OME-2300)", () => {
     expect(l.scale).toBe(1);
   });
 });
+
+// QA OME-2311: at 1280×720 the corner curtain hid ~95 px of the left wall's top edge (1280×800: 0 px clear). The
+// curtain's frame ends ≥ 8 px above that edge wherever it sits beside it, or it tops the room as before (OME-2282).
+describe("nothing on: the corner curtain clear of the left wall's top (QA OME-2311)", () => {
+  test.each([
+    [888, 572],
+    [888, 652],
+    [1048, 752],
+  ])("column %d×%d", (w, h) => {
+    const l = wideLayout(w, h, null, 1, 1, false, true);
+    const frameFoot = l.tv.y + l.tv.h + 6;
+    if (l.stage.y >= frameFoot) return;
+    const room = preset("classic");
+    const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
+    const c = bandHome(seatPoints(room), standingPoints(room), shown, standingPoints(room)[0] ?? null);
+    const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, { ...l.stage, head: ROOM_HEAD }).pan;
+    // The left wall's top: from the walls' corner (480, 0) down-left to its end (150, 165), in room px.
+    for (let rx = 150; rx <= 480; rx += 2) {
+      const sx = l.stage.x + (rx - pan.x) * l.scale;
+      if (sx > l.tv.x + l.tv.w + 6) continue;
+      const sy = l.stage.y + ((480 - rx) / 2 - pan.y) * l.scale;
+      expect(sy).toBeGreaterThanOrEqual(frameFoot + 8);
+    }
+  });
+});
