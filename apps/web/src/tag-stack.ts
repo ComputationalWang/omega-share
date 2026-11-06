@@ -109,6 +109,11 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
   return out;
 }
 
+/** `stackTags` that returns its last places when called again with equal tags, height, window and avoid boxes (OME-2317). */
+export function createTagStacker(): (tags: readonly TagBox[], h: number, maxY: number, minY: number, avoid: readonly Box[]) => readonly TagPlace[] {
+  return stackTags;
+}
+
 /** The boxes (stage px) of the sprites marked `screen` (furniture.ts), each its frame around its anchor, down to the anchor
  * at most: under it is the stand's front (classic's TV console, OME-2246), not the picture; `frame` gives a loaded frame's
  * size and anchor. Tags keep off them (OME-2196). */

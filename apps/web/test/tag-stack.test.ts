@@ -6,7 +6,7 @@ import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
 import { TAG_OFFSET_Y, cellCenter, setNorth } from "../src/layout";
-import { HEAD_H, HEAD_W, screenBoxes, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
+import { HEAD_H, HEAD_W, createTagStacker, screenBoxes, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
 import { EMOTE_LIFT } from "../src/walk/animator";
 
 const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
@@ -283,6 +283,36 @@ describe("wearPlace", () => {
     const { e, writes } = fake();
     wearPlace(e, { dx: 1, dy: 2, led: true }, new WeakMap(), false);
     expect(writes).toEqual(["left 1px", "top 2px"]);
+  });
+});
+
+// OME-2317: in the Pixel 7 /conga row a render lands on nearly every frame, and most change only walkers, whose tags aren't
+// stacked; stacking the still tags again on each was most of the row's allocation (its GC tail). Equal tags reuse the stack.
+describe("createTagStacker", () => {
+  const cluster = (): TagBox[] => [0, 3, 6].map((dx) => ({ x: 200 + dx, y: 300, w: 60, top: 300 - EMOTE_LIFT.idle }));
+  const screen = { x0: 0, x1: 50, y0: 0, y1: 50 };
+
+  test("equal tags, height, window and screen: the same places, not stacked again", () => {
+    const stack = createTagStacker();
+    const first = stack(cluster(), H, 600, 0, [screen]);
+    expect(first).toEqual(stackTags(cluster(), H, 600, 0, [screen]));
+    expect(stack(cluster(), H, 600, 0, [{ ...screen }])).toBe(first);
+  });
+
+  test.each([
+    ["a tag moved", (t: TagBox[]) => [{ ...t[0], x: 400 } as TagBox, ...t.slice(1)], H, 600, 0, [screen]],
+    ["a tag fewer", (t: TagBox[]) => t.slice(1), H, 600, 0, [screen]],
+    ["a wider tag", (t: TagBox[]) => [{ ...t[0], w: 90 } as TagBox, ...t.slice(1)], H, 600, 0, [screen]],
+    ["a taller tag", (t: TagBox[]) => t, 30, 600, 0, [screen]],
+    ["a shorter window", (t: TagBox[]) => t, H, 310, 0, [screen]],
+    ["a lower window top", (t: TagBox[]) => t, H, 600, 250, [screen]],
+    ["no screen", (t: TagBox[]) => t, H, 600, 0, []],
+  ] as const)("%s: stacked again", (_, change, h, maxY, minY, avoid) => {
+    const stack = createTagStacker();
+    const first = stack(cluster(), H, 600, 0, [screen]);
+    const next = stack(change(cluster()), h, maxY, minY, avoid);
+    expect(next).not.toBe(first);
+    expect(next).toEqual(stackTags(change(cluster()), h, maxY, minY, avoid));
   });
 });
 
