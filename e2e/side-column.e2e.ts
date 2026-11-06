@@ -132,9 +132,20 @@ for (const [name, w, h, extra, [first, again]] of OWNER_VIEWPORTS) {
     expect(await panel.evaluate((e) => e.scrollTop)).toBe(0);
     const p = await box(panel);
     const bottom = Math.min(p.y + p.height, h);
-    for (const l of [...await panel.locator(".look > *").all(), page.locator(site.peopleRow).first()]) {
+    // Under 1280 the column is 300 px (OME-2306, D): six 44 px swatches wrap, so the colour and accessory rows show
+    // whole and the outfits and the first person are a scroll of the People box away.
+    const narrow = w < 1280;
+    const strict = narrow ? [...await panel.locator(".look > .tint-section").all()] : [...await panel.locator(".look > *").all(), page.locator(site.peopleRow).first()];
+    for (const l of strict) {
       const b = await box(l);
       expect(b.y + b.height, `${await l.evaluate((e) => e.classList.value)} shows whole`).toBeLessThanOrEqual(bottom + 0.5);
+    }
+    if (narrow) {
+      for (const l of [panel.locator(".look > .outfits"), page.locator(site.peopleRow).first()]) {
+        await l.scrollIntoViewIfNeeded();
+        await expect(l).toBeInViewport({ ratio: 0.99 });
+      }
+      await panel.evaluate((e) => { e.scrollTop = 0; });
     }
     expect(await panel.locator(".look > *").count()).toBeGreaterThanOrEqual(3);
     expect(await box(page.locator(site.tv))).toEqual(tv);
