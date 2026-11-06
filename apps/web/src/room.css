@@ -892,6 +892,7 @@ body.room-is-portrait > .site-footer { display: none; }
 
 /* OME-1596: 12 px text on a touch screen for the report dialog's count too. */
 @media (pointer: coarse) { .ui-report .count { font-size: 12px; } }
+.ui-touch .ui-report .count { font-size: 12px; }
 /* OME-1844: the playback bar's source chip at 12 px on a touch screen held upright too (the computer rule is below). */
 .ui-touch :is(.ui-plate, .ui-room .ui-plate) { font-size: var(--text-xs); }
 .ui-touch .help-pages a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
