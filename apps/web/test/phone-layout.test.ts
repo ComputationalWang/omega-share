@@ -197,3 +197,7 @@ describe("portraitLayout, nothing on (OME-2263)", () => {
     expect(empty.stage.h).toBeGreaterThanOrEqual(915 / 2);
   });
 });
+
+test("a tablet upright keeps its 16:9 empty TV: its window would outgrow the stage (OME-2263)", () => {
+  expect(portraitLayout(1024, 1200, null, false, true).tv).toEqual(portraitLayout(1024, 1200, null, false).tv);
+});
