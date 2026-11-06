@@ -458,8 +458,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   // The TV and stage are re-boxed, never rebuilt.
   let roomViewChoice = storedRoomView();
   const roomView = (): boolean => roomViewChoice ?? window.innerWidth >= ROOM_VIEW_FROM_W;
+  // Hidden until fit() shows it, which sets aria-pressed first: reading the window's width here would force a layout (OME-2265).
   const roomViewKey = el("button", { type: "button", className: "ui-button self room-view-key", textContent: "Room view", hidden: true }, "room-view-key");
-  roomViewKey.ariaPressed = String(roomView());
   roomViewKey.addEventListener("click", () => {
     roomViewChoice = !roomView();
     try {
