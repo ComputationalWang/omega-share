@@ -336,6 +336,8 @@ export interface FullscreenLayout {
   readonly controls: Rect;
   readonly strip: Rect;
   readonly compact: { readonly tv: boolean; readonly controls: boolean };
+  /** The shelf is narrower than its transport (a phone's shared band row, OME-905): it scrolls sideways, the full-screen key pinned. */
+  readonly scrollShelf?: true;
   /** The hide/show-chat handle (OME-1593), 44 px: on the open strip's edge, or the screen's while hidden. `arrow`: where tapping moves the chat. */
   readonly handle?: Rect & { readonly arrow: "left" | "right" | "up" | "down" };
 }
@@ -407,7 +409,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
       const controls = { x: 0, y, w: Math.min(FS_BAND_TRANSPORT_MIN, w - GAP - FS_BAND_FIELD_MIN), h: CONTROL_BAR_H };
       const sx = controls.w + GAP;
       return { at: "band", tv, controls, strip: { x: sx, y, w: w - sx, h: compactBandH },
-        scrollY: Math.max(0, y + compactBandH - h), compact: { tv: true, controls: true } };
+        scrollY: Math.max(0, y + compactBandH - h), compact: { tv: true, controls: true }, scrollShelf: true };
     }
     const under = stacked ? below + GAP + bandH : GAP + bandH;
     const pic = fitTv(w, h - under);
@@ -422,7 +424,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     const controls = { x: bx, y, w: cw, h: CONTROL_BAR_H };
     // The shelf's right speaker is painted outside the transport box: the field starts after it.
     const sx = controls.x + controls.w + SHELF_SPEAKER;
-    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: bandH }, compact: { tv: true, controls: cw < half } };
+    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: bandH }, compact: { tv: true, controls: cw < half }, ...(cw < half ? { scrollShelf: true as const } : {}) };
   }
 
   // The preferred 208 px strip can give up its spare pixels when that keeps Twitch beside it.

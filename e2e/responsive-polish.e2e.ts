@@ -168,6 +168,32 @@ for (const [name, w, h, options, twitch] of [["p320", 320, 640, DESKTOP(320, 640
   });
 }
 
+// OME-2313: the same check with full screen's chat collapsed to its band on a portrait phone: the shelf has the
+// screen's width, so the mute and quality keys sit beside the full-screen key, not under it or off the screen.
+test("412×915 touch, Twitch, full screen with the chat on its band: every shelf key sits inside the screen, none covered", async ({ browser, request }) => {
+  const room = testRoom("rpolish", "fsband412");
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "pofsb", contextOptions: () => TOUCH(412, 915) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
+  await waitProviderPlaying(clients, "twitch");
+  await page.locator(site.fullscreenToggle).click();
+  await page.locator(site.fsStripToggle).click();
+  await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
+  await expect(page.getByTestId("quality-key")).toBeVisible();
+  await page.waitForTimeout(300);
+  await shot(page, "9-row-412x915-twitch-fs-band");
+  const keys = ["play-toggle", "mute-toggle", "quality-key", "fullscreen-toggle"].map((id) => page.getByTestId(id));
+  for (const l of keys) {
+    const b = await l.boundingBox();
+    if (b === null) throw new Error("a playback key is not shown");
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(412);
+    expect(await l.evaluate((el) => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+  }
+  expect(await page.locator(".stage-wrap.is-fs > .controls").evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+});
+
 const dungeon = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(join(ROOT, "assets/presets/dank-dungeon.json"), "utf8")));
 
 for (const [name, w, h] of [["d1280", 1280, 800], ["d1920", 1920, 1080], ["d2560", 2560, 1440]] as const) {

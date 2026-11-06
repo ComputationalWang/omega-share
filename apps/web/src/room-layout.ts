@@ -525,7 +525,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       strip.dataset["at"] = l.at;
       renderStrip(l.at === "band" ? "band" : stripMode);
       placeRowKeys(l.at === "side" && l.strip.w < FS_STRIP_W);
-      const scrollTransport = l.at === "band" && l.compact.controls;
+      const scrollTransport = l.scrollShelf === true;
       controls.classList.toggle("scroll-transport", scrollTransport);
       controls.tabIndex = scrollTransport ? 0 : -1;
       controls.ariaLabel = scrollTransport ? "Playback controls; scroll horizontally for more" : "Playback controls";
