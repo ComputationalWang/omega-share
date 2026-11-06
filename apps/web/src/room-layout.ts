@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
 
@@ -588,10 +588,13 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           // With a video the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
           // if it must. Without one the room isn't a band and keeps its whole scale (OME-1811).
           const video = tvBox.provider() !== null;
-          const k = video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
+          // The open editor fits the whole room (OME-2264): cropped to the column beside it, the walls and their pieces were cut.
+          const editing = document.body.classList.contains("room-editing");
+          const k = editing ? editFit(l.scale, l.stage.w, l.stage.h) : video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
           // Room view's box (OME-2233) keeps its place: centred where the TV clears the walls, else right of centre.
-          const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: l.stage.h };
+          // Editing, the window is the room's own height: a taller one pans the stage up over the sky, cutting the floor's hit area.
+          const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: editing ? Math.min(l.stage.h, Math.ceil(ROOM_VIEW.h * k)) : l.stage.h };
           box(clip, r);
           // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
           clip.classList.toggle("is-bleed", r.w < w);
@@ -601,7 +604,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           // A band may show the sky over the walls (OME-2241): its home does where it holds the whole room.
           roomWindow.desk(k, video ? { ...r, head: ROOM_HEAD } : r);
           stage.style.setProperty("--stage-scale", String(k));
-          band = video ? { scale: l.scale, h: l.stage.h, k } : null;
+          band = video && !editing ? { scale: l.scale, h: l.stage.h, k } : null;
         }
       }
       wrap.style.height = "";

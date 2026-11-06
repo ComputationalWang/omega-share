@@ -508,11 +508,17 @@ body.room-is-pseudo-fs { overflow: hidden; }
   body.room-is-wide.room-editing[data-chrome="2"] { --editor-col: 624px; }
   body.room-is-wide.room-editing > .site-footer { margin-right: calc(var(--wide-side) + var(--editor-col)); }
   body.room-editing .room-wide { padding-right: calc(var(--editor-col) + 16px); }
-  body.room-editing .room-wide > .editor-panel { position: fixed; top: 0; bottom: 0; right: calc(var(--wide-side) / var(--chrome, 1)); width: var(--editor-w); box-sizing: border-box; padding: 12px 8px; overflow-y: auto; border-left: 1px solid #3a3452; background: var(--bg); }
-  body.room-editing .room-wide > .editor-panel > .editor { display: flex; flex-direction: column; height: 100%; margin: 0; }
+  body.room-editing .room-wide > .editor-panel { position: fixed; top: 0; bottom: 0; right: calc(var(--wide-side) / var(--chrome, 1)); width: var(--editor-w); box-sizing: border-box; padding: 8px; overflow-y: auto; border-left: 1px solid #3a3452; background: var(--bg); }
+  body.room-editing .room-wide > .editor-panel > .editor { display: flex; flex-direction: column; gap: 4px; height: 100%; margin: 0; }
   body.room-editing .room-wide > .editor-panel > .editor > * { flex: none; }
-  body.room-editing .room-wide > .editor-panel :is(.ui-tabs, .editor-mood-options) { flex-wrap: wrap; }
-  body.room-editing .room-wide > .editor-panel .ui-tray { flex: 0 1 auto; flex-wrap: wrap; min-height: calc(120 * var(--ui-px)); overflow: hidden auto; }
+  body.room-editing .room-wide > .editor-panel .ui-tabs { flex-wrap: wrap; }
+  /* OME-2264: everything down to Delete room in 800 px (720 at 1920×1080's 1.5×). The tray gives way to a row of pieces
+   * (it scrolls), Mood and its four keys share a row, and each name's label sits beside its field, its key under it. */
+  body.room-editing .room-wide > .editor-panel .ui-tray { flex: 0 1 auto; flex-wrap: wrap; min-height: calc(56 * var(--ui-px)); overflow: hidden auto; }
+  body.room-editing .room-wide > .editor-panel .editor-mood { flex-wrap: nowrap; }
+  body.room-editing .room-wide > .editor-panel .editor-mood-options { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 4px; }
+  body.room-editing .room-wide > .editor-panel .editor-mood-options > .ui-button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
+  body.room-editing .room-wide > .editor-panel :is(.editor-mine, .editor-settings) > .ui-input { flex: 1 1 140px; min-width: 0; }
 }
 .room-side { position: fixed; top: 0; right: 0; bottom: 0; width: var(--wide-side); box-sizing: border-box; padding: 12px max(12px, env(safe-area-inset-right)) 12px 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
 .room-side[hidden] { display: none; }
