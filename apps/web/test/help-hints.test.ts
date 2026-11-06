@@ -32,7 +32,7 @@ const blocked = {
   },
 };
 
-async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = memoryStore()) {
+async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = memoryStore(), touch = false) {
   const { createHints } = await import("../src/help/hints");
   const anchors = [document.createElement("div"), document.createElement("form"), document.createElement("button")];
   // happy-dom lays nothing out: each anchor reports a box, as on a real page.
@@ -49,6 +49,7 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
     },
     tv: { box: tv.box, empty: () => tv.empty, picture: tv.picture, message: tv.message },
     next: () => after,
+    touch: () => touch,
   });
   document.body.replaceChildren(...anchors, tv.picture, tv.box, hints.root, after);
   const key = (id: string) => hints.root.querySelector<HTMLButtonElement>(`button[data-testid=${id}]`);
@@ -70,6 +71,12 @@ describe("parseHints: what `omega.hints` says (localStorage is untrusted)", () =
 });
 
 describe("the first-visit tour", () => {
+  test("on touch the floor chip says tap (OME-2263)", async () => {
+    const { hints } = await setup(memoryStore(), true);
+    hints.show();
+    expect(hints.root.textContent).toContain("Tap the floor to walk, double-tap to jog");
+  });
+
   test("hidden until the room shows it; then the first chip, about the floor, next to the floor", async () => {
     const { hints, asked } = await setup();
     expect(hints.root.hidden).toBe(true);
