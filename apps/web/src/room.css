@@ -820,6 +820,7 @@ body.room-is-portrait > .site-footer { display: none; }
 .portrait-sheet-content > .site-footer a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; vertical-align: middle; }
 .room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: var(--portrait-height, 100dvh); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
 .room-portrait > * { flex: none; }
+.room-portrait > .tv-hint { margin-inline: 8px; }
 .room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
 /* The camera key (OME-1565) would wrap a long title off the portrait bar and push the room out; /snap still works. */
 .room-portrait .room-top > .snap-key { display: none; }

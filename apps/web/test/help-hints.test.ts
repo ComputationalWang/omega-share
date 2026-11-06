@@ -276,4 +276,35 @@ describe("the first-visit tour", () => {
     expect(hints.root.style.visibility).toBe("");
     expect(hints.root.style.top).toBe("228px");
   });
+
+  test.each(["dock", "composer"])("the fallback chip hides instead of covering the phone's %p; when clear its keys are reachable, and hiding it moves focus out", async (control) => {
+    const { hints, tv, key, after } = await setup();
+    const composer = document.querySelector("form");
+    if (composer === null) throw new Error("no composer");
+    const dock = document.createElement("nav");
+    dock.className = "portrait-keys";
+    document.body.append(dock);
+    composer.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: control === "composer" ? 600 : 700, width: 412, height: 44 });
+    dock.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: control === "dock" ? 600 : 700, width: 412, height: 44 });
+    Object.defineProperties(hints.root, { offsetWidth: { value: 300 }, offsetHeight: { value: 80 } });
+    tv.empty = false;
+    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 412, height: 400 });
+    tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 412, height: 600 });
+    hints.show();
+    expect(hints.root.style.visibility).toBe("hidden");
+    const obstacle = control === "dock" ? dock : composer;
+    obstacle.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 0, height: 0 });
+    window.dispatchEvent(new Event("resize"));
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("608px");
+    key("hint-skip")?.focus();
+    expect(document.activeElement).toBe(key("hint-skip"));
+    key("hint-next")?.focus();
+    expect(document.activeElement).toBe(key("hint-next"));
+    obstacle.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 600, width: 412, height: 44 });
+    window.dispatchEvent(new Event("resize"));
+    expect(hints.root.style.visibility).toBe("hidden");
+    expect(document.activeElement).toBe(after);
+    hints.dismiss();
+  });
 });

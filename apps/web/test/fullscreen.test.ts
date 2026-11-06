@@ -69,6 +69,22 @@ describe("fullscreenLayout: strip open beside the picture (ADR 0012: nothing of 
   });
 });
 
+describe("portrait Twitch full screen letterboxes at its 400×300 minimum", () => {
+  test.each(["open", "band", "none", "hidden"] as const)("%p chat keeps the picture at screen width above 400 px", (mode) => {
+    expect(fullscreenLayout(412, 915, "twitch", mode).tv).toMatchObject({ x: 0, w: 412, h: 300 });
+    expect(fullscreenLayout(360, 740, "twitch", mode).tv).toMatchObject({ x: 0, w: 400, h: 300 });
+  });
+
+  test.each([
+    ["open", 37, 632, 356],
+    ["band", 141, 632, 356],
+    ["none", 137, 640, 360],
+    ["hidden", 98, 718, 404],
+  ] as const)("915×412 landscape with %p chat keeps its existing picture", (mode, x, w, h) => {
+    expect(fullscreenLayout(915, 412, "twitch", mode).tv).toEqual({ x, y: 0, w, h });
+  });
+});
+
 describe("fullscreenLayout: collapsed to the input bar (the band)", () => {
   test("desktop 1280×720 matches set k: the picture 1187×668 on top, one 44 px band under it across the screen", () => {
     const l = fullscreenLayout(1280, 720, "youtube", "band");
@@ -550,7 +566,7 @@ test.each([320, 533, 534, 540, 551, 552])("%p px Twitch phone exposes stacked co
   for (const h of [320, 350, 375]) for (const mode of ["band", "open"] as const) {
     const l = fullscreenLayout(w, h, "twitch", mode);
     const scroll = l.scrollY ?? 0;
-    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.w).toBeGreaterThanOrEqual(w < h ? 400 : 534);
     expect(l.tv.h).toBeGreaterThanOrEqual(300);
     expect(l.strip.w).toBeGreaterThanOrEqual(l.at === "band" ? BAND_MIN : OPEN_MIN);
     expect(l.strip.h).toBeGreaterThanOrEqual(48);

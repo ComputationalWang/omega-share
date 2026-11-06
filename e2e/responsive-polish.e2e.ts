@@ -156,6 +156,15 @@ for (const [name, w, h, options, twitch] of [["p320", 320, 640, DESKTOP(320, 640
     const seek = boxes.at(-1);
     expect(seek?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(await page.locator(".controls").evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    if (name === "t390") {
+      await page.setViewportSize({ width: 412, height: 915 });
+      const hint = page.getByTestId("tv-hint");
+      await expect(hint).toBeVisible();
+      const box = await hint.boundingBox();
+      if (box === null) throw new Error("provider hint is not shown");
+      expect(box.x).toBeGreaterThanOrEqual(8);
+      expect(box.x + box.width).toBeLessThanOrEqual(404);
+    }
   });
 }
 
