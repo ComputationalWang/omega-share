@@ -90,18 +90,17 @@ const near = (a: readonly number[], b: readonly number[]): boolean => a.reduce((
 const backdrop = (g: Geometry, px: (x: number, y: number) => readonly [number, number, number]) => px(g.clip.x + 2, g.clip.y + 2);
 
 /** Where the walls' top edge is at the art's top (stage y 113: the walls slope 1:2 from the corner, x 480 at y 0), the
- * window's first row is the backdrop and the wall starts under it: nothing on the walls is cut at the window's top. */
+ * window shows the backdrop just over it and the wall just under it: nothing on the walls is cut at the window's top. */
 async function artWhole(page: Page): Promise<void> {
   const g = await geometry(page);
   const px = await pixels(page, g);
   const bg = backdrop(g, px);
   for (const x of [480 - 2 * ART_TOP, 480 + 2 * ART_TOP]) {
-    const top = g.at(x, ART_TOP);
-    expect(top.y, `stage (${String(x)}, ${String(ART_TOP)}) under the window's top`).toBeGreaterThanOrEqual(g.clip.y);
-    const first = px(top.x, Math.ceil(g.clip.y) + 1);
-    expect(near(first, bg), `the window's first row at stage x ${String(x)} is the backdrop: ${first.join(",")} vs ${bg.join(",")}`).toBe(true);
-    const wall = px(top.x, g.at(x, ART_TOP + 12).y);
-    expect(near(wall, bg), `the wall under it at stage x ${String(x)}`).toBe(false);
+    const sky = g.at(x, ART_TOP - 2);
+    expect(sky.y, `stage (${String(x)}, ${String(ART_TOP - 2)}) in the window`).toBeGreaterThanOrEqual(g.clip.y);
+    expect(near(px(sky.x, sky.y), bg), `the backdrop over the wall at stage x ${String(x)}`).toBe(true);
+    const wall = g.at(x, ART_TOP + 4);
+    expect(near(px(wall.x, wall.y), bg), `the wall under it at stage x ${String(x)}`).toBe(false);
   }
 }
 
@@ -135,12 +134,11 @@ test("Pixel 7 upright, nothing on: the walls' art clears the shelf and the floor
   const page = await open(browser, "idlepixel7", PIXEL_7);
   const g = await geometry(page);
   // Sideways the window crops the room by design (its pan hint says so, OME-2234); upright it holds the art to the floor.
+  // From the stage as drawn (the zoom keys and the pan hint float over the window's foot and its corner, OME-2171).
   expect(g.at(480, ART_TOP).y).toBeGreaterThanOrEqual(g.clip.y);
-  // The zoom keys and the pan hint float over the window's foot: the floor's corner, in the column between them, clears it.
-  const px = await pixels(page, g);
-  const bg = px(g.at(300, FLOOR_FOOT - 5).x, g.at(300, FLOOR_FOOT - 5).y);
-  const corner = g.at(480, FLOOR_FOOT);
-  expect(near(px(corner.x, corner.y - 4), bg)).toBe(false);
-  expect(near(px(corner.x, corner.y + 2), bg)).toBe(true);
-  expect(corner.y + CLEAR).toBeLessThanOrEqual(g.clip.y + g.clip.h);
+  expect(g.at(480, FLOOR_FOOT).y + CLEAR).toBeLessThanOrEqual(g.clip.y + g.clip.h);
+  // The shelf ends over the window: what the window shows from its top row is the room's.
+  const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
+  if (shelf === null) throw new Error("no shelf");
+  expect(shelf.y + shelf.height).toBeLessThanOrEqual(g.clip.y + 1);
 });

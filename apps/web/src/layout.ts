@@ -76,6 +76,8 @@ const minTvW = (provider: Provider | null, room: number): number => (provider ==
 const tvH = (w: number): number => Math.max(RMF_MIN, Math.round((w * 9) / 16));
 /** Nothing on (OME-2263): no player, so no ADR 0012 floor; the curtain is cinema-wide and the room gets the height. */
 const CURTAIN = 9 / 21;
+/** The curtain's least height at a desk (1× chrome), its pelmet and its two-line message (OME-2282). */
+const CURTAIN_MIN_H = 60;
 /** Room for the TV's bezel, painted outside the player rect (`.ui-tv-frame`, border-image-outset). */
 const TV_BEZEL = 6;
 /** The media shelf's speakers, painted outside the control bar each side (`.ui-tv-shelf`). */
@@ -119,7 +121,7 @@ const MEDIUM_GUTTER = 24;
  * `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger).
  * `phone`: set (k)'s watch layout. The TV is full width (still never under its minimum), bezel and shelf compact, and
  * `stage` is a window onto the unscaled stage, as wide as the container and PHONE_ROOM_H tall (`panTo` picks the view).
- * `empty`: nothing on (OME-2263), so the phone's TV is the 21:9 curtain (wideLayout's too: its touch callers pass it).
+ * `empty`: nothing on (OME-2263), so the phone's TV is the 21:9 curtain (wideLayout's too, OME-2282).
  */
 export function roomLayout(containerWidth: number, provider: Provider | null = null, phone = false, empty = false): RoomLayout {
   const width = Math.floor(containerWidth);
@@ -210,7 +212,12 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const ratio = curtain ? CURTAIN : 9 / 16;
   const barH = CONTROL_BAR_H * chrome;
   const rest = Math.max(0, h - (TV_BEZEL + GAP + barH + GAP));
-  const split = rest * WIDE_TV_SHARE;
+  const share = rest * WIDE_TV_SHARE;
+  // Nothing on (OME-2282): the curtain gives way so the band holds the whole room at its scale, the walls' art (with a
+  // few px of sky over it) to the lowest name tag the floor can hold; where even a short curtain leaves too little (a phone
+  // held sideways), the split.
+  const roomH = (ROOM_FILL_FOOT + 1 - BAND_WALL_TOP + FLOOR_CLEAR) * maxScale;
+  const split = curtain && rest - roomH >= CURTAIN_MIN_H * chrome ? Math.min(share, rest - roomH) : share;
   const tvFit = provider === null ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
   const room = roomView && provider !== null;
   const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor(tvFit / ratio)));
@@ -546,8 +553,10 @@ export function bandFit(scale: number, bandH: number, audience: readonly Point[]
   return Math.max(BAND_MIN_FIT, Math.min(1, bandH / need));
 }
 
-/** The room's foot (OME-2170): the lowest name tag's (the audience's, or mine), or the floor's front corner if lower. */
-const roomFoot = (points: readonly Point[]): number => Math.max(FLOOR_FOOT, ...points.map((p) => p.y + TAG_FOOT)) + 1;
+/** How far over a window's foot the floor's front corner sits (OME-2282): cut flat there, the room read as sliced. */
+const FLOOR_CLEAR = 8;
+/** The room's foot (OME-2170): the lowest name tag's (the audience's, or mine), or the floor's front corner 8 px clear (OME-2282) if lower. */
+const roomFoot = (points: readonly Point[]): number => Math.max(FLOOR_FOOT + FLOOR_CLEAR - 1, ...points.map((p) => p.y + TAG_FOOT)) + 1;
 
 export function bandHome(seats: readonly Point[], standing: readonly Point[], view: Size, me: Point | null = null): Point {
   // A band that holds the room (bandFit), back wall's art to its foot, shows it all: from the north the lowest tag is
@@ -595,6 +604,14 @@ export const AVATAR_TOP = 60;
  * (RoomLayout.centre).
  */
 export function touchHome(seats: readonly Point[], me: Point | null, view: Size): Point {
+  const c = seatsAndMe(seats, me, view);
+  // A window that holds the walls' art to the room's foot shows both, as near that home as it goes (OME-2282: a Pixel 7
+  // upright cut the art at its top).
+  const foot = roomFoot(me === null ? seats : [...seats, me]);
+  return foot - BAND_WALL_TOP <= view.h ? { x: c.x, y: Math.max(foot - view.h / 2, Math.min(BAND_WALL_TOP + view.h / 2, c.y)) } : c;
+}
+
+function seatsAndMe(seats: readonly Point[], me: Point | null, view: Size): Point {
   if (me === null) return seatsHome(seats, view.h);
   let x0 = me.x - TAG_MAX_W / 2, x1 = me.x + TAG_MAX_W / 2, y0 = me.y - AVATAR_TOP, y1 = me.y + TAG_FOOT;
   for (const p of seats) {

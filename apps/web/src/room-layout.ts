@@ -561,7 +561,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const on = roomView();
       roomViewKey.ariaPressed = String(on);
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, o.coarse.matches && tvBox.empty());
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, tvBox.empty());
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
