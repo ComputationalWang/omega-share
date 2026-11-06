@@ -14,10 +14,10 @@
   <section class="front-door" aria-labelledby="entry-title">
     <img class="entry-scene" src="../../../assets/site/website-room.png" width="1312" height="1072" alt="A cosy pixel room with a starry rug, sofas, bookshelves and warm lamps.">
     <header class="entry-head">
-      <a class="brand" href="entry-D.html"><span class="door-mark" aria-hidden="true"></span>omega-share</a>
+      <a class="brand" aria-label="omega-share, home" href="entry-D.html"><span class="ui-sprite ui-logo-0" aria-hidden="true"></span><span class="sr-only">omega-share</span></a>
       <p class="eyebrow">A room of your own. A little company.</p>
     </header>
-    <section class="doorstep" id="entry" tabindex="-1" aria-labelledby="entry-title">
+    <section class="doorstep ui-panel" id="entry" tabindex="-1" aria-labelledby="entry-title">
       <p class="eyebrow">The door’s open</p>
       <h1 id="entry-title">Come in. Get comfy.</h1>
       <p class="promise">Watch videos together in a cosy pixel room.<br>Pick a look. Pull up a seat.</p>
@@ -26,43 +26,43 @@
         <section class="form-step" aria-labelledby="name-title">
           <h2 class="step-title" id="name-title"><span>01 /</span> What should we call you?</h2>
           <label class="nickname-label" for="nickname">Your nickname <span>No account needed · 1–20 characters</span></label>
-          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="20" required placeholder="What should we call you?" aria-describedby="nickname-error">
+          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="20" required placeholder="What should we call you?" aria-describedby="nickname-error" class="ui-input">
           <p class="error" id="nickname-error" role="alert" hidden>Choose a nickname with 1–20 characters to come in.</p>
         </section>
         <section class="form-step look-step" aria-labelledby="look-title">
           <h2 class="step-title" id="look-title"><span>02 /</span> Pick your look</h2>
-        <fieldset><legend>Choose your avatar</legend><div class="choices avatars"><label class="choice"><input type="radio" name="avatar" value="Juno" aria-label="Juno" checked><span class="choice-face avatar-face"><span class="avatar-sprite juno" aria-hidden="true"></span><span>Juno</span></span></label>
-<label class="choice"><input type="radio" name="avatar" value="Pip" aria-label="Pip"><span class="choice-face avatar-face"><span class="avatar-sprite pip" aria-hidden="true"></span><span>Pip</span></span></label>
-<label class="choice"><input type="radio" name="avatar" value="Mo" aria-label="Mo"><span class="choice-face avatar-face"><span class="avatar-sprite mo" aria-hidden="true"></span><span>Mo</span></span></label>
-<label class="choice"><input type="radio" name="avatar" value="Kiki" aria-label="Kiki"><span class="choice-face avatar-face"><span class="avatar-sprite kiki" aria-hidden="true"></span><span>Kiki</span></span></label></div></fieldset>
-        <fieldset><legend>Shirt colour</legend><div class="choices swatches"><label class="choice"><input type="radio" name="shirt" value="Mustard" aria-label="Mustard" checked><span class="choice-face "><span class="swatch" style="--swatch:#e8b33c" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="shirt" value="Teal" aria-label="Teal"><span class="choice-face "><span class="swatch" style="--swatch:#3aa7a3" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="shirt" value="Lilac" aria-label="Lilac"><span class="choice-face "><span class="swatch" style="--swatch:#a17fd0" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="shirt" value="Olive" aria-label="Olive"><span class="choice-face "><span class="swatch" style="--swatch:#7d8a3e" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="shirt" value="Ice" aria-label="Ice"><span class="choice-face "><span class="swatch" style="--swatch:#8fe3ec" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="shirt" value="Denim" aria-label="Denim"><span class="choice-face "><span class="swatch" style="--swatch:#3366e0" aria-hidden="true"></span></span></label></div></fieldset>
-        <fieldset><legend>Hair colour</legend><div class="choices swatches"><label class="choice"><input type="radio" name="hair" value="Dark" aria-label="Dark" checked><span class="choice-face "><span class="swatch" style="--swatch:#3a2a2a" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="hair" value="Ginger" aria-label="Ginger"><span class="choice-face "><span class="swatch" style="--swatch:#d9772e" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="hair" value="Blonde" aria-label="Blonde"><span class="choice-face "><span class="swatch" style="--swatch:#e9cd7c" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="hair" value="Silver" aria-label="Silver"><span class="choice-face "><span class="swatch" style="--swatch:#c4c0d4" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="hair" value="Cherry" aria-label="Cherry"><span class="choice-face "><span class="swatch" style="--swatch:#d0404e" aria-hidden="true"></span></span></label>
-<label class="choice"><input type="radio" name="hair" value="Sky" aria-label="Sky"><span class="choice-face "><span class="swatch" style="--swatch:#5aa8ec" aria-hidden="true"></span></span></label></div></fieldset>
-        <fieldset><legend>A little something extra</legend><div class="choices accessories"><label class="choice"><input type="radio" name="accessory" value="None" aria-label="None" checked><span class="choice-face "><span aria-hidden="true">∅</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Party hat" aria-label="Party hat"><span class="choice-face "><span aria-hidden="true">🎉</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Crown" aria-label="Crown"><span class="choice-face "><span aria-hidden="true">👑</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Headphones" aria-label="Headphones"><span class="choice-face "><span aria-hidden="true">🎧</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Beanie" aria-label="Beanie"><span class="choice-face "><span aria-hidden="true">🧶</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Cap" aria-label="Cap"><span class="choice-face "><span aria-hidden="true">🧢</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Flower" aria-label="Flower"><span class="choice-face "><span aria-hidden="true">🌸</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Bow" aria-label="Bow"><span class="choice-face "><span aria-hidden="true">🎀</span></span></label>
-<label class="choice"><input type="radio" name="accessory" value="Halo" aria-label="Halo"><span class="choice-face "><span aria-hidden="true">😇</span></span></label></div></fieldset>
+        <fieldset><legend>Choose your avatar</legend><div class="choices avatars"><label class="choice"><input type="radio" name="avatar" value="Juno" aria-label="Juno" checked><span class="choice-face avatar-face"><span class="avatar-sprite juno" aria-hidden="true"></span><span class="avatar-caption ui-button secondary">Juno</span></span></label>
+<label class="choice"><input type="radio" name="avatar" value="Pip" aria-label="Pip"><span class="choice-face avatar-face"><span class="avatar-sprite pip" aria-hidden="true"></span><span class="avatar-caption ui-button secondary">Pip</span></span></label>
+<label class="choice"><input type="radio" name="avatar" value="Mo" aria-label="Mo"><span class="choice-face avatar-face"><span class="avatar-sprite mo" aria-hidden="true"></span><span class="avatar-caption ui-button secondary">Mo</span></span></label>
+<label class="choice"><input type="radio" name="avatar" value="Kiki" aria-label="Kiki"><span class="choice-face avatar-face"><span class="avatar-sprite kiki" aria-hidden="true"></span><span class="avatar-caption ui-button secondary">Kiki</span></span></label></div></fieldset>
+        <fieldset><legend>Shirt colour</legend><div class="choices swatches"><label class="choice"><input type="radio" name="shirt" value="Mustard" aria-label="Mustard" checked><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#e8b33c" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="shirt" value="Teal" aria-label="Teal"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#3aa7a3" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="shirt" value="Lilac" aria-label="Lilac"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#a17fd0" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="shirt" value="Olive" aria-label="Olive"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#7d8a3e" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="shirt" value="Ice" aria-label="Ice"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#8fe3ec" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="shirt" value="Denim" aria-label="Denim"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#3366e0" aria-hidden="true"></span></span></label></div></fieldset>
+        <fieldset><legend>Hair colour</legend><div class="choices swatches"><label class="choice"><input type="radio" name="hair" value="Dark" aria-label="Dark" checked><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#3a2a2a" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="hair" value="Ginger" aria-label="Ginger"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#d9772e" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="hair" value="Blonde" aria-label="Blonde"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#e9cd7c" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="hair" value="Silver" aria-label="Silver"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#c4c0d4" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="hair" value="Cherry" aria-label="Cherry"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#d0404e" aria-hidden="true"></span></span></label>
+<label class="choice"><input type="radio" name="hair" value="Sky" aria-label="Sky"><span class="choice-face ui-button secondary"><span class="swatch" style="--swatch:#5aa8ec" aria-hidden="true"></span></span></label></div></fieldset>
+        <fieldset><legend>A little something extra</legend><div class="choices accessories"><label class="choice"><input type="radio" name="accessory" value="None" aria-label="None" checked><span class="choice-face ui-button secondary"><span aria-hidden="true">∅</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Party hat" aria-label="Party hat"><span class="choice-face ui-button secondary"><span aria-hidden="true">🎉</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Crown" aria-label="Crown"><span class="choice-face ui-button secondary"><span aria-hidden="true">👑</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Headphones" aria-label="Headphones"><span class="choice-face ui-button secondary"><span aria-hidden="true">🎧</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Beanie" aria-label="Beanie"><span class="choice-face ui-button secondary"><span aria-hidden="true">🧶</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Cap" aria-label="Cap"><span class="choice-face ui-button secondary"><span aria-hidden="true">🧢</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Flower" aria-label="Flower"><span class="choice-face ui-button secondary"><span aria-hidden="true">🌸</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Bow" aria-label="Bow"><span class="choice-face ui-button secondary"><span aria-hidden="true">🎀</span></span></label>
+<label class="choice"><input type="radio" name="accessory" value="Halo" aria-label="Halo"><span class="choice-face ui-button secondary"><span aria-hidden="true">😇</span></span></label></div></fieldset>
         <p class="selection-note">Look preview: swatches and accessories select; sprites stay original.</p>
         </section>
         </div>
         <section class="form-step" aria-labelledby="seat-title">
           <h2 class="step-title" id="seat-title"><span>03 /</span> Take a seat</h2>
-          <button class="enter" type="submit">Enter lobby <span aria-hidden="true">→</span></button>
-          <a class="secondary" href="#find-room">Find or create a room <span aria-hidden="true">↗</span></a>
+          <button class="enter ui-button" type="submit">Enter lobby <span aria-hidden="true">→</span></button>
+          <a class="secondary ui-button" href="#find-room">Find or create a room <span aria-hidden="true">↗</span></a>
           <p class="selection-note">Design preview · Enter opens a sample room.</p>
         </section>
       </form>
@@ -81,13 +81,13 @@
     <section class="install-row" aria-labelledby="install-title">
       <div><h2 id="install-title">Found a video? Bring it over.</h2><p class="small">Store links are previews; these open installation notes in a new tab.</p></div>
       <div class="install-links">
-        <a class="button" href="../../../apps/extension/README.md" target="_blank" rel="noopener noreferrer" aria-label="Add to Firefox — preview, opens installation notes in a new tab">Add to Firefox <span aria-hidden="true">↗</span></a>
-        <a class="button" href="../../../apps/extension/README.md" target="_blank" rel="noopener noreferrer" aria-label="Add to Chrome — preview, opens installation notes in a new tab">Add to Chrome <span aria-hidden="true">↗</span></a>
+        <a class="button ui-button secondary" href="../../../apps/extension/README.md" target="_blank" rel="noopener noreferrer" aria-label="Add to Firefox — preview, opens installation notes in a new tab">Add to Firefox <span aria-hidden="true">↗</span></a>
+        <a class="button ui-button secondary" href="../../../apps/extension/README.md" target="_blank" rel="noopener noreferrer" aria-label="Add to Chrome — preview, opens installation notes in a new tab">Add to Chrome <span aria-hidden="true">↗</span></a>
       </div>
     </section>
     <section id="find-room" class="install-row" tabindex="-1" aria-labelledby="find-title">
       <div><h2 id="find-title">Your next little gathering.</h2><p class="small">Room finding and creation are static in this prototype. Explore the sample room.</p></div>
-      <a class="button primary" href="room-D.html">Look around the lobby <span aria-hidden="true">→</span></a>
+      <a class="button primary ui-button" href="room-D.html">Look around the lobby <span aria-hidden="true">→</span></a>
     </section>
   </div>
 </main>
