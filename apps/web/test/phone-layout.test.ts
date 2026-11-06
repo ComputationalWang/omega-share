@@ -58,10 +58,9 @@ describe("roomLayout, phone: ADR 0012 player minimum", () => {
     expect(roomLayout(390, "vimeo", true).tv).toMatchObject({ x: 0, w: 390, h: 219 });
   });
 
-  test("Twitch keeps its 534×300 minimum on a phone too (the page scrolls sideways, the player never shrinks)", () => {
-    const { tv } = roomLayout(360, "twitch", true);
-    expect(tv.w).toBeGreaterThanOrEqual(534);
-    expect(tv.h).toBeGreaterThanOrEqual(300);
+  test.each([[320, 400, 300], [390, 400, 300], [400, 400, 300], [412, 412, 300], [534, 534, 300], [600, 600, 338]])("Twitch at %p px is %p×%p: it letterboxes at its 400×300 floor and only scrolls below 400 px", (width, w, h) => {
+    expect(roomLayout(width, "twitch", true).tv).toMatchObject({ x: 0, w, h });
+    expect(portraitLayout(width, 844, "twitch", false).tv).toMatchObject({ x: 0, w, h });
   });
 
   test.each([320, 360, 390])("Twitch's shelf stays the %p px screen's width, not its wider TV's, so its keys are on screen (QA OME-1870)", (width) => {
@@ -180,8 +179,8 @@ describe("roomLayout, medium (OME-1846, design OME-1799 §2: a portrait tablet's
     expect(capped.stage.y).toBeLessThan(576);
   });
 
-  test("Twitch still gets its 534 px minimum", () => {
-    expect(roomLayout(601, "twitch", true).tv.w).toBeGreaterThanOrEqual(534);
+  test("Twitch keeps the medium gutters above its 400×300 floor", () => {
+    expect(roomLayout(601, "twitch", true).tv).toMatchObject({ x: 24, w: 553, h: 311 });
   });
 });
 

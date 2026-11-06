@@ -60,9 +60,15 @@ async function inView(page: Page, l: Locator): Promise<void> {
 async function volumeUnderPicture(page: Page): Promise<void> {
   const tv = await box(page.locator(site.tv));
   const pod = await box(page.locator(".ui-volume"));
-  // The pod's top edge within 16 px of the video's bottom edge, and not over the picture (ADR 0012).
-  expect(pod.y).toBeGreaterThanOrEqual(tv.y + tv.height);
-  expect(pod.y - (tv.y + tv.height)).toBeLessThanOrEqual(16);
+  if (await page.locator(site.tvEmpty).isVisible() && await page.locator(".stage-wrap.is-tv-corner").count() > 0) {
+    // Nothing on (OME-2300): the curtain takes the corner over the left wall, its shelf beside it, as Room view's TV (OME-2233).
+    expect(pod.x).toBeGreaterThanOrEqual(tv.x + tv.width);
+    expect(pod.y + pod.height).toBeLessThanOrEqual(tv.y + tv.height);
+  } else {
+    // The pod's top edge within 16 px of the video's bottom edge, and not over the picture (ADR 0012).
+    expect(pod.y).toBeGreaterThanOrEqual(tv.y + tv.height);
+    expect(pod.y - (tv.y + tv.height)).toBeLessThanOrEqual(16);
+  }
   // In the same bar as the shared transport.
   const play = await box(page.locator(site.playToggle));
   expect(Math.abs(play.y + play.height / 2 - (pod.y + pod.height / 2))).toBeLessThanOrEqual(8);

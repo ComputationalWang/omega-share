@@ -94,7 +94,7 @@ const show = (view: View): void => {
 enter.textContent = pathRoom === null ? "Enter lobby" : "Enter room";
 findRoom.hidden = pathRoom !== null;
 
-const profile = loadProfile(localStorage);
+const profile = loadProfile(storage);
 let avatar: Avatar = profile.avatar;
 // Never picked one: the room swaps the preselected draw for its least-used avatar (OME-2131), and none is saved.
 let avatarAuto = profile.avatarAuto;
@@ -183,12 +183,12 @@ if (resumed === null && creating === null && (pathRoom !== null || profile.nickn
 let roomModule: Promise<typeof RoomModule> | null = null;
 const loadRoom = (): Promise<typeof RoomModule> => (roomModule ??= import("./room"));
 const intent: HTMLElement = pathRoom === null ? enter : form;
-for (const type of ["focusin", "pointerover", "input"]) intent.addEventListener(type, () => void loadRoom(), { once: true });
+for (const type of ["focusin", "pointerover", "input"]) intent.addEventListener(type, () => void loadRoom().catch(() => undefined), { once: true });
 // A room link has no other way on, so it fetches the room at the first idle moment, while the nickname is typed (OME-2073).
 // Not on `/`: the landing budget counts anything fetched before interaction.
 if (pathRoom !== null) {
-  if ("requestIdleCallback" in window) requestIdleCallback(() => void loadRoom());
-  else setTimeout(() => void loadRoom());
+  if ("requestIdleCallback" in window) requestIdleCallback(() => void loadRoom().catch(() => undefined));
+  else setTimeout(() => void loadRoom().catch(() => undefined));
 }
 
 /** Checks the nickname field; on failure says why and puts focus back in it. */
@@ -229,10 +229,21 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
         origin: location.origin,
         serverUrl,
         extension,
+      }).then((room) => {
+        debug.room = room;
       });
-    })
-    .then((room) => {
-      debug.room = room;
+    }, (e: unknown) => {
+      console.error(e);
+      show("entry");
+      enter.disabled = false;
+      enter.textContent = label;
+      error.textContent = "Could not load the room.";
+      const reload = document.createElement("button");
+      reload.type = "button";
+      reload.className = "link retry";
+      reload.textContent = "Reload";
+      reload.addEventListener("click", () => { location.reload(); });
+      error.append(" ", reload);
     })
     .catch((e: unknown) => {
       console.error(e);
@@ -247,7 +258,7 @@ form.addEventListener("submit", (ev) => {
   ev.preventDefault();
   const nickname = checkedNickname();
   if (nickname === null) return;
-  saveProfile(localStorage, avatarAuto ? { nickname } : { nickname, avatar });
+  saveProfile(storage, avatarAuto ? { nickname } : { nickname, avatar });
   enterRoom(nickname, avatar);
 });
 // index.html ships the button disabled: a click before this handler would submit natively, blocked by CSP form-action (OME-1473).
@@ -293,7 +304,19 @@ if (pathRoom === null) {
         },
         share: shareLink,
       }),
-    );
+    ).catch((e: unknown) => {
+      console.error(e);
+      const message = document.createElement("p");
+      message.className = "error";
+      message.role = "alert";
+      message.textContent = "Could not load the directory.";
+      const reload = document.createElement("button");
+      reload.type = "button";
+      reload.className = "link retry";
+      reload.textContent = "Reload";
+      reload.addEventListener("click", () => { location.reload(); });
+      directory.replaceChildren(message, reload);
+    });
   };
   // Welcome back only to a profile this browser already held when the page loaded.
   const returning = profile.nickname !== null;
@@ -305,7 +328,7 @@ if (pathRoom === null) {
   findRoom.addEventListener("click", () => {
     const nickname = checkedNickname();
     if (nickname === null) return;
-    saveProfile(localStorage, avatarAuto ? { nickname } : { nickname, avatar });
+    saveProfile(storage, avatarAuto ? { nickname } : { nickname, avatar });
     openDirectory(nickname);
     directoryTitle.focus();
   });

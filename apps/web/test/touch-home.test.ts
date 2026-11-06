@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import * as v from "valibot";
 import { RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { AVATAR_TOP, TAG_FOOT, TAG_OFFSET_Y, panTo, seatsHome, tagRect, touchHome, type Point } from "../src/layout";
+import { AVATAR_TOP, BAND_WALL_TOP, TAG_FOOT, TAG_OFFSET_Y, panTo, seatsHome, tagRect, touchHome, type Point } from "../src/layout";
 
 const DIR = new URL("../../../assets/presets/", import.meta.url);
 const preset = (file: string): RoomLayout => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(file, DIR), "utf8")));
@@ -82,5 +82,20 @@ describe("the touch window's home (OME-1930)", () => {
     const pan = view(l, me, 412, 447);
     expect(pan.y).toBeLessThanOrEqual(113);
     expect(pan.y + 447).toBeGreaterThanOrEqual(540 + 8);
+  });
+
+  // OME-2300 (judge round 11): a Pixel 7 upright with a video plays (a 412×358 window, the zoom keys and the pan hint over
+  // its foot's 52 px) looked at the middle of the seats and me: the back wall's desk went under the shelf. Where the art
+  // to the floor doesn't fit, the window looks as high as it goes, never over the art's top, with the seats and me whole
+  // 8 px over the keys.
+  test.each(PRESETS)("%s on a Pixel 7 with a video: as high as the seats and me stay 8 px over the keys", (file) => {
+    const l = preset(file);
+    const me = standingPoints(l)[0] ?? null;
+    const seats = seatPoints(l);
+    const pan = panTo({ w: 412, h: 358 }, touchHome(seats, me, { w: 412, h: 358 }, 52));
+    const lowest = Math.max(...seats.map((p) => p.y + 22), ...(me === null ? [] : [me.y + TAG_FOOT]));
+    const top = Math.min(...seats.map((p) => p.y - 22), ...(me === null ? [] : [me.y - AVATAR_TOP]));
+    expect(top).toBeGreaterThanOrEqual(pan.y);
+    if (lowest - BAND_WALL_TOP + 8 + 52 > 358) expect(pan.y).toBe(Math.max(BAND_WALL_TOP, lowest + 8 + 52 - 358));
   });
 });
