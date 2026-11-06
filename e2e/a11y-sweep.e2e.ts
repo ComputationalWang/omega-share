@@ -166,6 +166,9 @@ const KNOWN: readonly { issue: string; surface: RegExp; problem: RegExp }[] = [
   // By design: held sideways, the landing's Enter key is sticky (OME-1806) and the form scrolls under it; axe judges
   // the swatch it covers in place, one scroll uncovers it.
   { issue: "OME-1806", surface: /^landing$/, problem: /^target-size \(serious\) button\[aria-label="[^"]+"\] :: .*partially obscured/ },
+  // By design: at 320×640 the room strip is 96 px (OME-2306), so the owner's member menu, kept whole inside its wrap, covers
+  // the shelf's own mute key while it is open; Close or Escape uncovers it.
+  { issue: "OME-2306", surface: /^member menu$/, problem: /^target-size \(serious\) button\[aria-label="Mute, only for you"\] :: .*partially obscured/ },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
