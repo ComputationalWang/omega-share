@@ -397,6 +397,19 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
       await host.locator(sel).scrollIntoViewIfNeeded();
       await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
     }
+    // OME-2301 (judge round 11): at 1280×800 the column ran 54 px past the screen and cut Who controls playback with no
+    // hint that it scrolls. Overflowing, the column fades out at its bottom edge, and scrolled to its end the card clears the fade.
+    const column = await host.locator(site.controlPolicy).evaluate((card) => {
+      const side = card.closest(".room-side");
+      if (!(side instanceof HTMLElement)) return null;
+      const over = side.scrollHeight > side.clientHeight;
+      side.scrollTop = side.scrollHeight;
+      const gap = side.getBoundingClientRect().bottom - card.getBoundingClientRect().bottom;
+      side.scrollTop = 0;
+      return { over, mask: getComputedStyle(side).maskImage, gap };
+    });
+    if (column?.over === true) expect(column.mask, `${at} the column's fade`).toMatch(/gradient/);
+    expect(column?.gap ?? 0, `${at} scrolled to its end, the playback card clears the fade`).toBeGreaterThanOrEqual(32);
     expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
   // OME-2283: nothing to save or undo, the two keys look alike, under the pointer too (a secondary key's hover face beat its disabled one).
