@@ -41,6 +41,9 @@ main { max-width: 980px; margin: 0 auto; padding: max(16px, env(safe-area-inset-
 button, input { font: inherit; color: inherit; }
 /* AGPL-3.0 §13 source offer (OME-272): quiet, below the stage, never over it. */
 .site-footer { max-width: 980px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); text-align: right; font-size: 0.85rem; }
+/* Not drawn until main.ts has picked the view (OME-2329): a reload can paint the entry markup first, the footer under
+ * the fold, and on the room view it then jumps to the window's foot. The app page only: the others have no data-view. */
+html[data-view]:not([data-booted]) .site-footer { visibility: hidden; }
 .site-footer a { color: var(--muted); }
 .site-footer a:hover, .site-footer a:focus-visible { color: var(--accent); }
 /* OME-1596: on a touch screen each footer link is a 44 px key and no footer text is under 12 px. */
