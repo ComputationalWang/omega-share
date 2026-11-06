@@ -238,8 +238,13 @@ export function wideLayout(width: number, height: number, provider: Provider | n
     ? { x: sx, y: tv.y + tv.h - barH, w: keysMin, h: barH }
     : { x: Math.max(0, Math.floor(tv.x + (tv.w - cw) / 2)), y: tv.y + tv.h + GAP, w: cw, h: barH };
   if (beside) {
-    const fill = roomViewFill(w, h, tv, { x: sx, y: tv.y, w: keysMin, h: barH }, maxScale);
-    if (fill !== null) return fill;
+    const fill = roomViewFill(w, h, tv, { x: sx, y: tv.y, w: keysMin, h: barH }, maxScale, curtainCorner ? FLOOR_CLEAR : 0);
+    if (fill !== null && !curtainCorner) return fill;
+    // The curtain takes the corner only where the room keeps its scale there (2560×1440 stays at 2×, OME-1811).
+    if (curtainCorner) {
+      const topped = wideLayout(width, height, provider, chrome, maxScale, roomView, empty, editing, false);
+      return fill !== null && fill.scale >= topped.scale ? fill : topped;
+    }
   }
   // The column can't hold the room beside the curtain: it tops the room as before (OME-2282).
   if (curtainCorner) return wideLayout(width, height, provider, chrome, maxScale, roomView, empty, editing, false);
@@ -263,9 +268,9 @@ const ROOM_FILL_W = ROOM_WALLS.w + 40;
  * free corner above the left wall; past that the player hangs over the wall's top, by design (ADR 0058). `null` where it
  * doesn't fit.
  */
-function roomViewFill(w: number, h: number, tv: Rect, controls: Rect, maxScale: number): RoomLayout | null {
+function roomViewFill(w: number, h: number, tv: Rect, controls: Rect, maxScale: number, margin = 0): RoomLayout | null {
   const frameRight = tv.x + tv.w + TV_BEZEL;
-  const clear = tv.y + tv.h + TV_BEZEL;
+  const clear = tv.y + tv.h + TV_BEZEL + margin;
   for (let k = maxScale; k >= 1; k--) {
     const sw = ROOM_FILL_W * k;
     const top = controls.y + controls.h + GAP;
@@ -274,12 +279,16 @@ function roomViewFill(w: number, h: number, tv: Rect, controls: Rect, maxScale: 
     // The walls' corner (stage y 0) under the box's top.
     const corner = head - ROOM_VIEW.y * k;
     const x0 = Math.floor((w - sw) / 2);
-    const y = Math.min(h - sh, top);
+    const y0 = Math.min(h - sh, top);
     // The left wall's top where the TV's frame ends is the corner + (the box's half width - what of it the TV covers) / 2:
     // the box goes right until that clears the TV. Short of width, the margins beside the walls' ends give way (QA OME-2239), never the walls: the box stays on the corner.
-    const cx = Math.min(w - (ROOM_WALLS.w * k) / 2, Math.max(x0, Math.ceil(2 * (clear - y - corner) - sw / 2 + frameRight)) + sw / 2);
+    const cx = Math.min(w - (ROOM_WALLS.w * k) / 2, Math.max(x0, Math.ceil(2 * (clear - y0 - corner) - sw / 2 + frameRight)) + sw / 2);
     const bw = Math.min(sw, 2 * (w - cx));
     if (bw < ROOM_WALLS.w * k || head < 0) continue;
+    // The curtain (margin > 0) never sits over the left wall's top, even where Room view's TV gives way (QA OME-2311):
+    // the box goes down the column's slack until the wall clears it, or the curtain tops the room.
+    const y = margin > 0 ? Math.max(y0, Math.ceil(clear - corner - (cx - frameRight) / 2)) : y0;
+    if (y > h - sh) continue;
     const stage = { x: cx - bw / 2, y, w: bw, h: sh };
     const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
     return { tv, controls, stage, scale: k, height: h, compact };

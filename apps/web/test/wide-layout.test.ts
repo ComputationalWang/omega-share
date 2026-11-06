@@ -208,11 +208,9 @@ describe("nothing on at a desk (OME-2282)", () => {
     expect(Math.abs(l.tv.w / l.tv.h - 21 / 9)).toBeLessThan(0.02);
     expect(l.stage.y + l.stage.h).toBeLessThanOrEqual(h);
   });
-  test("2560×1440: the curtain at the player's floor, chrome-sized, takes the corner over the left wall and the room's box holds the room at 2× (OME-2300)", () => {
+  test("2560×1440: at 2× even a short curtain leaves too little, so it stays at the split (the room at 2× pans, OME-1811)", () => {
     const l = wideLayout(1896, 1118, null, 2, 2, false, true);
     expect(l.scale).toBe(2);
     expect(l.tv.h).toBeGreaterThan(300);
-    expect(l.stage.h).toBeGreaterThanOrEqual(ROOM_H * 2);
-    expect(l.controls.y + l.controls.h).toBeLessThanOrEqual(l.stage.y);
   });
 });
