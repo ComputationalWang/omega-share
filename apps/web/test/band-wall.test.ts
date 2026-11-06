@@ -246,3 +246,20 @@ describe("nothing on: the corner curtain clear of the left wall's top (QA OME-23
     }
   });
 });
+
+// OME-2323 (judge round 12): at 1280×800 Room view's box was 660×563 right of a ~244 px empty column under the curtain
+// (36 % of the screen). The column (888 px) is narrower than the stage, so the box is the column's width, the room
+// centred in it, and the curtain stays clear of the left wall's top (above).
+describe("1280×800 Room view: the box is the column's width (OME-2323)", () => {
+  test.each([
+    ["nothing on", null, true],
+    ["a video on", "youtube", false],
+  ] as const)("%s", (_, provider, empty) => {
+    const l = wideLayout(888, 652, provider, 1, 1, true, empty);
+    expect(l.stage.x).toBe(0);
+    expect(l.stage.w).toBe(888);
+    expect(l.stage.w * l.stage.h).toBeGreaterThanOrEqual(0.45 * 1280 * 800);
+    expect(l.controls.y + l.controls.h).toBeLessThanOrEqual(l.stage.y);
+    expect(l.scale).toBe(1);
+  });
+});
