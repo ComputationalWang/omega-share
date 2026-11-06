@@ -122,6 +122,8 @@ export const site = {
   editorCursor: id("editor-cursor"),
   editorMessage: id("editor-message"),
   editorSave: id("editor-save"),
+  editorMineName: id("editor-mine-name"),
+  editorMineSave: id("editor-mine-save"),
   editorCount: id("editor-count"),
   // OME-2074: Done or Escape with unsaved changes asks first.
   editorLeave: id("editor-leave"),

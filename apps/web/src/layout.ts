@@ -527,6 +527,11 @@ export const ROOM_HEAD = ROOM_VIEW.y + 8;
 /** The band never fits the room below half size: shorter, it keeps the seats whole as before (OME-1864). */
 const BAND_MIN_FIT = 0.5;
 
+/** The open editor's scale on the desktop (OME-2264): the largest whole scale up to `scale` that holds the whole room in w×h CSS px, else the fraction that does, never under half. */
+export function editFit(scale: number, w: number, h: number): number {
+  return scale;
+}
+
 /**
  * The band's scale (OME-2148, ADR 0060), `bandH` CSS px tall: the largest whole scale up to `scale` that holds the back
  * wall's art down to the lowest name tag (the audience's, or mine), else the fraction that does, never under half.
