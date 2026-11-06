@@ -593,7 +593,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           const k = editing ? editFit(l.scale, l.stage.w, l.stage.h) : video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
           // Room view's box (OME-2233) keeps its place: centred where the TV clears the walls, else right of centre.
-          const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: l.stage.h };
+          // Editing, the window is the room's own height: a taller one pans the stage up over the sky, cutting the floor's hit area.
+          const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: editing ? Math.min(l.stage.h, Math.ceil(ROOM_VIEW.h * k)) : l.stage.h };
           box(clip, r);
           // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
           clip.classList.toggle("is-bleed", r.w < w);
