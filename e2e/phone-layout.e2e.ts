@@ -529,3 +529,11 @@ test("412×915 touch, the room's owner: no empty band between the room window an
   if (win === null || first === null) throw new Error("not laid out");
   expect(first.y - (win.y + win.height), "empty band between the window and the hint line").toBeLessThanOrEqual(40);
 });
+
+test("the room canvas holds one backing px per stage px on a DPR 2 phone: twice that is ~2 ms of commit a walking frame (OME-2330, ADR 0063)", async ({ browser }) => {
+  const page = await one(browser, "stack");
+  const scene = page.locator("canvas.scene");
+  await expect(scene).toBeVisible();
+  // Pixel art drawn at whole stage px: `image-rendering: pixelated` scales it up crisp, as on a DPR 1 screen.
+  expect(await scene.evaluate((c) => (c instanceof HTMLCanvasElement ? [c.width, c.height] : [0, 0]))).toEqual([960, 600]);
+});
