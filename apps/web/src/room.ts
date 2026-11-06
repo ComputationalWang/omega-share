@@ -1023,10 +1023,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage && !shown.reserve;
     wrap.classList.toggle("is-reserved", shown.reserve);
     reactionBar.root.hidden = !shown.stage || s.status !== "open" || s.room?.embed == null;
-    help.key.hidden = !shown.stage;
-    people.key.hidden = !shown.stage;
-    snapKey.hidden = !shown.stage;
-    leaveKey.hidden = !shown.stage;
+    // The head row's keys keep their place too, invisible (OME-2282): shown later, they moved the TV and the room down.
+    const headKeys = shown.stage || shown.reserve;
+    help.key.hidden = !headKeys;
+    people.key.hidden = !headKeys;
+    snapKey.hidden = !headKeys;
+    leaveKey.hidden = !headKeys;
+    roomTop.classList.toggle("is-reserved", shown.reserve);
     onStage = shown.stage;
     soundKey.sync();
     if (shown.stage) people.update(s.room?.members ?? [], s.self);

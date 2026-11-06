@@ -40,6 +40,13 @@ const card = (id: string): HTMLElement | null => document.querySelector(`[data-t
 const open: ViewState = { ...initialState, status: "open", room: null };
 
 describe("room cards", () => {
+  // OME-2282: shown only at the first render, the guest's report key took 35 px from the room's column as the room came
+  // in, and the TV and the room moved up (cold-load CLS). It's laid out from the start; an owner never gets one.
+  test("a guest's report foot is laid out before the first render; an owner has none", async () => {
+    expect((await setup()).cards.foot.hidden).toBe(false);
+    expect((await setup(true)).cards.foot.hidden).toBe(true);
+  });
+
   test("a taken-down room says so and forgets this browser's keys for it", async () => {
     const { cards, secrets } = await setup();
     cards.render({ ...initialState, status: "taken-down" });
