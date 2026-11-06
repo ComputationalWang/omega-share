@@ -204,7 +204,7 @@ export function roomScale(width: number, height: number): number {
  * backdrop reaches the column's edges past it (OME-1843, room-layout.ts). `editing`, the TV gives way to the whole room
  * at the column's width (editFit, OME-2283), never under its floor.
  */
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false, empty = false, editing = false): RoomLayout {
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false, empty = false, editing = false, corner = true): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   // A player keeps its floor, whatever the caller says.
@@ -221,8 +221,10 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const split = (curtain || editing) && rest - roomH >= CURTAIN_MIN_H * chrome ? Math.min(share, rest - roomH) : share;
   const tvFit = provider === null || editing ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
   // Editing, Room view's corner TV would leave the room only the width beside it (QA OME-2297): the TV tops the room.
-  const room = roomView && provider !== null && !editing;
-  const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor(tvFit / ratio)));
+  // Nothing on (OME-2300), the curtain at the player's floor takes that corner too: over the room, the shelf hid the walls' corner.
+  const curtainCorner = curtain && corner && !editing;
+  const room = (curtainCorner || (roomView && provider !== null)) && !editing;
+  const tvW = room ? Math.min(curtainCorner ? TV_MIN_W * chrome : min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor(tvFit / ratio)));
   const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;
   // Room view (OME-2170): the TV at its floor, left, and its shelf beside it where the shelf's keys fit, so the room
   // gets the column under the picture. OME-2195 (CEO decision B): only its keys wide, so it never floats at the far right.
@@ -239,6 +241,8 @@ export function wideLayout(width: number, height: number, provider: Provider | n
     const fill = roomViewFill(w, h, tv, { x: sx, y: tv.y, w: keysMin, h: barH }, maxScale);
     if (fill !== null) return fill;
   }
+  // The column can't hold the room beside the curtain: it tops the room as before (OME-2282).
+  if (curtainCorner) return wideLayout(width, height, provider, chrome, maxScale, roomView, empty, editing, false);
   const sy = beside ? tv.y + tv.h + GAP : controls.y + controls.h + GAP;
   const band = Math.max(0, h - sy);
   const scale = Math.max(1, Math.min(maxScale, Math.floor(band / BAND_MIN_H)));
@@ -605,12 +609,20 @@ export const AVATAR_TOP = 60;
  * spots don't count: on a phone they pulled the seats out of the window (OME-1612). Seated, the window looks at my seat
  * (RoomLayout.centre).
  */
-export function touchHome(seats: readonly Point[], me: Point | null, view: Size): Point {
+export function touchHome(seats: readonly Point[], me: Point | null, view: Size, under = 0): Point {
   const c = seatsAndMe(seats, me, view);
   // A window that holds the walls' art to the room's foot shows both, as near that home as it goes (OME-2282: a Pixel 7
   // upright cut the art at its top).
   const foot = roomFoot(me === null ? seats : [...seats, me]);
-  return foot - BAND_WALL_TOP <= view.h ? { x: c.x, y: Math.max(foot - view.h / 2, Math.min(BAND_WALL_TOP + view.h / 2, c.y)) } : c;
+  if (foot - BAND_WALL_TOP <= view.h) return { x: c.x, y: Math.max(foot - view.h / 2, Math.min(BAND_WALL_TOP + view.h / 2, c.y)) };
+  // Else, under the zoom keys, as high as the seats and me stay whole, FLOOR_CLEAR over what `under` covers (OME-2300: a Pixel 7 playing cut the
+  // back wall's desk at the window's top), never over the art's top.
+  if (under === 0 || (seats.length === 0 && me === null)) return c;
+  const ys = me === null ? [] : [me.y];
+  const y0 = Math.min(...seats.map((p) => p.y - SEAT_HIT_H / 2), ...ys.map((y) => y - AVATAR_TOP));
+  const y1 = Math.max(...seats.map((p) => p.y + SEAT_HIT_H / 2), ...ys.map((y) => y + TAG_FOOT));
+  const top = y1 + FLOOR_CLEAR + under - view.h;
+  return top <= y0 ? { x: c.x, y: Math.min(y0, Math.max(BAND_WALL_TOP, top)) + view.h / 2 } : c;
 }
 
 function seatsAndMe(seats: readonly Point[], me: Point | null, view: Size): Point {
