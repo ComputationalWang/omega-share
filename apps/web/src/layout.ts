@@ -128,7 +128,8 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
     // Medium (a tablet held upright, OME-1846, design OME-1799 §2): the TV between gutters, at most MEDIUM_TV_MAX_W.
     const w = Math.max(min, width > PHONE_MAX_W ? Math.min(MEDIUM_TV_MAX_W, width - 2 * MEDIUM_GUTTER) : width);
     const x = Math.max(0, Math.floor((width - w) / 2));
-    const tv = { x, y: TV_BEZEL, w, h: empty ? Math.round(w * CURTAIN) : tvH(w) };
+    // A phone's (a tablet upright keeps 16:9: its taller window would outgrow the stage, a11y sweep 1024×1366).
+    const tv = { x, y: TV_BEZEL, w, h: empty && width <= PHONE_MAX_W ? Math.round(w * CURTAIN) : tvH(w) };
     // Twitch's TV can be wider than the screen (it scrolls sideways); the shelf stays on screen (QA OME-1870).
     const controls = { x, y: tv.y + tv.h + GAP, w: Math.min(w, width), h: CONTROL_BAR_H };
     const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
