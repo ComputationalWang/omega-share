@@ -74,6 +74,8 @@ const TV_MAX_W = 560;
 const RMF_MIN = 200;
 const minTvW = (provider: Provider | null, room: number): number => (provider === "twitch" ? TWITCH_TV_MIN_W : Math.min(TV_MIN_W, room));
 const tvH = (w: number): number => Math.max(RMF_MIN, Math.round((w * 9) / 16));
+/** Nothing on (OME-2263): no player, so no ADR 0012 floor; the curtain is cinema-wide and the room gets the height. */
+const CURTAIN = 9 / 21;
 /** Room for the TV's bezel, painted outside the player rect (`.ui-tv-frame`, border-image-outset). */
 const TV_BEZEL = 6;
 /** The media shelf's speakers, painted outside the control bar each side (`.ui-tv-shelf`). */
@@ -117,15 +119,16 @@ const MEDIUM_GUTTER = 24;
  * `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger).
  * `phone`: set (k)'s watch layout. The TV is full width (still never under its minimum), bezel and shelf compact, and
  * `stage` is a window onto the unscaled stage, as wide as the container and PHONE_ROOM_H tall (`panTo` picks the view).
+ * `empty`: nothing on (OME-2263), so the phone's TV is the 21:9 curtain (wideLayout's too: its touch callers pass it).
  */
-export function roomLayout(containerWidth: number, provider: Provider | null = null, phone = false): RoomLayout {
+export function roomLayout(containerWidth: number, provider: Provider | null = null, phone = false, empty = false): RoomLayout {
   const width = Math.floor(containerWidth);
   const min = minTvW(provider, width);
   if (phone) {
     // Medium (a tablet held upright, OME-1846, design OME-1799 §2): the TV between gutters, at most MEDIUM_TV_MAX_W.
     const w = Math.max(min, width > PHONE_MAX_W ? Math.min(MEDIUM_TV_MAX_W, width - 2 * MEDIUM_GUTTER) : width);
     const x = Math.max(0, Math.floor((width - w) / 2));
-    const tv = { x, y: TV_BEZEL, w, h: tvH(w) };
+    const tv = { x, y: TV_BEZEL, w, h: empty ? Math.round(w * CURTAIN) : tvH(w) };
     // Twitch's TV can be wider than the screen (it scrolls sideways); the shelf stays on screen (QA OME-1870).
     const controls = { x, y: tv.y + tv.h + GAP, w: Math.min(w, width), h: CONTROL_BAR_H };
     const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
@@ -141,8 +144,8 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
 }
 
 /** Portrait keeps the room inside the available box: a whole window (PHONE_ROOM_MIN_H) or none, never a sliver. */
-export function portraitLayout(width: number, height: number, provider: Provider | null, typing: boolean): RoomLayout {
-  const base = roomLayout(width, provider, true);
+export function portraitLayout(width: number, height: number, provider: Provider | null, typing: boolean, empty = false): RoomLayout {
+  const base = roomLayout(width, provider, true, empty);
   const y = typing ? base.tv.y + base.tv.h : base.stage.y;
   return { ...base, controls: typing ? { ...base.controls, h: 0 } : base.controls,
     stage: { ...base.stage, y, h: typing || height - y < PHONE_ROOM_MIN_H ? 0 : height - y }, height };
@@ -197,21 +200,24 @@ export function roomScale(width: number, height: number): number {
  * step, else 1× (OME-1811): `stage` is the band's window onto it, centred, and the whole room where it fits. The band's
  * backdrop reaches the column's edges past it (OME-1843, room-layout.ts).
  */
-export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false): RoomLayout {
+export function wideLayout(width: number, height: number, provider: Provider | null, chrome = 1, maxScale = 1, roomView = false, empty = false): RoomLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
-  const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  // A player keeps its floor, whatever the caller says.
+  const curtain = empty && provider === null;
+  const min = curtain ? 0 : provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const ratio = curtain ? CURTAIN : 9 / 16;
   const barH = CONTROL_BAR_H * chrome;
   const rest = Math.max(0, h - (TV_BEZEL + GAP + barH + GAP));
   const split = rest * WIDE_TV_SHARE;
   const tvFit = provider === null ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
   const room = roomView && provider !== null;
-  const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((tvFit * 16) / 9)));
+  const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor(tvFit / ratio)));
   const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;
   // Room view (OME-2170): the TV at its floor, left, and its shelf beside it where the shelf's keys fit, so the room
   // gets the column under the picture. OME-2195 (CEO decision B): only its keys wide, so it never floats at the far right.
   const beside = room && w - (2 * TV_BEZEL + tvW + GAP + 2 * SHELF_SPEAKER) >= keysMin;
-  const tv = { x: beside ? TV_BEZEL : Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const tv = { x: beside ? TV_BEZEL : Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round(tvW * ratio) };
   // A TV narrower than the zoomed shelf's keys (People open, QA OME-1696) gets a wider shelf, centred under it. 1× as before.
   const keysW = chrome > 1 ? keysMin : 0;
   const cw = Math.max(tv.w, Math.min(w, keysW));

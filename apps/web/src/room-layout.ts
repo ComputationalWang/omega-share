@@ -66,6 +66,8 @@ export interface RoomLayoutOptions {
     readonly fsKey: HTMLElement;
     readonly personal: HTMLElement;
     provider(): Embed["provider"] | null;
+    /** Nothing on: the TV shows its curtain (OME-2263). */
+    empty(): boolean;
     setFullscreen(on: boolean): void;
     place(): void;
   };
@@ -555,7 +557,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const on = roomView();
       roomViewKey.ariaPressed = String(on);
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, o.coarse.matches && tvBox.empty());
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
@@ -609,8 +611,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     wrap.classList.remove("is-tv-corner");
     const onPhone = phone.matches;
     const l = portraitOn
-      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))
-      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
+      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"), tvBox.empty())
+      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone, onPhone && tvBox.empty());
     boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
