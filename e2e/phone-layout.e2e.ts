@@ -451,14 +451,16 @@ test("360×640 touch: the room strip keeps its 96 px floor with me in it and a t
   const win = await page.locator(site.roomWindow).boundingBox();
   if (win === null) throw new Error("not laid out");
   expect(win.height, "room strip height").toBeGreaterThanOrEqual(96);
-  const pane = await page.locator(".stage-pane").boundingBox();
-  const mine = await page.locator(site.nicknameTag).filter({ hasText: /^ph/ }).boundingBox();
-  if (mine === null || pane === null) throw new Error("my tag or the picture not laid out");
-  expect.soft(mine.y >= pane.y && mine.y + mine.height <= pane.y + pane.height, `my tag (${String(mine.y)}+${String(mine.height)}) in the room picture (${String(pane.y)}+${String(pane.height)})`).toBe(true);
-  // Tapping a seat sits (the avatar walks from the door), and the window then centres on it.
-  const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
-  await seat.focus();
-  await frames(page);
+  // I walk in from the door: once I stand, my tag is in the picture.
+  await expect.poll(async () => {
+    const pane = await page.locator(".stage-pane").boundingBox();
+    const mine = await page.locator(site.nicknameTag).filter({ hasText: /^ph/ }).boundingBox();
+    if (mine === null || pane === null) return "not laid out";
+    return mine.y >= pane.y && mine.y + mine.height <= pane.y + pane.height ? "in" : `my tag ${String(mine.y)}+${String(mine.height)}, picture ${String(pane.y)}+${String(pane.height)}`;
+  }, { message: "my tag in the room picture" }).toBe("in");
+  // The strip is framed on me, so its seats may all be cropped (inert): Fit shows the whole room, and a tap on a seat sits.
+  await page.getByTestId("room-zoom-fit").tap();
+  const seat = page.locator(`${site.seat}[data-occupied="false"]:not([inert])`).first();
   await seat.tap();
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(640);
