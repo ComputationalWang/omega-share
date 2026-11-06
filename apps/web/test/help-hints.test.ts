@@ -281,9 +281,13 @@ describe("the first-visit tour", () => {
     const { hints, tv, key, after } = await setup();
     const composer = document.querySelector("form");
     if (composer === null) throw new Error("no composer");
-    const dock = document.createElement("nav");
-    dock.className = "portrait-keys";
-    document.body.append(dock);
+    // The panel's tabs, docked over the composer below the wide page (OME-2306).
+    const page = document.createElement("div");
+    page.className = "room-portrait";
+    const dock = document.createElement("div");
+    dock.className = "panel-tabs";
+    page.append(dock);
+    document.body.append(page);
     composer.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: control === "composer" ? 600 : 700, width: 412, height: 44 });
     dock.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: control === "dock" ? 600 : 700, width: 412, height: 44 });
     Object.defineProperties(hints.root, { offsetWidth: { value: 300 }, offsetHeight: { value: 80 } });
