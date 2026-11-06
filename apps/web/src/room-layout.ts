@@ -452,7 +452,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   placeChat();
 
   /** The phone's window looks at the middle of the seats, the band at the audience's (OME-1843; the seats' where it can't hold them all, OME-1864), until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, (w, h, band) => (band ? bandHome(seatPoints, standingPoints, { w, h }, me) : touchHome(seatPoints, me, { w, h })), o.labelScale, o.bubbleSides);
+  const roomWindow = createRoomWindow(clip, stage, (w, h, band, under) => (band ? bandHome(seatPoints, standingPoints, { w, h }, me) : touchHome(seatPoints, me, { w, h }, under)), o.labelScale, o.bubbleSides);
   let seatPoints: readonly Point[] = [];
   /** The standing spots: with the seats, where members are. */
   let standingPoints: readonly Point[] = [];
@@ -566,7 +566,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
-      wrap.classList.toggle("is-tv-corner", "stage" in l && l.stage.y < l.tv.y + l.tv.h && l.stage.x < l.tv.x + l.tv.w);
+      const tvCorner = "stage" in l && l.stage.y < l.tv.y + l.tv.h && l.stage.x < l.tv.x + l.tv.w;
+      wrap.classList.toggle("is-tv-corner", tvCorner);
       if ("stage" in l) {
         // In the band's top corner, over its backdrop beside the room.
         roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
@@ -606,8 +607,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           clip.style.setProperty("--bleed-l", `${String(r.x)}px`);
           clip.style.setProperty("--bleed-r", `${String(w - r.x - r.w)}px`);
           roomWindow.set(false, 0, 0);
-          // A band may show the sky over the walls (OME-2241): its home does where it holds the whole room.
-          roomWindow.desk(k, video ? { ...r, head: ROOM_HEAD } : r);
+          // A band may show the sky over the walls (OME-2241): its home does where it holds the whole room. So does the
+          // box under a corner curtain (OME-2300).
+          roomWindow.desk(k, video || tvCorner ? { ...r, head: ROOM_HEAD } : r);
           stage.style.setProperty("--stage-scale", String(k));
           band = video && !editing ? { scale: l.scale, h: l.stage.h, k } : null;
         }

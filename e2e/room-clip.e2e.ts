@@ -6,6 +6,7 @@
 import { devices, type Browser, type BrowserContextOptions, type Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { presetFile, showLayout } from "../perf/show-layout";
+import { shareProvider } from "../perf/providers";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
@@ -27,12 +28,12 @@ test.afterEach(async () => {
   clients = [];
 });
 
-async function open(browser: Browser, name: RoomName<"room-clip">, options: BrowserContextOptions, preset?: string): Promise<Page> {
+async function open(browser: Browser, name: RoomName<"room-clip">, options: BrowserContextOptions, preset?: string, playing = false): Promise<Page> {
   const layout = preset === undefined ? undefined : presetFile(preset);
   clients = await joinRoom(browser, { roomUrl: testRoom("room-clip", name).url, count: 1, nicknamePrefix: `rc${name}`, contextOptions: () => options, ...(layout === undefined ? {} : { setup: (c) => showLayout(c, layout) }) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
-  await expect(page.locator(site.tvEmpty)).toBeVisible();
+  await expect(playing ? page.locator(`${site.tv} iframe`) : page.locator(site.tvEmpty)).toBeVisible({ timeout: 10_000 });
   // The room's art is in and the window has settled on its home.
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.waitForTimeout(500);
@@ -86,8 +87,9 @@ async function pixels(page: Page, g: Geometry): Promise<(x: number, y: number) =
 
 const near = (a: readonly number[], b: readonly number[]): boolean => a.reduce((s, v, i) => s + Math.abs(v - (b[i] ?? 0)), 0) <= 40;
 
-/** The room's backdrop: the window's top-left corner, left of the walls' ends (stage x 150). */
-const backdrop = (g: Geometry, px: (x: number, y: number) => readonly [number, number, number]) => px(g.clip.x + 2, g.clip.y + 2);
+/** The room's backdrop: the window's bottom-left corner, left of the walls' ends (stage x 150) and under the floor's left
+ * corner. Its top-left may be the curtain's, which takes the free corner over the left wall (OME-2300). */
+const backdrop = (g: Geometry, px: (x: number, y: number) => readonly [number, number, number]) => px(g.clip.x + 2, g.clip.y + g.clip.h - 2);
 
 /** Where the walls' top edge is at the art's top (stage y 113: the walls slope 1:2 from the corner, x 480 at y 0), the
  * window shows the backdrop just over it and the wall just under it: nothing on the walls is cut at the window's top. */
@@ -161,4 +163,52 @@ test("1280×800, nothing on, loading slowly: the TV and the room's window don't 
   await expect(page.locator(".stage-wrap.is-reserved")).toHaveCount(0);
   await page.waitForTimeout(300);
   expect(await boxes()).toBe(early);
+});
+
+// OME-2300 (judge round 11): with nothing on, 1280×800's window looked from the walls' art (stage y 113), so the walls'
+// corner and its post (stage y 0, x 480) started at the shelf's foot, cut. The curtain takes the free corner over the left
+// wall now, as Room view's TV does (OME-2233), and the window holds the corner 8 px under its top, the sky over it.
+async function cornerWhole(page: Page): Promise<void> {
+  const g = await geometry(page);
+  const px = await pixels(page, g);
+  const bg = backdrop(g, px);
+  const corner = g.at(480, 0);
+  expect(corner.y, "the walls' corner 8 px under the window's top").toBeGreaterThanOrEqual(g.clip.y + CLEAR);
+  expect(near(px(corner.x, corner.y - 4), bg), "the sky over the walls' corner").toBe(true);
+  expect(near(px(corner.x, corner.y + 4), bg), "the walls' corner").toBe(false);
+  const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
+  if (shelf === null) throw new Error("no shelf");
+  expect(shelf.y + shelf.height).toBeLessThanOrEqual(g.clip.y);
+}
+
+for (const [name, preset, playing] of [["idle1280", undefined, false], ["studio", "studio", false], ["penthouse", "penthouse", false], ["play1280", undefined, true], ["playstudio", "studio", true], ["playpenthouse", "penthouse", true]] as const) {
+  test(`1280×800, ${playing ? "a video on" : "nothing on"}${preset === undefined ? "" : `, ${preset}`}: the walls' corner is whole, 8 px under the window's top`, async ({ browser, request }) => {
+    if (playing) await shareProvider(request, "https://youtu.be/rcplay00001", testRoom("room-clip", name).id);
+    const page = await open(browser, name, { viewport: { width: 1280, height: 800 } }, preset, playing);
+    await cornerWhole(page);
+  });
+}
+
+/** The default room's back-wall desk's top (its projector), stage px (ROOM_VIEW). */
+const DESK_TOP = 198;
+
+// OME-2300: a Pixel 7 upright with a video plays looked at the middle of the seats and me, so the back wall's desk went
+// under the shelf and the floor's front under the pan hint. The window looks as high as the seats and me stay whole 8 px
+// over the zoom keys and the hint: the desk is whole 8 px under the shelf, every seat 8 px over the keys' row.
+test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are whole, 8 px clear of the shelf and the hint", async ({ browser, request }) => {
+  await shareProvider(request, "https://youtu.be/rcplay00002", testRoom("room-clip", "playpixel7").id);
+  const page = await open(browser, "playpixel7", PIXEL_7, undefined, true);
+  const g = await geometry(page);
+  const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
+  const keys = await page.locator(".room-zoom").boundingBox();
+  if (shelf === null || keys === null) throw new Error("no shelf or keys");
+  const hint = await page.locator(".room-pan-hint").boundingBox();
+  const floor = Math.min(keys.y, hint?.y ?? Infinity);
+  expect(g.at(480, DESK_TOP).y, "the desk's top under the shelf").toBeGreaterThanOrEqual(Math.max(g.clip.y, shelf.y + shelf.height) + CLEAR);
+  const seats = await page.locator(site.seat).evaluateAll((es) => es.map((e) => { const r = e.getBoundingClientRect(); return [r.top, r.bottom] as const; }));
+  expect(seats.length).toBeGreaterThanOrEqual(8);
+  for (const [top, bottom] of seats) {
+    expect(top).toBeGreaterThanOrEqual(g.clip.y + CLEAR);
+    expect(bottom + CLEAR).toBeLessThanOrEqual(floor);
+  }
 });

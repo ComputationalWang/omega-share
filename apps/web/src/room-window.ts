@@ -89,9 +89,11 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean) => Point, onLabels: (k: number) => void = () => undefined, onSides: (x0: number, x1: number, y1: number, y0: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w: number, h: number, band: boolean, under: number) => Point, onLabels: (k: number) => void = () => undefined, onSides: (x0: number, x1: number, y1: number, y0: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
+  /** The window's foot the zoom keys (and the pan hint) float over, CSS px (OME-2300). */
+  let keysOver = 0;
   let pan: Point = { x: 0, y: 0 };
   /** Null until someone moves it: then it follows `home` (the middle of the seats) across layouts and resizes. */
   let looking: Point | null = null;
@@ -120,7 +122,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   /** Off the phone at `zoom`: the view centred on the seats (clamped to the room by applyDesk). */
   const deskHome = (fit: number, zoom: number): DeskView => {
     const k = fit * zoom;
-    const c = home(deskBox.w / k, deskBox.h / k, true);
+    const c = home(deskBox.w / k, deskBox.h / k, true, 0);
     return { zoom, pan: { x: c.x - deskBox.w / (2 * k), y: c.y - deskBox.h / (2 * k) } };
   };
   /** The band shows less than the whole room at the fit: a drag looks around it. */
@@ -208,7 +210,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     zoom = clampZoom(zoom, view);
     const crops = zoom > minZoom(view) + 1e-6;
     if (hint.hidden === crops) hint.hidden = !crops;
-    pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false), zoom);
+    pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false, keysOver / zoom), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
     if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom, pan.y);
   };
@@ -476,6 +478,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       const keysAt = h >= KEYS_COLUMN_H ? "float" : w >= KEYS_SIDE_MIN_W ? "side" : "row";
       view.w = on && keysAt === "side" ? Math.max(0, w - KEYS_ROW_W) : w;
       view.h = on && keysAt === "row" ? Math.max(0, h - KEYS_BAND) : h;
+      keysOver = keysAt === "float" ? KEYS_BAND : 0;
       clip.dataset["keys"] = keysAt;
       clip.classList.toggle("is-phone", on);
       // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).
