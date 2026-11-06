@@ -165,6 +165,29 @@ test("1280×800, nothing on, loading slowly: the TV and the room's window don't 
   expect(await boxes()).toBe(early);
 });
 
+// OME-2329: a reload can paint the page's markup before main.ts runs. That frame is the entry view, the footer under the
+// fold; once the room view opens, it's at the window's foot (room.coldCls.desktop 0.014 on its own, 0.060 with a late TV).
+// Until main.ts has picked the view, the footer isn't drawn.
+test("1280×800, the entry script held: the footer isn't drawn until the room view opens", async ({ browser }) => {
+  const page = await open(browser, "boot1280", { viewport: { width: 1280, height: 800 } });
+  let release = (): void => undefined;
+  const held = new Promise<void>((r) => {
+    release = r;
+  });
+  await page.route(/\/(src\/main\.ts|assets\/index-[^/]*\.js)$/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.reload({ waitUntil: "commit" });
+  const footer = page.locator("footer.site-footer");
+  await expect(footer).toBeAttached();
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  expect(await footer.evaluate((f) => f.checkVisibility({ visibilityProperty: true }))).toBe(false);
+  release();
+  await expect(page.locator(site.tvEmpty)).toBeVisible();
+  await expect(footer).toBeVisible();
+});
+
 // OME-2300 (judge round 11): with nothing on, 1280×800's window looked from the walls' art (stage y 113), so the walls'
 // corner and its post (stage y 0, x 480) started at the shelf's foot, cut. The curtain takes the free corner over the left
 // wall now, as Room view's TV does (OME-2233), and the window holds the corner 8 px under its top, the sky over it.

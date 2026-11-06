@@ -80,6 +80,8 @@ const frame = (view: View): void => {
   if (zoom === 1) delete document.body.dataset["chrome"];
   else document.body.dataset["chrome"] = String(zoom);
 };
+// Every view below is picked in this same task, before the next paint: the footer may show (style.css, OME-2329).
+document.documentElement.dataset["booted"] = "";
 const show = (view: View): void => {
   document.documentElement.dataset["view"] = view;
   frame(view);
