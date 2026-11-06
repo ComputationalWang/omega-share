@@ -30,7 +30,7 @@ import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
 import { placeAt } from "./tag-place";
-import { TAG_GAP, screenBoxes, stackTags, wearPlace, type Box, type TagBox, type TagPlace } from "./tag-stack";
+import { TAG_GAP, createTagStacker, screenBoxes, wearPlace, type Box, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -193,6 +193,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       wearPlace(padEl, moved, worn, false);
     }
   };
+  const stack = createTagStacker();
   /** Stack the tags of everyone standing still and place every tag. */
   const restack = (): void => {
     const ids: MemberId[] = [];
@@ -201,16 +202,21 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     for (const [id, tag] of tagEls) {
       const p = view.position(id) ?? placedAt.get(id);
       if (p === undefined) continue;
+      // A walker's tag rides over its head, unstacked (OME-2213: stacked, it'd flip its pip as it passes heads), and the
+      // still tags don't stack around a walker's head either: a render where only walkers changed restacks nothing (OME-2317).
+      if (walkers.has(id)) {
+        tagAt.set(id, aboveHead(id));
+        placeTag(id, p.x, p.y, true);
+        continue;
+      }
       ids.push(id);
       at.push(p);
-      // A walker's tag isn't stacked: a zero-width box overlaps nothing.
-      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - headOf(id) });
+      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: (tagW.get(tag) ?? 0) * labelK, top: p.y - headOf(id) });
     }
-    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
+    const moved = stack(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
     ids.forEach((id, i) => {
       const p = at[i];
-      // A walker's tag rides over its head: stacked, it'd flip its pip on every render as it passes heads (OME-2213).
-      const m = walkers.has(id) ? aboveHead(id) : moved[i];
+      const m = moved[i];
       if (m === undefined) tagAt.delete(id);
       else tagAt.set(id, m);
       if (p !== undefined) placeTag(id, p.x, p.y, true);

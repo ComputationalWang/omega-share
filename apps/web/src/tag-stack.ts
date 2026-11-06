@@ -109,6 +109,19 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
   return out;
 }
 
+/** `stackTags` that returns its last places when called again with equal tags, height, window and avoid boxes (OME-2317). */
+export function createTagStacker(): (tags: readonly TagBox[], h: number, maxY: number, minY: number, avoid: readonly Box[]) => readonly TagPlace[] {
+  let last: { tags: readonly TagBox[]; h: number; maxY: number; minY: number; avoid: readonly Box[]; out: readonly TagPlace[] } | null = null;
+  const sameBox = (a: Box, b: Box | undefined): boolean => a.x0 === b?.x0 && a.x1 === b.x1 && a.y0 === b.y0 && a.y1 === b.y1;
+  const sameTag = (a: TagBox, b: TagBox | undefined): boolean => a.x === b?.x && a.y === b.y && a.w === b.w && a.top === b.top;
+  return (tags, h, maxY, minY, avoid) => {
+    const was = last;
+    if (was?.h === h && was.maxY === maxY && was.minY === minY && was.tags.length === tags.length && was.avoid.length === avoid.length && tags.every((t, i) => sameTag(t, was.tags[i])) && avoid.every((b, i) => sameBox(b, was.avoid[i]))) return was.out;
+    last = { tags, h, maxY, minY, avoid, out: stackTags(tags, h, maxY, minY, avoid) };
+    return last.out;
+  };
+}
+
 /** The boxes (stage px) of the sprites marked `screen` (furniture.ts), each its frame around its anchor, down to the anchor
  * at most: under it is the stand's front (classic's TV console, OME-2246), not the picture; `frame` gives a loaded frame's
  * size and anchor. Tags keep off them (OME-2196). */
