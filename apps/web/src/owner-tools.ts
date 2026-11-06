@@ -31,6 +31,8 @@ export interface OwnerToolsOptions {
   readonly state: () => ViewState;
   readonly send: (m: ClientMessage) => boolean;
   readonly requestRender: () => void;
+  /** Lays the room out again: editing, the TV gives way to the whole room (OME-2283), and the room's column keeps its size. */
+  readonly relayout: () => void;
   /** The phone layout: no editor there (set k). */
   readonly phone: () => boolean;
   /** The room is in its own window: the editor draws on the stage, which is over there. */
@@ -66,6 +68,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     editor = null;
     preview = null;
     document.body.classList.remove("room-editing");
+    o.relayout();
     if (editToggle !== null) {
       editToggle.ariaPressed = "false";
       editToggle.lastChild?.replaceWith("Edit room");
@@ -79,6 +82,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     toggle.lastChild?.replaceWith("Done");
     // room.css: on a wide desktop the editor is a column beside the room, not a stack under it (OME-1801).
     document.body.classList.add("room-editing");
+    o.relayout();
     o.requestRender();
     void import("./editor/editor")
       .then(({ mountEditor }) =>

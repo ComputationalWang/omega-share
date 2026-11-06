@@ -936,6 +936,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     state: () => state,
     send,
     requestRender,
+    relayout: () => {
+      layout.fit();
+    },
     phone: () => phone.matches,
     roomOut,
     log: (e) => { chatLog.append(e); },

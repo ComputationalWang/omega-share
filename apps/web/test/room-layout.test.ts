@@ -168,13 +168,16 @@ describe("room layout", () => {
   test("the owner's bar ends the People tab on a wide screen, Report room too on a short one (OME-1841, OME-1842)", async () => {
     const tall = await setup({ wide: true });
     expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
-    expect(tall.ownerBar.nextElementSibling).toBe(tall.log.root);
+    // Tall too, the editor follows its Done key (OME-2283): the column is its sheet, not a column of its own.
+    expect(tall.ownerBar.nextElementSibling).toBe(tall.editorPanel);
+    expect(tall.editorPanel.nextElementSibling).toBe(tall.log.root);
     expect(tall.foot.parentElement).toBe(tall.root);
-    // Open, People holds the bar at its end, so they scroll as one (OME-1842); closed, it's back above the log.
+    // Open, People holds the bar (and the editor) at its end, so they scroll as one (OME-1842); closed, it's back above the log.
     tall.people.append(div());
     tall.people.hidden = false;
     await Promise.resolve();
-    expect(tall.people.lastElementChild).toBe(tall.ownerBar);
+    expect(tall.people.lastElementChild).toBe(tall.editorPanel);
+    expect(tall.editorPanel.previousElementSibling).toBe(tall.ownerBar);
     tall.people.hidden = true;
     await Promise.resolve();
     expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
