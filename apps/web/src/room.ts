@@ -858,7 +858,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     portrait,
     wide,
     short,
-    stageShown: () => screen(state).stage,
+    // Connecting counts (OME-2281): the dock stows the footer before a slow phone paints the room under it.
+    stageShown: () => {
+      const shown = screen(state);
+      return shown.stage || shown.reserve;
+    },
     roomOut,
     hint: firstHint,
     placeRoom: () => {
