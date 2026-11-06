@@ -201,6 +201,8 @@ test("a walking member's tag moves every frame, its hidden hit pad doesn't; on t
   if (member === null) throw new Error("no kit tag");
   await countStyleWrites(watcher, member);
   // Across the room and back: two walks of several cells each.
+  // Below 1024 px the short strip is framed on me and crops the far cells: Fit shows the whole floor.
+  await kit.getByTestId("room-zoom-fit").click();
   await kit.locator(site.walkFloor).scrollIntoViewIfNeeded();
   for (const [x, y] of [[1, 8], [8, 1]] as const) {
     const p = await cellOnPage(kit, x, y);
