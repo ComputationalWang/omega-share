@@ -213,6 +213,12 @@ async function enter(page: Page, nickname: string): Promise<void> {
   await expect(page.locator(site.room)).toBeVisible();
 }
 
+/** Selects a tab of the room panel (OME-2306: Chat / Up next / Room; the Room tab holds Report room, the owner's bar and the editor). */
+const pick = async (page: Page, name: "Chat" | "Up next" | "Room"): Promise<void> => {
+  const t = page.getByRole("tab", { name, exact: true });
+  if ((await t.getAttribute("aria-selected")) !== "true") await t.click();
+};
+
 const visibleClick = async (page: Page, selector: string): Promise<boolean> => {
   const l = page.locator(selector).first();
   if (!(await l.isVisible())) return false;
@@ -275,15 +281,17 @@ VIEWPORTS.forEach((vp, i) => {
         return true;
       });
       await step(page, vp, "command palette", skipped, () => visibleClick(page, site.paletteKey));
-      // A phone held sideways keeps Report room in the People tab (OME-1841).
+      // Report room is in the panel's Room tab, at every viewport (OME-2306).
       await step(page, vp, "report", skipped, async () => {
-        if (!(await page.locator(site.reportKey).isVisible())) await visibleClick(page, site.peopleKey);
+        await pick(page, "Room");
         return (await visibleClick(page, site.reportKey)) && (await page.locator(site.reportDialog).isVisible());
       });
-      if (await page.locator(site.peoplePanel).isVisible()) await page.locator(site.peopleKey).click();
-      await step(page, vp, "share sheet", skipped, async () => (await visibleClick(page, id("portrait-link"))) || (await page.locator(id("invite-copy")).isVisible()));
+      await pick(page, "Chat");
+      // The invite heads the panel (OME-2306): Copy is always there, nothing to open.
+      await step(page, vp, "share sheet", skipped, () => page.locator(site.inviteCopy).isVisible());
       await step(page, vp, "people", skipped, () => visibleClick(page, site.peopleKey));
       if (await page.locator(site.peoplePanel).isVisible()) await page.locator(site.peopleKey).click();
+      await pick(page, "Chat");
       await step(page, vp, "full screen", skipped, async () => {
         if (!(await visibleClick(page, site.fullscreenToggle))) return false;
         await expect(page.locator(site.fsStrip)).toBeVisible();
@@ -330,6 +338,7 @@ VIEWPORTS.forEach((vp, i) => {
       await expect(poll).toBeHidden();
       // OME-1531: the @mention completion list over the composer, with kit to pick.
       await step(owner, vp, "mention list", skipped, async () => {
+        await pick(owner, "Chat");
         const input = owner.locator(site.chatInput);
         if (!(await input.isVisible())) return false;
         await input.focus();
@@ -338,8 +347,9 @@ VIEWPORTS.forEach((vp, i) => {
         return true;
       });
       await owner.locator(site.chatInput).fill("");
-      await step(owner, vp, "owner share sheet", skipped, async () => (await visibleClick(owner, id("portrait-link"))) || (await owner.locator(id("invite-copy")).isVisible()));
+      await step(owner, vp, "owner share sheet", skipped, () => owner.locator(site.inviteCopy).isVisible());
       await step(owner, vp, "member menu", skipped, async () => {
+        await pick(owner, "Chat");
         // In portrait the tags may live in the People list instead.
         if ((await owner.locator(`${site.nicknameTag}[role=button]`).filter({ hasText: "kit" }).count()) === 0) await visibleClick(owner, site.peopleKey);
         await owner.locator(`${site.nicknameTag}[role=button], ${site.peopleRow} [role=button], ${site.peopleRow} button`).filter({ hasText: "kit" }).first().focus();
@@ -347,27 +357,22 @@ VIEWPORTS.forEach((vp, i) => {
         await expect(owner.locator(site.modMenu)).toBeVisible({ timeout: 5000 });
         return true;
       });
-      await step(owner, vp, "owner settings", skipped, () => visibleClick(owner, id("portrait-settings")));
+      // The Room tab holds the owner's settings (OME-2306).
+      await step(owner, vp, "owner settings", skipped, async () => {
+        await pick(owner, "Room");
+        return true;
+      });
       await step(owner, vp, "editor", skipped, async () => {
-        const settings = owner.locator(id("portrait-settings"));
-        if (await settings.isVisible()) await settings.click();
-        // A phone held sideways keeps Edit room in the People tab (OME-1841).
-        else if (!(await owner.locator(site.editRoom).isVisible()) && !(await owner.locator(site.peoplePanel).isVisible())) await visibleClick(owner, site.peopleKey);
+        await pick(owner, "Room");
         if (!(await visibleClick(owner, site.editRoom))) return false;
         await expect(owner.locator(site.editorTray)).toBeVisible();
         return true;
       });
       // OME-1502: the darkest mood, saved, under the owner's tags and bubbles (the editor open over it).
       await step(owner, vp, "night mood", skipped, async () => {
-        // No editor at this viewport (portrait), so no mood to pick.
-        if (skipped.includes("editor")) return false;
+        await pick(owner, "Room");
         // The editor step may have left it open (Edit room is a toggle).
-        if (!(await owner.locator(site.editorTray).isVisible())) {
-          const settings = owner.locator(id("portrait-settings"));
-          if (await settings.isVisible()) await settings.click();
-          else if (!(await owner.locator(site.editRoom).isVisible()) && !(await owner.locator(site.peoplePanel).isVisible())) await visibleClick(owner, site.peopleKey);
-          if (!(await visibleClick(owner, site.editRoom))) return false;
-        }
+        if (!(await owner.locator(site.editorTray).isVisible()) && !(await visibleClick(owner, site.editRoom))) return false;
         await owner.locator(`${site.editorMood}[data-mood="night"]`).click();
         await owner.locator(site.editorSave).click();
         await expect(owner.locator(site.editorMessage)).toHaveText("Saved.");
@@ -381,25 +386,17 @@ VIEWPORTS.forEach((vp, i) => {
   });
 });
 
-/** Surfaces a viewport's layout has no opener for, by design: no pop-outs on a phone, no report key or editor in portrait, the settings sheet only in portrait. */
+/** Surfaces a viewport's layout has no opener for, by design: no pop-outs on a phone or a touch tablet, no editor under 1024 px or on a tall touch tablet. The panel's tabs reach the rest everywhere (OME-2306). */
 const GUEST_SKIPS: Record<string, string[]> = {
-  "390x844-touch": ["report", "pop-out chat.html", "pop-out room.html"],
+  "390x844-touch": ["pop-out chat.html", "pop-out room.html"],
   "844x390-touch": ["pop-out chat.html", "pop-out room.html"],
-  "320x640": ["report", "pop-out chat.html", "pop-out room.html"],
-  "768x1024-touch": ["report", "pop-out chat.html", "pop-out room.html"],
-  "1024x1366-touch": ["report", "pop-out chat.html", "pop-out room.html"],
+  "320x640": ["pop-out chat.html", "pop-out room.html"],
+  "768x1024-touch": ["pop-out chat.html", "pop-out room.html"],
+  "1024x1366-touch": ["pop-out chat.html", "pop-out room.html"],
   "1024x768-touch": ["pop-out chat.html", "pop-out room.html"],
 };
-const OWNER_SKIPS: Record<string, string[]> = {
-  "1280x800": ["owner settings"],
-  "390x844-touch": ["editor", "night mood"],
-  "844x390-touch": ["owner settings"],
-  "320x640": ["editor", "night mood"],
-  "768x1024-touch": ["editor", "night mood"],
-  "1024x1366-touch": ["editor", "night mood"],
-  "1024x768-touch": ["owner settings"],
-  "1920x1080": ["owner settings"],
-};
+const NO_EDITOR = ["editor", "night mood"];
+const OWNER_SKIPS: Record<string, string[]> = { "390x844-touch": NO_EDITOR, "320x640": NO_EDITOR, "768x1024-touch": NO_EDITOR, "1024x1366-touch": NO_EDITOR };
 
 async function extAudit(page: Page, surface: string, width: number, height: number): Promise<void> {
   await page.setViewportSize({ width, height });
