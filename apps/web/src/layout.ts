@@ -529,7 +529,9 @@ const BAND_MIN_FIT = 0.5;
 
 /** The open editor's scale on the desktop (OME-2264): the largest whole scale up to `scale` that holds the whole room in w×h CSS px, else the fraction that does, never under half. */
 export function editFit(scale: number, w: number, h: number): number {
-  return scale;
+  const fit = Math.min(w / ROOM_VIEW.w, h / ROOM_VIEW.h);
+  for (let k = scale; k >= 1; k--) if (k <= fit) return k;
+  return Math.max(BAND_MIN_FIT, Math.min(1, fit));
 }
 
 /**
