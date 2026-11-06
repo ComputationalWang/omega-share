@@ -86,7 +86,7 @@ describe("landing: explains the product before asking for anything", () => {
     const wide = sources[0] ?? {};
     expect(wide["media"]).toBe("(min-width: 1104px)");
     expect(wide["srcset"]).toMatch(/^\/assets\/website-room-[A-Za-z0-9_-]+\.png$/);
-    expect([wide["width"], wide["height"]]).toEqual(["656", "536"]);
+    expect([wide["width"], wide["height"]]).toEqual(["656", "552"]);
     const img = attrs(/<img\s[^>]*>/.exec(pic)?.[0] ?? "");
     expect(img["src"]).toMatch(/^\/assets\/how-3-watch-[A-Za-z0-9_-]+\.png$/);
     expect([img["width"], img["height"]]).toEqual(["368", "224"]);

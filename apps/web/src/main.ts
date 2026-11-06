@@ -3,6 +3,7 @@
 // `<html data-view>` scopes the site styles to entry/directory, so the room's own layouts never see them.
 import { DEFAULT_ROOM_ID, type Accessory, type Avatar, type Hair, type Nickname, type ResumeToken, type Tint } from "@omega/shared";
 import { createExtensionBridge } from "./extension-bridge";
+import { WIDE_QUERY, chromeZoom } from "./layout";
 import { SITE_TITLE } from "./page-title";
 import tintsJson from "../../../assets/avatars/tints.json";
 import { bindRadioRow, bindTintRow } from "./controls/tint-row";
@@ -70,8 +71,18 @@ const debug = { roomId, room: null as RoomHandle | null };
 if (import.meta.env.DEV || import.meta.env.VITE_TEST_HANDLE === "1") window.__omega = debug;
 
 type View = "entry" | "directory" | "room";
+/** The wide room's page frame (style.css) as the room view opens, before the room chunk lands: main and the footer are
+ * where the room will put them, so they don't move when it does (OME-2262). room-layout.ts keeps both up to date after. */
+const frame = (view: View): void => {
+  const wide = view === "room" && matchMedia(WIDE_QUERY).matches;
+  const zoom = wide ? chromeZoom(innerWidth, innerHeight) : 1;
+  document.body.classList.toggle("room-is-wide", wide);
+  if (zoom === 1) delete document.body.dataset["chrome"];
+  else document.body.dataset["chrome"] = String(zoom);
+};
 const show = (view: View): void => {
   document.documentElement.dataset["view"] = view;
+  frame(view);
   welcome.hidden = view !== "entry";
   form.hidden = view !== "entry";
   homeRoot.hidden = view !== "directory";
@@ -256,6 +267,7 @@ enter.disabled = false;
 if (resumed !== null) {
   // Straight back in: no entry form while the room loads.
   document.documentElement.dataset["view"] = "room";
+  frame("room");
   welcome.hidden = true;
   form.hidden = true;
   input.value = resumed.nickname;
@@ -263,6 +275,7 @@ if (resumed !== null) {
   enterRoom(resumed.nickname, resumed.avatar, resumed.token);
 } else if (creating !== null) {
   document.documentElement.dataset["view"] = "room";
+  frame("room");
   welcome.hidden = true;
   form.hidden = true;
   input.value = creating;

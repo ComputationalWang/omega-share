@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { bandFit, cellCenter, setNorth, wideLayout, type Rect } from "../src/layout";
+import { ROOM_HEAD, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Rect } from "../src/layout";
 
 const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
 const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
@@ -30,8 +30,66 @@ describe("Room view at 1280×800 (OME-2170)", () => {
     expect(l.controls.x).toBeGreaterThanOrEqual(l.tv.x + l.tv.w);
     expect(l.controls.y + l.controls.h).toBeLessThanOrEqual(l.tv.y + l.tv.h);
     for (const r of [l.tv, l.controls, l.stage]) expect(inside(r, COLUMN.w, COLUMN.h)).toBe(true);
-    expect(intersects(l.tv, l.stage)).toBe(false);
     expect(intersects(l.controls, l.stage)).toBe(false);
+  });
+
+  // OME-2233 (judge round 5, OME-2061 requests 1 and 2): the shelf sat at the TV's foot, leaving an empty strip above it
+  // right of the TV, and the band started under both, so the walls' tops were cut. The walls are a ^ (corner at stage
+  // (480, 60), left end at (160, 220)): the TV fits in the free corner above the left wall, and the room gets the column.
+  // 905×655: QA OME-2168's column; 888×618: the real one with the reaction bar and footer (ADR 0060 amendment 3).
+  // OME-2241 (judge round 6): the walls' art reaches the stage's top (the corner cap, y 0), so from ROOM_VIEW's top (60)
+  // they were cut flat; and the box sank to the column's foot, leaving a 100 px empty band under the shelf. `sky`: what of
+  // the 8 px over the corner the column holds (888×618, QA OME-2168's column with Report room on the bar's row: 5).
+  test.each([[905, 655, 8], [888, 618, 5], [1400, 900, 8]] as const)("at %i×%i the shelf tops the TV's side and the whole room shows right under it, walls whole", (w, h, sky) => {
+    const l = wideLayout(w, h, "youtube", 1, 1, true);
+    // No strip between the TV's top and the shelf.
+    expect(l.controls.y).toBe(l.tv.y);
+    expect(l.stage.y).toBeGreaterThanOrEqual(l.controls.y + l.controls.h);
+    expect(inside(l.stage, w, h)).toBe(true);
+    // The walls' tops with the sky over them (stage y 0 - sky) to the lowest name tag the floor can hold (stage y 555), at 1×.
+    expect(l.scale).toBe(1);
+    expect(l.stage.h).toBe(555 + sky);
+    // The box shows the walls' ends (stage x 150 to 810), centred on the corner (bandHome's x).
+    const left = 480 - l.stage.w / 2;
+    expect(left).toBeLessThanOrEqual(150);
+    expect(left + l.stage.w).toBeGreaterThanOrEqual(810);
+    // No dead band over the room: the walls' corner (`sky` under the box's top) is at most 60 px under the shelf.
+    expect(l.stage.y + sky - (l.controls.y + l.controls.h)).toBeLessThanOrEqual(60);
+    // The TV clears the left wall where the column lets the room go right, else the walls' right end is at its edge
+    // (the player over the left wall's top is by design, ADR 0058).
+    const frameRight = l.tv.x + l.tv.w + 6;
+    const wallTop = l.stage.y + sky + (l.stage.x + l.stage.w / 2 - frameRight) / 2;
+    expect(wallTop >= l.tv.y + l.tv.h + 6 || l.stage.x + l.stage.w / 2 + 330 >= w - 1).toBe(true);
+  });
+
+  test("a band that holds the whole room shows it from the walls' tops (stage y 60)", () => {
+    const room = preset("living");
+    // From the walls' tops (60) to the floor's front corner 8 px clear (548, OME-2282).
+    const c = bandHome(seatPoints(room), standingPoints(room), { w: 700, h: 488 });
+    expect(c.y - 488 / 2).toBe(60);
+    expect(c.x).toBe(480);
+  });
+
+  // QA OME-2239: a seated visitor's tag on the front row reached past the floor's front corner, the box (sized to the
+  // corner) no longer held walls' tops to that tag, and the camera fell back to the old framing: 34 px of wall cut.
+  // OME-2241: from the stage's top (y 0, the walls' corner cap), with the sky over it the box holds.
+  test.each([[888, 618, -5], [905, 655, -8]] as const)("at %i×%i the walls' tops show with anyone on the front corner cell", (w, h, from) => {
+    const l = wideLayout(w, h, "youtube", 1, 1, true);
+    const room = preset("penthouse");
+    const c = bandHome(seatPoints(room), standingPoints(room), { w: l.stage.w, h: l.stage.h }, cellCenter(9, 9));
+    expect(c.y - l.stage.h / 2).toBe(from);
+    // The view's clamp lets it look there.
+    const v = wheelView(1, { zoom: 1, pan: { x: c.x - l.stage.w / 2, y: c.y - l.stage.h / 2 } }, { x: 0, y: 0 }, 1, { ...l.stage, head: ROOM_HEAD });
+    expect(v.pan.y).toBe(from);
+    // Without the headroom (the phone, an empty room's box) the view stops at the walls' tops as before.
+    expect(wheelView(1, v, { x: 0, y: 0 }, 1, l.stage).pan.y).toBe(60);
+  });
+
+  // OME-2195 (CEO decision B): the shelf sits flush beside the TV at its keys' width, not stretched to the far right.
+  test.each([[COLUMN.w, 1], [1100, 1.25]] as const)("at %i px (zoom %d) the shelf hugs the TV and holds just its keys", (w, chrome) => {
+    const l = wideLayout(w, COLUMN.h, "youtube", chrome, 1, true);
+    expect(l.controls.x).toBe(l.tv.x + l.tv.w + 6 + 8 + 38);
+    expect(l.controls.w).toBe(420 * chrome);
   });
 
   test("off, the TV is the hero as before", () => {

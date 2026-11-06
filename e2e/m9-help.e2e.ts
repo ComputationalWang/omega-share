@@ -165,10 +165,31 @@ for (const [name, options] of [
   test(`${String(width)}×${String(height)}: the floor chip never covers the empty TV's message`, async ({ browser }) => {
     const page = await join(name, browser, false, options);
     const hint = page.locator(site.firstHint);
-    await expect(hint).toContainText(name === "emw" ? "Click the floor" : "Tap the floor");
+    await expect(hint).toContainText(/(Click|Tap) the floor/);
     await expect(page.locator(site.tvEmpty)).toBeVisible();
     await page.waitForTimeout(300);
     expect(await overlaps(hint, page.locator(site.tvEmpty))).toBe(false);
+  });
+}
+
+// OME-2263 (audit OME-2260 item 2): a Pixel 7's first visit stacked the floor chip, the pan hint and the empty TV, and
+// the room got ~35 % of the height. On touch the chip says tap; one hint shows at a time (the pan hint waits for the
+// tour); with nothing on, the room window gets at least half the viewport.
+for (const [name, width, height] of [["onep", 412, 915], ["onel", 915, 412]] as const) {
+  test(`${String(width)}×${String(height)} touch, nothing on: one hint at a time, tap wording, the room ≥ 50 % of the viewport`, async ({ browser }) => {
+    const page = await join(name, browser, false, { ...devices["Pixel 7"], viewport: { width, height } });
+    const chip = page.locator(site.firstHint);
+    const pan = page.getByTestId("room-pan-hint");
+    await expect(chip).toContainText("Tap the floor to walk, double-tap to jog");
+    await expect(page.locator(site.tvEmpty)).toBeVisible();
+    await page.waitForTimeout(300);
+    await expect(pan).toBeHidden();
+    const win = await page.locator(site.roomWindow).boundingBox();
+    if (win === null) throw new Error("not laid out");
+    expect(win.height / height, "room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
+    // The tour ends: now the pan hint may say its piece (when the window crops the room), and the chip is gone.
+    await page.locator(site.hintSkip).tap();
+    await expect(chip).toBeHidden();
   });
 }
 
@@ -254,7 +275,7 @@ test("phone (touch, 390×844 portrait): each chip sits in the viewport clear of 
   if (viewport === null) throw new Error("no viewport");
   const hint = page.locator(site.firstHint);
   await expect(hint).toBeVisible();
-  await expect(hint).toContainText("Tap the floor to walk, double-tap to jog");
+  await expect(hint).toContainText("Tap the floor to walk");
   const wide = (): Promise<boolean> => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth || document.body.scrollWidth > document.body.clientWidth);
   for (let i = 0; i < 3; i += 1) {
     const box = await hint.boundingBox();

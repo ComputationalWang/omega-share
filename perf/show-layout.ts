@@ -9,7 +9,7 @@ import { RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 
 /** `assets/presets/<id>.json`, parsed. */
 export function presetFile(id: string): RoomLayout {
-  if (!/^[a-z]{1,12}$/.test(id)) throw new Error(`not a preset id: ${JSON.stringify(id)}`);
+  if (!/^[a-z][a-z-]{0,15}$/.test(id)) throw new Error(`not a preset id: ${JSON.stringify(id)}`);
   return v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../assets/presets/${id}.json`, import.meta.url), "utf8")));
 }
 

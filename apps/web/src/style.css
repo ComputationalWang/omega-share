@@ -82,17 +82,28 @@ legend { padding: 0; margin-bottom: 6px; }
 .home .preset-picker, .home .saved-layouts { display: grid; gap: 6px; min-width: 0; }
 .preset-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
 .preset { flex: none; width: 140px; display: grid; gap: 2px; align-content: start; scroll-snap-align: start; padding: 6px; border: 2px solid transparent; border-radius: 8px; background: var(--bg); cursor: pointer; position: relative; }
+/* Two whole cards, then 24 px of the next under a 32 px fade on a phone (OME-2284): a cue that more sit to the side, with no cut label
+ * to read. The end padding lets the last card scroll clear of the fade; it also shrinks the 100% a card is sized from. */
+@media (max-width: 600px) {
+  .preset-list { padding: 0 32px 6px 0; mask-image: linear-gradient(to right, #000 calc(100% - 32px), rgb(0 0 0 / 25%) calc(100% - 24px), transparent); }
+  .preset { width: calc((100% - 8px) / 2); }
+}
 .preset:has(input:checked) { border-color: var(--accent); }
 .preset:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .preset img { width: 100%; height: auto; border-radius: 4px; image-rendering: pixelated; }
 .preset input { position: absolute; top: 10px; left: 10px; margin: 0; }
 .preset-name { font-weight: 600; }
 .preset-blurb { color: var(--muted); font-size: var(--text-xs); line-height: var(--leading-body); }
+/* The strip's scroll cue (OME-2266): the third card peeks at the edge, and a dot a preset shows where you are. */
+.preset-dots { display: flex; justify-content: center; gap: 8px; }
+.preset-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--dusk-border); }
+.preset-dots .is-on { background: var(--dusk-honey); }
 /* A computer (OME-1810, design OME-1809): all 8 presets at once, a 4×2 grid with no sideways scroll; 2 columns under 360 px. */
 @media (min-width: 1024px) {
   .home .preset-picker { container-type: inline-size; }
   .home .preset-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; padding-bottom: 0; }
   .home .preset { width: auto; }
+  .home .preset-dots { display: none; }
   @container (min-width: 360px) {
     .home .preset-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     /* ~80 px a card: the picked blurb once, under the grid (OME-1848). */
@@ -144,6 +155,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .welcome input::placeholder, .home input::placeholder { color: var(--dusk-muted); opacity: 0.8; }
 .welcome input[aria-invalid="true"] { border-color: var(--dusk-error); }
 .welcome .error, .home .error { color: var(--dusk-error); font-size: 14px; }
+/* Empty, the create form's error line takes no row (OME-2284); it stays in the accessibility tree as a live region. */
+.home .create-room .error:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .welcome .enter, .home .enter { height: 48px; margin-top: 8px; padding: 0 16px; border: 0; border-radius: 4px; background: var(--dusk-honey); color: var(--dusk-canvas); font-size: 16px; font-weight: 750; box-shadow: inset 0 -4px 0 var(--dusk-wood); cursor: pointer; }
 .welcome .link, .home .link { min-height: 44px; color: var(--dusk-honey); text-underline-offset: 4px; }
 
@@ -152,7 +165,8 @@ legend { padding: 0; margin-bottom: 6px; }
  * view, and the footer must already be below the fold when main.ts swaps in the directory. */
 .welcome { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-height: 100vh; min-height: 100dvh; align-content: start; }
 .welcome > * { min-width: 0; }
-.entry-art { position: relative; display: flex; justify-content: center; align-items: center; height: 154px; margin: 0; overflow: hidden; border-radius: 4px; }
+/* The vignette shows whole: a crop cut the sitters at the chest (OME-2285). */
+.entry-art { position: relative; display: flex; justify-content: center; align-items: center; height: 224px; margin: 0; overflow: hidden; border-radius: 4px; }
 .entry-art picture { display: contents; }
 .entry-art img { flex: none; width: 368px; height: 224px; image-rendering: pixelated; }
 .entry-art figcaption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -192,7 +206,8 @@ legend { padding: 0; margin-bottom: 6px; }
   .welcome h1 { font-size: 28px; }
   .welcome h1 .nowrap { display: inline; }
 }
-.welcome .find-room { margin-top: 8px; padding: 0; font-size: 15px; }
+/* A secondary button under Enter lobby, not a small link (OME-2266). */
+.welcome .find-room { width: 100%; min-height: 48px; margin-top: 8px; padding: 0 16px; border: 1px solid var(--dusk-border); border-radius: 4px; color: var(--dusk-text); font-size: 16px; font-weight: 650; text-decoration: none; }
 .how { padding-top: 24px; border-top: 1px solid var(--dusk-divider); }
 .how-steps { display: grid; gap: 20px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
 .how-steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 14px; counter-increment: step; }
@@ -220,7 +235,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .directory > * { min-width: 0; }
 .home h2 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
 .home .create-room { display: grid; gap: 8px; padding: 0 24px 24px; overflow: hidden; border: 1px solid var(--dusk-divider); border-radius: 4px; background: var(--dusk-surface); }
-.home .create-room::before { content: ""; height: 100px; margin: 0 -24px 12px; background: url("../../../assets/site/how-3-watch.png") 50% 30% / 368px 224px no-repeat; image-rendering: pixelated; }
+/* The vignette's front, head to seat: the four sitters whole, the TV above the strip (OME-2285). */
+.home .create-room::before { content: ""; height: 136px; margin: 0 -24px 12px; background: url("../../../assets/site/how-3-watch.png") 50% 100% / 368px 224px no-repeat; image-rendering: pixelated; }
 .home .create-room h2 { margin-bottom: 4px; }
 .home .check { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; }
 .home .check input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
@@ -274,9 +290,10 @@ legend { padding: 0; margin-bottom: 6px; }
   :root:is([data-view="entry"], [data-view="directory"]) .footer-meta { flex-basis: auto; align-items: flex-end; margin: 0 0 0 auto; }
   .welcome { grid-template-columns: 360px minmax(0, 1fr); grid-template-areas: "entry art" "how how" "ext ext"; gap: 0 24px; }
   .entry { grid-area: entry; align-self: start; padding-top: 24px; }
-  .entry-art { grid-area: art; justify-content: flex-start; align-items: flex-start; height: 536px; border-radius: 0; }
-  .entry-art img { width: 656px; height: 536px; }
-  .entry-art figcaption { width: auto; height: auto; left: 40px; bottom: 8px; padding: 2px 8px; clip-path: none; background: rgb(32 27 43 / 85%); color: var(--dusk-muted); font-size: 13px; }
+  /* The caption sits under the art, not on it (OME-2285). */
+  .entry-art { grid-area: art; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: auto; border-radius: 0; }
+  .entry-art img { width: 656px; height: 552px; }
+  .entry-art figcaption { position: static; width: auto; height: auto; margin-top: 8px; clip-path: none; color: var(--dusk-muted); font-size: 13px; }
   .welcome h1 { font-size: 40px; }
   .avatars { grid-template-columns: repeat(4, 74px); }
   .how { grid-area: how; margin-top: 0; }
@@ -288,3 +305,27 @@ legend { padding: 0; margin-bottom: 6px; }
   .home .create-room { grid-row: 1 / span 2; }
   .home .rooms-yours, .home .rooms-public { grid-column: 2; }
 }
+
+/* ---- The wide room page's frame (OME-642), here and not in room.css so it holds before the room chunk lands: main.ts
+ * sets body.room-is-wide (and data-chrome) when it opens the room view, and main and the footer don't move (OME-2262). ---- */
+/* The page is the viewport: the room's column takes what the footer (Source, Privacy) leaves, the footer under it. */
+/* --wide-side: the chat column with the right notch inset. A phone held sideways (OME-1297, ≤ 500 px tall) gets 256 px:
+ * the field keeps 120 px beside the emote and send keys, and at 667 px the room's column still holds the 356 px picture.
+ * The left inset pads the room's column. */
+body.room-is-wide { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
+/* Up to 288 px when the room's column keeps the 356 px picture (OME-1595: the fields showed 15 characters at 740 px);
+ * 288 still leaves Twitch's 534 px picture its column at 844 px. */
+@media (max-height: 500px) { body.room-is-wide { --wide-side: calc(clamp(256px, 100vw - 384px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 288px) + env(safe-area-inset-right, 0px)); } }
+/* Chrome zoom (OME-1667, board: "scalings on 2k"): from 1920×900 (1.5×) and 2560×1200 (2×, layout.ts chromeZoom) the
+ * page is 1280's chrome, zoomed: every key at least 40 px. Not the stage, which scales itself; the shelf's zoom is
+ * room-layout.ts's (it's placed in px). The chat column zooms its children, so its fixed box stays in page px. */
+body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(480px + env(safe-area-inset-right, 0px)); }
+body.room-is-wide[data-chrome="2"] { --wide-side: calc(640px + env(safe-area-inset-right, 0px)); }
+/* From 1280 px the column is 360 px of 1280's chrome (OME-1804, design OME-1799 §2): at 320 the composer said "Press Enter to ch". */
+@media (min-width: 1280px) and (min-height: 501px) {
+  body.room-is-wide { --wide-side: calc(360px + env(safe-area-inset-right, 0px)); }
+  body.room-is-wide[data-chrome="1.5"] { --wide-side: calc(540px + env(safe-area-inset-right, 0px)); }
+  body.room-is-wide[data-chrome="2"] { --wide-side: calc(720px + env(safe-area-inset-right, 0px)); }
+}
+body.room-is-wide > main { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
+body.room-is-wide > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }

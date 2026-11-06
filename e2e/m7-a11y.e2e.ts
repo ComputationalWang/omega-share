@@ -130,11 +130,14 @@ const stopOf = (page: Page): Promise<Stop> =>
     const r = el.getBoundingClientRect();
     const cs = getComputedStyle(el);
     const what = el.getAttribute("data-testid") ?? `${el.tagName.toLowerCase()}${el.id === "" ? "" : `#${el.id}`}`;
+    // The room floor's ring is its room window's (OME-2241): the floor is the stage's size, mostly clipped.
+    const ringed = (c: CSSStyleDeclaration): boolean => c.outlineStyle !== "none" && parseFloat(c.outlineWidth) > 0;
+    const room = el.classList.contains("walk-floor") ? el.closest(".stage-clip") : null;
     return {
       what,
       visible: r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && el.getClientRects().length > 0,
       focusVisible: el.matches(":focus-visible"),
-      indicator: (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== "none",
+      indicator: ringed(cs) || (room !== null && ringed(getComputedStyle(room))) || cs.boxShadow !== "none",
     };
   });
 

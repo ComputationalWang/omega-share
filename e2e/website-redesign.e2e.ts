@@ -121,7 +121,7 @@ for (const [width, height] of [[360, 740], [412, 915], [1280, 800], [1920, 1080]
     const wide = width >= 1104;
     expect(src).toContain(wide ? "website-room" : "how-3-watch");
     const img = await box(page, ".entry-art img");
-    expect([img.width, img.height]).toEqual(wide ? [656, 536] : [368, 224]);
+    expect([img.width, img.height]).toEqual(wide ? [656, 552] : [368, 224]);
     const form = await box(page, "#landing");
     const art = await box(page, ".entry-art");
     if (wide) expect(art.x).toBeGreaterThanOrEqual(form.x + form.width);

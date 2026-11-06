@@ -2,7 +2,7 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, partitionLine, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type PartitionLine, type RoomLayout, type RoomShell, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, isScreen, layoutSeats, partitionLine, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type PartitionLine, type RoomLayout, type RoomShell, type RoomState } from "@omega/shared";
 import { STAGE_W, TURN, cellCenter, isNorth, rawCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { lieOffset, seatLie } from "./walk/lie";
@@ -321,6 +321,8 @@ export interface FurnitureSprite {
   readonly walker?: CatWalker;
   /** Drawn translucent (the night pane mask); absent is opaque. */
   readonly alpha?: number;
+  /** Part of the room's screen piece (SCREEN_KINDS): name tags keep off it (OME-2196). */
+  readonly screen?: true;
 }
 
 export interface SceneSeat {
@@ -462,6 +464,7 @@ function pushSprites(
       y: anchor.y,
       layer,
       z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
+      ...(isScreen(f.kind) ? { screen: true as const } : {}),
       // The loop swaps the back frame in place. An open piece (a door) or a cut one (a partition, OME-1960) has one frame: a state.
       ...(part === "back" && piece.use !== undefined
         ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms, ...(AMBIENT_KINDS.has(f.kind) ? { ambient: true as const } : {}) } }
@@ -556,7 +559,7 @@ function pushRoomPiece(out: FurnitureSprite[], f: Furniture, a: Point, tvKey: st
   if (f.kind === "armchair") {
     at(`armchair/${f.facing}/back`, "object", BACK_LAYER);
     at(`armchair/${f.facing}/front`, "object", FRONT_LAYER);
-  } else if (f.kind === "tv") at(tvKey, "wall", BACK_LAYER);
+  } else if (f.kind === "tv") out.push({ key: tvKey, x: a.x, y: a.y, layer: "wall", z: depth(a.x, a.y, BACK_LAYER), screen: true });
   else if (f.kind === "lamp" || f.kind === "plant") {
     const variant = f.variant ?? 0;
     const key = `${f.kind}/0`;

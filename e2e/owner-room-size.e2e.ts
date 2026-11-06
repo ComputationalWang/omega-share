@@ -182,7 +182,11 @@ const NARROW: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
 
 const targetSize = async (page: Page): Promise<string[]> => {
   const { violations } = await new AxeBuilder({ page }).include(site.room).withRules(["target-size"]).analyze();
-  return violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`));
+  const found = violations.flatMap((v) => v.nodes.map((n) => ({ target: String(n.target[0]), line: `${n.target.join(" ")}: ${n.failureSummary ?? ""}` })));
+  // axe ignores `pointer-events`: a tag the window crops is off to pointers by design (OME-1325, focus pans it into view),
+  // so it is no pointer target. exposedSmall checks every tag a pointer can reach (OME-2210).
+  const off = await page.evaluate((ts) => ts.map((t) => { const e = document.querySelector(t); return e !== null && getComputedStyle(e).pointerEvents === "none"; }), found.map((f) => f.target));
+  return found.filter((_, i) => off[i] !== true).map((f) => f.line);
 };
 
 /**
@@ -270,6 +274,8 @@ test("844×390 touch, the owner edits: the tray, the piece's keys, mood and Save
   await host.locator(site.editRoom).tap();
   await expect(host.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
   await expect(host.locator(site.editorTray)).toBeVisible();
+  // QA OME-2297: People's frame, its rows hidden, sat empty over Done and pushed the tray down.
+  await expect(host.locator(site.peoplePanel)).toBeHidden();
   for (const l of [site.editRoom, site.editorTray, `${site.editorMood}[data-mood="night"]`, site.editorSave]) await reachable(host, host.locator(l));
   // Both playback tiles inside the setting's frame (OME-1945: Only me stuck 5 px past it in the 279 px column).
   const past = await host.locator(site.controlPolicy).evaluate((panel) => {
@@ -349,8 +355,11 @@ test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag 
 });
 
 // OME-1801 (audit OME-1797): with the editor open the room shrank to a thumbnail, and more the bigger the screen
-// (278×154 at 1280×800, 198×110 at 2560×1440), the Mood and Save rows below the fold.
-test("1280×800 to 2560×1440, editing: the room keeps 80 % of its size, never shrinks as the window grows, every editor control in view", async ({ browser }) => {
+// (278×154 at 1280×800, 198×110 at 2560×1440), the Mood and Save rows below the fold. OME-2264 (audit OME-2260 item 3):
+// at the integer scale the editor's column cropped the room (576 px of 960 at 1280×800, the plant and left wall cut) and
+// the layout name ran past y = 800. Editing, the whole room fits its window, never below half size, and every editor
+// control, Done with Save layout, is on screen without scrolling.
+test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as the window grows, every editor control in view", async ({ browser }) => {
   test.setTimeout(90_000);
   const { id, ownerToken, inviteKey } = ownedRoom("roomedit");
   const host = await open(browser, DESK, `${URLS.web}/r/${id}`, `host${String(test.info().retry)}`, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } }));
@@ -367,21 +376,33 @@ test("1280×800 to 2560×1440, editing: the room keeps 80 % of its size, never s
     if ((await editKey.getAttribute("aria-pressed")) === "true") await editKey.click();
     await expect(host.locator(site.editorTray)).toHaveCount(0);
     await expect.poll(async () => (await size()).w, { message: `${at} room laid out` }).toBeGreaterThan(0);
-    const rest = await size();
-    const restScale = await scale();
     await editKey.click();
     await expect(host.locator(site.editorTray)).toBeVisible();
-    // OME-1811: the room is at an integer scale, so it never shrinks while editing; the tray narrows its window instead,
-    // which still shows at least half the room's width and 80 % of its height.
-    await expect.poll(async () => (await size()).w, { message: `${at} editing width (at rest ${String(rest.w)})` }).toBeGreaterThanOrEqual(Math.min(rest.w, 480 * restScale));
+    // Fitted, not a band: the window holds the whole room (960×532 at its scale), at half size or more.
+    await expect(host.locator(site.roomWindow), `${at} editing: the whole room`).not.toHaveClass(/(^|\s)is-band(\s|$)/);
+    const k = await scale();
+    expect(k, `${at} editing scale`).toBeGreaterThanOrEqual(0.5);
     const editing = await size();
-    expect(await scale(), `${at} editing scale`).toBe(restScale);
-    expect(editing.h / rest.h, `${at} editing height / at rest`).toBeGreaterThanOrEqual(0.8);
+    expect(editing.w, `${at} editing width`).toBeGreaterThanOrEqual(Math.floor(960 * k));
     expect(editing.w, `${at} editing width vs the smaller window's`).toBeGreaterThanOrEqual(last);
     last = editing.w;
-    // Nothing scrolls: each control is wholly in the viewport as laid out.
-    for (const sel of [site.editorTab, site.editorTray, site.editorRotate, site.editorRemove, site.editorMood, site.editorSave]) {
+    // OME-2283 (judge round 10): at 1280×800 the room was 576×320, 18 % of the screen, its people ≈ 15 px tall.
+    if (w === 1280) expect((editing.w * editing.h) / (w * h), `${at} editing: the room's share of the screen`).toBeGreaterThanOrEqual(0.25);
+    // Nothing scrolls: each layout control is wholly in the viewport as laid out, Done and Save layout together, down to
+    // Save as my layout (the audit's list). The room's own settings end the column: at worst its scroll, never the page's.
+    for (const sel of [site.editRoom, site.editorTab, site.editorTray, site.editorRotate, site.editorRemove, site.editorMood, site.editorSave, site.editorMineName, site.editorMineSave]) {
       await expect(host.locator(sel).last(), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
     }
+    for (const sel of [site.editorTitle, site.editorRename, site.editorDelete]) {
+      await host.locator(sel).scrollIntoViewIfNeeded();
+      await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
+    }
+    expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
+  // OME-2283: nothing to save or undo, the two keys look alike, under the pointer too (a secondary key's hover face beat its disabled one).
+  const face = (sel: string): Promise<string> => host.locator(sel).evaluate((e) => { const c = getComputedStyle(e); return `${c.borderImageSource} ${c.color}`; });
+  await expect(host.locator(site.editorReset)).toBeDisabled();
+  await expect(host.locator(site.editorSave)).toBeDisabled();
+  await host.locator(site.editorReset).hover({ force: true });
+  expect(await face(site.editorReset), "Undo changes, disabled and hovered").toBe(await face(site.editorSave));
 });

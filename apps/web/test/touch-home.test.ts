@@ -73,4 +73,14 @@ describe("the touch window's home (OME-1930)", () => {
     const l = preset("cinema.json");
     expect(touchHome(seatPoints(l), null, { w: 392, h: 120 })).toEqual(seatsHome(seatPoints(l), 120));
   });
+
+  // OME-2282 (judge round 10): a Pixel 7 held upright (412×447 window) looked at the seats, so the walls' art (from
+  // stage y 113) went under the shelf, though the window holds it and the floor's front corner (540) 8 px clear of its foot.
+  test.each(PRESETS)("%s on a Pixel 7: the walls' art and the floor's front corner are whole in the window", (file) => {
+    const l = preset(file);
+    const me = standingPoints(l)[0] ?? null;
+    const pan = view(l, me, 412, 447);
+    expect(pan.y).toBeLessThanOrEqual(113);
+    expect(pan.y + 447).toBeGreaterThanOrEqual(540 + 8);
+  });
 });

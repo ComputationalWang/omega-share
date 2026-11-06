@@ -163,6 +163,16 @@ const ART: readonly Budget[] = [
 const ROOM_CLS_PROFILES = { desktop: "desktop Chromium", landscape: "Pixel 7 landscape (915×412)", portrait: "Pixel 7 portrait (412×915)" } as const;
 const ROOM_CLS: readonly Budget[] = Object.entries(ROOM_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.fsCls.${p}`, area: "Site", metric: `Cumulative Layout Shift in the room over a full-screen enter + exit, ${pl}`, docMetric: "Cumulative Layout Shift in the room over a full-screen enter + exit", unit: "score", limit: 0.01, comparator: "<" }));
 
+// OME-2261: layout shift loading a room cold, a returning guest (perf/room-cls.perf.ts).
+const COLD_CLS_PROFILES = { desktop: "desktop 1280×800", phone4x: "Pixel 7 at 4× CPU", phoneLate: "Pixel 7 at 4× CPU, room chunk and server messages held 1.5 s (a late settle, OME-2281)", landscapeLate: "Pixel 7 landscape (915×412) at 4× CPU, the same late settle (OME-2281)" } as const;
+const COLD_CLS: readonly Budget[] = Object.entries(COLD_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.coldCls.${p}`, area: "Site", metric: `Cumulative Layout Shift loading a room cold, ${pl}`, docMetric: "Cumulative Layout Shift loading a room cold", unit: "score", limit: 0.05, comparator: "<" }));
+
+// OME-2261: join into the Theatre preset on a Pixel 7 at 4× CPU on Slow 4G (perf/join.perf.ts).
+const THEATRE_JOIN: readonly Budget[] = [
+  { id: "join.theatre.open.slow4g", area: "Site", metric: "Join to the room's first frame in the Theatre preset, Pixel 7 on Slow 4G at 4× CPU", docMetric: "Join into the Theatre preset on a phone on Slow 4G", unit: "ms", limit: 1000, comparator: "<=" },
+  { id: "join.theatre.longTask.slow4g", area: "Site", metric: "Longest task in the first 2 s after joining the Theatre preset, Pixel 7 on Slow 4G at 4× CPU", docMetric: "Longest task in the first 2 s after joining the Theatre preset on a phone on Slow 4G", unit: "ms", limit: 100, comparator: "<=" },
+];
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -178,6 +188,8 @@ export const BUDGETS: readonly Budget[] = [
   ...THEATRE,
   ...FULLSCREEN,
   ...ROOM_CLS,
+  ...COLD_CLS,
+  ...THEATRE_JOIN,
   ...VIEW_SWAP,
   ...JOIN,
   ...POPOUT,

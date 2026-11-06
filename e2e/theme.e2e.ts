@@ -71,6 +71,8 @@ async function expectEffectRuns(page: Page): Promise<void> {
   const stage = await page.locator("canvas.scene").boundingBox();
   const fx = await page.locator("canvas.scene-fx").boundingBox();
   expect(stage !== null && fx !== null && fx.width * fx.height <= (stage.width * stage.height) / 3).toBe(true);
+  // Under the room canvas, not over it (OME-2248): the walls hide the flakes, which show only in the margin and through glass.
+  expect(await page.locator("canvas.scene-fx").evaluate((el) => el.nextElementSibling?.classList.contains("scene") ?? false)).toBe(true);
   // And a tick is cheap: reading the room canvas back once made it ~250 ms on a phone (QA OME-1212).
   expect((await theme(page))?.worstTickMs ?? Infinity).toBeLessThan(4);
 }

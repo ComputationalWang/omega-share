@@ -356,6 +356,32 @@ test("portrait keeps queue messages in a keyboard-reachable region above the pas
   expect((q("queue-form").compareDocumentPosition(q("queue-problem")) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
 });
 
+// OME-2265: turning portrait happens inside the room's first render on a phone; reading the list's size there forces a
+// layout. The list's ResizeObserver re-checks the tab stop once the new layout has run.
+test("turning portrait reads no layout: the list's resize re-checks its tab stop", async () => {
+  const { panel, q } = await setup();
+  const list = q("queue-list");
+  let reads = 0;
+  Object.defineProperty(list, "scrollHeight", { get: () => (reads++, 0) });
+  Object.defineProperty(list, "clientHeight", { get: () => (reads++, 0) });
+  panel.setPortrait(true);
+  panel.setPortrait(false);
+  expect(reads).toBe(0);
+});
+
+// OME-2280: the room's first renders on joining draw an empty Up next, mid-render. An empty list can't scroll, so asking
+// whether it does (a size read) only forced a layout.
+test("drawing an empty Up next reads no layout", async () => {
+  const { server, q } = await setup();
+  const list = q("queue-list");
+  let reads = 0;
+  Object.defineProperty(list, "scrollHeight", { get: () => (reads++, 0) });
+  Object.defineProperty(list, "clientHeight", { get: () => (reads++, 0) });
+  server({ type: "queue-changed", queue: [], by: "kit" });
+  expect(reads).toBe(0);
+  expect(list.hasAttribute("tabindex")).toBe(false);
+});
+
 // OME-1250 (QA OME-1243 K2): reorder Up next with Move up/down keys and Alt+Arrow, on the rows a member may remove.
 describe("reorder Up next", () => {
   const three = (): RoomState => room({ queue: [item("a", yt("aaaaaaaaaaa"), "me"), item("b", yt("bbbbbbbbbbb"), "me"), item("c", yt("ccccccccccc"), "kit")] });

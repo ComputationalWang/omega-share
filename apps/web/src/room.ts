@@ -252,6 +252,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       floorSit();
     },
   });
+  // The stage and the room's build are a task each (OME-2280): in one, a phone's join froze ~90 ms. Nothing of the room
+  // exists yet, so nothing can call into it meanwhile; the page still shows the join form.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   /** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell or get up; with no cell under me, say so. */
   function floorSit(): boolean {
     const msg = floorSitIntent(state);
@@ -733,6 +736,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     anchor: (step) => (step === 0 ? controls : step === 1 ? chatForm : people.key),
     tv: { box: tv, empty: tvBox.empty, picture: wrap, message: tvBox.message },
     next: () => (help.key.hidden ? null : help.key),
+    // `phone`/`coarse` are made further down; the tour starts only once the room is up.
+    touch: () => touchOnly(),
   });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");
   const roomAwayText = el("p");
@@ -856,7 +861,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     portrait,
     wide,
     short,
-    stageShown: () => screen(state).stage,
+    // Connecting counts (OME-2281): the dock stows the footer before a slow phone paints the room under it.
+    stageShown: () => {
+      const shown = screen(state);
+      return shown.stage || shown.reserve;
+    },
     roomOut,
     hint: firstHint,
     placeRoom: () => {
@@ -927,6 +936,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     state: () => state,
     send,
     requestRender,
+    relayout: () => {
+      layout.fit();
+    },
     phone: () => phone.matches,
     roomOut,
     log: (e) => { chatLog.append(e); },
@@ -1010,12 +1022,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     owner.render(s);
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
-    wrap.hidden = !shown.stage;
+    // Until the first snapshot the wrap keeps its place, invisible (room.css), so nothing moves when it lands (OME-2262).
+    wrap.hidden = !shown.stage && !shown.reserve;
+    wrap.classList.toggle("is-reserved", shown.reserve);
     reactionBar.root.hidden = !shown.stage || s.status !== "open" || s.room?.embed == null;
-    help.key.hidden = !shown.stage;
-    people.key.hidden = !shown.stage;
-    snapKey.hidden = !shown.stage;
-    leaveKey.hidden = !shown.stage;
+    // The head row's keys keep their place too, invisible (OME-2282): shown later, they moved the TV and the room down.
+    const headKeys = shown.stage || shown.reserve;
+    help.key.hidden = !headKeys;
+    people.key.hidden = !headKeys;
+    snapKey.hidden = !headKeys;
+    leaveKey.hidden = !headKeys;
+    roomTop.classList.toggle("is-reserved", shown.reserve);
     onStage = shown.stage;
     soundKey.sync();
     if (shown.stage) people.update(s.room?.members ?? [], s.self);
@@ -1061,8 +1078,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The landing form held focus and is gone: once the room (or the card in its place) shows, its first key takes it.
     if (!landed && s.status !== "idle" && s.status !== "connecting" && s.status !== "reconnecting") {
       landed = true;
-      const a = document.activeElement;
-      if (a === null || a === document.body || (a instanceof HTMLElement && !a.checkVisibility())) firstKey(opts.root)?.focus({ preventScroll: true });
+      // Next frame: checking what shows here, mid-render, forced a layout (OME-2280).
+      requestAnimationFrame(() => {
+        const a = document.activeElement;
+        if (a === null || a === document.body || (a instanceof HTMLElement && !a.checkVisibility())) firstKey(opts.root)?.focus({ preventScroll: true });
+      });
     }
   };
 
@@ -1478,7 +1498,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Before the picker, shown or not: on some layouts Shift+digit types a digit, which the picker would take as an emote.
     else if (reactionBar.key(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
-    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
+    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && onStage && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
       // Enter with nothing that takes it focused jumps to the message field, here or in full screen; Esc hands back (OME-642).
       const k = chatKey(ev, chatInput);

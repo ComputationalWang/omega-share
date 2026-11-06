@@ -10,6 +10,7 @@ import { EMBED_URL } from "../e2e/support/network";
 import { joinRoom, leaveAll, testRoom } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
 import { joinForToken, postShare } from "../e2e/support/share";
+import { BUDGETS, evaluate } from "./budgets";
 import { recordMetric } from "./metrics";
 import { waitPlaying } from "./sync";
 
@@ -86,6 +87,78 @@ for (const profile of ["desktop", "landscape", "portrait"] as const) {
       expect(cls, moved.join(", ")).toBeLessThan(LIMIT);
     } finally {
       await leaveAll(clients);
+    }
+  });
+}
+
+// OME-2261: CLS loading a room cold. A guest joins, then reloads `/r/<id>` (a returning guest, no input); every layout shift
+// from navigation start until the room has drawn and 2 s after, summed. Rows: room.coldCls.desktop (1280×800), room.coldCls.phone4x.
+// OME-2281: room.coldCls.phoneLate, the same phone with the room chunk and every server message held 1.5 s: the page paints
+// before the room settles (as a slow real phone does under load), so the late portrait dock and footer stow count;
+// room.coldCls.landscapeLate, the same held sideways (915×412).
+const COLD = [
+  { id: "room.coldCls.desktop", options: { viewport: { width: 1280, height: 800 } }, cpu: 1, holdMs: 0 },
+  { id: "room.coldCls.phone4x", options: devices["Pixel 7"], cpu: 4, holdMs: 0 },
+  { id: "room.coldCls.phoneLate", options: devices["Pixel 7"], cpu: 4, holdMs: 1500 },
+  { id: "room.coldCls.landscapeLate", options: PROFILES.landscape, cpu: 4, holdMs: 1500 },
+] as const;
+const COLD_SETTLE_MS = 2000;
+
+for (const p of COLD) {
+  test(`room CLS loading cold, ${p.id}`, async ({ browser }) => {
+    const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
+    if (why !== null) {
+      recordMetric({ id: p.id, pending: why });
+      test.skip(true, why);
+      return;
+    }
+    test.setTimeout(120_000);
+    const room = testRoom("room-cls-perf", p.id.endsWith("desktop") ? "cold-desktop" : "cold-phone");
+    const [client] = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "cold", contextOptions: () => p.options });
+    try {
+      const page = client?.page;
+      if (page === undefined) throw new Error("no client");
+      // From the first script of the reloaded document, so the load's own shifts count.
+      await page.context().addInitScript(() => {
+        const shifts: { value: number; nodes: string[] }[] = [];
+        Reflect.set(window, "__roomShifts", shifts);
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) {
+            const s = e as PerformanceEntry & { value: number; hadRecentInput: boolean; sources?: { node?: Node | null }[] };
+            if (s.hadRecentInput) continue;
+            const nodes = (s.sources ?? []).map(({ node }) => (node instanceof Element ? `${node.localName}${node.className === "" ? "" : `.${node.className.trim().split(/\s+/).join(".")}`}` : "?"));
+            shifts.push({ value: s.value, nodes });
+          }
+        }).observe({ type: "layout-shift", buffered: true });
+      });
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: p.cpu });
+      if (p.holdMs > 0) {
+        await page.route(/\/assets\/room-[^/]*\.js$/, async (route) => {
+          await new Promise((r) => setTimeout(r, p.holdMs));
+          await route.continue();
+        });
+        await page.routeWebSocket(/./, (ws) => {
+          const server = ws.connectToServer();
+          server.onMessage((m) => setTimeout(() => { ws.send(m); }, p.holdMs));
+        });
+      }
+      await page.reload();
+      await expect(page.locator(site.room)).toBeVisible({ timeout: 60_000 });
+      await page.waitForTimeout(COLD_SETTLE_MS * p.cpu + p.holdMs);
+      const shifts = await page.evaluate(() => {
+        const seen: unknown = Reflect.get(window, "__roomShifts");
+        return Array.isArray(seen) ? (seen as { value: number; nodes: string[] }[]) : [];
+      });
+      const value = shifts.reduce((sum, s) => sum + s.value, 0);
+      const moved = [...new Set(shifts.flatMap((s) => s.nodes))];
+      const m = { id: p.id, value, note: `${String(shifts.length)} shifts${moved.length > 0 ? ` (${moved.join(", ")})` : ""}; reload of /r/<id>, returning guest` };
+      recordMetric(m);
+      const budget = BUDGETS.find((b) => b.id === p.id);
+      if (!budget) throw new Error(`no budget ${p.id}`);
+      expect(evaluate(budget, m).status, `${budget.metric}: ${value.toFixed(3)} vs ${budget.comparator} ${String(budget.limit)} (${m.note})`).toBe("pass");
+    } finally {
+      await leaveAll([...(client ? [client] : [])]);
     }
   });
 }

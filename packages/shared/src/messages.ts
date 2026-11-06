@@ -480,15 +480,24 @@ const SingleServerMessageSchema = v.variant("type", [
   }),
 ]);
 
+// `variant` runs each option's `type` literal in turn and allocates an issue per miss, so a late option (or every
+// message in a `batch`) paid for all the earlier ones (OME-2224). These pick the option from a map built once;
+// an unknown type or a non-object falls back to the variant, so the result is the same.
+const typeOf = (input: unknown): unknown => (typeof input === "object" && input !== null && "type" in input ? input.type : undefined);
+const singleByType = new Map<unknown, (typeof SingleServerMessageSchema.options)[number]>(SingleServerMessageSchema.options.map((o) => [o.entries.type.literal, o]));
+const SingleServerMessageByType = v.lazy((input) => singleByType.get(typeOf(input)) ?? SingleServerMessageSchema);
+
 export const ServerMessageSchema = v.variant("type", [
   ...SingleServerMessageSchema.options,
   /**
    * Relays coalesced into one frame, in send order (OME-1624, ADR 0050 amendment). Only to a connection that joined
    * with `batch: true`; read it as its messages one by one. Never nested.
    */
-  v.object({ type: v.literal("batch"), msgs: v.pipe(v.array(SingleServerMessageSchema), v.minLength(1), v.maxLength(BATCH_MAX_MESSAGES)) }),
+  v.object({ type: v.literal("batch"), msgs: v.pipe(v.array(SingleServerMessageByType), v.minLength(1), v.maxLength(BATCH_MAX_MESSAGES)) }),
 ]);
 export type ServerMessage = v.InferOutput<typeof ServerMessageSchema>;
+const serverByType = new Map<unknown, (typeof ServerMessageSchema.options)[number]>(ServerMessageSchema.options.map((o) => [o.entries.type.literal, o]));
+const ServerMessageByType = v.lazy((input) => serverByType.get(typeOf(input)) ?? ServerMessageSchema);
 
 /** UTF-8 length of `raw` is at most `max`. Allocation-free; stops early. */
 function withinFrameLimit(raw: string, max: number): boolean {
@@ -523,5 +532,5 @@ export function parseClientMessage(raw: string): ClientMessage | null {
 
 /** Boundary parser for frames the client receives. Never throws. */
 export function parseServerMessage(raw: string): ServerMessage | null {
-  return parseFrame(ServerMessageSchema, raw, MAX_SERVER_MESSAGE_BYTES);
+  return parseFrame(ServerMessageByType, raw, MAX_SERVER_MESSAGE_BYTES);
 }

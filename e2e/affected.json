@@ -196,6 +196,7 @@
         "e2e/walk.e2e.ts",
         "e2e/website-redesign.e2e.ts",
         "e2e/responsive-polish.e2e.ts",
+        "e2e/phone-make-room.e2e.ts",
         "e2e/wide-layout.e2e.ts",
         "e2e/touch-home.e2e.ts",
         "perf/chat.perf.ts",
@@ -220,7 +221,9 @@
         "perf/walk-tiers.perf.ts",
         "perf/wide.perf.ts",
         "e2e/view-swap.e2e.ts",
-        "perf/view-swap.perf.ts"
+        "perf/view-swap.perf.ts",
+        "e2e/tag-clusters.e2e.ts",
+        "e2e/room-clip.e2e.ts"
       ],
       "why": "room core: stage, state, connection, layout, routes"
     },

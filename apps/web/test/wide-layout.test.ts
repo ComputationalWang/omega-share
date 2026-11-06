@@ -177,3 +177,40 @@ describe("integer room scale (OME-1811)", () => {
     expect(wideLayout(1416, 828, null, 1.5, 1).scale).toBe(1);
   });
 });
+
+// OME-2263: a phone held sideways (Pixel 7, 915×412: a ~555 px left column) with nothing on: no player, so no 356×200
+// floor; the empty TV is a 21:9 curtain at the room-first split and the room gets over half the height.
+describe("nothing on (OME-2263)", () => {
+  test("the curtain is 21:9 at the split, under the player's floor; the room below it takes over half the column", () => {
+    const l = wideLayout(555, 412, null, 1, 1, false, true);
+    expect(l.tv.h).toBeLessThan(200);
+    expect(Math.abs(l.tv.w / l.tv.h - 21 / 9)).toBeLessThan(0.02);
+    expect(412 - l.stage.y).toBeGreaterThanOrEqual(412 / 2);
+  });
+  test("a player keeps its floor", () => {
+    expect(wideLayout(555, 412, "youtube", 1, 1, false, true).tv.h).toBeGreaterThanOrEqual(200);
+  });
+});
+
+// OME-2282 (judge round 10): at 1280×800 with nothing on, the 16:9 TV left the room a 366 px band, so it looked at the
+// seats and the walls' art went under the shelf (and a back view's floor under the column's foot). The curtain gives way
+// first: the band holds the walls' art (stage y 113) down to the lowest name tag the floor can hold (555), at its whole scale.
+describe("nothing on at a desk (OME-2282)", () => {
+  // The walls' art with 8 px of sky over it to the lowest name tag.
+  const ROOM_H = 556 - 113 + 8;
+  test.each([
+    ["1280×800", 888, 652, 1, 1],
+    ["1920×1080", 1416, 828, 1.5, 1],
+  ] as const)("%s: the band holds the whole room at its whole scale, under a 21:9 curtain", (_, w, h, zoom, scale) => {
+    const l = wideLayout(w, h, null, zoom, scale, false, true);
+    expect(l.scale).toBe(scale);
+    expect(l.stage.h).toBeGreaterThanOrEqual(ROOM_H * l.scale);
+    expect(Math.abs(l.tv.w / l.tv.h - 21 / 9)).toBeLessThan(0.02);
+    expect(l.stage.y + l.stage.h).toBeLessThanOrEqual(h);
+  });
+  test("2560×1440: at 2× even a short curtain leaves too little, so it stays at the split (the room at 2× pans, OME-1811)", () => {
+    const l = wideLayout(1896, 1118, null, 2, 2, false, true);
+    expect(l.scale).toBe(2);
+    expect(l.tv.h).toBeGreaterThan(300);
+  });
+});

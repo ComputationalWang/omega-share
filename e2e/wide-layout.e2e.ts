@@ -3,7 +3,7 @@
 // 1280×720 and up nothing you need while watching is below the fold. The volume pod sits in the TV's shelf, right under
 // the picture, on every layout. Enter (nothing that takes Enter focused) jumps to the chat field; Esc hands the keys
 // back. The pure geometry is apps/web/test/wide-layout.test.ts; the key decision is apps/web/test/chat-enter.test.ts.
-import type { Browser, BrowserContextOptions, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
 import { presetFile, showLayout } from "../perf/show-layout";
@@ -25,8 +25,15 @@ test.afterEach(async () => {
   clients = [];
 });
 
-async function one(browser: Browser, name: RoomName<"wide">, options: BrowserContextOptions): Promise<Page> {
-  clients = await joinRoom(browser, { roomUrl: testRoom("wide", name).url, count: 1, nicknamePrefix: `wd${name}`, contextOptions: () => options });
+/** The viewer chose the video-first layout on an earlier visit (OME-2195): Room view is the default from 1100 px. */
+const videoFirst = async (context: BrowserContext): Promise<void> => {
+  await context.addInitScript(() => {
+    localStorage.setItem("omega.roomView", "off");
+  });
+};
+
+async function one(browser: Browser, name: RoomName<"wide">, options: BrowserContextOptions, setup?: (context: BrowserContext) => Promise<void>): Promise<Page> {
+  clients = await joinRoom(browser, { roomUrl: testRoom("wide", name).url, count: 1, nicknamePrefix: `wd${name}`, contextOptions: () => options, ...(setup === undefined ? {} : { setup }) });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
   await expect(c.page.locator(site.chatInput)).toBeVisible();
@@ -94,13 +101,15 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560
 
 // OME-1803 (design OME-1799 §2): with a video playing the TV was a small island, 25–30 % of a big monitor's width. It's
 // the hero now: at least 45 % of the window (43 % at 1920×1080, where the band holds half the room, ADR 0059) and as wide as its shelf, with the room and the transport still in view and
-// the page unscrolled. At 1280×800 it's no smaller than before (360 px).
+// the page unscrolled. At 1280×800 it's no smaller than before (360 px). Room view opens first from 1100 px (OME-2195):
+// these viewers chose video first.
 for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440, 900, 0.45], ["hero1920", 1920, 1080, 0.43], ["hero2560", 2560, 1440, 0.45]] as const) {
   test(`${String(w)}×${String(h)} with a video: the TV is the hero, the room and the transport stay in view`, async ({ browser, request }) => {
     const room = testRoom("wide", name);
     await shareVideo(request, room.id);
-    const page = await one(browser, name, DESKTOP(w, h));
+    const page = await one(browser, name, DESKTOP(w, h), videoFirst);
     await waitPlaying(clients);
+    await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
     const tv = await box(page.locator(site.tv));
     const shelf = await box(page.locator(".ui-tv-shelf"));
     expect(tv.width).toBeGreaterThanOrEqual(Math.max(360, share * w));
@@ -110,6 +119,162 @@ for (const [name, w, h, share] of [["hero1280", 1280, 800, 0], ["hero1440", 1440
     expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(h);
   });
 }
+
+// OME-2195 (judge round 4, ADR 0060 amendment 3): at 1280×800 video first left avatars ~27 px. From 1100 px wide the room
+// opens in Room view: the TV at its floor, avatars at least 39 px. The viewer's choice is kept: off stays off next visit.
+test("1280×800 with a video: a fresh visit opens in Room view; turned off, it stays off", async ({ browser, request }) => {
+  const room = testRoom("wide", "rv1280");
+  await shareVideo(request, room.id);
+  const page = await one(browser, "rv1280", DESKTOP(1280, 800));
+  await waitPlaying(clients);
+  const key = page.locator(site.roomViewKey);
+  await expect(key).toHaveAttribute("aria-pressed", "true");
+  expect((await box(page.locator(site.tv))).width).toBeLessThanOrEqual(357);
+  // I stand (just joined): a standing avatar is 47 px at 1× (ADR 0060 amendment 2: 41 seated to 47), as the judge measured it.
+  const k = await page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
+  expect(47 * k).toBeGreaterThanOrEqual(40);
+  for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow]) await inView(page, page.locator(l));
+  // OME-2233 (judge round 5): no empty strip between the TV and its shelf; the shelf tops the TV's side.
+  const tv = await box(page.locator(site.tv));
+  const shelf = await box(page.locator(".controls.ui-tv-shelf"));
+  expect(Math.abs(shelf.y - tv.y)).toBeLessThanOrEqual(2);
+  // The room shows from its walls' tops (stage y 60) to the floor's front corner (540): the band isn't cut at the top.
+  const win = await box(page.locator(site.roomWindow));
+  expect(win.height).toBeGreaterThanOrEqual((541 - 60) * k - 1);
+  expect(win.y).toBeGreaterThanOrEqual(shelf.y + shelf.height);
+  const top = await page.locator(`${site.roomWindow} .stage`).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).f);
+  expect(top).toBeGreaterThanOrEqual(-60 * k - 1);
+
+  await key.click();
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+  // The next visit, same browser: video first, as chosen.
+  const c = clients[0];
+  if (c === undefined) throw new Error("no client");
+  const again = await c.context.newPage();
+  await again.goto(room.url);
+  await again.locator(site.nicknameInput).fill("wdrv-again");
+  await again.locator(site.joinButton).click();
+  await again.locator(site.room).waitFor();
+  await expect(again.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
+  expect((await box(again.locator(site.tv))).width).toBeGreaterThan(360);
+});
+
+test("1024×768 with a video: below 1100 px a fresh visit stays video first", async ({ browser, request }) => {
+  const room = testRoom("wide", "rv1024");
+  await shareVideo(request, room.id);
+  const page = await one(browser, "rv1024", DESKTOP(1024, 768));
+  await waitPlaying(clients);
+  await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "false");
+});
+
+/**
+ * The screenshot's rows and columns (DPR 1 contexts): `rows[i]` counts the pixels in [x0, x1) of row y0 + i that differ
+ * from `bg` (by more than 40 over the three channels); `white[j]` counts the near-white pixels (every channel ≥ 200) of
+ * column wx0 + j over [y0, y1). Decoded on a blank page of the same context.
+ */
+async function scan(page: Page, a: { x0: number; x1: number; y0: number; y1: number; bg: readonly [number, number]; wx0: number; wx1: number }): Promise<{ rows: number[]; white: number[] }> {
+  const png = (await page.screenshot()).toString("base64");
+  const blank = await page.context().newPage();
+  const out = await blank.evaluate(async ({ data, a }) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${data}`;
+    await img.decode();
+    const c = new OffscreenCanvas(img.width, img.height);
+    const g = c.getContext("2d");
+    if (g === null) throw new Error("no 2d");
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, img.width, img.height).data;
+    const at = (x: number, y: number): number[] => [...d.slice((y * img.width + x) * 4, (y * img.width + x) * 4 + 3)];
+    const bg = at(a.bg[0], a.bg[1]);
+    const rows: number[] = [];
+    for (let y = a.y0; y < a.y1; y++) {
+      let n = 0;
+      for (let x = a.x0; x < a.x1; x++) if (at(x, y).reduce((s, v, i) => s + Math.abs(v - (bg[i] ?? 0)), 0) > 40) n++;
+      rows.push(n);
+    }
+    const white: number[] = [];
+    for (let x = a.wx0; x < a.wx1; x++) {
+      let n = 0;
+      for (let y = a.y0; y < a.y1; y++) if (at(x, y).every((v) => v >= 200)) n++;
+      white.push(n);
+    }
+    return { rows, white };
+  }, { data: png, a });
+  await blank.close();
+  return out;
+}
+
+// OME-2241 (judge round 6 on OME-2061): Room view at 1280×800 left a ~520×100 px empty band between the shelf and the
+// room (the box sank to the column's foot so the TV cleared the left wall), and the walls' tops were cut flat at the box's
+// top. The room sits right under the shelf now, with sky over its walls. The player over the left wall's top is by design
+// (ADR 0058), not checked here.
+for (const preset of ["classic", "penthouse", "studio", "dank-dungeon"] as const) {
+  test(`1280×800 Room view, ${preset}: the walls' tops show with sky over them, no empty band between the shelf and the room`, async ({ browser, request }) => {
+    const name = `rv${preset}` as const;
+    const room = testRoom("wide", name);
+    await shareVideo(request, room.id);
+    const layout = presetFile(preset);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `wd${name}`, setup: (context) => showLayout(context, layout), contextOptions: () => DESKTOP(1280, 800) });
+    await waitPlaying(clients);
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "true");
+    const tv = await box(page.locator(site.tv));
+    const shelf = await box(page.locator(".controls.ui-tv-shelf"));
+    const win = await box(page.locator(site.roomWindow));
+    // The box is centred on the walls' corner (stage x 480), its tip the room's highest pixel; the sky's colour at the
+    // box's top beside it. The canvas ends at the stage's top, so no star is over the tip.
+    const shelfFoot = Math.ceil(shelf.y + shelf.height);
+    const top = Math.round(win.y);
+    const mid = Math.round(win.x + win.width / 2);
+    const { rows } = await scan(page, { x0: mid - 40, x1: mid + 40, y0: shelfFoot, y1: top + 120, bg: [Math.ceil(tv.x + tv.width + 8), top + 1], wx0: 0, wx1: 0 });
+    // Past the shelf's frame, the sky; then the room's first row.
+    const sky = rows.findIndex((n) => n === 0);
+    const first = shelfFoot + sky + rows.slice(sky).findIndex((n) => n > 0);
+    expect(sky).toBeGreaterThanOrEqual(0);
+    expect(first).toBeGreaterThanOrEqual(top + 8);
+    // Nothing but sky from the shelf to it, the width of the column right of the TV (the walls slope away from the tip): at
+    // most 60 px tall.
+    expect(first - (shelfFoot + sky)).toBeLessThanOrEqual(60);
+    // OME-2246 (judge round 7): ~35 px of nothing between the shelf and the room's window. At most the layout's 8 px
+    // GAP; the walls' tip is the window's top plus its sky (the room's first painted row, 8 px under it).
+    expect(top - shelfFoot).toBeLessThanOrEqual(8);
+    expect(first - shelfFoot).toBeLessThanOrEqual(20);
+    // The Room view key stays on top of the room: its centre is the key.
+    const key = await box(page.locator(site.roomViewKey));
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid]")?.getAttribute("data-testid") ?? null, [key.x + key.width / 2, key.y + key.height / 2] as const)).toBe(await page.locator(site.roomViewKey).getAttribute("data-testid"));
+  });
+}
+
+// OME-2241 (judge r6): the walk floor's focus ring is the stage's size (960×600), so in a band only its left edge showed, a
+// 4 px white bar down the band. The ring is the room window's now, whole.
+test("1280×800 Room view, a busy room: the floor's focus ring outlines the room's window, no stray bar at the column's edge", async ({ browser, request }) => {
+  const room = testRoom("wide", "rvbusy");
+  await shareVideo(request, room.id);
+  const layout = presetFile("classic");
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 4, nicknamePrefix: "wdrvbusy", setup: (context) => showLayout(context, layout), contextOptions: () => DESKTOP(1280, 800) });
+  await waitPlaying(clients);
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expect(page.locator(site.roomViewKey)).toHaveAttribute("aria-pressed", "true");
+  // Keyboard modality, then the floor's focus (as walking with the arrow keys leaves it).
+  await page.keyboard.press("Shift");
+  const floor = page.locator(site.walkFloor);
+  await floor.focus();
+  expect(await floor.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  const win = await box(page.locator(site.roomWindow));
+  const column = await box(page.locator(".stage-wrap"));
+  const y0 = Math.ceil(win.y);
+  const y1 = Math.floor(win.y + win.height);
+  // Anywhere across the column: the bar was the stage's left edge, wherever the box puts it.
+  const { white } = await scan(page, { x0: 0, x1: 0, y0, y1, bg: [0, 0], wx0: Math.max(0, Math.round(column.x) - 2), wx1: Math.round(column.x + column.width) });
+  // The judge measured 437 px; the TV covers its top here, so any column of white over 200 px (no art is) counts, but
+  // the ring's own sides at the window's edges.
+  const tall = white.flatMap((n, i) => (n >= 200 ? [Math.max(0, Math.round(column.x) - 2) + i] : []));
+  for (const x of tall) expect(Math.min(Math.abs(x - win.x), Math.abs(x - (win.x + win.width)))).toBeLessThanOrEqual(5);
+  // Still a visible ring: on the room's window.
+  expect(await page.locator(site.roomWindow).evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
+});
 
 // OME-1811 (design OME-1799 §2, F2; OME-1809 item 3): the room was drawn at fractional scales (0.87× at 2560, 1.17× at
 // 1920), so its pixel rows doubled unevenly. On every large screen it's 1× or 2× now, nearest-neighbour, at DPR 1 and 2.
@@ -145,9 +310,10 @@ for (const [name, w, h] of [["aud1280", 1280, 800], ["aud1920", 1920, 1080], ["a
     const band = await box(page.locator(site.roomWindow));
     const column = await box(page.locator(".stage-wrap"));
     // The band's backdrop and dim bleed past the room's box to the column's edges.
-    const bleed = await page.locator(site.roomWindow).evaluate((el) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue("--bleed")) : 0));
-    expect(band.x - bleed).toBeLessThanOrEqual(column.x + 1);
-    expect(band.x + band.width + bleed).toBeGreaterThanOrEqual(column.x + column.width - 1);
+    // Each side bleeds its own width (OME-2233: Room view's box can sit right of centre).
+    const bleed = (side: "l" | "r"): Promise<number> => page.locator(site.roomWindow).evaluate((el, v) => (el.classList.contains("is-bleed") ? Number.parseFloat(getComputedStyle(el).getPropertyValue(v)) : 0), `--bleed-${side}`);
+    expect(band.x - (await bleed("l"))).toBeLessThanOrEqual(column.x + 1);
+    expect(band.x + band.width + (await bleed("r"))).toBeGreaterThanOrEqual(column.x + column.width - 1);
     // Once everyone has walked to their spot (a joiner walks in from the room's edge).
     await expect(async () => {
       for (const tag of await tags.all()) {

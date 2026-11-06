@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, ROOM_VIEW, STAGE_W, bandFit, bandHome, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
 
@@ -19,6 +19,20 @@ function storedStrip(): StripMode {
     return localStorage.getItem(STRIP_STORAGE_KEY) === "band" ? "band" : "open";
   } catch {
     return "open";
+  }
+}
+
+/** Room view's last explicit choice on this device (OME-2195): "on" or "off"; anything else is no choice. */
+const ROOM_VIEW_STORAGE_KEY = "omega.roomView";
+/** With no choice, Room view is the default from this window width (ADR 0060 amendment 3): avatars ~27 px video first. */
+const ROOM_VIEW_FROM_W = 1100;
+
+function storedRoomView(): boolean | null {
+  try {
+    const v = localStorage.getItem(ROOM_VIEW_STORAGE_KEY);
+    return v === "on" ? true : v === "off" ? false : null;
+  } catch {
+    return null;
   }
 }
 
@@ -52,6 +66,8 @@ export interface RoomLayoutOptions {
     readonly fsKey: HTMLElement;
     readonly personal: HTMLElement;
     provider(): Embed["provider"] | null;
+    /** Nothing on: the TV shows its curtain (OME-2263). */
+    empty(): boolean;
     setFullscreen(on: boolean): void;
     place(): void;
   };
@@ -337,7 +353,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
 
   const dock = createPortraitDock({ root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: o.settings, onViewport: () => { fit(); tvBox.place(); } });
+    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: o.settings, onViewport: () => { fit(); tvBox.place(); }, beforeOpen: () => { placeSheet(); } });
+  /** The Room sheet starts under the picture. Read only while it shows: a fit that read it forced a layout (OME-2280). */
+  const placeSheet = (): void => {
+    root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
+  };
   let portraitOn = false;
   // Wide: People takes the log's place in the chat column while open (OME-1805), never above the TV.
   // Portrait dock (a phone, or a tablet since OME-1802): under the picture, so the TV stays put and the room gives way.
@@ -373,8 +393,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (!o.short.matches && !o.people.hidden) {
       if (o.people.lastElementChild !== o.ownerBar) o.people.append(o.ownerBar);
     } else if (o.people.nextElementSibling !== o.ownerBar) o.people.after(o.ownerBar);
-    // Short, the editor follows its Done key (OME-1927): under the room it was off-screen, the floor filling the column.
-    if (o.short.matches && o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
+    // The editor follows its Done key (OME-1927): short, under the room it was off-screen, the floor filling the column;
+    // tall, a column of its own beside the room left the room 18 % of a 1280×800 screen (OME-2283).
+    if (o.ownerBar.nextElementSibling !== o.editorPanel) o.ownerBar.after(o.editorPanel);
     if (o.short.matches && o.editorPanel.nextElementSibling !== o.foot) o.editorPanel.after(o.foot);
   };
   new MutationObserver(placeTabFoot).observe(o.people, { attributes: true, attributeFilter: ["hidden"] });
@@ -413,7 +434,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     // Wide, the owner's bar ends the People tab (below, OME-1842): under the stage it cost the owner half the room
     // (OME-1301), above People it left People ~110 px. Short, Report room joins it (OME-1841). Full screen, under Up next.
     const sideTab = two && fs.mode() === "off";
-    if (o.editorPanel.parentElement === side && !(sideTab && o.short.matches)) wrap.after(o.editorPanel);
+    if (side.contains(o.editorPanel) && !sideTab) wrap.after(o.editorPanel);
     if (two && !sideTab) queuePanel.root.after(o.ownerBar);
     else if (!sideTab) o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
@@ -438,13 +459,19 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let me: Point | null = null;
   /** The desktop band's fit (OME-2148): its inputs and scale, null in every other layout. */
   let band: { readonly scale: number; readonly h: number; readonly k: number } | null = null;
-  // Room view (OME-2170, ADR 0060): this tab's choice only, never stored. The TV and stage are re-boxed, never rebuilt.
-  let roomView = false;
+  // Room view (OME-2170, ADR 0060): the viewer's choice, kept on this device (OME-2195), else on from ROOM_VIEW_FROM_W.
+  // The TV and stage are re-boxed, never rebuilt.
+  let roomViewChoice = storedRoomView();
+  const roomView = (): boolean => roomViewChoice ?? window.innerWidth >= ROOM_VIEW_FROM_W;
+  // Hidden until fit() shows it, which sets aria-pressed first: reading the window's width here would force a layout (OME-2265).
   const roomViewKey = el("button", { type: "button", className: "ui-button self room-view-key", textContent: "Room view", hidden: true }, "room-view-key");
-  roomViewKey.ariaPressed = "false";
   roomViewKey.addEventListener("click", () => {
-    roomView = !roomView;
-    roomViewKey.ariaPressed = String(roomView);
+    roomViewChoice = !roomView();
+    try {
+      localStorage.setItem(ROOM_VIEW_STORAGE_KEY, roomViewChoice ? "on" : "off");
+    } catch {
+      // Storage off (private mode): the choice lasts for this page only.
+    }
     fit();
   });
   clip.after(roomViewKey);
@@ -533,9 +560,13 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), roomView);
+      const on = roomView();
+      roomViewKey.ariaPressed = String(on);
+      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, tvBox.empty(), document.body.classList.contains("room-editing"));
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
+      // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
+      wrap.classList.toggle("is-tv-corner", "stage" in l && l.stage.y < l.tv.y + l.tv.h && l.stage.x < l.tv.x + l.tv.w);
       if ("stage" in l) {
         // In the band's top corner, over its backdrop beside the room.
         roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
@@ -562,31 +593,38 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           // With a video the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
           // if it must. Without one the room isn't a band and keeps its whole scale (OME-1811).
           const video = tvBox.provider() !== null;
-          const k = video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
+          // The open editor fits the whole room (OME-2264): cropped to the column beside it, the walls and their pieces were cut.
+          const editing = document.body.classList.contains("room-editing");
+          const k = editing ? editFit(l.scale, l.stage.w, l.stage.h) : video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
-          const r = { x: Math.floor((w - sw) / 2), y: l.stage.y, w: sw, h: l.stage.h };
+          // Room view's box (OME-2233) keeps its place: centred where the TV clears the walls, else right of centre.
+          // Editing, the window is the room's own height: a taller one pans the stage up over the sky, cutting the floor's hit area.
+          const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: editing ? Math.min(l.stage.h, Math.ceil(ROOM_VIEW.h * k)) : l.stage.h };
           box(clip, r);
           // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
           clip.classList.toggle("is-bleed", r.w < w);
-          clip.style.setProperty("--bleed", `${String(Math.ceil((w - r.w) / 2))}px`);
+          clip.style.setProperty("--bleed-l", `${String(r.x)}px`);
+          clip.style.setProperty("--bleed-r", `${String(w - r.x - r.w)}px`);
           roomWindow.set(false, 0, 0);
-          roomWindow.desk(k, r);
+          // A band may show the sky over the walls (OME-2241): its home does where it holds the whole room.
+          roomWindow.desk(k, video ? { ...r, head: ROOM_HEAD } : r);
           stage.style.setProperty("--stage-scale", String(k));
-          band = video ? { scale: l.scale, h: l.stage.h, k } : null;
+          band = video && !editing ? { scale: l.scale, h: l.stage.h, k } : null;
         }
       }
       wrap.style.height = "";
       return;
     }
     roomViewKey.hidden = true;
+    wrap.classList.remove("is-tv-corner");
     const onPhone = phone.matches;
     const l = portraitOn
-      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))
-      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
+      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"), tvBox.empty())
+      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone, onPhone && tvBox.empty());
     boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
-      root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
+      if (dock.sheet.open) placeSheet();
     }
     box(clip, l.stage);
     // room.css sizes the host's tag hit areas by it; the phone window keeps its own zoom.
@@ -619,8 +657,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     seats: (points, standing) => {
       seatPoints = points;
       standingPoints = standing;
-      // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle.
-      fit();
+      // The band too (OME-1843): its first fit came before the layout, so it looked at the stage's middle. Only the band
+      // reads the seats: any other fit would force a layout mid-render for nothing (OME-2280).
+      if (band !== null) fit();
     },
     centre: (p) => {
       roomWindow.centre(p);

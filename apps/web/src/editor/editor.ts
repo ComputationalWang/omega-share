@@ -507,7 +507,10 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const piecePanel = el("div", { className: "editor-piece" });
   piecePanel.append(pickedName, swatches, rotateBtn, removeBtn, cursorText);
   const savePanel = el("div", { className: "editor-save-row" });
-  savePanel.append(count, saveBtn, resetBtn, message);
+  // The counts share a line, Save and Undo another (OME-2283: "Undo changes" wrapped to a line of its own).
+  const counts = el("div", { className: "editor-counts" });
+  counts.append(count, doorsLine);
+  savePanel.append(saveBtn, resetBtn, message);
 
   // ---- Leaving with unsaved changes (OME-2074): Done asks instead of dropping the draft.
   const leavePrompt = el("div", { className: "editor-confirm", hidden: true }, "editor-leave");
@@ -592,7 +595,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   };
 
-  root.append(leavePrompt, tabs, tray, doorsLine, picker, piecePanel, mood.el, problemList, savePanel, minePanel, settings);
+  root.append(leavePrompt, tabs, tray, counts, picker, piecePanel, mood.el, problemList, savePanel, minePanel, settings);
   ctx.panel.replaceChildren(root);
 
   function say(text: string): void {
@@ -620,7 +623,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       b.ariaDisabled = String(full || capped || (kind === "pad" && padCount(draft) >= 2));
       b.title = capped ? `A room has at most ${String(MAX_DOORS)} doors` : NAMES[kind];
     }
-    doorsLine.textContent = `Doors ${String(doors)}/${String(MAX_DOORS)}`;
+    doorsLine.textContent = `${String(doors)} of ${String(MAX_DOORS)} doors placed`;
     picker.hidden = !picking;
     const piece = selected === null ? undefined : draft.furniture[selected];
     const kind = held?.kind ?? piece?.kind;

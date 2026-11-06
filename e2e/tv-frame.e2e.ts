@@ -14,7 +14,7 @@ test.describe("TV frame", () => {
   test.fixme(!available.web, PENDING.web);
   test.fixme(!available.server, PENDING.server);
 
-  test("360 px: compact bezel and shelf, no sideways scroll, player uncovered and ≥ 356×200", async ({ browser }) => {
+  test("360 px: compact bezel and shelf, no sideways scroll, the empty TV uncovered, full width and 21:9", async ({ browser }) => {
     const [client] = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "tv360" });
     if (!client) throw new Error("no client");
     const { page } = client;
@@ -46,8 +46,9 @@ test.describe("TV frame", () => {
         });
         return { w: r.width, h: r.height, hits };
       });
+      // Nothing on: the 21:9 curtain, full width (OME-2263); a player's 356×200 is phone-layout's "ADR 0012 at 360 px".
       expect(player.w).toBeGreaterThanOrEqual(356);
-      expect(player.h).toBeGreaterThanOrEqual(200);
+      expect(Math.abs(player.h - (player.w * 9) / 21)).toBeLessThanOrEqual(1);
       for (const { name, inside, hit } of player.hits) expect(inside, `elementFromPoint at ${name} hit ${hit}, not .tv`).toBe(true);
     } finally {
       await leaveAll([client]);

@@ -3,6 +3,7 @@
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
+import type { Texture } from "pixi.js";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
@@ -28,7 +29,8 @@ import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
 import { onceAsync } from "./once";
 import { mentions } from "./chat/mention";
-import { TAG_GAP, stackTags, type TagBox, type TagPlace } from "./tag-stack";
+import { placeAt } from "./tag-place";
+import { TAG_GAP, screenBoxes, stackTags, wearPlace, type Box, type TagBox, type TagPlace } from "./tag-stack";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -112,17 +114,14 @@ export interface Stage {
   layoutBuilds(): number;
 }
 
-/** A name tag's anchor: `translate`, so room.css's centring and readable-zoom scale stay in `transform` / `scale`. */
-function place(e: HTMLElement, p: Point): void {
-  e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
-}
-
 /** What a lie key's name calls each piece. */
 const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
 const NO_GO_NOTE_MS = 1500;
+/** How long a walker stands before its tag stacks with the others (OME-2213): past the /conga step (360 ms). */
+const TAG_SETTLE_MS = 500;
 
 function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
@@ -164,34 +163,34 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const tagW = new Map<Element, number>();
   /** Who is mid-walk: their tag rides just over their head (aboveHead) and the others stack again once they stop. */
   const walkers = new Set<MemberId>();
+  /** A stopped walker's tag stacks once it's stood TAG_SETTLE_MS: a /conga follower steps every 360 ms, and stacking
+   * it at each stop flipped its pip (a full repaint) twice a step (OME-2213). */
+  const settling = new Map<MemberId, ReturnType<typeof setTimeout>>();
   const tagAt = new Map<MemberId, TagPlace>();
+  /** The place each tag and hit pad last wore (wearPlace). */
+  const worn = new WeakMap<object, TagPlace>();
   /** The phone's readable-zoom label scale (room.css --label-scale), capped at TAG_MAX_SCALE: tags show this many times their layout size. */
   let labelK = 1;
   /** The phone window's bottom (stage px; Infinity off the phone): a stacked tag never drops past it or the room's. */
   let shownBottom = Infinity;
   /** …and its top (-Infinity off the phone): a tag never rises past it (OME-2149). */
   let shownTop = -Infinity;
+  /** The room's screen as drawn (stage px, OME-2196): tags keep off it. Set with each scene. */
+  let screens: readonly Box[] = [];
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
     const at = { x, y: y + TAG_OFFSET_Y };
     const moved = tagAt.get(id) ?? aboveHead(id);
-    const left = `${String(moved.dx)}px`;
-    const drop = `${String(moved.dy)}px`;
     const tag = tagEls.get(id);
     if (tag !== undefined) {
-      place(tag, at);
-      tag.style.marginLeft = left;
-      tag.style.marginTop = drop;
-      tag.classList.toggle("is-led", moved.led);
-      // Over its owner the pip points down at the head; hung under the feet, up at them.
-      tag.classList.toggle("is-above", moved.dy < 0);
+      placeAt(tag, at.x, at.y);
+      wearPlace(tag, moved, worn, true);
     }
     const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
-      place(padEl, at);
-      padEl.style.marginLeft = left;
-      padEl.style.marginTop = drop;
+      placeAt(padEl, at.x, at.y);
+      wearPlace(padEl, moved, worn, false);
     }
   };
   /** Stack the tags of everyone standing still and place every tag. */
@@ -205,12 +204,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       ids.push(id);
       at.push(p);
       // A walker's tag isn't stacked: a zero-width box overlaps nothing.
-      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - liftOf(id) });
+      boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: walkers.has(id) ? 0 : (tagW.get(tag) ?? 0) * labelK, top: p.y - headOf(id) });
     }
-    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop);
+    const moved = stackTags(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
     ids.forEach((id, i) => {
       const p = at[i];
-      const m = moved[i];
+      // A walker's tag rides over its head: stacked, it'd flip its pip on every render as it passes heads (OME-2213).
+      const m = walkers.has(id) ? aboveHead(id) : moved[i];
       if (m === undefined) tagAt.delete(id);
       else tagAt.set(id, m);
       if (p !== undefined) placeTag(id, p.x, p.y, true);
@@ -252,6 +252,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** Who arrives by a teleport pad (OME-1548) in the next placement; cleared once placed. */
   const teleporting = new Set<MemberId>();
   const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
+  /** A still tag's head top over its owner's point: a sitter's drawn hair or hat (OME-2252: the nominal lift left their tags
+   * 8–13 px over it and the front row's on the back row's chairs), else the nominal lift. */
+  const headOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? (view.headLift(id) ?? EMOTE_LIFT.sit) : EMOTE_LIFT.idle);
   /** A tag's place unstacked (a walker's): TAG_GAP over its owner's head (OME-2172). */
   const aboveHead = (id: MemberId): TagPlace => ({ dx: 0, dy: -(liftOf(id) + TAG_OFFSET_Y + TAG_GAP + TAG_H * labelK), led: false });
   /** Bubbles, badges and the emote wheel float over the head and the tag on it. */
@@ -265,17 +268,26 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const head = y - overOf(id);
       badges.move(id, x, head);
       floats.move(id, x, head);
+      clearTimeout(settling.get(id));
+      settling.delete(id);
       if (!walkers.has(id)) {
         walkers.add(id);
-        tagAt.delete(id);
+        tagAt.set(id, aboveHead(id));
       }
       placeTag(id, x, y, false);
       o.onMove?.(id);
     },
     onStop: (id, x, y) => {
       floats.settle(id, x, y - overOf(id));
-      walkers.delete(id);
-      restack();
+      clearTimeout(settling.get(id));
+      settling.set(
+        id,
+        setTimeout(() => {
+          settling.delete(id);
+          walkers.delete(id);
+          restack();
+        }, TAG_SETTLE_MS),
+      );
       o.onStop?.(id);
     },
   });
@@ -407,8 +419,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const buildScene = (l: RoomLayout): void => {
     const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null, backAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, backAtlas, roomAtlas, recolours], grid);
+    const sheets = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, backAtlas, roomAtlas, recolours];
+    view.setScene(scene, sheets, grid);
     drawnSeats = undefined;
+    screens = screenBoxes(scene.sprites, (key) => {
+      const t = sheets.reduce<Texture | undefined>((found, sheet) => found ?? sheet?.texture(key), undefined);
+      return t === undefined ? undefined : { w: t.width, h: t.height, ax: t.defaultAnchor?.x ?? 0, ay: t.defaultAnchor?.y ?? 0 };
+    });
+    restack();
   };
 
   const sourceOf = (sheet: RecolourSheet): FurnitureAtlas | RoomAtlas | null =>
@@ -666,6 +684,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       tagW.delete(e);
       tagAt.delete(id);
       walkers.delete(id);
+      clearTimeout(settling.get(id));
+      settling.delete(id);
       tagEls.delete(id);
       padEls.get(id)?.remove();
       padEls.delete(id);

@@ -287,7 +287,7 @@ test("placing a door asks for its room: a bad link is refused inline, a saved ro
   await expect(owner.locator(site.editorTray)).toBeVisible();
   await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
   const doorSlot = owner.locator(`${site.editorSlot}[data-kind="door"]`);
-  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 0/2");
+  await expect(owner.locator(site.editorDoors)).toHaveText("0 of 2 doors placed");
 
   await doorSlot.click();
   await expect(owner.locator(site.doorPicker)).toBeVisible();
@@ -303,18 +303,18 @@ test("placing a door asks for its room: a bad link is refused inline, a saved ro
   // Nothing was held, so nothing is placed.
   await clickCell(owner, 0, 3);
   expect((await layoutOf(owner)).some((f) => f.kind === "door")).toBe(false);
-  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 0/2");
+  await expect(owner.locator(site.editorDoors)).toHaveText("0 of 2 doors placed");
 
   await owner.locator(site.doorTargetInput).fill(`${URLS.web}/r/${film}`);
   await owner.locator(site.doorTargetUse).click();
   await expect(owner.locator(site.doorPicker)).toBeHidden();
   await clickCell(owner, 0, 3);
-  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 1/2");
+  await expect(owner.locator(site.editorDoors)).toHaveText("1 of 2 doors placed");
 
   await doorSlot.click();
   await owner.locator(site.doorTargetRoom).filter({ hasText: "Film night" }).click();
   await clickCell(owner, 0, 5);
-  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 2/2");
+  await expect(owner.locator(site.editorDoors)).toHaveText("2 of 2 doors placed");
   await expect(doorSlot).toHaveAttribute("aria-disabled", "true");
   await expect(doorSlot).toHaveAttribute("title", /2 doors/);
 

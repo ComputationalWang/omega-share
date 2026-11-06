@@ -81,9 +81,10 @@ export interface RoomWindow {
   rehome(): void;
   /**
    * Off the phone (OME-1490): the room at `scale` in a `box` (CSS px, default its whole ROOM_VIEW); the wheel zooms it
-   * from there. A box smaller than the room (OME-1811's band) looks at the seats first, and a drag looks around.
+   * from there. A box smaller than the room (OME-1811's band) looks at the seats first, and a drag looks around. A band's
+   * `head` (stage px) lets it look that far over the room's top, at the sky over the walls (wheelView, OME-2241).
    */
-  desk(scale: number, box?: { readonly w: number; readonly h: number }): void;
+  desk(scale: number, box?: { readonly w: number; readonly h: number; readonly head?: number }): void;
   /** Where the window looks now (stage px, top-left), for checks. */
   readonly pan: () => Point;
 }
@@ -100,7 +101,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   const roomTopLeft: Point = { x: ROOM_VIEW.x, y: ROOM_VIEW.y };
   let deskView: DeskView = { zoom: storedZoom(DESK_ZOOM_STORAGE_KEY) ?? 1, pan: roomTopLeft };
   /** The room's box off the phone (CSS px): ROOM_VIEW at the fit, or a band smaller than the room (OME-1811). */
-  let deskBox = { w: 0, h: 0 };
+  let deskBox: { readonly w: number; readonly h: number; readonly head?: number } = { w: 0, h: 0 };
   /** Off the phone, whether the viewer moved the view (wheel, drag): until then it follows `home`, as the phone's does. */
   let deskMoved = false;
   const keys = el("div", { className: "room-zoom", hidden: true });
@@ -201,8 +202,12 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     sides = { x0, x1, y1, y0 };
     onSides(x0, x1, y1, y0);
   };
+  // The window crops the room (a 412 px phone at 1×, OME-2234): say so, over its corner, so no one misses a sofa.
+  const hint = el("p", { className: "room-pan-hint", hidden: true, textContent: "Swipe sideways or tap Fit to see the whole room" }, "room-pan-hint");
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
+    const crops = zoom > minZoom(view) + 1e-6;
+    if (hint.hidden === crops) hint.hidden = !crops;
     pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
     if (down === null && pinch === null) settleSides(pan.x, pan.x + view.w / zoom, pan.y + view.h / zoom, pan.y);
@@ -253,7 +258,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   key("in", "Zoom in", "+", () => zoom * ZOOM_STEP);
   key("out", "Zoom out", "−", () => zoom / ZOOM_STEP);
   key("fit", "Fit the room", "Fit", () => minZoom(view));
-  clip.append(keys);
+  clip.append(keys, hint);
 
   /** When the last press in the window began (event time, ms). */
   let pressedAt = -Infinity;
@@ -476,6 +481,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).
       clip.style.visibility = on && h < windowMinH(w) ? "hidden" : "";
       keys.hidden = !on;
+      if (!on) hint.hidden = true;
       if (on) {
         apply();
         settleLabels();

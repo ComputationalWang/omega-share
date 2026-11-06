@@ -50,7 +50,8 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
   const notFound = createNotFound({ serverUrl: o.serverUrl, fetch: o.fetch, referrer: document.referrer, origin: location.origin, path: location.pathname });
   // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
   const report = o.owns ? null : createReport({ roomId: o.roomId, serverUrl: o.serverUrl, fetch: o.fetch, leave: o.leave });
-  const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");
+  // Laid out from the start where it will show (a guest's): shown at the first render, it moved the room up (OME-2282).
+  const foot = el("div", { className: "room-foot", hidden: report === null }, "room-foot");
   if (report !== null) foot.append(report.key, report.dialog);
   // 4005: the owner removed us (ADR 0030). The connection has stopped; Rejoin waits out the cooldown, then reloads.
   const kicked = el("div", { className: "room-full", hidden: true }, "room-kicked");

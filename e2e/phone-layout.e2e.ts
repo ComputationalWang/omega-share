@@ -12,6 +12,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { joinForToken, postShare } from "./support/share";
 import { site } from "./support/selectors";
 import { ROOM_WALLS } from "../apps/web/src/layout";
 
@@ -132,8 +133,17 @@ test("touch targets: every key and field in the room is ≥ 44×44 CSS px to the
   expect(misses).toEqual([]);
 });
 
-test("ADR 0012 at 360 px: the player is ≥ 356×200, full width, and nothing of ours covers it", async ({ browser }) => {
+test("ADR 0012 at 360 px: the player is ≥ 356×200, full width, and nothing of ours covers it", async ({ browser, request }) => {
+  // A player, not the empty curtain: that one has no floor (OME-2263).
+  const room = testRoom("phone-layout", "narrow");
+  const sharer = await joinForToken(room.id, "snarrow");
+  try {
+    expect((await postShare(request, room.id, sharer.token, "https://youtu.be/aqz-KE-bpKQ")).status()).toBe(200);
+  } finally {
+    sharer.close();
+  }
   const page = await one(browser, "narrow", phone(360));
+  await expect(page.locator(site.sharedVideo)).toBeVisible();
   const tv = page.locator(site.tv);
   await expect(tv).toHaveClass(/(^|\s)compact(\s|$)/);
   const player = await tv.evaluate((el) => {
@@ -425,12 +435,12 @@ for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["
 // A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel keys, chat row and 44 px footer leave the room
 // window ~100 px with the chat strip under it. On a short portrait screen that strip goes (the Chat key's sheet holds the
 // log, bubbles still show in the room), so the room keeps ≥ 170 px and every seat shows whole, at 1×, without a pan.
-test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width 16:9 and the Chat sheet opens (OME-1612)", async ({ browser }) => {
+test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width, the empty one 21:9 (OME-2263), and the Chat sheet opens (OME-1612)", async ({ browser }) => {
   const page = await one(browser, "small360", { ...PHONE, viewport: { width: 360, height: 640 } });
   const tv = await page.locator(site.tv).boundingBox();
   if (tv === null) throw new Error("not laid out");
   expect(tv.width).toBe(360);
-  expect(Math.abs(tv.height - (360 * 9) / 16)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tv.height - (360 * 9) / 21)).toBeLessThanOrEqual(1);
   await frames(page);
   const pane = await page.locator(".stage-pane").boundingBox();
   if (pane === null) throw new Error("not laid out");

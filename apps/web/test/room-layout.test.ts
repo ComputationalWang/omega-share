@@ -20,7 +20,7 @@ beforeEach(() => {
 
 const div = (): HTMLElement => document.createElement("div");
 
-async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coarse?: boolean } = {}) {
+async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coarse?: boolean; portrait?: boolean } = {}) {
   const { createRoomLayout } = await import("../src/room-layout");
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
@@ -58,7 +58,7 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coar
     settings: [],
     phone: { matches: false },
     coarse: { matches: o.coarse === true },
-    portrait: { matches: false },
+    portrait: { matches: o.portrait === true },
     wide: { matches: o.wide === true },
     short: { matches: o.short === true },
     stageShown: () => true,
@@ -67,8 +67,47 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coar
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, stage, tv, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
+  return { layout, root, wrap, clip, stage, tv, log, poll, form, notice, side, queue, roomTop, people, invite, foot, ownerBar, editorPanel };
 }
+
+// OME-2265: building the layout runs while the room's DOM is half made; a window size read there forces a layout of it.
+test("building the room's layout reads no window size", async () => {
+  const native = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  let reads = 0;
+  Object.defineProperty(window, "innerWidth", { configurable: true, get: () => (reads++, 390) });
+  try {
+    await setup();
+  } finally {
+    if (native !== undefined) Object.defineProperty(window, "innerWidth", native);
+  }
+  expect(reads).toBe(0);
+});
+
+// OME-2280: the stage hands over its seats inside the room's render, after it has written. Only the desktop band frames
+// them; any other refit there reads the wrap's size and forces a layout for nothing.
+test("new seats read no layout unless the band frames them", async () => {
+  const { layout, wrap } = await setup();
+  let reads = 0;
+  for (const k of ["clientWidth", "clientHeight"] as const) Object.defineProperty(wrap, k, { configurable: true, get: () => (reads++, 600) });
+  layout.seats([{ x: 10, y: 10 }], []);
+  expect(reads).toBe(0);
+});
+
+// OME-2280: on a phone the Room sheet starts under the picture. Measuring that in every fit (the first one runs inside the
+// room's render) forced a layout; it's measured when the sheet opens.
+test("a portrait fit measures the sheet's top only when the sheet opens", async () => {
+  const { layout, root, tv } = await setup({ portrait: true });
+  let reads = 0;
+  tv.tv.getBoundingClientRect = () => (reads++, new DOMRect(0, 0, 390, 220));
+  layout.syncPortrait();
+  layout.fit();
+  expect(layout.portraitOn()).toBe(true);
+  expect(reads).toBe(0);
+  layout.dock.link.click();
+  expect(layout.dock.sheet.open).toBe(true);
+  expect(reads).toBe(1);
+  expect(root.style.getPropertyValue("--portrait-sheet-top")).toMatch(/^\d+px$/);
+});
 
 describe("room layout", () => {
   test("in the page the chat sits right under the notices", async () => {
@@ -129,13 +168,16 @@ describe("room layout", () => {
   test("the owner's bar ends the People tab on a wide screen, Report room too on a short one (OME-1841, OME-1842)", async () => {
     const tall = await setup({ wide: true });
     expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
-    expect(tall.ownerBar.nextElementSibling).toBe(tall.log.root);
+    // Tall too, the editor follows its Done key (OME-2283): the column is its sheet, not a column of its own.
+    expect(tall.ownerBar.nextElementSibling).toBe(tall.editorPanel);
+    expect(tall.editorPanel.nextElementSibling).toBe(tall.log.root);
     expect(tall.foot.parentElement).toBe(tall.root);
-    // Open, People holds the bar at its end, so they scroll as one (OME-1842); closed, it's back above the log.
+    // Open, People holds the bar (and the editor) at its end, so they scroll as one (OME-1842); closed, it's back above the log.
     tall.people.append(div());
     tall.people.hidden = false;
     await Promise.resolve();
-    expect(tall.people.lastElementChild).toBe(tall.ownerBar);
+    expect(tall.people.lastElementChild).toBe(tall.editorPanel);
+    expect(tall.editorPanel.previousElementSibling).toBe(tall.ownerBar);
     tall.people.hidden = true;
     await Promise.resolve();
     expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
@@ -185,7 +227,7 @@ describe("room layout", () => {
     expect(stage.style.getPropertyValue("--stage-scale")).toBe("1");
   });
 
-  // OME-2170 (CEO decision C): one labelled key gives the room the column at 1280×800, and back. Per tab, no storage.
+  // OME-2170 (CEO decision C): one labelled key gives the room the column at 1280×800, and back. OME-2195: remembered.
   test("the Room view key shrinks the TV to its floor and fits the room at about 1×, without touching the player", async () => {
     const { layout, wrap, stage, tv } = await setup({ wide: true, video: true });
     Object.defineProperty(wrap, "clientWidth", { value: 905 });
@@ -207,7 +249,54 @@ describe("room layout", () => {
     key?.click();
     expect(key?.ariaPressed).toBe("false");
     expect(Number(stage.style.getPropertyValue("--stage-scale"))).toBe(heroScale);
-    expect(localStorage.length).toBe(0);
+    expect(localStorage.getItem("omega.roomView")).toBe("off");
+  });
+
+  // OME-2195 (ADR 0060 amendment 3): Room view is the default from 1100 px wide; an explicit choice beats it, on reload too.
+  const atWidth = (w: number): void => {
+    Object.defineProperty(window, "innerWidth", { value: w, configurable: true });
+  };
+  test("a fresh visit 1100 px wide or more opens in Room view; narrower opens video first", async () => {
+    const width = window.innerWidth;
+    try {
+      for (const [w, on] of [[1280, true], [1100, true], [1099, false]] as const) {
+        atWidth(w);
+        const { layout, wrap, tv } = await setup({ wide: true, video: true });
+        Object.defineProperty(wrap, "clientWidth", { value: 905 });
+        Object.defineProperty(wrap, "clientHeight", { value: 655 });
+        layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+        expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.ariaPressed).toBe(String(on));
+        expect(tv.tv.style.width === "356px").toBe(on);
+      }
+    } finally {
+      atWidth(width);
+    }
+  });
+
+  test("the viewer's own choice beats the default, either way, and is kept for the next visit", async () => {
+    const width = window.innerWidth;
+    try {
+      for (const [w, stored] of [[1280, "off"], [1024, "on"]] as const) {
+        atWidth(w);
+        localStorage.setItem("omega.roomView", stored);
+        const { layout, wrap } = await setup({ wide: true, video: true });
+        Object.defineProperty(wrap, "clientWidth", { value: 905 });
+        Object.defineProperty(wrap, "clientHeight", { value: 655 });
+        layout.seats([{ x: 480, y: 300 }], [{ x: 480, y: 500 }]);
+        const key = wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]');
+        expect(key?.ariaPressed).toBe(String(stored === "on"));
+        key?.click();
+        expect(localStorage.getItem("omega.roomView")).toBe(stored === "on" ? "off" : "on");
+      }
+      // Anything else in storage is no choice: the default.
+      atWidth(1280);
+      localStorage.setItem("omega.roomView", "yes");
+      const { layout, wrap } = await setup({ wide: true, video: true });
+      layout.seats([{ x: 480, y: 300 }], []);
+      expect(wrap.querySelector<HTMLButtonElement>('[data-testid="room-view-key"]')?.ariaPressed).toBe("true");
+    } finally {
+      atWidth(width);
+    }
   });
 
   // QA OME-2183: each fit hid the key first, and hiding it dropped its focus to <body>; a second Enter did nothing.

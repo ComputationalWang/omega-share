@@ -5,8 +5,8 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { TAG_OFFSET_Y, setNorth } from "../src/layout";
-import { HEAD_H, HEAD_W, stackTags, type TagBox } from "../src/tag-stack";
+import { TAG_OFFSET_Y, cellCenter, setNorth } from "../src/layout";
+import { HEAD_H, HEAD_W, screenBoxes, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
 import { EMOTE_LIFT } from "../src/walk/animator";
 
 const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
@@ -184,4 +184,121 @@ describe("stackTags: tags keep off heads and by their owner", () => {
       });
     },
   );
+});
+
+// OME-2196 (design judge round 4): in a tight cluster a front avatar's tag stacked over the tags behind it, a cell off
+// its owner and nearer someone else; on the phone's cinema a tag sat on the screen art. A tag stays nearest its own
+// head, wears a pip when off it, and keeps off the screen.
+describe("stackTags: clusters and the screen", () => {
+  const centre = (t: TagBox, p: TagPlace, h: number) => ({ x: t.x + p.dx, y: t.y + p.dy + h / 2 });
+  /** Whose head (index) is nearest the placed tag's centre; a tie goes to its owner. */
+  const nearestHead = (tags: readonly TagBox[], i: number, p: TagPlace, h: number): number => {
+    const c = centre(tags[i] ?? tags[0] ?? member({ x: 0, y: 0 }, 0), p, h);
+    const d = (t: TagBox) => Math.hypot(t.x - c.x, t.top + HEAD_H / 2 - c.y);
+    return tags.reduce((best, t, j) => (d(t) < d(tags[best] ?? t) ? j : best), i);
+  };
+
+  // The busy room (e2e busy room, classic): Visitor, Bea, Cal, Dee, Eli, Fay on a 2×3 block of cells.
+  const CELLS = [[4, 4], [5, 4], [4, 5], [5, 5], [6, 4], [4, 6]] as const;
+  test.each([false, true])("the busy 6-avatar block (north: %p): no two tags overlap, each nearest its own head, led when off it", (north) => {
+    setNorth(north);
+    const tags = CELLS.map(([c, r], i) => member(cellCenter(c, r), [46, 32, 28, 32, 24, 30][i] ?? 30));
+    const placed = stackTags(tags, H);
+    expect(overlaps(tags, placed, H)).toEqual([]);
+    tags.forEach((t, i) => {
+      const p = placed[i] ?? { dx: 0, dy: 0, led: false };
+      expect(nearestHead(tags, i, p, H)).toBe(i);
+      expect(p.led).toBe(fromHead(t, p, H) > 12);
+    });
+  });
+
+  // The judge's observer (busy-dpr2-tall) stood in front of the block: no spot by Dee is nearest Dee, and the tag stacked
+  // over the heads and tags behind, by the screen. It takes the spot that names Dee best: under the feet.
+  test("where no spot is nearest its owner, the tag takes the one nearest by the most: under the feet, not over the heads behind", () => {
+    const tags = [...CELLS.map(([c, r], i) => member(cellCenter(c, r), [46, 32, 28, 32, 24, 30][i] ?? 30)), member({ x: cellCenter(5, 5).x - 31, y: cellCenter(5, 5).y + 80 }, 34)];
+    const placed = stackTags(tags, H);
+    expect(overlaps(tags, placed, H)).toEqual([]);
+    const dee = tags[3];
+    const p = placed[3];
+    if (dee === undefined || p === undefined) throw new Error("no Dee");
+    expect(dee.y + p.dy).toBeGreaterThanOrEqual(dee.top + HEAD_H);
+    expect(p.led).toBe(true);
+  });
+
+  test("a tag whose spot over the head lies on the screen goes off it, by its owner", () => {
+    const t = member({ x: 200, y: 300 }, 40);
+    const screen = { x0: 150, x1: 260, y0: 160, y1: t.top - 4 };
+    const [p] = stackTags([t], H, Infinity, -Infinity, [screen]);
+    if (p === undefined) throw new Error("no place");
+    const b = { x0: t.x + p.dx - t.w / 2, x1: t.x + p.dx + t.w / 2, y0: t.y + p.dy, y1: t.y + p.dy + H };
+    expect(b.x0 < screen.x1 && screen.x0 < b.x1 && b.y0 < screen.y1 && screen.y0 < b.y1).toBe(false);
+    expect(nearestHead([t], 0, p, H)).toBe(0);
+    expect(p.led).toBe(true);
+  });
+});
+
+// OME-2213: a walker's tag gets the same place every walk frame, and a render's restack mostly the same places again;
+// re-writing their margins and classes cost the /conga row its headroom. A place is worn once.
+describe("wearPlace", () => {
+  const fake = () => {
+    const writes: string[] = [];
+    const style = {
+      set marginLeft(v: string) {
+        writes.push(`left ${v}`);
+      },
+      set marginTop(v: string) {
+        writes.push(`top ${v}`);
+      },
+    };
+    const classList = {
+      toggle: (c: string, on: boolean) => {
+        writes.push(`${c} ${String(on)}`);
+        return on;
+      },
+    };
+    return { e: { style, classList }, writes };
+  };
+
+  test("writes a place's margins and classes once, and again only for a new place", () => {
+    const { e, writes } = fake();
+    const worn = new WeakMap<object, TagPlace>();
+    const over: TagPlace = { dx: 0, dy: -40, led: false };
+    wearPlace(e, over, worn, true);
+    expect(writes).toEqual(["left 0px", "top -40px", "is-led false", "is-above true"]);
+    wearPlace(e, over, worn, true);
+    expect(writes).toHaveLength(4);
+    wearPlace(e, { dx: 5, dy: 8, led: true }, worn, true);
+    expect(writes.slice(4)).toEqual(["left 5px", "top 8px", "is-led true", "is-above false"]);
+  });
+
+  test("a restack's equal place, a new object, writes nothing", () => {
+    const { e, writes } = fake();
+    const worn = new WeakMap<object, TagPlace>();
+    wearPlace(e, { dx: 3, dy: -40, led: true }, worn, true);
+    wearPlace(e, { dx: 3, dy: -40, led: true }, worn, true);
+    expect(writes).toHaveLength(4);
+  });
+
+  test("a hit pad wears only the margins", () => {
+    const { e, writes } = fake();
+    wearPlace(e, { dx: 1, dy: 2, led: true }, new WeakMap(), false);
+    expect(writes).toEqual(["left 1px", "top 2px"]);
+  });
+});
+
+// OME-2196: the screen's box (stage px) from its sprites' frames, each drawn from its anchor.
+describe("screenBoxes", () => {
+  test("each marked sprite's frame, around its anchor; unmarked or unloaded ones give nothing", () => {
+    const frames: Record<string, { w: number; h: number; ax: number; ay: number }> = { s: { w: 100, h: 60, ax: 0.5, ay: 0.75 }, o: { w: 10, h: 10, ax: 0, ay: 0 } };
+    const sprites = [{ key: "s", x: 200, y: 300, screen: true as const }, { key: "o", x: 0, y: 0 }, { key: "gone", x: 5, y: 5, screen: true as const }];
+    expect(screenBoxes(sprites, (k) => frames[k])).toEqual([{ x0: 150, x1: 250, y0: 255, y1: 300 }]);
+  });
+
+  // OME-2246 (judge round 7): classic's TV console is one frame, the picture over its anchor and the console's front
+  // under it; the front's last px kept the back row's tags off their heads, 165 px up. A wall screen hangs over its anchor.
+  test("a screen ends at its anchor: what's under it is the stand's front, not the picture", () => {
+    const frames: Record<string, { w: number; h: number; ax: number; ay: number }> = { tv: { w: 162, h: 62, ax: 0.5, ay: 37 / 62 }, wall: { w: 62, h: 70, ax: 0.5, ay: 1.5 } };
+    const sprites = [{ key: "tv", x: 480, y: 236, screen: true as const }, { key: "wall", x: 100, y: 200, screen: true as const }];
+    expect(screenBoxes(sprites, (k) => frames[k])).toEqual([{ x0: 399, x1: 561, y0: 199, y1: 236 }, { x0: 69, x1: 131, y0: 95, y1: 165 }]);
+  });
 });

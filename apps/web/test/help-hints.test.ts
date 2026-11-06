@@ -32,7 +32,7 @@ const blocked = {
   },
 };
 
-async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = memoryStore()) {
+async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = memoryStore(), touch = false) {
   const { createHints } = await import("../src/help/hints");
   const anchors = [document.createElement("div"), document.createElement("form"), document.createElement("button")];
   // happy-dom lays nothing out: each anchor reports a box, as on a real page.
@@ -49,6 +49,7 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
     },
     tv: { box: tv.box, empty: () => tv.empty, picture: tv.picture, message: tv.message },
     next: () => after,
+    touch: () => touch,
   });
   document.body.replaceChildren(...anchors, tv.picture, tv.box, hints.root, after);
   const key = (id: string) => hints.root.querySelector<HTMLButtonElement>(`button[data-testid=${id}]`);
@@ -70,6 +71,12 @@ describe("parseHints: what `omega.hints` says (localStorage is untrusted)", () =
 });
 
 describe("the first-visit tour", () => {
+  test("on touch the floor chip says tap (OME-2263)", async () => {
+    const { hints } = await setup(memoryStore(), true);
+    hints.show();
+    expect(hints.root.textContent).toContain("Tap the floor to walk, double-tap to jog");
+  });
+
   test("hidden until the room shows it; then the first chip, about the floor, next to the floor", async () => {
     const { hints, asked } = await setup();
     expect(hints.root.hidden).toBe(true);
@@ -78,19 +85,6 @@ describe("the first-visit tour", () => {
     expect(hints.root.hidden).toBe(false);
     expect(hints.root.textContent).toContain("Click the floor to walk, double-click to jog");
     expect(asked).toContain(0);
-  });
-
-  test("on touch the floor chip says tap to walk and double-tap to jog", async () => {
-    const real = window.matchMedia.bind(window);
-    window.matchMedia = (q: string) => (q === "(pointer: coarse)" ? Object.defineProperty(real(q), "matches", { value: true }) : real(q));
-    try {
-      const { hints } = await setup();
-      hints.show();
-      expect(hints.root.textContent).toContain("Tap the floor to walk, double-tap to jog");
-      hints.dismiss();
-    } finally {
-      window.matchMedia = real;
-    }
   });
 
   test("a status, not a dialog: role=status, no aria-modal, and it never takes focus", async () => {
@@ -234,6 +228,42 @@ describe("the first-visit tour", () => {
     await Promise.resolve();
     expect(hints.root.style.visibility).toBe("");
     expect(hints.root.style.top).toBe("192px");
+  });
+
+  // OME-2195: Room view (the default from 1100 px) re-boxes the TV when a video arrives, after the screen swap: the chip
+  // placed on the swap sat on the TV's new box (m9-help at 1280×800). A TV that changes size re-places the chip.
+  test("the TV changing size re-places the chip off its new box", async () => {
+    const Real = globalThis.ResizeObserver;
+    const watched = new Map<Element, () => void>();
+    globalThis.ResizeObserver = class {
+      private readonly cb: () => void;
+      constructor(cb: () => void) {
+        this.cb = cb;
+      }
+      observe(t: Element): void {
+        watched.set(t, this.cb);
+      }
+      unobserve(): void {
+        // Nothing to stop: the test fires the callback by hand.
+      }
+      disconnect(): void {
+        watched.clear();
+      }
+    } as unknown as typeof ResizeObserver;
+    try {
+      const { hints, tv } = await setup();
+      tv.empty = false;
+      tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 50, height: 50 });
+      hints.show();
+      expect(hints.root.style.top).toBe("192px");
+      // Re-boxed over the chip's spot: under the picture instead.
+      tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });
+      tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 450 });
+      watched.get(tv.box)?.();
+      expect(hints.root.style.top).toBe("458px");
+    } finally {
+      globalThis.ResizeObserver = Real;
+    }
   });
 
   test("on an empty TV a chip never covers its message: it goes under the message, on the curtain, not under the picture where the chat bar is on a small phone (OME-2104)", async () => {
