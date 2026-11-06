@@ -10,7 +10,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { RESUME_STORAGE_KEY_PREFIX, ROOM_PRESET_IDS } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, ROOT, URLS, available } from "./support/apps";
