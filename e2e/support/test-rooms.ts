@@ -88,7 +88,7 @@ export const SPEC_ROOMS = {
   lie: ["sofa", "bed"],
   replay: ["wire", "clear", "ui"],
   "reaction-safety": ["shape", "big", "flood", "start"],
-  "room-clip": ["idle1280", "idlepixel7", "studio", "penthouse"],
+  "room-clip": ["idle1280", "idlepixel7", "studio", "penthouse", "slow1280"],
   rpolish: ["c1280", "c1920", "c2560", "d1280", "d1920", "d2560", "f1024", "f1366", "f1280", "e1280", "e1920", "e2560", "w320", "w360", "w1280", "p320", "p360", "p390", "t320", "t390", "m1024", "foot390", "nightdim"],
 } as const;
 

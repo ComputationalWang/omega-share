@@ -142,3 +142,23 @@ test("Pixel 7 upright, nothing on: the walls' art clears the shelf and the floor
   if (shelf === null) throw new Error("no shelf");
   expect(shelf.y + shelf.height).toBeLessThanOrEqual(g.clip.y + 1);
 });
+
+// The curtain's height follows the column's now, so the column must not change as the room comes in: the head row (Leave,
+// sound, People) showed only at the first snapshot and took 35 px from it, and the TV, its shelf and the room moved up
+// (room.coldCls.desktop 0.005 → 0.016). With the server's messages held, the TV and the room are where they end up from the
+// first paint of the reserved room.
+test("1280×800, nothing on, loading slowly: the TV and the room's window don't move as the room comes in", async ({ browser }) => {
+  const page = await open(browser, "slow1280", { viewport: { width: 1280, height: 800 } });
+  await page.routeWebSocket(/./, (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((m) => setTimeout(() => { ws.send(m); }, 1500));
+  });
+  await page.reload();
+  const boxes = (): Promise<string> => page.evaluate(() => ["[data-testid=room-window]", ".tv.ui-tv-frame"].map((s) => JSON.stringify(document.querySelector(s)?.getBoundingClientRect())).join(" "));
+  await expect(page.locator(".stage-wrap.is-reserved")).toBeAttached();
+  const early = await boxes();
+  await expect(page.locator(site.tvEmpty)).toBeVisible();
+  await expect(page.locator(".stage-wrap.is-reserved")).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect(await boxes()).toBe(early);
+});
