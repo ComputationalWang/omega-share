@@ -146,8 +146,8 @@ for (const [name, options] of [
       if (await hint.isVisible()) {
         expect(await overlaps(hint, page.locator(site.tv)), `step ${String(i)}`).toBe(false);
         expect(await overlaps(hint, page.locator(site.chatInput)), `step ${String(i)}`).toBe(false);
-        const dock = page.locator(".portrait-keys");
-        if (await dock.isVisible()) expect(await overlaps(hint, dock), `step ${String(i)}`).toBe(false);
+        // Only under 1024 px do the tabs dock above the composer; wide, they head the side column.
+        if ((page.viewportSize()?.width ?? 0) < 1024) expect(await overlaps(hint, page.locator(".panel-tabs")), `step ${String(i)}`).toBe(false);
       }
       await page.locator(site.hintNext).dispatchEvent("click");
     }
@@ -176,7 +176,7 @@ for (const [name, options] of [
 // the room got ~35 % of the height. On touch the chip says tap; one hint shows at a time (the pan hint waits for the
 // tour); with nothing on, the room window gets at least half the viewport.
 for (const [name, width, height] of [["onep", 412, 915], ["onel", 915, 412]] as const) {
-  test(`${String(width)}×${String(height)} touch, nothing on: one hint at a time, tap wording, the room ≥ 50 % of the viewport`, async ({ browser }) => {
+  test(`${String(width)}×${String(height)} touch, nothing on: one hint at a time, tap wording, the room strip keeps its floor (≥ 50 % of the viewport sideways)`, async ({ browser }) => {
     const page = await join(name, browser, false, { ...devices["Pixel 7"], viewport: { width, height } });
     const chip = page.locator(site.firstHint);
     const pan = page.getByTestId("room-pan-hint");
@@ -186,7 +186,10 @@ for (const [name, width, height] of [["onep", 412, 915], ["onel", 915, 412]] as 
     await expect(pan).toBeHidden();
     const win = await page.locator(site.roomWindow).boundingBox();
     if (win === null) throw new Error("not laid out");
-    expect(win.height / height, "room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
+    // Held upright the panel (invite, tabs, composer: ~296 px, OME-2306) sits under the room, so the strip is what's left
+    // of the free height (0.36 of a 412×915 screen), never under HANDOFF "Layout"'s 96 px floor; sideways it keeps half.
+    if (width < height) expect(win.height, "room strip's floor").toBeGreaterThanOrEqual(96);
+    else expect(win.height / height, "room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
     // The tour ends: now the pan hint may say its piece (when the window crops the room), and the chip is gone.
     await page.locator(site.hintSkip).tap();
     await expect(chip).toBeHidden();
@@ -285,7 +288,7 @@ test("phone (touch, 390×844 portrait): each chip sits in the viewport clear of 
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
     expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
-    expect(await overlaps(hint, page.locator(".portrait-keys"))).toBe(false);
+    expect(await overlaps(hint, page.locator(".panel-tabs"))).toBe(false);
     expect(await overlaps(hint, page.locator(site.peopleKey))).toBe(false);
     expect(await overlaps(hint, page.locator(site.helpKey))).toBe(false);
     expect(await wide()).toBe(false);
