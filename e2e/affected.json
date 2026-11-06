@@ -195,6 +195,7 @@
         "e2e/walk.e2e.ts",
         "e2e/website-redesign.e2e.ts",
         "e2e/responsive-polish.e2e.ts",
+        "e2e/phone-make-room.e2e.ts",
         "e2e/wide-layout.e2e.ts",
         "e2e/touch-home.e2e.ts",
         "perf/chat.perf.ts",

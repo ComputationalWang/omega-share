@@ -107,7 +107,20 @@ export function mountHome(opts: HomeOptions): Home {
     note.textContent = PRESETS.find((p) => checked instanceof HTMLInputElement && p.id === checked.value)?.blurb ?? "";
   };
   picker.addEventListener("change", showNote);
-  picker.append(presetList, note);
+  // The phone strip's scroll cue (OME-2266): a dot a preset, the lit one follows the scroll; hidden with the grid (style.css).
+  const dots = el("div", { className: "preset-dots", ariaHidden: "true" });
+  dots.append(...PRESETS.map(() => el("span")));
+  let lit = dots.firstElementChild;
+  lit?.classList.add("is-on");
+  presetList.addEventListener("scroll", () => {
+    const span = presetList.scrollWidth - presetList.clientWidth;
+    const next = dots.children.item(span <= 0 ? 0 : Math.round((presetList.scrollLeft / span) * (PRESETS.length - 1)));
+    if (next === lit || next === null) return;
+    lit?.classList.remove("is-on");
+    next.classList.add("is-on");
+    lit = next;
+  }, { passive: true });
+  picker.append(presetList, dots, note);
   showNote();
   const savedSlot = el("div", { className: "saved-slot" });
   const defaultRadio = (): HTMLInputElement | null => {
