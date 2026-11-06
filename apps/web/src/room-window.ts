@@ -29,15 +29,15 @@ const DESK_ZOOM_STORAGE_KEY = "omega.roomZoomDesk";
 /** The wheel's zoom per px of deltaY (a mouse notch, 100 px, is about one zoom key), and a trackpad pinch's. */
 const WHEEL_RATE = 0.0022;
 const PINCH_RATE = 0.01;
-/** The zoom keys' own band in a short window, 44 px keys and 4 px gaps: over a short room they hid seats (QA OME-1300 F3). */
+/** The zoom keys' band, 44 px keys and 4 px gaps: framing keeps me above it in a tall window. */
 const KEYS_BAND = 52;
 /** A window this tall (three keys' height) has them floating on the room's bottom-right corner, so the room spans the
- * window (OME-2171: a column beside it left a 412 px phone's room 360 px wide); a shorter one has them in a row under it. */
+ * window (OME-2171: a column beside it left a 412 px phone's room 360 px wide); a shorter portrait one floats them too (OME-2306). */
 export const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
 /** The keys in a row beside the room (a wide short window): three 44 px keys, their gaps and the band's edges. */
 const KEYS_ROW_W = 3 * 44 + 4 * 4;
-/** From this width a short window has its keys beside the room, not under it (a phone held sideways, OME-1841); a portrait
- * phone's window (≤ 430 px) keeps them under it. */
+/** From this width a short window has its keys beside the room (a phone held sideways, OME-1841); a portrait
+ * phone's window (≤ 430 px) floats them on it. */
 const KEYS_SIDE_MIN_W = 480;
 /** Such a window needs only its key row's height to show the room beside it (OME-2103: 863×360 left it 90 px under the
  * TV's ADR 0012 minimum, and the portrait floor sent it 58 px past the screen). */
@@ -475,10 +475,12 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       const was = active;
       active = on;
       if (on !== was) for (const e of cropped) crop(e);
-      const keysAt = h >= KEYS_COLUMN_H ? "float" : w >= KEYS_SIDE_MIN_W ? "side" : "row";
+      // A short portrait strip (OME-2306, ≥ 96 px) keeps them floating too: a row under it left me a 44 px sliver.
+      const keysAt = h >= KEYS_COLUMN_H || w < KEYS_SIDE_MIN_W ? "float" : "side";
       view.w = on && keysAt === "side" ? Math.max(0, w - KEYS_ROW_W) : w;
-      view.h = on && keysAt === "row" ? Math.max(0, h - KEYS_BAND) : h;
-      keysOver = keysAt === "float" ? KEYS_BAND : 0;
+      view.h = h;
+      // Framing lifts me above the keys only when the window has the height to spare.
+      keysOver = h >= KEYS_COLUMN_H ? KEYS_BAND : 0;
       clip.dataset["keys"] = keysAt;
       clip.classList.toggle("is-phone", on);
       // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).

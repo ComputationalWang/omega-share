@@ -344,12 +344,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .stage-clip.is-fit .seat { scale: max(1, calc(0.94 / var(--stage-scale))); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
 .stage-pane { position: absolute; inset: 0; }
-/* The zoom keys float on a tall window's bottom-right corner (OME-2171); a short one keeps a band of their own (room-window.ts
- * KEYS_BAND): a row under the room, or beside a short wide one (a phone held sideways, OME-1841). */
+/* The zoom keys float on a portrait window's bottom-right corner (OME-2171, OME-2306); a short wide one keeps a band of its
+ * own beside the room (a phone held sideways, OME-1841). */
 /* The pane hides, not clips (OME-1325): axe-core only counts `overflow: hidden` as clipping, so a cropped tag would read as
  * overlapping the keys under the window. room-window.ts holds the pane's scroll at 0, so focus still can't scroll it. */
 .stage-clip.is-phone > .stage-pane { overflow: hidden; }
-.stage-clip.is-phone[data-keys="row"] > .stage-pane { bottom: 52px; }
 .stage-clip.is-phone[data-keys="side"] > .stage-pane { right: 148px; }
 .room-view-key { position: absolute; right: 4px; z-index: 1; margin: 0; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
