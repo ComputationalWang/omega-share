@@ -55,11 +55,11 @@ describe("Room view at 1280×800 (OME-2170)", () => {
     expect(left + l.stage.w).toBeGreaterThanOrEqual(810);
     // No dead band over the room: the walls' corner (`sky` under the box's top) is at most 60 px under the shelf.
     expect(l.stage.y + sky - (l.controls.y + l.controls.h)).toBeLessThanOrEqual(60);
-    // The TV clears the left wall where the column lets the room go right, else the walls' right end is at its edge
-    // (the player over the left wall's top is by design, ADR 0058).
+    // The TV clears the left wall where the column lets the room go right, else the box's right end is at its edge
+    // (OME-2323: the box is the stage's width, or the column's; the player over the left wall's top is by design, ADR 0058).
     const frameRight = l.tv.x + l.tv.w + 6;
     const wallTop = l.stage.y + sky + (l.stage.x + l.stage.w / 2 - frameRight) / 2;
-    expect(wallTop >= l.tv.y + l.tv.h + 6 || l.stage.x + l.stage.w / 2 + 330 >= w - 1).toBe(true);
+    expect(wallTop >= l.tv.y + l.tv.h + 6 || l.stage.x + l.stage.w >= w - 1).toBe(true);
   });
 
   test("a band that holds the whole room shows it from the walls' tops (stage y 60)", () => {

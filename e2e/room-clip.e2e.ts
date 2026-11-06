@@ -202,6 +202,18 @@ async function cornerWhole(page: Page): Promise<void> {
   const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
   if (shelf === null) throw new Error("no shelf");
   expect(shelf.y + shelf.height).toBeLessThanOrEqual(g.clip.y);
+  // OME-2323 (judge round 12): the window was 660×563 right of an empty column under the curtain, 36 % of the screen.
+  const vp = page.viewportSize();
+  if (vp === null) throw new Error("no viewport");
+  expect(g.clip.w * g.clip.h, "the room's window covers ≥ 45 % of the screen").toBeGreaterThanOrEqual(0.45 * vp.width * vp.height);
+  // Nothing on, the curtain's frame (6 px bezel) ends over the left wall's top, from the walls' corner (480, 0) to its end (150, 165).
+  if (!(await page.locator(site.tvEmpty).isVisible())) return;
+  const tv = await page.locator(site.tv).boundingBox();
+  if (tv === null) throw new Error("no TV");
+  for (let x = 150; x <= 480; x += 2) {
+    const p = g.at(x, (480 - x) / 2);
+    if (p.x <= tv.x + tv.width + 6) expect(p.y, `the left wall's top at stage x ${String(x)}`).toBeGreaterThanOrEqual(tv.y + tv.height + 6);
+  }
 }
 
 for (const [name, preset, playing] of [["idle1280", undefined, false], ["studio", "studio", false], ["penthouse", "penthouse", false], ["play1280", undefined, true], ["playstudio", "studio", true], ["playpenthouse", "penthouse", true]] as const) {
