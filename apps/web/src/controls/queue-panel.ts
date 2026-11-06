@@ -264,7 +264,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
         content.removeAttribute("role");
         content.removeAttribute("aria-label");
       }
-      fitStop();
+      // No fitStop() here: it would force a layout mid-render (OME-2265); the list's ResizeObserver runs it after layout.
     },
     update(s) {
       state = s;
