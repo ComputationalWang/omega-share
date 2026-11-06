@@ -557,10 +557,10 @@ body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod
   /* The field gets the row: the link glyph and Add's icon go ("Paste a video link" showed 10 characters). */
   .room-side .queue-form > .ui-sprite, .room-side .queue-form .ui-button > .ui-sprite { display: none; }
 }
-/* An open poll (QA OME-1460): beside the owner's invite row and bar at 1280×720 it pushed Close poll and the composer
- * below the fold. Up next gives way first (down to its head, its content scrolling), then the card, its options
- * scrolling between its question and Close; the log keeps three lines. */
-.room-side.poll-open :where(.room-panel, .panel-body) > .poll-card { flex: 0 1 auto; min-height: 0; }
+/* An open poll (QA OME-1460) shares the Chat tab with the log: the card stays whole and the tab's body scrolls (OME-2306:
+ * at 844×390 a card shrunk to nothing drew Close poll under the log); the log keeps three lines. */
+.room-side.poll-open .panel-chat:not([hidden]) { overflow-y: auto; }
+.room-side.poll-open :where(.room-panel, .panel-body) > .poll-card { flex: none; }
 .room-side.poll-open :where(.room-panel, .panel-body) > .chat-log { min-height: 60px; }
 .room-side :where(.room-panel, .panel-body) > .poll-card > .poll-options { min-height: 0; overflow-y: auto; }
 .room-side :where(.room-panel, .panel-body) > .chat-away, .room-side > .room-away { max-width: none; }
@@ -944,7 +944,8 @@ body.room-is-portrait > .site-footer { display: none; }
  * right over the docked composer (D: 48 px keys, 3 px over and 4 px under them, a 1 px rule). */
 .room-portrait > .room-panel { flex: 1 1 0; min-height: calc(128px + 168px); padding: 0 8px; }
 .room-portrait .room-panel > .panel-body:not([hidden]) { flex: 1 1 0; min-height: 128px; overflow-y: auto; overscroll-behavior: contain; }
-.room-portrait .room-panel > .panel-body > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; margin: 0; }
+/* An open poll above it never squeezes the log under a touch target's height (as the wide column, 60 px): the body scrolls instead. */
+.room-portrait .room-panel > .panel-body > .chat-log { flex: 1 1 auto; min-height: 60px; max-height: none; margin: 0; }
 .room-portrait .room-panel > .panel-tabs { position: sticky; bottom: 56px; z-index: 2; padding-top: 4px; background: var(--bg); }
 .room-portrait .room-panel > .chat { position: sticky; bottom: 0; z-index: 2; box-sizing: border-box; min-height: 56px; padding: 3px 0 4px; border-top: 1px solid #3a3452; background: var(--bg); }
 .room-portrait.portrait-typing > .room-panel { min-height: 0; }
