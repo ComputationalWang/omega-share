@@ -220,7 +220,8 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const roomH = editing ? Math.ceil(ROOM_VIEW.h * editFit(maxScale, w, Infinity)) : (ROOM_FILL_FOOT + 1 - BAND_WALL_TOP + FLOOR_CLEAR) * maxScale;
   const split = (curtain || editing) && rest - roomH >= CURTAIN_MIN_H * chrome ? Math.min(share, rest - roomH) : share;
   const tvFit = provider === null || editing ? split : Math.max(split, rest - Math.max(BAND_MIN_H, h * BAND_SHARE));
-  const room = roomView && provider !== null;
+  // Editing, Room view's corner TV would leave the room only the width beside it (QA OME-2297): the TV tops the room.
+  const room = roomView && provider !== null && !editing;
   const tvW = room ? Math.min(min, Math.max(0, w - 2 * TV_BEZEL)) : Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor(tvFit / ratio)));
   const keysMin = (provider === "twitch" ? TWITCH_SHELF_MIN_W : SHELF_MIN_W) * chrome;
   // Room view (OME-2170): the TV at its floor, left, and its shelf beside it where the shelf's keys fit, so the room
