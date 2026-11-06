@@ -381,7 +381,7 @@ input[type=range]::-moz-range-thumb { width: 10px; height: 16px; border: 2px sol
 @media (max-width: 1023px) {
   .drawer-header { padding: 0; }
   .panel-content { padding: 12px 0; }
-  .panel-tabs { margin-inline: 0; background: var(--ui-panel); bottom: 56px; }
+  .panel-tabs { position: sticky; margin-inline: 0; background: var(--ui-panel); bottom: 56px; }
   .panel-tabs button { font-size: 12px; }
   .composer { padding: 3px 0 4px; }
   .transport.ui-tv-shelf { height: 44px; padding: 0; }
