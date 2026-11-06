@@ -82,6 +82,12 @@ legend { padding: 0; margin-bottom: 6px; }
 .home .preset-picker, .home .saved-layouts { display: grid; gap: 6px; min-width: 0; }
 .preset-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
 .preset { flex: none; width: 140px; display: grid; gap: 2px; align-content: start; scroll-snap-align: start; padding: 6px; border: 2px solid transparent; border-radius: 8px; background: var(--bg); cursor: pointer; position: relative; }
+/* Two whole cards, then 24 px of the next under a 32 px fade on a phone (OME-2284): a cue that more sit to the side, with no cut label
+ * to read. The end padding lets the last card scroll clear of the fade; it also shrinks the 100% a card is sized from. */
+@media (max-width: 600px) {
+  .preset-list { padding: 0 32px 6px 0; mask-image: linear-gradient(to right, #000 calc(100% - 32px), rgb(0 0 0 / 25%) calc(100% - 24px), transparent); }
+  .preset { width: calc((100% - 8px) / 2); }
+}
 .preset:has(input:checked) { border-color: var(--accent); }
 .preset:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .preset img { width: 100%; height: auto; border-radius: 4px; image-rendering: pixelated; }
@@ -89,8 +95,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .preset-name { font-weight: 600; }
 .preset-blurb { color: var(--muted); font-size: var(--text-xs); line-height: var(--leading-body); }
 /* The strip's scroll cue (OME-2266): the third card peeks at the edge, and a dot a preset shows where you are. */
-.preset-dots { display: flex; justify-content: center; gap: 6px; }
-.preset-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--dusk-border); }
+.preset-dots { display: flex; justify-content: center; gap: 8px; }
+.preset-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--dusk-border); }
 .preset-dots .is-on { background: var(--dusk-honey); }
 /* A computer (OME-1810, design OME-1809): all 8 presets at once, a 4×2 grid with no sideways scroll; 2 columns under 360 px. */
 @media (min-width: 1024px) {
@@ -149,6 +155,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .welcome input::placeholder, .home input::placeholder { color: var(--dusk-muted); opacity: 0.8; }
 .welcome input[aria-invalid="true"] { border-color: var(--dusk-error); }
 .welcome .error, .home .error { color: var(--dusk-error); font-size: 14px; }
+/* Empty, the create form's error line takes no row (OME-2284); it stays in the accessibility tree as a live region. */
+.home .create-room .error:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .welcome .enter, .home .enter { height: 48px; margin-top: 8px; padding: 0 16px; border: 0; border-radius: 4px; background: var(--dusk-honey); color: var(--dusk-canvas); font-size: 16px; font-weight: 750; box-shadow: inset 0 -4px 0 var(--dusk-wood); cursor: pointer; }
 .welcome .link, .home .link { min-height: 44px; color: var(--dusk-honey); text-underline-offset: 4px; }
 
