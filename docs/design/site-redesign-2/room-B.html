@@ -1,0 +1,147 @@
+<!-- PROTOTYPE B: Notice board — A two-column desk keeps the screen and pixel room beside an always-open conversation. Throwaway, not product code. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Notice board</title>
+  <link rel="stylesheet" href="B.css">
+</head>
+<body class="room-page" data-pane="watch">
+<a class="skip" href="#main">Skip to content</a>
+<div class="room-shell">
+  <header class="room-top">
+    <a class="back" href="entry-B.html"><span aria-hidden="true">←</span> Leave</a>
+    <button type="button" class="top-mute" aria-label="Mute your audio (visual preview)" data-demo="Audio is a visual preview; there is no player connected."><span aria-hidden="true">♬</span></button>
+    <div class="room-title"><h1>The living room</h1><p>omega-share / lobby</p></div>
+    <details class="top-details"><summary>People <span class="counter">04</span></summary><div class="details-card"><strong>Good company</strong><p class="small">Illustrative guests</p><ul><li>Juno — you</li><li>Pip</li><li>Mo</li><li>Kiki</li></ul></div></details>
+    <details class="top-details help"><summary>Help <span aria-hidden="true">?</span></summary><div class="details-card"><strong>Around the room</strong><p>Choose a view on your phone. The composer stays at hand.</p><p class="small">This is a design prototype. Playback, chat, queue, zoom and reporting are visual previews. Tabs, invite copy and the empty-state example work.</p></div></details>
+  </header>
+  <main id="main">
+    <div class="room-intro"><strong>Four seats taken. Plenty of room.</strong><span>Design preview · sample conversation</span></div>
+    <nav class="mobile-tabs" aria-label="Room views">
+      <button type="button" data-pane="watch" aria-pressed="true" aria-controls="watch-pane">Watch</button>
+      <button type="button" data-pane="room" aria-pressed="false" aria-controls="scene-pane invite-pane">Room</button>
+      <button type="button" data-pane="chat" aria-pressed="false" aria-controls="chat-pane">Chat</button>
+      <button type="button" data-pane="queue" aria-pressed="false" aria-controls="queue-pane">Up next</button>
+    </nav>
+    <div class="desk">
+      <div class="watch-column">
+        <section class="watch-pane" id="watch-pane" aria-label="Watch together">
+          <div class="video-box" role="img" aria-label="Video placeholder: A slow evening in Kyoto. There is no live player in this prototype.">
+            <span class="video-label">ON THE SCREEN / 01 · VIDEO PLACEHOLDER</span>
+            <span class="video-center" aria-hidden="true">▷</span>
+            <div class="video-title"><h2>A slow evening<br>in Kyoto.</h2><p>Night walks &amp; little discoveries · shared by Pip</p></div>
+          </div>
+          <div class="transport" role="group" aria-label="Playback controls, visual preview only">
+            <div class="transport-main">
+              <button type="button" aria-label="Pause for everyone (visual preview)" data-demo="Playback is a visual preview; no video is connected.">Ⅱ</button>
+              <span class="clock">04:32</span>
+              <input class="scrub" type="range" min="0" max="754" value="272" aria-label="Video position in seconds (visual preview)">
+              <span class="clock">12:34</span>
+            </div>
+            <div class="transport-more">
+              <div class="scope"><b>↔ Everyone</b><span>Volume: only you</span></div>
+              <div class="personal-controls">
+                <label class="volume-label">Volume <input type="range" min="0" max="100" value="70" aria-label="Your volume (visual preview)"></label>
+                <button type="button" aria-label="Pop out video (visual preview)" data-demo="Pop-out is a visual preview.">↗</button>
+                <button type="button" aria-label="Fullscreen video (visual preview)" data-demo="Fullscreen is a visual preview.">⛶</button>
+              </div>
+            </div>
+          </div>
+          <p class="demo-note">Playback controls are illustrative. Choose Room to see who's here on a phone.</p>
+        </section>
+        <section class="scene-section" id="scene-pane" aria-labelledby="room-view-title">
+          <div class="pane-heading"><h2 id="room-view-title">Room view</h2><p>A little room for a good evening.</p></div>
+          <figure class="room-scene" aria-label="The living room with Juno, Pip, Mo and Kiki. Static room illustration.">
+            <div class="scene-inner">
+              <img src="../../../assets/site/website-room.png" width="656" height="536" alt="A cosy isometric pixel room with books, soft seats, warm lamps and a blue patterned rug.">
+              <div class="resident r1"><span class="mini-sprite" aria-hidden="true"></span><span class="name-tag">Juno · you</span></div>
+              <div class="resident r2"><span class="mini-sprite pip" aria-hidden="true"></span><span class="name-tag">Pip</span></div>
+              <div class="resident r3"><span class="mini-sprite mo" aria-hidden="true"></span><span class="name-tag">Mo</span></div>
+              <div class="resident r4"><span class="mini-sprite kiki" aria-hidden="true"></span><span class="name-tag">Kiki</span></div>
+            </div>
+          </figure>
+          <div class="scene-caption"><span>Static scene · zoom is a preview</span><div class="zoom-controls" role="group" aria-label="Room zoom, visual preview"><button type="button" aria-label="Zoom out (visual preview)" data-demo="Zoom is a visual preview. Room artwork stays at its native pixel scale.">−</button><span>1×</span><button type="button" aria-label="Zoom in (visual preview)" data-demo="Zoom is a visual preview. Room artwork stays at its native pixel scale.">+</button></div><button type="button" data-demo="Reporting is not connected in this design prototype.">Report room</button></div>
+        </section>
+      </div>
+      <aside class="side-panel" aria-label="Room conversation and queue">
+        <section class="invite" id="invite-pane" aria-labelledby="invite-title">
+          <div class="invite-heading"><h2 id="invite-title">Good company travels.</h2><span>Invite a friend ↗</span></div>
+          <label class="sr-only" for="invite-link">Illustrative invite link, not a live room</label>
+          <div class="input-action"><input id="invite-link" type="text" value="https://omega-share.example/r/living-room" readonly><button type="button" id="copy-invite">Copy</button></div>
+          <p class="demo-note">Example link · not a live room</p>
+        </section>
+        <section class="chat-pane panel-pad" id="chat-pane" aria-labelledby="chat-title">
+          <div class="chat-heading"><h2 id="chat-title">The conversation</h2><span>04 here / sample chat</span></div>
+          <div class="chat-log" tabindex="0" role="region" aria-label="Sample chat history">
+            <p class="system-line">19:41 · Kiki came in. Make yourself at home.</p>
+            <p class="chat-line"><b>Pip <time datetime="19:41">19:41</time></b>Found our evening watch.</p>
+            <p class="chat-line"><b>Juno <time datetime="19:41">19:41</time></b>This is exactly the pace I needed.</p>
+            <p class="chat-line"><b>Mo <time datetime="19:42">19:42</time></b>That little bookshop on the corner!</p>
+            <p class="chat-line"><b>Kiki <time datetime="19:42">19:42</time></b>hi everyone, brought tea ☕</p>
+            <p class="chat-line emote"><b>Juno <time datetime="19:42">19:42</time></b>☞ pulls up a chair beside Pip.</p>
+            <p class="chat-line"><b>Pip <time datetime="19:43">19:43</time></b>Wait for the lanterns in the next street.</p>
+            <p class="chat-line"><b>Mo <time datetime="19:43">19:43</time></b>Added something for after this.</p>
+            <p class="chat-line"><b>Kiki <time datetime="19:43">19:43</time></b>No plans. Just staying a while.</p>
+          </div>
+        </section>
+        <form class="composer" id="chat-form" aria-label="Chat composer, visual preview only">
+          <button class="emote-key" type="button" aria-label="Open emote wheel (visual preview)" data-demo="Emote wheel preview: wave, smile, dance and cheer.">☺</button>
+          <label class="sr-only" for="message">Your message (not sent in this prototype)</label><input id="message" type="text" placeholder="Say something…" maxlength="500" autocomplete="off">
+          <button type="submit" class="say">Say</button>
+        </form>
+        <section class="queue panel-pad" id="queue-pane" aria-labelledby="queue-title">
+          <div class="queue-heading"><h2 id="queue-title">Up next</h2><span>02 videos / sample queue</span></div>
+          <ol class="queue-list">
+            <li><div><h3>A tiny café on a rainy day</h3><p>YouTube · added by Mo</p></div><time datetime="PT8M16S">8:16</time></li>
+            <li><div><h3>Making a little home</h3><p>Vimeo · added by Juno</p></div><time datetime="PT6M42S">6:42</time></li>
+          </ol>
+          <form id="queue-form"><label for="video-link">Paste a video link</label><div class="input-action"><input id="video-link" type="url" placeholder="https://…"><button type="submit">Add</button></div><p class="demo-note">Visual preview · nothing will be added.</p></form>
+          <details class="empty-example"><summary>Preview an empty queue</summary><p>Nothing lined up yet. Paste a video link and choose what the room watches next.</p></details>
+        </section>
+        <p class="room-notice">Design prototype. Video, chat, queue, zoom and reporting are illustrative. Nothing is sent or saved.</p>
+        <p class="room-feedback" id="room-feedback" role="status" aria-live="polite"></p>
+      </aside>
+    </div>
+  </main>
+  <footer class="footer">
+    <nav aria-label="Footer"><a href="../../../apps/web/privacy.html">Privacy</a><span aria-hidden="true">·</span><a href="../../../apps/web/terms.html">Terms</a><span aria-hidden="true">·</span><a href="../../../apps/web/contact.html">Contact</a><span aria-hidden="true">·</span><a href="../../../apps/web/licenses.html">Licences</a><span aria-hidden="true">·</span><a href="https://github.com/ComputationalWang/omega-share" target="_blank" rel="noopener noreferrer" aria-label="Source, opens in a new tab">Source ↗</a><span aria-hidden="true">·</span><a href="https://github.com/ComputationalWang/omega-share/issues" target="_blank" rel="noopener noreferrer" aria-label="Feedback, opens in a new tab">Feedback ↗</a></nav>
+    <span class="version">Original pixel art · CC BY-SA 4.0 · version B / prototype</span>
+  </footer>
+</div>
+<script>
+const feedback = document.querySelector('#room-feedback');
+document.querySelectorAll('.mobile-tabs button').forEach(button => {
+  button.addEventListener('click', () => {
+    document.body.dataset.pane = button.dataset.pane;
+    feedback.textContent = '';
+    document.querySelectorAll('.mobile-tabs button').forEach(tab => tab.setAttribute('aria-pressed', String(tab === button)));
+  });
+});
+document.querySelectorAll('[data-demo]').forEach(button => {
+  button.addEventListener('click', () => { feedback.textContent = button.dataset.demo; });
+});
+document.querySelector('#chat-form').addEventListener('submit', event => {
+  event.preventDefault();
+  feedback.textContent = 'Chat preview only. Your message has not been sent.';
+});
+document.querySelector('#queue-form').addEventListener('submit', event => {
+  event.preventDefault();
+  feedback.textContent = 'Queue preview only. No video has been added.';
+});
+document.querySelector('#copy-invite').addEventListener('click', async () => {
+  const input = document.querySelector('#invite-link');
+  try {
+    await navigator.clipboard.writeText(input.value);
+    feedback.textContent = 'Example link copied. This is not a live room.';
+  } catch {
+    input.focus();
+    input.select();
+    feedback.textContent = 'Copy unavailable here. The example link is selected so you can copy it yourself.';
+  }
+});
+</script>
+<script src="switcher.js"></script>
+</body>
+</html>
