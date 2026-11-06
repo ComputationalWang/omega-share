@@ -60,6 +60,8 @@ async function queued(browser: Browser, name: RoomName<"side-column">, options: 
     }, [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [room.id]: { ownerToken: room.ownerToken, inviteKey: room.inviteKey } } })]); } }) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
+  // The queue is the Up next tab's (OME-2306); Chat is selected at load.
+  await page.getByTestId("portrait-queue").click();
   const panel = page.locator(site.queuePanel);
   await expect(panel).toBeVisible();
   // The first link plays (an empty room starts it), the second waits under Up next.
@@ -115,7 +117,10 @@ for (const [name, w, h, extra, [first, again]] of OWNER_VIEWPORTS) {
   test(`${String(w)}×${String(h)}${"hasTouch" in extra ? " touch" : ""}, the owner: People shows its look rows and first person, the chat keeps 3 lines, the owner's tools end the tab`, async ({ browser }) => {
     // A retry gets a fresh room: the first try's video still plays in this one, so its first link would queue.
     const page = await queued(browser, name, { viewport: { width: w, height: h }, ...extra }, test.info().retry === 0 ? first : again);
+    // The owner's tools are the Room tab's, the log the Chat tab's (OME-2306).
+    await page.getByTestId("portrait-settings").click();
     await expect(page.locator(site.editRoom)).toBeVisible();
+    await page.getByTestId("portrait-chat").click();
     const tv = await box(page.locator(site.tv));
     await page.locator(site.peopleKey).click();
     const panel = page.locator(site.peoplePanel);
@@ -142,14 +147,15 @@ for (const [name, w, h, extra, [first, again]] of OWNER_VIEWPORTS) {
     expect(lb.height).toBeGreaterThanOrEqual(3 * line.height);
     expect(lb.y + lb.height).toBeLessThanOrEqual(h);
 
-    // 3. The owner's tools end the People tab instead of sitting above it.
-    const edit = page.locator(site.editRoom);
-    expect((await box(edit)).y).toBeGreaterThan(p.y);
-    await edit.scrollIntoViewIfNeeded();
-    await expect(edit).toBeInViewport();
-
     await page.locator(site.peopleKey).click();
     await expect(panel).toBeHidden();
+    expect(await box(page.locator(site.tv))).toEqual(tv);
+
+    // 3. The owner's tools sit in the Room tab, reachable, and opening it leaves the TV put.
+    await page.getByTestId("portrait-settings").click();
+    const edit = page.locator(site.editRoom);
+    await edit.scrollIntoViewIfNeeded();
+    await expect(edit).toBeInViewport();
     expect(await box(page.locator(site.tv))).toEqual(tv);
   });
 }
