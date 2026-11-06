@@ -114,7 +114,8 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   let portrait = false;
   /** A list that scrolls is a named tab stop (a viewer's rows have no control to scroll it by key), and only then. */
   const fitStop = (): void => {
-    const over = list.scrollHeight > list.clientHeight;
+    // An empty list can't scroll: no size read, which forced a layout mid-render on every join (OME-2280).
+    const over = list.childElementCount > 0 && list.scrollHeight > list.clientHeight;
     if (over === list.hasAttribute("tabindex")) return;
     if (over) {
       list.tabIndex = 0;
