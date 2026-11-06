@@ -134,9 +134,6 @@ for (const [name, preset] of [["idle1280", undefined], ["studio", "studio"], ["p
 
 test("Pixel 7 upright, nothing on: the walls' art clears the shelf and the floor's corner the window's foot", async ({ browser }) => {
   const page = await open(browser, "idlepixel7", PIXEL_7);
-  // The phone's window is framed on me by default (OME-2306); Fit is the whole room, which is what this protects.
-  await page.getByTestId("room-zoom-fit").click();
-  await page.waitForTimeout(500);
   const g = await geometry(page);
   // Sideways the window crops the room by design (its pan hint says so, OME-2234); upright it holds the art to the floor.
   // From the stage as drawn (the zoom keys and the pan hint float over the window's foot and its corner, OME-2171).
@@ -236,9 +233,6 @@ const DESK_TOP = 198;
 test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are whole, 8 px clear of the shelf and the hint", async ({ browser, request }) => {
   await shareProvider(request, "https://youtu.be/rcplay00002", testRoom("room-clip", "playpixel7").id);
   const page = await open(browser, "playpixel7", PIXEL_7, undefined, true);
-  // The phone's window is framed on me by default (OME-2306); Fit is the whole room, which is what this protects.
-  await page.getByTestId("room-zoom-fit").click();
-  await page.waitForTimeout(500);
   const g = await geometry(page);
   const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
   const keys = await page.locator(".room-zoom").boundingBox();
