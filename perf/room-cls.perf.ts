@@ -93,9 +93,14 @@ for (const profile of ["desktop", "landscape", "portrait"] as const) {
 
 // OME-2261: CLS loading a room cold. A guest joins, then reloads `/r/<id>` (a returning guest, no input); every layout shift
 // from navigation start until the room has drawn and 2 s after, summed. Rows: room.coldCls.desktop (1280×800), room.coldCls.phone4x.
+// OME-2281: room.coldCls.phoneLate, the same phone with the room chunk and every server message held 1.5 s: the page paints
+// before the room settles (as a slow real phone does under load), so the late portrait dock and footer stow count;
+// room.coldCls.landscapeLate, the same held sideways (915×412).
 const COLD = [
-  { id: "room.coldCls.desktop", options: { viewport: { width: 1280, height: 800 } }, cpu: 1 },
-  { id: "room.coldCls.phone4x", options: devices["Pixel 7"], cpu: 4 },
+  { id: "room.coldCls.desktop", options: { viewport: { width: 1280, height: 800 } }, cpu: 1, holdMs: 0 },
+  { id: "room.coldCls.phone4x", options: devices["Pixel 7"], cpu: 4, holdMs: 0 },
+  { id: "room.coldCls.phoneLate", options: devices["Pixel 7"], cpu: 4, holdMs: 1500 },
+  { id: "room.coldCls.landscapeLate", options: PROFILES.landscape, cpu: 4, holdMs: 1500 },
 ] as const;
 const COLD_SETTLE_MS = 2000;
 
@@ -128,9 +133,19 @@ for (const p of COLD) {
       });
       const cdp = await page.context().newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: p.cpu });
+      if (p.holdMs > 0) {
+        await page.route(/\/assets\/room-[^/]*\.js$/, async (route) => {
+          await new Promise((r) => setTimeout(r, p.holdMs));
+          await route.continue();
+        });
+        await page.routeWebSocket(/./, (ws) => {
+          const server = ws.connectToServer();
+          server.onMessage((m) => setTimeout(() => { ws.send(m); }, p.holdMs));
+        });
+      }
       await page.reload();
       await expect(page.locator(site.room)).toBeVisible({ timeout: 60_000 });
-      await page.waitForTimeout(COLD_SETTLE_MS * p.cpu);
+      await page.waitForTimeout(COLD_SETTLE_MS * p.cpu + p.holdMs);
       const shifts = await page.evaluate(() => {
         const seen: unknown = Reflect.get(window, "__roomShifts");
         return Array.isArray(seen) ? (seen as { value: number; nodes: string[] }[]) : [];
