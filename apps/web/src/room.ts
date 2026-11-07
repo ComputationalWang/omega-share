@@ -838,6 +838,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     bubbleSides: (x0, x1, y1, y0) => {
       roomStage.bubbleSides(x0, x1, y1, y0);
     },
+    bubbleAvoid: (boxes, w) => {
+      roomStage.bubbleAvoid(boxes, w);
+    },
     tv: tvBox,
     moments: strip.root,
     log: chatLog,

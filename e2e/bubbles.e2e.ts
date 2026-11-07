@@ -138,11 +138,11 @@ test("up to 10 per speaker (OME-1050): three quick lines all float; the bubbles 
   await expect(a.page.locator(`${site.room} .float-slot`)).toHaveCount(16);
 });
 
-/** The bubble's box against where it should hang: centred on the head (left = -width/2), the tail straight down. */
+/** The bubble's box against where it should hang: centred on the head (its translate x = -width/2, OME-2349), the tail straight down. */
 async function expectCentred(page: Page, text: string): Promise<void> {
   const p = page.locator(".ui-float").filter({ hasText: text });
   await expect(p).toBeVisible();
-  const box = await p.evaluate((e) => ({ left: parseFloat((e as HTMLElement).style.left), w: (e as HTMLElement).offsetWidth, cls: e.getAttribute("class") ?? "" }));
+  const box = await p.evaluate((e) => ({ left: parseFloat((e as HTMLElement).style.translate), w: (e as HTMLElement).offsetWidth, cls: e.getAttribute("class") ?? "" }));
   expect(box.w).toBeGreaterThan(0);
   expect(Math.abs(box.left + box.w / 2)).toBeLessThanOrEqual(1);
   expect(box.cls).not.toMatch(/tail-sw|tail-se/);
