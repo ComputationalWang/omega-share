@@ -343,12 +343,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    * Keep the box inside the stage's sides (the phone window's, once it settles: `sides`); the tail leans when the speaker is past a straight tail's reach. `dx` is in
    * stage px; the box's own styles are in its px (shown `k`× inside the motion wrapper).
    */
-  const placeBox = (s: Slot): void => {
+  const placeBox = (s: Slot, push = 0): void => {
     const w = s.w * k;
     let left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
     // Where its rise would reach the TV, it goes beside it, the nearer side that fits (OME-2349).
     for (const b of over) {
-      if (!sweeps(s, 0, b, left)) continue;
+      if (!sweeps(s, push, b, left)) continue;
       const r = Math.ceil(b.x1 + MARGIN);
       const l = Math.floor(b.x0 - MARGIN - w);
       const rFits = r + w <= sideR - MARGIN;
@@ -398,6 +398,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       const s = order[i];
       if (s === undefined) continue;
       let push = s.push;
+      let slid = false;
       for (let moved = true; moved; ) {
         moved = false;
         for (let j = 0; j < i; j++) {
@@ -427,6 +428,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
             push += s.ay - (s.h + TAIL_BELOW) * k - push - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k + GAP - b.y0;
             moved = true;
           }
+        }
+        // Pushed up into the TV: once, it goes beside it at that height, and is checked against the newer ones there.
+        if (!moved && !slid && over.some((b) => sweeps(s, push, b))) {
+          slid = true;
+          placeBox(s, push);
+          moved = !over.some((b) => sweeps(s, push, b));
         }
       }
       // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
