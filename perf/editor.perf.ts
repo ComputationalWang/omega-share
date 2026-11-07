@@ -52,6 +52,7 @@ test("editor: owner frames with the editor open, guest frames across a save", as
     await waitPlaying(all);
     // Baseline: owner, editor closed.
     out["ownerClosed"] = (({ samples, workMs }) => row(samples, workMs))(await tracedFrames(browser, owner, 5000));
+    await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
     await owner.locator(site.editRoom).click();
     await expect(owner.locator(site.editorTray)).toBeVisible();
     await owner.waitForTimeout(1000);
