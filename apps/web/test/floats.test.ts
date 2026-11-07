@@ -915,6 +915,48 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     expect(push("first")).toBe("-33px");
     expect(push("second")).toBe("0px");
   });
+
+  // OME-2373 (QA, 1280×800): five under the corner TV, 3 lines each. A lift past tags that cost a bubble was dropped,
+  // but the bubbles it had slid beside the TV stayed there, untested: two speakers' bubbles on top of each other.
+  test("two speakers' bubbles beside the TV never sit on each other for longer than a slide-clear", async () => {
+    const { floats, frame, advance, layer, FLOAT_LEAVE_MS } = await setup({ nameW: 40 });
+    floats.avoid([{ x0: 0, x1: 383, y0: 0, y1: 220 }]);
+    const at = { s0: [299, 274], s1: [286, 329], s2: [318, 292], s3: [367, 323], s4: [169, 330] } as const;
+    floats.tags(new Map(Object.entries(at).map(([id, [x, y]]) => [id, { x0: x - 30, x1: x + 30, y0: y + 4, y1: y + 20 }])));
+    // Each member's first line (ms), 300 ms apart after it.
+    const starts = [63, 58, 298, 18, 115];
+    const px = (v: string | undefined): number => (v === undefined || v === "" ? 0 : Number.parseFloat(v));
+    /** Every placed bubble not leaving, in stage px: head + translate, minus push and rise. */
+    const boxes = () =>
+      [...layer.querySelectorAll<HTMLElement>(".float-slot:not([hidden]) .ui-float.is-live:not(.is-leaving)")].map((p) => {
+        const m = p.parentElement?.style;
+        const [ax = 0, ay = 0] = (p.closest<HTMLElement>(".float-slot")?.style.transform.match(/-?[\d.]+/g) ?? []).map(Number);
+        const [dx, dy] = p.style.translate.split(" ").map(px);
+        const top = ay + (dy ?? 0) + px(/-?[\d.]+/.exec(m?.transform ?? "")?.[0]) + px(m?.translate.split(" ")[1]);
+        const x0 = ax + (dx ?? 0);
+        return { text: p.querySelector(".say > span")?.textContent ?? "", x0, x1: x0 + W + (p.classList.contains("is-stacked") ? 40 : 0), y0: top, y1: top + H };
+      });
+    let run = 0;
+    let longest = 0;
+    const beside = new Set<string>();
+    for (let t = 0; t < 7000; t += 16) {
+      Object.entries(at).forEach(([id, [x, y]], i) => {
+        for (let n = 0; n < 3; n++) {
+          const due = (starts[i] ?? 0) + n * 300;
+          if (due >= t && due < t + 16) floats.say(say(id, `${id} line ${String(n)}`, x, y));
+        }
+      });
+      frame();
+      advance(16);
+      const b = boxes();
+      for (const x of b) if (x.x0 === 387) beside.add(x.text.split(" ")[0] ?? "");
+      const hit = b.some((p, i) => b.some((q, j) => j > i && p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1));
+      run = hit ? run + 16 : 0;
+      longest = Math.max(longest, run);
+    }
+    expect(beside.size).toBeGreaterThanOrEqual(2);
+    expect(longest).toBeLessThanOrEqual(FLOAT_LEAVE_MS);
+  });
 });
 
 test("windowToStage: the room window's boxes (CSS px from its top-left) in stage px, by the window's sides and width", async () => {

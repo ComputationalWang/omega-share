@@ -465,9 +465,11 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     stackOnly.length = 0;
     stackOnly.push(...planned);
     // The lifts past tags never become pushes: kept, the next line would stack on them and send the oldest off the top.
+    // Discarded, its slides beside the TV and its stacks stay (OME-2373): the stack is planned again where they are.
     if (tagBoxes.size > 0 && plan(true) > without) {
-      planned.length = 0;
-      planned.push(...stackOnly);
+      plan(false);
+      stackOnly.length = 0;
+      stackOnly.push(...planned);
     }
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
