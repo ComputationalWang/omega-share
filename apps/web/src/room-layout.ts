@@ -564,7 +564,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const on = roomView();
       roomViewKey.ariaPressed = String(on);
-      const l = roomOut ? fullscreenLayout(w, h, laidOut(), "none") : wideLayout(w, h, laidOut(), zoom, roomScale(window.innerWidth, window.innerHeight), on, false, document.body.classList.contains("room-editing"));
+      const editing = document.body.classList.contains("room-editing");
+      // Editing, the curtain gives way to the whole room again (OME-2283): the owner's own act, on no one else's screen.
+      const shown = editing ? tvBox.provider() : laidOut();
+      const l = roomOut ? fullscreenLayout(w, h, laidOut(), "none") : wideLayout(w, h, shown, zoom, roomScale(window.innerWidth, window.innerHeight), on, editing && tvBox.empty(), editing);
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
@@ -593,11 +596,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
         } else {
-          // With a video the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
-          // if it must. Without one the room isn't a band and keeps its whole scale (OME-1811).
-          const video = laidOut() !== null;
+          // With a video, or nothing on (OME-2347), the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
+          // if it must. A generic page's room isn't a band and keeps its whole scale (OME-1811).
+          const video = shown !== null;
           // The open editor fits the whole room (OME-2264): cropped to the column beside it, the walls and their pieces were cut.
-          const editing = document.body.classList.contains("room-editing");
           const k = editing ? editFit(l.scale, l.stage.w, l.stage.h) : video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
           // Room view's box (OME-2233) keeps its place: centred where the TV clears the walls, else right of centre.
