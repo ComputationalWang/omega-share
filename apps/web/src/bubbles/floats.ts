@@ -191,7 +191,7 @@ interface Slot {
   /** As written: whole pixels risen, and opacity (hundredths). */
   rise: number;
   alpha: number;
-  /** Sent away: it goes at the clock's first step from this time on. */
+  /** Sent away: it goes at this time, the clock woken for it between steps (OME-2373). */
   leaveAt: number;
 }
 
@@ -233,7 +233,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   /** Live bubbles, newest first, rebuilt per resolve (no allocation). */
   const order: Slot[] = [];
   let seq = 0;
-  let clock: unknown = null;
+  /** When the clock next wakes (ms on `now`'s clock); Infinity: stopped. A wake moved earlier leaves the later timer a no-op. */
+  let clockAt = Number.POSITIVE_INFINITY;
   /** Bubbles show k× their measured size (OME-1184, `scale`); pushes and dx are stage px. */
   let k = 1;
   /** The sides the boxes keep inside (stage px): the stage's, or the phone window's once it settles (OME-1945). */
@@ -291,8 +292,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   };
 
   /** A step of the clock: every bubble due goes, the rest are painted; it stops when the layer is empty. */
-  const step = (): void => {
-    clock = null;
+  const step = (at: number): void => {
+    if (at !== clockAt) return;
+    clockAt = Number.POSITIVE_INFINITY;
     const now = o.now();
     let any = false;
     for (const s of slots) {
@@ -322,7 +324,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   };
 
   const run = (now: number): void => {
-    if (clock === null) clock = o.setTimer(step, Math.max(1, Math.ceil(stepAt(stepOf(now) + 1) - now)));
+    let at = stepAt(stepOf(now) + 1);
+    // One sent away often sits on the newer one's slot (beside the TV): it goes on time, not up to a step later.
+    for (const s of slots) if (s.state === LEAVING && s.leaveAt < at) at = s.leaveAt;
+    if (at >= clockAt) return;
+    clockAt = at;
+    o.setTimer(() => {
+      step(at);
+    }, Math.max(1, Math.ceil(at - now)));
   };
 
   const leave = (s: Slot): void => {
@@ -333,9 +342,11 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       free(s);
       return;
     }
-    s.leaveAt = o.now() + FLOAT_LEAVE_MS;
+    const now = o.now();
+    s.leaveAt = now + FLOAT_LEAVE_MS;
     s.p.classList.add("is-leaving");
-    paint(s, o.now());
+    paint(s, now);
+    run(now);
   };
 
   const anchor = (s: Slot, x: number, y: number): void => {
@@ -491,9 +502,11 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     stackOnly.length = 0;
     stackOnly.push(...planned);
     // The lifts past tags never become pushes: kept, the next line would stack on them and send the oldest off the top.
+    // Discarded, its slides beside the TV and its stacks stay (OME-2373): the stack is planned again where they are.
     if (tagBoxes.size > 0 && plan(true) > without) {
-      planned.length = 0;
-      planned.push(...stackOnly);
+      plan(false);
+      stackOnly.length = 0;
+      stackOnly.push(...planned);
     }
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
