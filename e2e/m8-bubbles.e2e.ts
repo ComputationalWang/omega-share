@@ -176,7 +176,9 @@ function watchPool(ms: number): Promise<unknown> {
 }
 
 test("five speakers, twenty lines at once: never more than 16 bubbles shown, the layer holds 16 nodes throughout", async ({ browser }) => {
-  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc" });
+  // The watcher's room clears the shelf (1000 px tall): at 720 Room view pulls the room up under the TV and its shelf, which
+  // no bubble goes under (OME-2349), and the cluster's stacks leave at the shelf before the pool fills.
+  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc", contextOptions: (i) => (i === 0 ? { viewport: { width: 1280, height: 1000 } } : undefined) });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   for (const c of clients) await atRest(c.page);

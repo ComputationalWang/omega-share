@@ -79,9 +79,9 @@ const CURTAIN = 9 / 21;
 /** The curtain's least height at a desk (1× chrome), its pelmet and its two-line message (OME-2282). */
 const CURTAIN_MIN_H = 60;
 /** Room for the TV's bezel, painted outside the player rect (`.ui-tv-frame`, border-image-outset). */
-const TV_BEZEL = 6;
+export const TV_BEZEL = 6;
 /** The media shelf's speakers, painted outside the control bar each side (`.ui-tv-shelf`). */
-const SHELF_SPEAKER = 38;
+export const SHELF_SPEAKER = 38;
 const GAP = 8;
 /** The shelf's width at 1× for its keys and a usable seek bar; Twitch's also holds the quality key and a 1:00:00 time. */
 const SHELF_MIN_W = 420;

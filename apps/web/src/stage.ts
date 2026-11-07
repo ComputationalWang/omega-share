@@ -4,7 +4,7 @@
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import type { Texture } from "pixi.js";
-import { createFloats } from "./bubbles/floats";
+import { createFloats, windowToStage } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
@@ -15,7 +15,7 @@ import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, lieIntent, seatViews, type StepKey } from "./intents";
-import { ROOM_VIEW, SYSLINE_RAIL, TAG_H, TAG_MAX_SCALE, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
+import { ROOM_VIEW, STAGE_W, SYSLINE_RAIL, TAG_H, TAG_MAX_SCALE, TAG_OFFSET_Y, cellCenter, isNorth, setNorth, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomSound, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
@@ -108,6 +108,8 @@ export interface Stage {
   labelScale(k: number): void;
   /** Bubbles keep inside stage x `x0`–`x1` and stacked tags above `y1`: the phone's room window as it settled (OME-1945, OME-2118), or the whole stage. */
   bubbleSides(x0: number, x1: number, y1: number, y0: number): void;
+  /** What hangs over the room window (Room view's corner TV and shelf, OME-2349), CSS px from the window's top-left, and the window's width: bubbles keep clear of it. */
+  bubbleAvoid(boxes: readonly Box[], w: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted over the head and the name tag on it (overOf). */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
@@ -177,6 +179,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let shownTop = -Infinity;
   /** The room's screen as drawn (stage px, OME-2196): tags keep off it. Set with each scene. */
   let screens: readonly Box[] = [];
+  /** What hangs over the room window, in its CSS px, and the window's width (bubbleAvoid); the window's sides and top in stage px (bubbleSides). */
+  let over: { readonly boxes: readonly Box[]; readonly w: number } = { boxes: [], w: 0 };
+  let win = { x0: 0, x1: STAGE_W, y0: ROOM_VIEW.y };
+  const avoidOver = (): void => {
+    floats.avoid(windowToStage(over.boxes, over.w, win.x0, win.x1, win.y0));
+  };
   /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
@@ -214,13 +222,20 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: (tagW.get(tag) ?? 0) * labelK, top: p.y - headOf(id) });
     }
     const moved = stack(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
+    // The still tags as placed: bubbles rise past them (OME-2349).
+    const placed = new Map<MemberId, Box>();
     ids.forEach((id, i) => {
       const p = at[i];
       const m = moved[i];
       if (m === undefined) tagAt.delete(id);
       else tagAt.set(id, m);
-      if (p !== undefined) placeTag(id, p.x, p.y, true);
+      if (p === undefined) return;
+      placeTag(id, p.x, p.y, true);
+      const b = boxes[i];
+      const place = m ?? aboveHead(id);
+      if (b !== undefined) placed.set(id, { x0: b.x + place.dx - b.w / 2, x1: b.x + place.dx + b.w / 2, y0: b.y + place.dy, y1: b.y + place.dy + TAG_H * labelK });
     });
+    floats.tags(placed);
   };
   // A tag's text is set once, so this fires when it's added, and when an hourglass or "Away" changes its width.
   const tagSizes = new ResizeObserver((entries) => {
@@ -809,8 +824,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         restack();
       }
     },
+    bubbleAvoid: (boxes, w) => {
+      over = { boxes, w };
+      avoidOver();
+    },
     bubbleSides: (x0, x1, y1, y0) => {
       floats.sides(x0, x1);
+      if (Number.isFinite(y0)) win = { x0, x1, y0 };
+      avoidOver();
       if (y1 !== shownBottom || y0 !== shownTop) {
         shownBottom = y1;
         shownTop = y0;

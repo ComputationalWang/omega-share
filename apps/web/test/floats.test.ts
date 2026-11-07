@@ -129,6 +129,10 @@ async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
   };
 }
 
+/** The box's offset from the head, as placed: its `translate` (OME-2349: a transform, so re-placing it shifts no layout). */
+const leftOf = (p: HTMLElement): string => p.style.translate.split(" ")[0] ?? "";
+const topOf = (p: HTMLElement): string => p.style.translate.split(" ")[1] ?? "";
+
 const say = (id: string, text: string, x: number, y = 300, o: { self?: boolean; startedAt?: number; accent?: string } = {}) => ({
   id,
   name: `name-${id}`,
@@ -162,8 +166,8 @@ test("the outer node sits on the speaker's head, the inner box is centred over i
   const slot = shown()[0];
   expect(slot?.style.transform).toBe("translate(480px, 300px)");
   const p = bubbleOf("hi");
-  expect(p.style.left).toBe(`${String(-W / 2)}px`);
-  expect(p.style.top).toBe(`${String(-(H + 4))}px`);
+  expect(leftOf(p)).toBe(`${String(-W / 2)}px`);
+  expect(topOf(p)).toBe(`${String(-(H + 4))}px`);
   expect(p.style.getPropertyValue("--tail-x")).toBe(`${String(W / 2)}px`);
   expect(p.classList.contains("is-self")).toBe(true);
   expect(p.classList.contains("is-live")).toBe(true);
@@ -180,7 +184,7 @@ test("say() reads no layout: the size arrives with the frame's own layout, and o
   expect(p.classList.contains("is-live")).toBe(false);
   frame();
   expect(p.classList.contains("is-live")).toBe(true);
-  expect(p.style.left).toBe(`${String(-W / 2)}px`);
+  expect(leftOf(p)).toBe(`${String(-W / 2)}px`);
 });
 
 test("by default the sizes come from a ResizeObserver: a burst, a walk end and a reflow read no layout at all", async () => {
@@ -234,11 +238,11 @@ test("clamped at the stage edge the box stays inside and the tail leans to the s
   floats.say(say("b", "right", 950, 500));
   frame();
   const l = bubbleOf("left");
-  expect(l.style.left).toBe("-6px"); // box at stage x 4
+  expect(leftOf(l)).toBe("-6px"); // box at stage x 4
   expect(l.style.getPropertyValue("--tail-x")).toBe("6px");
   expect(l.classList.contains("tail-sw")).toBe(true);
   const r = bubbleOf("right");
-  expect(r.style.left).toBe("-94px"); // box at 960 - 4 - 100 = 856
+  expect(leftOf(r)).toBe("-94px"); // box at 960 - 4 - 100 = 856
   expect(r.style.getPropertyValue("--tail-x")).toBe("94px");
   expect(r.classList.contains("tail-se")).toBe(true);
 });
@@ -249,14 +253,14 @@ test("sides: the boxes keep inside the window's sides once it settles, and back 
   const { floats, frame, bubbleOf } = await setup();
   floats.say(say("a", "ada", 384, 444));
   frame();
-  expect(bubbleOf("ada").style.left).toBe(`${String(-W / 2)}px`);
+  expect(leftOf(bubbleOf("ada"))).toBe(`${String(-W / 2)}px`);
   floats.sides(338, 606);
-  expect(bubbleOf("ada").style.left).toBe("-42px"); // box at 338 + 4
+  expect(leftOf(bubbleOf("ada"))).toBe("-42px"); // box at 338 + 4
   floats.say(say("b", "kit", 600, 500));
   frame();
-  expect(bubbleOf("kit").style.left).toBe("-98px"); // box at 606 - 4 - 100
+  expect(leftOf(bubbleOf("kit"))).toBe("-98px"); // box at 606 - 4 - 100
   floats.sides(0, 960);
-  expect(bubbleOf("ada").style.left).toBe(`${String(-W / 2)}px`);
+  expect(leftOf(bubbleOf("ada"))).toBe(`${String(-W / 2)}px`);
 });
 
 test("a message lives FLOAT_LIFE_MS, then its node goes back to the pool", async () => {
@@ -303,14 +307,14 @@ test("the rise is 24 whole-pixel steps over the life, written on the clock's ste
   floats.say(say("a", "up", 480));
   frame();
   const p = motionOf("up");
-  // The bubble itself is never restyled by a step.
-  expect(bubbleOf("up").style.translate).toBe("");
+  // The bubble itself is never restyled by a step: its translate is where it was placed (OME-2349).
+  const placed = bubbleOf("up").style.translate;
   expect(p.style.translate).toBe("");
   advance(1000); // the last step was at 834 ms: 4 steps
   expect(p.style.translate).toBe("0 -4px");
   advance(3999);
   expect(p.style.translate).toBe("0 -23px");
-  expect(bubbleOf("up").style.translate).toBe("");
+  expect(bubbleOf("up").style.translate).toBe(placed);
   expect(bubbleOf("up").style.opacity).toBe("");
 });
 
@@ -472,8 +476,8 @@ test("a burst sized in one frame is placed and stacked in one pass: the name-wid
   frame();
   expect(deliveries()).toBe(1);
   expect(push("newest")).toBe("0px");
-  expect(bubbleOf("b-old").style.left).toBe("-70px");
-  expect(bubbleOf("a-old").style.left).toBe("-70px");
+  expect(leftOf(bubbleOf("b-old"))).toBe("-70px");
+  expect(leftOf(bubbleOf("a-old"))).toBe("-70px");
   expect(push("a-old")).toBe("-66px");
   frame();
   expect(deliveries()).toBe(1);
@@ -492,8 +496,8 @@ test("a stacked bubble is measured with its speaker's name shown: centred on the
   frame();
   expect(push("newest")).toBe("0px");
   expect(push("b-old")).toBe("-33px");
-  expect(bubbleOf("b-old").style.left).toBe("-70px");
-  expect(bubbleOf("a-old").style.left).toBe("-70px");
+  expect(leftOf(bubbleOf("b-old"))).toBe("-70px");
+  expect(leftOf(bubbleOf("a-old"))).toBe("-70px");
   expect(push("a-old")).toBe("-66px");
 });
 
@@ -533,8 +537,8 @@ test("said while the stage is hidden: placed, stacked and shown at its age once 
   setLaidOut(true);
   frame();
   const p = bubbleOf("hidden");
-  expect(p.style.left).toBe(`${String(-W / 2)}px`);
-  expect(p.style.top).toBe(`${String(-(H + 4))}px`);
+  expect(leftOf(p)).toBe(`${String(-W / 2)}px`);
+  expect(topOf(p)).toBe(`${String(-(H + 4))}px`);
   expect(p.classList.contains("tail-sw") || p.classList.contains("tail-se")).toBe(false);
   // Both show their rise at the clock's last step (1458 ms): no animation to restart.
   expect(motionOf("hidden").style.translate).toBe("0 -2px");
@@ -567,7 +571,7 @@ describe("shown k× their size (phone zoom, OME-1184)", () => {
     frame();
     const r = bubbleOf("right");
     // Shown 200 wide: its box starts at stage x 960 - 4 - 200 = 756, 194 stage px left of the head, 97 of its own.
-    expect(r.style.left).toBe("-97px");
+    expect(leftOf(r)).toBe("-97px");
     // The head is 3 of its own px from the box's right edge: past a tail's reach, so the tail leans as far as it goes.
     expect(r.style.getPropertyValue("--tail-x")).toBe("94px");
   });
@@ -589,7 +593,7 @@ describe("shown k× their size (phone zoom, OME-1184)", () => {
     floats.say(say("b", "right", 400));
     frame();
     expect(push("left")).toBe("0px");
-    expect(bubbleOf("right").style.left).toBe("-50px");
+    expect(leftOf(bubbleOf("right"))).toBe("-50px");
     floats.scale(2);
     expect(push("left")).toBe("-31.5px");
     floats.scale(1);
@@ -803,4 +807,119 @@ test("a /think line is a thought: the bubble wears .is-think, says the rest with
   const q = bubbleOf("plain");
   expect(q.classList.contains("is-think")).toBe(false);
   expect(q.closest(".float-slot")?.querySelector(".float-twin")?.classList.contains("is-think")).toBe(false);
+});
+
+// OME-2349 (audit round 3 #4): at 1280×800 with five chatting, bubbles stacked under Room view's corner TV, covered other
+// members' tags, and every placement was a layout shift on `.ui-float.is-live` (left/top, 6 a burst, no input).
+describe("clear of the TV and other members' tags, no layout shift (OME-2349)", () => {
+  test("placed by translate, never left/top: placing, stacking and re-placing a bubble shift no layout", async () => {
+    const { floats, frame, bubbleOf } = await setup({ nameW: 40 });
+    floats.say(say("a", "older", 480));
+    frame();
+    floats.say(say("b", "newer", 500));
+    frame();
+    for (const t of ["older", "newer"]) {
+      const p = bubbleOf(t);
+      expect(p.style.left).toBe("");
+      expect(p.style.top).toBe("");
+    }
+    expect(leftOf(bubbleOf("newer"))).toBe(`${String(-W / 2)}px`);
+    expect(topOf(bubbleOf("newer"))).toBe(`${String(-(H + 4))}px`);
+    // Stacked, the name widens it by 40 and it's centred again.
+    expect(leftOf(bubbleOf("older"))).toBe("-70px");
+  });
+
+  test("a bubble whose rise would reach the TV slides sideways clear of it, to the nearer side that fits; the tail leans", async () => {
+    const { floats, frame, bubbleOf } = await setup();
+    floats.avoid([{ x0: 0, x1: 383, y0: 0, y1: 250 }]);
+    // Box 250–350 wide, 266 at the top, 242 once risen: under the TV. Left of it doesn't fit, so right: box at 383 + 4.
+    floats.say(say("a", "under", 300, 300));
+    // 100 px lower it never reaches the TV.
+    floats.say(say("b", "below", 300, 400));
+    frame();
+    expect(leftOf(bubbleOf("under"))).toBe("87px");
+    expect(bubbleOf("under").classList.contains("tail-sw")).toBe(true);
+    expect(leftOf(bubbleOf("below"))).toBe(`${String(-W / 2)}px`);
+    floats.avoid([{ x0: 500, x1: 700, y0: 0, y1: 250 }]);
+    // Box 470–570: left of the TV (box at 396) is nearer than right of it (704).
+    expect(leftOf(bubbleOf("under"))).toBe(`${String(-W / 2)}px`);
+    floats.say(say("c", "beside", 520, 300));
+    frame();
+    expect(leftOf(bubbleOf("beside"))).toBe("-124px");
+  });
+
+  test("an older bubble pushed up into the TV goes beside it, at the height it was pushed to", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.avoid([{ x0: 0, x1: 383, y0: 0, y1: 220 }]);
+    floats.say(say("a", "older", 300));
+    frame();
+    floats.say(say("b", "newer", 320));
+    frame();
+    // Newer: 242 at its highest, clear. Older pushed 33: 209 at its highest, in the TV; right of it (box at 387) it fits.
+    expect(bubbleOf("older").classList.contains("is-leaving")).toBe(false);
+    expect(leftOf(bubbleOf("older"))).toBe("87px");
+    expect(push("older")).toBe("-33px");
+  });
+
+  test("an older bubble pushed up into the TV, with no room beside it, goes instead", async () => {
+    const { floats, frame, bubbleOf } = await setup();
+    floats.avoid([{ x0: 0, x1: 900, y0: 0, y1: 220 }]);
+    floats.say(say("a", "older", 300));
+    frame();
+    floats.say(say("b", "newer", 320));
+    frame();
+    expect(bubbleOf("older").classList.contains("is-leaving")).toBe(true);
+    expect(bubbleOf("newer").classList.contains("is-leaving")).toBe(false);
+  });
+
+  test("a bubble rises past another member's tag, keeping its tail; its own speaker's tag doesn't count", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    const tag = { x0: 450, x1: 510, y0: 240, y1: 260 };
+    floats.tags(new Map([["a", tag]]));
+    floats.say(say("a", "mine", 480));
+    frame();
+    expect(push("mine")).toBe("0px");
+    floats.tags(new Map([["b", tag]]));
+    // The next resolve (a line elsewhere) sees the tags as they are now.
+    floats.say(say("c", "elsewhere", 800));
+    frame();
+    // Box and tail 266–300, 242 once risen: over b's tag. Its tail's tip goes 3 px over the tag's top: 300 + 3 - 240.
+    expect(push("mine")).toBe("-63px");
+    expect(bubbleOf("mine").classList.contains("is-stacked")).toBe(false);
+  });
+
+  // CI on the first cut (m8-bubbles: a 4-member cluster lost a bubble, a 5-member burst peaked under 12): in a crowd there's
+  // no room for both. A line on screen beats a clear tag; the chat log has every line, but a bubble gone early is a miss.
+  test("clearing tags never costs a bubble: where rising past one would carry a bubble off the room's top, it stays over it", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.tags(new Map([["b", { x0: 670, x1: 730, y0: 70, y1: 90 }]]));
+    floats.say(say("a", "older", 700, 120));
+    floats.say(say("c", "newer", 300, 200));
+    frame();
+    // Past the tag it'd need 53 px: 86 - 53 - 24 is above the room's top (60), so it would go. It stays, unpushed.
+    expect(bubbleOf("older").classList.contains("is-leaving")).toBe(false);
+    expect(push("older")).toBe("0px");
+  });
+
+  test("a lift past a tag doesn't stick: once the crowd takes it back, the bubble sits where the stack alone puts it", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.tags(new Map([["b", { x0: 450, x1: 510, y0: 140, y1: 160 }]]));
+    floats.say(say("a", "first", 480, 200));
+    frame();
+    // Past b's tag: 200 + 3 - 140. It fits (166 - 63 - 24 = 79, under the room's top).
+    expect(push("first")).toBe("-63px");
+    floats.say(say("c", "second", 490, 200));
+    frame();
+    // Both past the tag would carry "first" off the top, so neither lifts: "first" clears "second" only, 33 px.
+    expect(bubbleOf("first").classList.contains("is-leaving")).toBe(false);
+    expect(push("first")).toBe("-33px");
+    expect(push("second")).toBe("0px");
+  });
+});
+
+test("windowToStage: the room window's boxes (CSS px from its top-left) in stage px, by the window's sides and width", async () => {
+  const { windowToStage } = await import("../src/bubbles/floats");
+  expect(windowToStage([{ x0: 0, x1: 100, y0: 0, y1: 50 }], 480, 240, 720, 60)).toEqual([{ x0: 240, x1: 340, y0: 60, y1: 110 }]);
+  expect(windowToStage([{ x0: 100, x1: 300, y0: 20, y1: 40 }], 960, 0, 480, 60)).toEqual([{ x0: 50, x1: 150, y0: 70, y1: 80 }]);
+  expect(windowToStage([{ x0: 0, x1: 1, y0: 0, y1: 1 }], 0, 0, 960, 60)).toEqual([]);
 });
