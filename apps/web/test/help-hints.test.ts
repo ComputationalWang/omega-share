@@ -307,4 +307,21 @@ describe("the first-visit tour", () => {
     expect(document.activeElement).toBe(after);
     hints.dismiss();
   });
+  test.each(["chat-log", "room-top"])("a chip never covers the %p (chat lines, the top bar's keys; OME-2350): it hides, and is back once that's clear", async (cls) => {
+    const { hints } = await setup();
+    const obstacle = document.createElement("div");
+    obstacle.className = cls;
+    document.body.append(obstacle);
+    Object.defineProperties(hints.root, { offsetWidth: { value: 300 }, offsetHeight: { value: 80 } });
+    // The floor chip goes above its anchor (100,200 300×100): 112 to 192. Its fallback (under the picture) is out of sight too.
+    obstacle.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 150, width: 412, height: 40 });
+    hints.show();
+    expect(hints.root.style.visibility).toBe("hidden");
+    obstacle.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 0, height: 0 });
+    window.dispatchEvent(new Event("resize"));
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("112px");
+    hints.dismiss();
+    obstacle.remove();
+  });
 });
