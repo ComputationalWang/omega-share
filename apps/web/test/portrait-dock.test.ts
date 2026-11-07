@@ -24,6 +24,9 @@ test("sharing opens the existing queue in a sheet and closing returns focus to i
   expect(dock.sheet.open).toBe(true);
   expect(dock.sheet.contains(queue)).toBe(true);
   expect(document.activeElement).toBe(url);
+  // The heading names the panel as its dock key does (OME-2348).
+  expect(dock.sheet.querySelector("h2")?.textContent).toBe("Up next");
+  expect(dock.sheet.ariaLabel).toBe("Up next");
   dock.close();
   expect(queue.parentElement).toBe(root);
   expect(document.activeElement).toBe(dock.link);

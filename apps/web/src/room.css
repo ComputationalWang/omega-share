@@ -563,16 +563,16 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
 /* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
  * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
  * finger (44 px keys) the name gets a line of its own too. */
-.room-side .ui-qrow { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "src title title title" "src meta chip keys"; row-gap: var(--ui-px); }
-.ui-touch .room-side .ui-qrow { grid-template-areas: "src title title title" "src meta meta meta" "src . chip keys"; }
-.room-side .ui-qrow > .body { display: contents; }
+:is(.room-side, .portrait-sheet) .ui-qrow { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "src title title title" "src meta chip keys"; row-gap: var(--ui-px); }
+.ui-touch .room-side .ui-qrow, .portrait-sheet .ui-qrow { grid-template-areas: "src title title title" "src meta meta meta" "src . chip keys"; }
+:is(.room-side, .portrait-sheet) .ui-qrow > .body { display: contents; }
 /* A shrunk list (a short window) scrolls its rows; it doesn't squash their lines into each other. */
 .room-side .ui-qlist { grid-auto-rows: max-content; }
-.room-side .ui-qrow > .ui-qsrc { grid-area: src; }
-.room-side .ui-qrow .title { grid-area: title; }
-.room-side .ui-qrow .meta { grid-area: meta; min-width: 0; overflow: hidden; }
-.room-side .ui-qrow > .ui-chip { grid-area: chip; }
-.room-side .ui-qrow > .queue-keys { grid-area: keys; }
+:is(.room-side, .portrait-sheet) .ui-qrow > .ui-qsrc { grid-area: src; }
+:is(.room-side, .portrait-sheet) .ui-qrow .title { grid-area: title; }
+:is(.room-side, .portrait-sheet) .ui-qrow .meta { grid-area: meta; min-width: 0; overflow: hidden; }
+:is(.room-side, .portrait-sheet) .ui-qrow > .ui-chip { grid-area: chip; }
+:is(.room-side, .portrait-sheet) .ui-qrow > .queue-keys { grid-area: keys; }
 @media (min-height: 501px) {
   /* The head keeps one line per word: no glyph (the card is named Up next), Play next now on a line of its own under it. */
   .room-side .queue-head { flex-wrap: wrap; row-gap: 4px; white-space: nowrap; }
@@ -878,6 +878,8 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-portrait > .portrait-stowed { display: none; }
 .portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 0; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px max(8px, env(safe-area-inset-bottom)); overflow: hidden; }
 .portrait-sheet[open] { display: flex; flex-direction: column; }
+/* Up next is only as tall as its rows and paste row; a screenful under the TV was 70 % blank in an empty room (OME-2348). */
+.portrait-sheet[data-panel="queue"] { bottom: auto; max-height: calc(100dvh - var(--portrait-sheet-top, 260px)); }
 .portrait-sheet::backdrop { background: transparent; }
 .portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
 .portrait-sheet-head h2 { flex: 1; margin: 0; font-size: 18px; }
@@ -891,7 +893,8 @@ body.room-is-portrait > .site-footer { display: none; }
 .portrait-sheet .ui-qrow { min-height: 44px; }
 .portrait-sheet .queue-form { flex: none; gap: 4px; }
 .portrait-sheet .queue-form input { font-size: 16px; }
-.portrait-sheet .ui-qx, .portrait-sheet .queue-move { min-width: 44px; min-height: 44px; }
+/* The × keeps its 12-art-px sprite cell (a bigger box shows the atlas around it); its 44 px is the touch ::before (OME-2361). */
+.portrait-sheet .queue-move { min-width: 44px; min-height: 44px; }
 .portrait-sheet-content > .portrait-stowed { margin: 4px 0; }
 .room-portrait.portrait-typing { padding-top: 0; }
 .room-portrait.portrait-typing > .room-top, .room-portrait.portrait-typing > .portrait-keys { display: none; }
@@ -899,6 +902,7 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
 .room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
 .room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top)); }
+.room-portrait.portrait-typing .portrait-sheet[data-panel="queue"] { height: auto; max-height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top)); }
 @media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
 
 .room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
