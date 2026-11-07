@@ -18,7 +18,7 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "provider-generic-sync": ["main"],
   "room-view": ["main"],
-  "view-swap": ["main"],
+  "view-swap": ["main", "drawn"],
   "view-swap-perf": ["frames"],
   "wall-screen": ["north"],
   "tag-clusters": ["busy", "seated"],
@@ -43,7 +43,7 @@ export const SPEC_ROOMS = {
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle", "peek"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
-  "room-cls-perf": ["desktop", "landscape", "portrait", "cold-desktop", "cold-phone"],
+  "room-cls-perf": ["desktop", "landscape", "portrait", "cold-desktop", "cold-phone", "obs-desktop", "obs-portrait", "obs-landscape"],
   "join-perf": ["desktop", "phone"],
   "join-open": ["phone", "theatre"],
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
@@ -89,7 +89,7 @@ export const SPEC_ROOMS = {
   lie: ["sofa", "bed"],
   replay: ["wire", "clear", "ui"],
   "reaction-safety": ["shape", "big", "flood", "start"],
-  "room-clip": ["idle1280", "idlepixel7", "studio", "penthouse", "slow1280", "boot1280", "play1280", "playstudio", "playpenthouse", "playpixel7"],
+  "room-clip": ["idle1280", "idlepixel7", "studio", "penthouse", "slow1280", "boot1280", "play1280", "playstudio", "playpenthouse", "playpixel7", "hint7", "hintplay7"],
   rpolish: ["c1280", "c1920", "c2560", "d1280", "d1920", "d2560", "f1024", "f1366", "f1280", "e1280", "e1920", "e2560", "w320", "w360", "w1280", "p320", "p360", "p390", "t320", "t390", "m1024", "foot390", "nightdim", "fsband412"],
 } as const;
 

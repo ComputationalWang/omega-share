@@ -353,7 +353,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .room-view-key { position: absolute; right: 4px; z-index: 1; margin: 0; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
 /* The pan hint (OME-2234): over the bottom-left corner, clear of the keys (3×44 + gaps), never in a tap's way. Absolute, so no shift. */
-.room-pan-hint { position: absolute; left: 4px; bottom: 4px; max-width: calc(100% - 164px); margin: 0; padding: 2px 6px; font-size: var(--text-sm); line-height: 1.3; color: var(--ui-text); background: var(--ui-page); border: 1px solid var(--ui-accent); pointer-events: none; }
+.room-pan-hint { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 8px); margin: 0; padding: 0 6px; font-size: var(--text-sm); line-height: 1.2; color: var(--ui-text); background: var(--ui-page); border: 1px solid var(--ui-accent); pointer-events: none; }
 .room-pan-hint[hidden] { display: none; }
 /* One hint at a time (OME-2263): the pan hint waits for the tour. */
 .hint-chip:not([hidden]) ~ .stage-wrap .room-pan-hint { display: none; }
@@ -505,9 +505,13 @@ body.room-is-pseudo-fs { overflow: hidden; }
  * left column for the clicks that place a piece. With People open the bar and the editor end it: only they show. */
 .room-side :where(.room-panel, .panel-body) > .editor-panel:empty { display: none; }
 body.room-editing .room-side .room-panel > :not(.panel-room), body.room-editing .room-side .panel-room > :not(.edit-bar, .editor-panel) { display: none; }
-/* It scrolls with no bar of its own on most screens (OME-2301: at 1280×800 Who controls playback ran 54 px past the edge):
- * a 32 px fade says there is more, and the end padding lets the last card scroll clear of it (as .preset-list, OME-2284). */
-body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 44px; mask-image: linear-gradient(#000 calc(100% - 32px), transparent); }
+/* It scrolls with no bar of its own on most screens (OME-2301: at 1280×800 Who controls playback ran 54 px past the edge).
+ * A fade said so but dimmed Everyone and Only me, which read as disabled (OME-2324): a "More below" cue sticks to the
+ * bottom edge instead, hidden (keeping its place, so nothing jumps) once moderation.ts sees the card clear of it. */
+body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+.mod-policy-more { display: none; }
+body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod-policy-more { display: block; order: 2; position: sticky; bottom: 0; margin: 0; padding: 4px 0; background: var(--bg); color: var(--ui-text); font-size: 12px; font-weight: 700; line-height: 16px; text-align: center; pointer-events: none; }
+body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod-policy-more.is-end { visibility: hidden; }
 /* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
 body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar { display: contents; }
 body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > * { flex: none; }
@@ -525,6 +529,15 @@ body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod
   .room-side .editor-panel .editor-mood-options { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 4px; }
   .room-side .editor-panel .editor-mood-options > .ui-button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
   .room-side .editor-panel :is(.editor-mine, .editor-settings) > .ui-input { flex: 1 1 140px; min-width: 0; }
+}
+/* 800 px tall or less (OME-2338, judge round 13): at 1280×800 the sheet ran 86 px past the screen and the "More below"
+ * cue sat on Everyone / Only me. Its keys and fields lose their extra line height, its rows close up and the playback
+ * card wears the 1× frame, so it all fits with a line to spare. */
+@media (min-height: 501px) and (max-height: 800px) {
+  .room-side .editor-panel :is(.editor-piece, .editor-mood, .editor-save-row, .editor-mine, .editor-settings) { row-gap: 4px; }
+  .room-side .editor-panel :is(.ui-button, .ui-input) { line-height: 16px; }
+  body.room-editing .room-side { gap: 4px; }
+  body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod-policy { --ui-px: 1px; }
 }
 .room-side :where(.room-panel, .panel-body) > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side :where(.room-panel, .panel-body) > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }

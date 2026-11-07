@@ -162,3 +162,63 @@ for (const p of COLD) {
     }
   });
 }
+
+// OME-2345: CLS on an observer while another member starts a video in an empty room and then skips once. The observer joins
+// first (no input afterwards); the actor pastes two links (the first add starts the video, ADR 0031 §5) and presses "Play next now".
+// Every layout shift from the first paste until 2 s after the skip, summed. Rows: room.observerCls.<profile> (< 0.01).
+const OBSERVER = {
+  desktop: { viewport: { width: 1280, height: 800 } },
+  portrait: { ...devices["Pixel 7"], viewport: { width: 412, height: 915 } },
+  landscape: { ...devices["Pixel 7"], viewport: { width: 915, height: 412 } },
+} satisfies Record<string, BrowserContextOptions>;
+const OBSERVER_SETTLE_MS = 2000;
+const SECOND_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+
+for (const profile of ["desktop", "portrait", "landscape"] as const) {
+  test(`room CLS on an observer while another member starts a video and skips, ${profile}`, async ({ browser }) => {
+    const id = `room.observerCls.${profile}`;
+    const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
+    if (why !== null) {
+      recordMetric({ id, pending: why });
+      test.skip(true, why);
+      return;
+    }
+    test.setTimeout(120_000);
+    const room = testRoom("room-cls-perf", `obs-${profile}`);
+    const [observer, actor] = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "obs", contextOptions: (i) => (i === 0 ? OBSERVER[profile] : OBSERVER.desktop) });
+    try {
+      if (observer === undefined || actor === undefined) throw new Error("no clients");
+      await observer.page.waitForTimeout(OBSERVER_SETTLE_MS);
+      await observer.page.evaluate(() => {
+        const shifts: { value: number; nodes: string[] }[] = [];
+        Reflect.set(window, "__roomShifts", shifts);
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) {
+            const s = e as PerformanceEntry & { value: number; hadRecentInput: boolean; sources?: { node?: Node | null }[] };
+            if (s.hadRecentInput) continue;
+            const nodes = (s.sources ?? []).map(({ node }) => (node instanceof Element ? `${node.localName}${node.className === "" ? "" : `.${node.className.trim().split(/\s+/).join(".")}`}` : "?"));
+            shifts.push({ value: s.value, nodes });
+          }
+        }).observe({ type: "layout-shift" });
+      });
+      for (const url of [EMBED_URL, SECOND_URL]) {
+        await actor.page.locator(site.queueUrl).fill(url);
+        await actor.page.locator(site.queueAdd).click();
+        await actor.page.waitForTimeout(OBSERVER_SETTLE_MS);
+      }
+      await waitPlaying([observer]);
+      await actor.page.locator(site.queueNext).click();
+      await observer.page.waitForTimeout(OBSERVER_SETTLE_MS);
+      const shifts = await observer.page.evaluate(() => {
+        const seen: unknown = Reflect.get(window, "__roomShifts");
+        return Array.isArray(seen) ? (seen as { value: number; nodes: string[] }[]) : [];
+      });
+      const cls = shifts.reduce((sum, s) => sum + s.value, 0);
+      const moved = [...new Set(shifts.flatMap((s) => s.nodes))];
+      recordMetric({ id, value: cls, note: `${String(shifts.length)} shifts${moved.length > 0 ? ` (${moved.join(", ")})` : ""}; ${profile} observer, another member starts a video and skips once` });
+      expect(cls, moved.join(", ")).toBeLessThan(LIMIT);
+    } finally {
+      await leaveAll([...(observer && actor ? [observer, actor] : [])]);
+    }
+  });
+}

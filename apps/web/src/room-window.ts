@@ -204,11 +204,13 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     sides = { x0, x1, y1, y0 };
     onSides(x0, x1, y1, y0);
   };
-  // The window crops the room (a 412 px phone at 1×, OME-2234): say so, over its corner, so no one misses a sofa.
+  // The window crops the room (a 412 px phone at 1×, OME-2234): say so, over the walls (never the floor, OME-2325), so
+  // no one misses a sofa. Once: the first pan or Fit shows they know.
   const hint = el("p", { className: "room-pan-hint", hidden: true, textContent: "Swipe sideways or tap Fit to see the whole room" }, "room-pan-hint");
+  let panned = false;
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
-    const crops = zoom > minZoom(view) + 1e-6;
+    const crops = !panned && zoom > minZoom(view) + 1e-6;
     if (hint.hidden === crops) hint.hidden = !crops;
     pan = panTo(view, looking ?? home(view.w / zoom, view.h / zoom, false, keysOver / zoom), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
@@ -252,6 +254,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   const key = (name: string, label: string, text: string, next: () => number): void => {
     const k = el("button", { type: "button", className: "ui-button", ariaLabel: label, title: label, textContent: text }, `room-zoom-${name}`);
     k.addEventListener("click", () => {
+      if (name === "fit") panned = true;
       if (desk === null) zoomTo(next());
       else if (name === "fit") fitDesk();
     });
@@ -348,6 +351,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
     if (!dragged && moved < DRAG_SLOP) return;
     if (!dragged) {
       dragged = true;
+      panned = true;
+      hint.hidden = true;
       clip.setPointerCapture(ev.pointerId);
       clip.classList.add("is-dragging");
     }

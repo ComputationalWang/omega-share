@@ -31,6 +31,7 @@ const SEEDED_LAYOUTS = new Map([
   [testRoomId("lie", "bed"), { ...DUNGEON, furniture: DUNGEON.furniture.filter((f) => f.kind !== "partition").map((f, i) => (f.kind !== "bed" ? f : i === 1 ? { ...f, row: 4 } : { ...f, facing: "sw" as const })) }],
   // The whole preset for the 180° view swap (OME-1961).
   [testRoomId("view-swap", "main"), DUNGEON],
+  [testRoomId("view-swap", "drawn"), DUNGEON],
   [testRoomId("view-swap-perf", "frames"), DUNGEON],
   // The preset with a wall screen (span 2, segments 3-4 of the left wall, not the fixtures 5, 6, 8) in place of its TV: the swapped view's ghost (OME-2069).
   [testRoomId("wall-screen", "north"), { ...DUNGEON, furniture: DUNGEON.furniture.map((f) => (f.kind === "tv" ? { kind: "wallscreen" as const, col: 0, row: 3, facing: "se" as const } : f)) }],

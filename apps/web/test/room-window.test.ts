@@ -172,8 +172,21 @@ describe("on a phone, the pan hint (OME-2234)", () => {
     expect(hint(clip).textContent).toMatch(/swipe sideways.*fit/i);
     key("fit").click();
     expect(hint(clip).hidden).toBe(true);
+    // Once until the first pan or Fit (OME-2325): zooming back in doesn't bring it back.
     key("in").click();
+    expect(hint(clip).hidden).toBe(true);
+  });
+
+  test("the first sideways drag hides it for good (OME-2325)", async () => {
+    const { win, clip, pointer } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
     expect(hint(clip).hidden).toBe(false);
+    pointer("pointerdown", 1, 200, 135);
+    pointer("pointermove", 1, 120, 135);
+    pointer("pointerup", 1, 120, 135);
+    expect(hint(clip).hidden).toBe(true);
+    win.set(true, VIEW.w, VIEW.h);
+    expect(hint(clip).hidden).toBe(true);
   });
 
   test("a window that holds the whole room, or one off the phone, has none", async () => {

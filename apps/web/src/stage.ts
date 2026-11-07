@@ -10,7 +10,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesBack, viewVerdict } from "./furniture";
+import { cutaway, doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesBack, viewVerdict } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -281,6 +281,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         tagAt.set(id, aboveHead(id));
       }
       placeTag(id, x, y, false);
+      // My drawn avatar stepped onto another cell: the next render re-judges the view (a few per walk, not per frame).
+      if (id === myId) {
+        const c = cellAt({ x, y });
+        if (c >= 0 && c !== myCell) {
+          myCell = c;
+          o.requestRender();
+        }
+      }
       o.onMove?.(id);
     },
     onStop: (id, x, y) => {
@@ -414,8 +422,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** My avatar is behind the partition (OME-1960): for me only, the room turns north (OME-1961) or, until the back sheet is in, its partitions draw cut down. */
   let behind = false;
   let cut = false;
-  /** My avatar's walk cell as last placed, for the view verdict; null with no avatar. */
+  /** My avatar's cell as drawn (OME-2346: not its walk's end, so the view turns as it passes the doorway), for the view verdict; null with no avatar. */
   let myCell: number | null = null;
+  let myId: MemberId | null = null;
+  /** Where my walk ends (the server's cell): on the doorway line my drawn avatar already counts as behind if it is heading there. */
+  let myGoal: number | null = null;
   /** The back-view atlas once loaded (OME-1961): turned one-sided pieces and the north shell skin. */
   let backAtlas: FurnitureAtlas | null = null;
   let drawnPlaying = false;
@@ -632,11 +643,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
       sitCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [] : [cellAt(p.at)])));
       const mine = placements.find((p) => p.id === s.self);
-      myCell = mine === undefined ? null : cellAt(mine.at);
+      myId = mine === undefined ? null : mine.id;
+      myCell = mine === undefined ? null : cellAt(view.position(mine.id) ?? mine.at);
+      myGoal = mine === undefined ? null : cellAt(mine.at);
       inUseStale = true;
     }
     // Per render, not per placement: the editor opening turns the view south (OME-1961). Cheap: one find over the furniture.
-    const verdict = viewVerdict(nextLayout, myCell, behind, editing, backAtlas !== null);
+    // Walking north, past the doorway's middle my avatar is drawn behind the next partition piece from the south (QA OME-2352): turn as it steps in.
+    const verdict = viewVerdict(nextLayout, myCell, behind || cutaway(nextLayout, myGoal, behind), editing, backAtlas !== null);
     behind = verdict.behind;
     if (verdict.cut !== cut) {
       cut = verdict.cut;

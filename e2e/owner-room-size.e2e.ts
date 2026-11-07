@@ -412,23 +412,35 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
       // 0.99: the Room tab's body is the scroller now and, at a 1.5x chrome zoom, ends a fraction of a pixel short.
       await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 0.99 });
     }
-    // OME-2301 (judge round 11): at 1280×800 the column ran 54 px past the screen and cut Who controls playback with no
-    // hint that it scrolls. Overflowing, the column fades out at its bottom edge, and scrolled to its end the card clears the fade.
-    const column = await host.locator(site.controlPolicy).evaluate((card) => {
-      // The Room tab's body is the scroller now (OME-2306); the column's foot (its fade, under the tabs and composer) is the side's.
-      const side = card.closest(".room-side");
-      const body = card.closest(".panel-body");
-      if (!(side instanceof HTMLElement) || !(body instanceof HTMLElement)) return null;
-      const over = body.scrollHeight > body.clientHeight || side.scrollHeight > side.clientHeight;
-      body.scrollTop = body.scrollHeight;
-      side.scrollTop = side.scrollHeight;
-      const gap = side.getBoundingClientRect().bottom - card.getBoundingClientRect().bottom;
-      body.scrollTop = 0;
-      side.scrollTop = 0;
-      return { over, mask: getComputedStyle(side).maskImage, gap };
-    });
-    if (column?.over === true) expect(column.mask, `${at} the column's fade`).toMatch(/gradient/);
-    expect(column?.gap ?? 0, `${at} scrolled to its end, the playback card clears the fade`).toBeGreaterThanOrEqual(32);
+    // OME-2301/OME-2324 (judge rounds 11, 12): at 1280×800 the column runs past the screen. A fade said so but dimmed
+    // Everyone and Only me, which read as disabled: now nothing dims, and a "More below" cue shows while the playback
+    // card is cut, gone once it's scrolled clear.
+    const side = host.locator(".room-side");
+    // The Room tab's body scrolls inside the column now (OME-2306): both are the editing sheet's scrollers.
+    const scrollers = host.locator(".room-side, .room-side .panel-room");
+    const more = host.locator(site.controlPolicyMore);
+    expect(await side.evaluate((e) => getComputedStyle(e).maskImage), `${at} the column doesn't fade`).toBe("none");
+    for (const tile of await host.locator(site.controlPolicyOption).all()) {
+      await expect(tile, `${at} a playback tile`).toBeEnabled();
+      expect(await tile.evaluate((e) => getComputedStyle(e).opacity), `${at} a playback tile isn't dimmed`).toBe("1");
+    }
+    // OME-2338 (judge round 13): at 1280×800 the column ran 86 px past the screen and the cue sat on Everyone / Only me.
+    // There it fits, unscrolled; anywhere the cue shows, its box never meets a playback tile's.
+    if (w === 1280) for (const s of await scrollers.all()) expect(await s.evaluate((e) => e.scrollHeight - e.clientHeight), `${at} editing: the column's overflow`).toBeLessThanOrEqual(0);
+    if (await more.isVisible()) {
+      const cue = await more.boundingBox();
+      for (const tile of await host.locator(site.controlPolicyOption).all()) {
+        const b = await tile.boundingBox();
+        const meets = cue !== null && b !== null && cue.y < b.y + b.height && b.y < cue.y + cue.height;
+        expect(meets, `${at} the cue clear of a playback tile`).toBe(false);
+      }
+    }
+    const cut = await host.locator(site.controlPolicy).evaluate((card) => card.getBoundingClientRect().bottom > window.innerHeight);
+    if (cut) await expect(more, `${at} the column says there's more`).toBeVisible();
+    for (const s of await scrollers.all()) await s.evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    await expect(more, `${at} scrolled to its end, the cue goes`).toBeHidden();
+    await expect(host.locator(site.controlPolicy), `${at} scrolled to its end, the playback card`).toBeInViewport({ ratio: 1 });
+    for (const s of await scrollers.all()) await s.evaluate((e) => { e.scrollTop = 0; });
     expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
   // OME-2283: nothing to save or undo, the two keys look alike, under the pointer too (a secondary key's hover face beat its disabled one).
@@ -437,4 +449,42 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
   await expect(host.locator(site.editorSave)).toBeDisabled();
   await host.locator(site.editorReset).hover({ force: true });
   expect(await face(site.editorReset), "Undo changes, disabled and hovered").toBe(await face(site.editorSave));
+});
+
+// OME-2338 (QA OME-2342): wherever the column ran past the screen by less than the playback card's height, the cue sat on
+// Everyone / Only me, and shrinking the editor only moved that band (1280×720, 1024×768 touch; 1280×820–850 on main).
+// At every height the cue shows only while the tiles are wholly below the fold, so its box never meets one.
+test("1280×720 to 1280×850 and 1024×768 touch, editing: the More below cue never meets a playback tile", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { id, ownerToken, inviteKey } = ownedRoom("roomedit");
+  const secrets = JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } });
+  const sweeps: [BrowserContextOptions, [number, number][]][] = [
+    [DESK, [[1280, 720], [1280, 760], [1280, 800], [1280, 820], [1280, 850]]],
+    [{ viewport: { width: 1024, height: 768 }, isMobile: true, hasTouch: true }, [[1024, 740], [1024, 768]]],
+  ];
+  for (const [options, sizes] of sweeps) {
+    // A fresh nickname per window: the first one is still in the room.
+    const host = await open(browser, options, `${URLS.web}/r/${id}`, `host${String(test.info().retry)}${options.hasTouch === true ? "t" : ""}`, secrets);
+    const editKey = host.locator(site.editRoom);
+    const more = host.locator(site.controlPolicyMore);
+    for (const [w, h] of sizes) {
+      const at = `${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}`;
+      await host.setViewportSize({ width: w, height: h });
+      if ((await editKey.getAttribute("aria-pressed")) === "true") await editKey.click();
+      await expect(host.locator(site.editorTray)).toHaveCount(0);
+      await editKey.click();
+      await expect(host.locator(site.editorTray)).toBeVisible();
+      await host.locator(".room-side").evaluate((e) => { e.scrollTop = 0; });
+      const tiles = await host.locator(site.controlPolicyOption).all();
+      // Both ways round: the cue says so while the tiles are all below the fold, and is gone once any shows.
+      const below = (await Promise.all(tiles.map((t) => t.evaluate((e) => e.getBoundingClientRect().top >= window.innerHeight)))).every(Boolean);
+      await expect.poll(() => more.isVisible(), { message: `${at} the cue shows only while the tiles are below the fold` }).toBe(below);
+      const cue = (await more.isVisible()) ? await more.boundingBox() : null;
+      for (const tile of tiles) {
+        const b = await tile.boundingBox();
+        const meets = cue !== null && b !== null && cue.y < b.y + b.height && b.y < cue.y + cue.height;
+        expect(meets, `${at} the cue clear of a playback tile`).toBe(false);
+      }
+    }
+  }
 });

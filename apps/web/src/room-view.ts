@@ -266,7 +266,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     backgroundAlpha: 0,
     antialias: false,
     autoStart: false,
-    resolution: Math.min(2, globalThis.devicePixelRatio || 1),
+    // One backing px per stage px on every screen (ADR 0063): the art sits on whole stage px and `.scene` is pixelated, so
+    // a HiDPI screen shows what a DPR 1 one does. Resolution 2 cost a phone ~2 ms of commit per walking frame (OME-2330).
+    resolution: 1,
     autoDensity: true,
     // 2D canvas, not WebGL (ADR 0029): under software compositing a WebGL canvas is read back from the GPU process on
     // every frame (~6 ms main thread), which walking avatars would pay 60 times a second.
@@ -371,7 +373,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           break;
         }
         const b = boxOf(c);
-        // A px of margin: an avatar between pixels touches its neighbours' at resolution 2.
+        // A px of margin: an avatar between pixels touches its neighbours'.
         live.cover(b.x0 - 1, b.y0 - 1, b.x1 + 1, b.y1 + 1, c.zIndex);
       }
       if (hover.visible) live.cover(hoverBox.x0, hoverBox.y0, hoverBox.x1, hoverBox.y1, -Infinity);
