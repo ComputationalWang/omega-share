@@ -75,6 +75,7 @@ import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 import type { FloorKind, Sound } from "./audio";
 import { cellAt } from "./walk/path";
+import { play } from "./motion";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -822,6 +823,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   renderSend();
   opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, reactionBar.root, recap.root, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  // The bar and the transport are there at once; the scene fades in under them (HANDOFF "Motion").
+  play(stage, [{ opacity: 0 }, { opacity: 1 }], 160);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;

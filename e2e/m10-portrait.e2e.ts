@@ -72,6 +72,9 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await page.setViewportSize({ width, height: 440 });
     await link.click();
     await expect(page.locator(site.queuePanel)).toBeVisible();
+    // Measured at rest: the tab's entrance and the panel's slide (motion.ts, ≤ 200 ms) finish first (OME-2308).
+    await page.evaluate(() => Promise.all(document.getAnimations()
+      .filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition)).map((a) => a.finished.catch(() => undefined))));
     for (const target of [page.locator(site.queueUrl), page.locator(site.queueAdd)]) {
       // Centred, as a thumb scroll would: the sticky tabs and composer cover the page's edges.
       await target.evaluate((e) => { e.scrollIntoView({ block: "center" }); });

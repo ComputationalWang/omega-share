@@ -1,4 +1,5 @@
 import { el } from "./controls/dom";
+import { enter, play } from "./motion";
 
 // The room's panel (Doorstep desk, OME-2306): the invite on top, then Chat / Up next / Room as one real tablist
 // (role=tablist/tab/tabpanel, one tab stop, ←/→ wrap, Home/End). It holds the room's own nodes; it builds none of them.
@@ -37,7 +38,9 @@ export function createRoomPanel(o: { readonly onSelect?: (kind: PanelTab) => voi
   };
   const panels: Record<PanelTab, HTMLElement> = { chat: body("chat"), queue: body("queue"), room: body("room") };
   const bodies = TABS.map((t) => panels[t.kind]);
-  tabs.append(...keys);
+  // The honey underline under the open tab: it slides by transform (room.css), never by a layout property.
+  const underline = el("span", { className: "tab-underline", ariaHidden: "true" });
+  tabs.append(...keys, underline);
   root.append(head, tabs, ...bodies);
   let current: PanelTab = "room";
   const render = (kind: PanelTab): void => {
@@ -49,11 +52,17 @@ export function createRoomPanel(o: { readonly onSelect?: (kind: PanelTab) => voi
       const k = keys[i];
       if (k !== undefined) k.tabIndex = on ? 0 : -1;
       panels[t.kind].hidden = !on;
+      if (on) tabs.style.setProperty("--active-tab", String(i));
     });
   };
   const select = (kind: PanelTab): void => {
     if (kind === current) return;
+    // The sheet's height commits at once; it then slides from its old lower edge (HANDOFF "Motion").
+    const before = root.getBoundingClientRect().height;
     render(kind);
+    enter(panels[kind]);
+    const dy = before - root.getBoundingClientRect().height;
+    if (dy !== 0) play(root, [{ transform: `translateY(${String(dy)}px)` }, { transform: "none" }], 160);
     o.onSelect?.(kind);
   };
   render("chat");
