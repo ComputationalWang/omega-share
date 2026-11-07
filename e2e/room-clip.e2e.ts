@@ -229,16 +229,16 @@ const DESK_TOP = 198;
 
 // OME-2300: a Pixel 7 upright with a video plays looked at the middle of the seats and me, so the back wall's desk went
 // under the shelf and the floor's front under the pan hint. The window looks as high as the seats and me stay whole 8 px
-// over the zoom keys and the hint: the desk is whole 8 px under the shelf, every seat 8 px over the keys' row.
-test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are whole, 8 px clear of the shelf and the hint", async ({ browser, request }) => {
+// over the zoom keys (the hint is over the walls now, OME-2325): the desk is whole 8 px under the shelf, every seat 8 px
+// over the keys' row.
+test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are whole, 8 px clear of the shelf and the keys", async ({ browser, request }) => {
   await shareProvider(request, "https://youtu.be/rcplay00002", testRoom("room-clip", "playpixel7").id);
   const page = await open(browser, "playpixel7", PIXEL_7, undefined, true);
   const g = await geometry(page);
   const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
   const keys = await page.locator(".room-zoom").boundingBox();
   if (shelf === null || keys === null) throw new Error("no shelf or keys");
-  const hint = await page.locator(".room-pan-hint").boundingBox();
-  const floor = Math.min(keys.y, hint?.y ?? Infinity);
+  const floor = keys.y;
   expect(g.at(480, DESK_TOP).y, "the desk's top under the shelf").toBeGreaterThanOrEqual(Math.max(g.clip.y, shelf.y + shelf.height) + CLEAR);
   const seats = await page.locator(site.seat).evaluateAll((es) => es.map((e) => { const r = e.getBoundingClientRect(); return [r.top, r.bottom] as const; }));
   expect(seats.length).toBeGreaterThanOrEqual(8);
@@ -271,6 +271,7 @@ for (const [name, playing] of [["hint7", false], ["hintplay7", true]] as const) 
     const dx = Math.max(0, x0 - FLOOR.x, FLOOR.x - x1);
     const dy = Math.max(0, y0 - FLOOR.y, FLOOR.y - y1);
     expect(dx / FLOOR.rx + dy / FLOOR.ry, "the hint's box against the floor").toBeGreaterThan(1);
+    expect(y1, "the hint's foot over the back wall's desk").toBeLessThanOrEqual(DESK_TOP);
     if (!playing) expect(g.clip.h / (PIXEL_7.viewport.height), "the room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
   });
 }
