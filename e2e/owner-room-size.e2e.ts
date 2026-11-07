@@ -397,19 +397,22 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
       await host.locator(sel).scrollIntoViewIfNeeded();
       await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
     }
-    // OME-2301 (judge round 11): at 1280×800 the column ran 54 px past the screen and cut Who controls playback with no
-    // hint that it scrolls. Overflowing, the column fades out at its bottom edge, and scrolled to its end the card clears the fade.
-    const column = await host.locator(site.controlPolicy).evaluate((card) => {
-      const side = card.closest(".room-side");
-      if (!(side instanceof HTMLElement)) return null;
-      const over = side.scrollHeight > side.clientHeight;
-      side.scrollTop = side.scrollHeight;
-      const gap = side.getBoundingClientRect().bottom - card.getBoundingClientRect().bottom;
-      side.scrollTop = 0;
-      return { over, mask: getComputedStyle(side).maskImage, gap };
-    });
-    if (column?.over === true) expect(column.mask, `${at} the column's fade`).toMatch(/gradient/);
-    expect(column?.gap ?? 0, `${at} scrolled to its end, the playback card clears the fade`).toBeGreaterThanOrEqual(32);
+    // OME-2301/OME-2324 (judge rounds 11, 12): at 1280×800 the column runs past the screen. A fade said so but dimmed
+    // Everyone and Only me, which read as disabled: now nothing dims, and a "More below" cue shows while the playback
+    // card is cut, gone once it's scrolled clear.
+    const side = host.locator(".room-side");
+    const more = host.locator(site.controlPolicyMore);
+    expect(await side.evaluate((e) => getComputedStyle(e).maskImage), `${at} the column doesn't fade`).toBe("none");
+    for (const tile of await host.locator(site.controlPolicyOption).all()) {
+      await expect(tile, `${at} a playback tile`).toBeEnabled();
+      expect(await tile.evaluate((e) => getComputedStyle(e).opacity), `${at} a playback tile isn't dimmed`).toBe("1");
+    }
+    const cut = await host.locator(site.controlPolicy).evaluate((card) => card.getBoundingClientRect().bottom > window.innerHeight);
+    if (cut) await expect(more, `${at} the column says there's more`).toBeVisible();
+    await side.evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    await expect(more, `${at} scrolled to its end, the cue goes`).toBeHidden();
+    await expect(host.locator(site.controlPolicy), `${at} scrolled to its end, the playback card`).toBeInViewport({ ratio: 1 });
+    await side.evaluate((e) => { e.scrollTop = 0; });
     expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
   // OME-2283: nothing to save or undo, the two keys look alike, under the pointer too (a secondary key's hover face beat its disabled one).

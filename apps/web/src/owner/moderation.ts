@@ -353,7 +353,12 @@ export function mountModeration(o: ModerationOptions): Moderation {
   const explain = el("p", { className: "mod-policy-note" });
   group.append(...tiles);
   setting.append(heading, group, explain);
-  o.bar.append(setting);
+  // Editing, the column can run past the screen (OME-2324): this cue says so without dimming the tiles under it, and goes
+  // once the card is clear of it (room.css shows it only there). The 40 px margin is the cue's band at the bottom edge.
+  const more = el("p", { className: "mod-policy-more", ariaHidden: "true", textContent: "More below ↓" }, "control-policy-more");
+  const seen = new IntersectionObserver(([e]) => { more.classList.toggle("is-end", (e?.intersectionRatio ?? 0) >= 0.99); }, { rootMargin: "0px 0px -40px 0px", threshold: 0.99 });
+  seen.observe(setting);
+  o.bar.append(setting, more);
   let shownPolicy: ControlPolicy | null = null;
   const syncSetting = (s: ViewState): void => {
     const p = controlPolicy(s);
@@ -386,7 +391,9 @@ export function mountModeration(o: ModerationOptions): Moderation {
     },
     destroy() {
       closeMenu();
+      seen.disconnect();
       setting.remove();
+      more.remove();
       o.tags.removeEventListener("click", onTagClick);
       o.tags.removeEventListener("keydown", onTagKey);
       o.tags.classList.remove("pickable");

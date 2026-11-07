@@ -152,6 +152,7 @@ export const site = {
   modClose: id("mod-close"),
   controlPolicy: id("control-policy"),
   controlPolicyOption: id("control-policy-option"),
+  controlPolicyMore: id("control-policy-more"),
   // "Up next" (OME-508, ADR 0031): the queue panel under the TV.
   queuePanel: id("queue-panel"),
   queueCount: id("queue-count"),

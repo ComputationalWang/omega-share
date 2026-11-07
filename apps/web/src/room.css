@@ -506,9 +506,13 @@ body.room-is-pseudo-fs { overflow: hidden; }
  * left column for the clicks that place a piece. With People open the bar and the editor end it: only they show. */
 .room-side > .editor-panel:empty { display: none; }
 body.room-editing .room-side > :not(.edit-bar, .editor-panel, .people:has(> .edit-bar)), body.room-editing .room-side > .people > :not(.edit-bar, .editor-panel) { display: none; }
-/* It scrolls with no bar of its own on most screens (OME-2301: at 1280×800 Who controls playback ran 54 px past the edge):
- * a 32 px fade says there is more, and the end padding lets the last card scroll clear of it (as .preset-list, OME-2284). */
-body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 44px; mask-image: linear-gradient(#000 calc(100% - 32px), transparent); }
+/* It scrolls with no bar of its own on most screens (OME-2301: at 1280×800 Who controls playback ran 54 px past the edge).
+ * A fade said so but dimmed Everyone and Only me, which read as disabled (OME-2324): a "More below" cue sticks to the
+ * bottom edge instead, hidden (keeping its place, so nothing jumps) once moderation.ts sees the card clear of it. */
+body.room-editing .room-side { overflow-y: auto; overscroll-behavior: contain; }
+.mod-policy-more { display: none; }
+body.room-editing .room-side > .edit-bar > .mod-policy-more { display: block; order: 2; position: sticky; bottom: 0; margin: 0; padding: 4px 0; background: var(--bg); color: var(--ui-text); font-size: 12px; font-weight: 700; line-height: 16px; text-align: center; pointer-events: none; }
+body.room-editing .room-side > .edit-bar > .mod-policy-more.is-end { visibility: hidden; }
 /* The tray comes right under Done (OME-2103: the playback setting pushed it below the fold); the setting ends the sheet. */
 body.room-editing .room-side > .edit-bar { display: contents; }
 body.room-editing .room-side > .edit-bar > * { flex: none; }
