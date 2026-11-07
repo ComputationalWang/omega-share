@@ -55,7 +55,6 @@ async function setup(o: { wide?: boolean; short?: boolean; video?: boolean; coar
   const layout = createRoomLayout({
     root, wrap, clip, stage, tv: o.video === true ? { ...tv, provider: () => "youtube" as const } : tv, log, poll, queue, notice, live: [notice], roomAway, roomTop, people, invite, foot, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
-    settings: [],
     phone: { matches: false },
     coarse: { matches: o.coarse === true },
     portrait: { matches: o.portrait === true },
@@ -95,49 +94,47 @@ test("new seats read no layout unless the band frames them", async () => {
 
 // OME-2280: on a phone the Room sheet starts under the picture. Measuring that in every fit (the first one runs inside the
 // room's render) forced a layout; it's measured when the sheet opens.
-test("a portrait fit measures the sheet's top only when the sheet opens", async () => {
-  const { layout, root, tv } = await setup({ portrait: true });
-  let reads = 0;
-  tv.tv.getBoundingClientRect = () => (reads++, new DOMRect(0, 0, 390, 220));
-  layout.syncPortrait();
-  layout.fit();
-  expect(layout.portraitOn()).toBe(true);
-  expect(reads).toBe(0);
-  layout.dock.link.click();
-  expect(layout.dock.sheet.open).toBe(true);
-  expect(reads).toBe(1);
-  expect(root.style.getPropertyValue("--portrait-sheet-top")).toMatch(/^\d+px$/);
-});
-
 describe("room layout", () => {
-  test("in the page the chat sits right under the notices", async () => {
-    const { log, poll, form, notice, side } = await setup();
+  // The Doorstep desk panel (OME-2306): one panel, the invite on top, Chat / Up next / Room, the composer at its foot.
+  test("below the wide page the panel sits right under the notices, its tabs right over the composer", async () => {
+    const { layout, log, poll, form, notice, side, queue, invite } = await setup();
+    const { panel } = layout;
+    expect(notice.nextElementSibling).toBe(panel.root);
+    expect(invite.parentElement).toBe(panel.head);
     // The poll card (OME-1454) is pinned right above the log.
-    expect(notice.nextElementSibling).toBe(poll);
     expect(poll.nextElementSibling).toBe(log.root);
-    expect(log.root.nextElementSibling).toBe(form);
+    expect(log.root.parentElement).toBe(panel.panels.chat);
+    expect(queue.root.parentElement).toBe(panel.panels.queue);
+    expect(panel.root.lastElementChild).toBe(form);
+    expect(form.previousElementSibling).toBe(panel.tabs);
     expect(side.hidden).toBe(true);
     expect(document.body.classList.contains("room-is-wide")).toBe(false);
   });
 
-  test("on a wide screen the invite, Up next and the chat make the side column", async () => {
-    const { root, log, form, side, queue, invite } = await setup({ wide: true });
+  test("on a wide screen the panel is the side column, its tabs under the invite", async () => {
+    const { layout, root, log, form, side, queue, invite } = await setup({ wide: true });
+    const { panel } = layout;
     expect(root.classList.contains("room-wide")).toBe(true);
     // OME-1755: the page's wide rules key on a body class, not body:has(), which re-styles the page on every chat line.
     expect(document.body.classList.contains("room-is-wide")).toBe(true);
     expect(side.hidden).toBe(false);
-    expect(invite.parentElement).toBe(side);
-    expect(queue.root.parentElement).toBe(side);
-    expect(log.root.parentElement).toBe(side);
-    expect(form.parentElement).toBe(side);
+    expect(panel.root.parentElement).toBe(side);
+    expect(invite.parentElement).toBe(panel.head);
+    expect(panel.head.nextElementSibling).toBe(panel.tabs);
+    expect(queue.root.parentElement).toBe(panel.panels.queue);
+    expect(log.root.parentElement).toBe(panel.panels.chat);
+    expect(panel.root.lastElementChild).toBe(form);
   });
 
-  test("People is a tab of the chat column on a wide screen, above the owner's bar and the log; elsewhere under the head row (OME-1805)", async () => {
+  test("People takes the log's place on the Chat tab on a wide screen, and opening it shows that tab; elsewhere under the picture (OME-1805)", async () => {
     const wide = await setup({ wide: true });
-    expect(wide.people.parentElement).toBe(wide.side);
-    expect(wide.people.nextElementSibling).toBe(wide.ownerBar);
+    expect(wide.people.nextElementSibling).toBe(wide.log.root);
+    wide.layout.panel.select("queue");
+    wide.people.hidden = false;
+    await Promise.resolve();
+    expect(wide.layout.panel.selected()).toBe("chat");
     const page = await setup();
-    expect(page.roomTop.nextElementSibling).toBe(page.people);
+    expect(page.wrap.nextElementSibling).toBe(page.people);
   });
 
   test("the chat column says whether People or a poll is open in it, by class: :has() re-styled it per chat line (OME-1985)", async () => {
@@ -149,7 +146,7 @@ describe("room layout", () => {
     wide.people.hidden = true;
     await Promise.resolve();
     expect(wide.side.classList.contains("people-open")).toBe(false);
-    expect(wide.poll.parentElement).toBe(wide.side);
+    expect(wide.side.contains(wide.poll)).toBe(true);
     wide.poll.hidden = false;
     await Promise.resolve();
     expect(wide.side.classList.contains("poll-open")).toBe(true);
@@ -165,41 +162,21 @@ describe("room layout", () => {
     expect(page.side.classList.contains("poll-open")).toBe(false);
   });
 
-  test("the owner's bar ends the People tab on a wide screen, Report room too on a short one (OME-1841, OME-1842)", async () => {
-    const tall = await setup({ wide: true });
-    expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
-    // Tall too, the editor follows its Done key (OME-2283): the column is its sheet, not a column of its own.
-    expect(tall.ownerBar.nextElementSibling).toBe(tall.editorPanel);
-    expect(tall.editorPanel.nextElementSibling).toBe(tall.log.root);
-    expect(tall.foot.parentElement).toBe(tall.root);
-    // Open, People holds the bar (and the editor) at its end, so they scroll as one (OME-1842); closed, it's back above the log.
-    tall.people.append(div());
-    tall.people.hidden = false;
-    await Promise.resolve();
-    expect(tall.people.lastElementChild).toBe(tall.editorPanel);
-    expect(tall.editorPanel.previousElementSibling).toBe(tall.ownerBar);
-    tall.people.hidden = true;
-    await Promise.resolve();
-    expect(tall.people.nextElementSibling).toBe(tall.ownerBar);
-    const short = await setup({ wide: true, short: true });
-    short.people.hidden = false;
-    await Promise.resolve();
-    expect(short.people.nextElementSibling).toBe(short.ownerBar);
-    // The editor follows its Done key, then Report room (OME-1927).
-    expect(short.ownerBar.nextElementSibling).toBe(short.editorPanel);
-    expect(short.editorPanel.nextElementSibling).toBe(short.foot);
-    expect(short.foot.parentElement).toBe(short.side);
-    const narrow = await setup({ wide: false, short: true });
-    expect(narrow.ownerBar.nextElementSibling).toBe(narrow.editorPanel);
+  test("the Room tab holds the owner's bar, the editor under its Done key, and Report room, in every layout", async () => {
+    for (const o of [{ wide: true }, { wide: true, short: true }, {}]) {
+      const { layout, ownerBar, editorPanel, foot } = await setup(o);
+      expect(ownerBar.parentElement).toBe(layout.panel.panels.room);
+      expect(ownerBar.nextElementSibling).toBe(editorPanel);
+      expect(editorPanel.nextElementSibling).toBe(foot);
+    }
   });
 
-  test("a short wide screen moves the head row, holding the invite, to the top of the chat column (OME-1595)", async () => {
+  test("a short wide screen moves the head row to the top of the column, the panel under it (OME-1595)", async () => {
     const tall = await setup({ wide: true });
     expect(tall.root.firstElementChild).toBe(tall.roomTop);
     const short = await setup({ wide: true, short: true });
     expect(short.roomTop.parentElement).toBe(short.side);
-    expect(short.invite.parentElement).toBe(short.roomTop);
-    expect(short.roomTop.nextElementSibling).toBe(short.queue.root);
+    expect(short.roomTop.nextElementSibling).toBe(short.layout.panel.root);
   });
 
   test("the strip's collapse key is remembered on this device", async () => {

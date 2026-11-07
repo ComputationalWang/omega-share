@@ -103,6 +103,7 @@ test("Add to queue from the popup puts the page's video in the Up next list of e
   }
 
   // Play next brings the queued Vimeo video on for everyone.
+  await x.page.getByTestId("portrait-queue").click();
   await x.page.locator(site.queueNext).click();
   for (const page of everyone) {
     await expect(page.locator(site.sharedVideo)).toHaveAttribute("src", /player\.vimeo\.com\/video\/76979871/);

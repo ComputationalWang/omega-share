@@ -80,6 +80,8 @@ async function mockReport(context: BrowserContext, status: "received" | "already
 
 /** Opens the report dialog with the keyboard and returns once it shows. */
 async function openReport(page: Page): Promise<void> {
+  // The report key is the Room tab's last stop; only the selected tab's panel is shown.
+  await page.locator("[data-testid=portrait-settings]").click();
   await page.locator(site.reportKey).focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(site.reportDialog)).toBeVisible();
@@ -374,7 +376,12 @@ test("keyboard only, no mouse: join, sit, chat, full screen in and out, chat out
   await expect(page.locator(site.chatInput)).toBeVisible();
   await checkFocus(page, "after bringing the chat back", problems);
 
-  // Report the room: the last key of the room; pick a reason, note, send, Close.
+  // Report the room: the last key of the Room tab. Back to the tablist (the selected tab is its one stop), End selects
+  // Room, then Tab into the panel.
+  await tabTo(page, "portrait-chat", "back to the tablist", problems, "Shift+Tab", 80);
+  await page.keyboard.press("End");
+  await expect(page.locator("[data-testid=portrait-settings]")).toHaveAttribute("aria-selected", "true");
+  await checkFocus(page, "Room tab selected", problems);
   await tabTo(page, "report-key", "to the report key", problems, "Tab", 80);
   await page.keyboard.press("Enter");
   await expect(page.locator(site.reportDialog)).toBeVisible();
@@ -551,8 +558,9 @@ test.describe("reduced motion: nothing animates for more than a blink, every key
     if (a === undefined || b === undefined) throw new Error("need 2 clients");
     await say(b.page, "a line arrives");
     await expect(a.page.locator(site.chatLogLine).last()).toContainText("a line arrives");
-    await openReport(a.page);
+    // Watch the chat log first: selecting the Room tab (the report key is there) hides it and cancels its running animations.
     await expect.poll(async () => (await motionSeen(a.page)).filter((m) => m.ms > BLINK_MS).length, { timeout: 8000 }).toBeGreaterThan(0);
+    await openReport(a.page);
   });
 
   test("chat line arrival, full-screen enter/leave, strip collapse/expand", async ({ browser }) => {

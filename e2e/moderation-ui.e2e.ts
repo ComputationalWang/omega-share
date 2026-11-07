@@ -65,6 +65,7 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
   await enter(guest, "kit");
 
   // The owner gets the setting (Everyone by default); the guest gets nothing, and never fetches the chunk.
+  await owner.getByTestId("portrait-settings").click(); // the owner's setting is in the Room tab (OME-2306)
   await expect(owner.locator(site.controlPolicy)).toBeVisible();
   await expect(owner.locator(site.controlPolicyOption).first()).toHaveAttribute("aria-checked", "true");
   await expect(guest.locator(site.room)).toBeVisible();

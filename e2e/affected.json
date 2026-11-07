@@ -187,6 +187,7 @@
         "e2e/qa-rooms.e2e.ts",
         "e2e/reconnect.e2e.ts",
         "e2e/room-view.e2e.ts",
+        "e2e/room-chrome.e2e.ts",
         "e2e/rooms-web.e2e.ts",
         "e2e/side-column.e2e.ts",
         "e2e/source-link.e2e.ts",

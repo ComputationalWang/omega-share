@@ -89,8 +89,8 @@ export function createHints(o: HintsOptions): Hints {
     place();
   });
 
-  // Live UI a chip never covers (OME-2350): the phone dock, the chat lines and the top bar's keys (Photo).
-  const live = (): Element[] => [...(root.parentElement?.querySelectorAll(".portrait-keys, .chat-log, .room-top") ?? [])];
+  // Live UI a chip never covers (OME-2350): the panel's tabs, the chat lines and the top bar's keys (Photo).
+  const live = (): Element[] => [...(root.parentElement?.querySelectorAll(".panel-tabs, .chat-log, .room-top") ?? [])];
 
   const place = (): void => {
     const side = STEPS[step]?.side;
@@ -104,7 +104,7 @@ export function createHints(o: HintsOptions): Hints {
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone.
     if (at !== null && blocked(at)) at = spot(o.tv.empty() ? o.tv.message : o.tv.picture, "below", w, h);
-    // Nothing to sit beside, or nowhere clear of the TV, composer, dock, chat and top bar: out of sight until there is.
+    // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
     root.style.visibility = away ? "hidden" : "";

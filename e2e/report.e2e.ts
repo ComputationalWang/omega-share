@@ -28,6 +28,8 @@ async function join(name: RoomName<"report">, browser: Parameters<typeof joinRoo
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.connectionStatus)).toHaveText("");
+  // The report key lives in the Room tab of the room panel, at every width.
+  await page.getByTestId("portrait-settings").click();
   return page;
 }
 
@@ -47,12 +49,12 @@ test("a guest reports the room with the keyboard only: the real server gets { re
 
   const key = page.locator(site.reportKey);
   await expect(key).toHaveText("Report room");
-  // The last tab stop of the room: nothing in the room comes after it.
+  // The last tab stop of the Room tab: nothing else in the tab comes after it.
   const after = await key.evaluate((k) => {
-    // The room screen is the page's <main>; the site footer after it is the site's, not the room's.
-    const room = k.closest("main");
+    // The Room tab's body; the site footer after the key is the site's, and the docked composer is outside the tab.
+    const room = k.closest(".panel-room");
     if (room === null) return -1;
-    const all = [...room.querySelectorAll<HTMLElement>("a[href], button, input, textarea, select, [tabindex]")].filter((e) => !e.closest("[hidden]") && e.tabIndex >= 0 && !(e instanceof HTMLButtonElement && e.disabled) && e.getClientRects().length > 0 && !e.closest("dialog"));
+    const all = [...room.querySelectorAll<HTMLElement>("a[href], button, input, textarea, select, [tabindex]")].filter((e) => !e.closest("[hidden]") && e.tabIndex >= 0 && !(e instanceof HTMLButtonElement && e.disabled) && e.getClientRects().length > 0 && !e.closest("dialog") && !e.closest(".site-footer"));
     return k instanceof HTMLElement ? all.length - 1 - all.indexOf(k) : -1;
   });
   expect(after).toBe(0);

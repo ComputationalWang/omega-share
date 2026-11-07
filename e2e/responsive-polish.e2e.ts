@@ -298,6 +298,8 @@ test("1280×800: the Armchair and TV console tray cubbies show their art, still 
   await page.goto(`${URLS.web}/r/${id}`);
   await page.locator(site.nicknameInput).fill("trayart");
   await page.locator(site.joinButton).click();
+  // The owner's bar is in the panel's Room tab (OME-2306).
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
   await page.locator(site.editRoom).click();
   await expect(page.locator(site.editorTray)).toBeVisible();
   await shot(page, "6-tray-1280x800");
@@ -359,19 +361,21 @@ test("1024×1366 touch: the TV is at most 720 px wide, centred, and the room win
   if (tv === null || room === null) throw new Error("TV or room window not laid out");
   expect(tv.width).toBeLessThanOrEqual(720);
   expect(Math.abs(tv.x - (1024 - tv.x - tv.width))).toBeLessThanOrEqual(1);
-  expect(room.height).toBeGreaterThanOrEqual(421 + 160);
+  // The panel sits under the room now (OME-2306), so the window no longer takes the whole free height: it keeps the
+  // desktop floor (HANDOFF "Layout": 200 px) plus the 576 − 405 px the capped TV saved.
+  expect(room.height).toBeGreaterThanOrEqual(200 + (1024 * 9) / 16 - tv.height);
 });
 
-// The footer's links live in the Room sheet on a phone or tablet held upright, not in a cramped line under the dock.
-test("390×844 touch: the footer links are in the Room sheet, not under the dock", async ({ browser }) => {
+// The footer's links live in the panel's Room tab on a phone or tablet held upright, not in a cramped line under the dock.
+test("390×844 touch: the footer links are in the Room tab, not under the dock", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("rpolish", "foot390").url, count: 1, nicknamePrefix: "pof", contextOptions: () => TOUCH(390, 844) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator('[data-testid="source-link"]')).toBeHidden();
-  await page.getByTestId("portrait-settings").click();
-  const sheet = page.getByTestId("portrait-sheet");
-  for (const id of ["privacy-link", "terms-link", "source-link", "feedback-link"]) await expect(sheet.getByTestId(id)).toBeVisible();
-  await shot(page, "11-footer-in-room-sheet-390x844");
-  await page.getByTestId("portrait-sheet-close").click();
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  const room = page.locator("#panel-room");
+  for (const id of ["privacy-link", "terms-link", "source-link", "feedback-link"]) await expect(room.getByTestId(id)).toBeVisible();
+  await shot(page, "11-footer-in-room-tab-390x844");
+  await page.getByRole("tab", { name: "Chat", exact: true }).click();
   await expect(page.locator('[data-testid="source-link"]')).toBeHidden();
 });

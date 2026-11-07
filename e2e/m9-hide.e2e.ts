@@ -99,6 +99,7 @@ test("hide for me: nothing is sent, their chat, bubbles and emotes stop for me o
   expect(await alpha(b.page, aId)).toBe(1);
 
   // Reporting is untouched: the report key is there and opens its dialog.
+  await a.page.locator("[data-testid=portrait-settings]").click();
   await expect(a.page.locator(site.reportKey)).toBeVisible();
   await a.page.locator(site.reportKey).click();
   await expect(a.page.locator(site.reportDialog)).toBeVisible();

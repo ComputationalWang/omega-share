@@ -76,6 +76,12 @@ const hitBox = (target: Locator): Promise<{ w: number; h: number }> =>
     return { w: Math.round(Math.max(r.width, px(b.width))), h: Math.round(Math.max(r.height, px(b.height))) };
   });
 
+/** The panel's tabs (OME-2306): the owner's tools are in Room, the queue in Up next, the log in Chat. */
+const tab = async (page: Page, name: "Chat" | "Up next" | "Room"): Promise<void> => {
+  await page.getByRole("tab", { name, exact: true }).click();
+  await expect(page.getByRole("tab", { name, exact: true })).toHaveAttribute("aria-selected", "true");
+};
+
 const area = async (page: Page): Promise<number> => {
   const b = await page.locator(site.roomWindow).boundingBox();
   return b === null ? 0 : b.width * b.height;
@@ -84,7 +90,8 @@ const area = async (page: Page): Promise<number> => {
 test("1280×800: the owner's room is as big as a guest's, and axe finds no target too small", async ({ browser }) => {
   const { host, kit } = await ownerAndGuest(browser, "roomsize", DESK, DESK);
   await expect.poll(async () => (await area(host)) / (await area(kit)), { message: "owner room-window area / guest's" }).toBeGreaterThanOrEqual(0.9);
-  // The owner's tools are still on the page, in reach.
+  // The owner's tools are one tab away (Room), in reach.
+  await tab(host, "Room");
   await expect(host.locator(site.editRoom)).toBeInViewport();
   await expect(host.locator(site.controlPolicy)).toBeInViewport();
   const { violations } = await new AxeBuilder({ page: host }).include(site.room).withRules(["target-size"]).analyze();
@@ -124,12 +131,14 @@ for (const [size, viewport, name] of [["1280×800", DESK, "roomfull"], ["1024×7
     try {
       const rows = host.locator(site.queueRow);
       await expect.poll(() => rows.count(), { timeout: 15_000 }).toBe(QUEUE_MAX);
+      await tab(host, "Up next");
       const list = host.locator(`${site.queuePanel} .ui-qlist`);
       const row = (await rows.first().boundingBox())?.height ?? 0;
       expect(await list.evaluate((n) => n.clientHeight), "Up next list height").toBeGreaterThanOrEqual(row);
-      expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
       await rows.last().scrollIntoViewIfNeeded();
       await expect(rows.last()).toBeInViewport();
+      await tab(host, "Chat");
+      expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
       expect(await host.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
     } finally {
       close();
@@ -139,6 +148,10 @@ for (const [size, viewport, name] of [["1280×800", DESK, "roomfull"], ["1024×7
 
 test("390×844 touch: the guest's tag and every key in the member menu are 44×44 to the finger", async ({ browser }) => {
   const { host, kitTag } = await ownerAndGuest(browser, "roomtouch", TOUCH, DESK);
+  // The 16:9 TV (ADR 0064) leaves the strip the design's ~150 px, framed on me: the guest's tag can start past its top
+  // edge, cropped and off to pointers (OME-1325). Its focus pans the window to show it whole (QA OME-1330 R2).
+  await kitTag.focus();
+  await expect(kitTag).not.toHaveClass(/is-cropped/);
   const tag = await hitBox(kitTag);
   expect(tag.w, "tag opener width").toBeGreaterThanOrEqual(44);
   expect(tag.h, "tag opener height").toBeGreaterThanOrEqual(44);
@@ -271,6 +284,7 @@ async function reachable(page: Page, l: Locator): Promise<void> {
 test("844×390 touch, the owner edits: the tray, the piece's keys, mood and Save are in reach, a tap places a piece, Save keeps it (OME-1927)", async ({ browser }) => {
   const { host } = await ownerAndGuest(browser, "landedit", LAND, LAND);
   await host.locator(site.peopleKey).tap();
+  await tab(host, "Room");
   await host.locator(site.editRoom).tap();
   await expect(host.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
   await expect(host.locator(site.editorTray)).toBeVisible();
@@ -323,10 +337,13 @@ test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag 
   for (const page of [host, kit]) {
     expect(await exposedSmall(page)).toEqual([]);
     expect(await targetSize(page)).toEqual([]);
-    await page.locator("[data-testid=portrait-link]").click();
-    expect(await exposedSmall(page)).toEqual([]);
-    expect(await targetSize(page)).toEqual([]);
-    await page.getByRole("button", { name: "Close" }).click();
+    // The share sheet is the Up next tab now (OME-2306), and the owner's tools are in Room.
+    for (const name of ["Up next", "Room"] as const) {
+      await tab(page, name);
+      expect(await exposedSmall(page)).toEqual([]);
+      expect(await targetSize(page)).toEqual([]);
+    }
+    await tab(page, "Chat");
   }
   // kit sits in the back row from a desktop window; a 320 px window shows only the front row at 1×, so kit's tag is
   // cropped there. The owner still reaches it by keyboard: Tab focuses it, the window pans to show it whole, Enter opens
@@ -369,6 +386,7 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
   };
   const scale = (): Promise<number> => host.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
   const editKey = host.locator(site.editRoom);
+  await tab(host, "Room");
   let last = 0;
   for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080], [2560, 1440]] as const) {
     const at = `${String(w)}×${String(h)}`;
@@ -395,12 +413,15 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     }
     for (const sel of [site.editorTitle, site.editorRename, site.editorDelete]) {
       await host.locator(sel).scrollIntoViewIfNeeded();
-      await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 1 });
+      // 0.99: the Room tab's body is the scroller now and, at a 1.5x chrome zoom, ends a fraction of a pixel short.
+      await expect(host.locator(sel), `${at} ${sel}`).toBeInViewport({ ratio: 0.99 });
     }
     // OME-2301/OME-2324 (judge rounds 11, 12): at 1280×800 the column runs past the screen. A fade said so but dimmed
     // Everyone and Only me, which read as disabled: now nothing dims, and a "More below" cue shows while the playback
     // card is cut, gone once it's scrolled clear.
     const side = host.locator(".room-side");
+    // The Room tab's body scrolls inside the column now (OME-2306): both are the editing sheet's scrollers.
+    const scrollers = host.locator(".room-side, .room-side .panel-room");
     const more = host.locator(site.controlPolicyMore);
     expect(await side.evaluate((e) => getComputedStyle(e).maskImage), `${at} the column doesn't fade`).toBe("none");
     for (const tile of await host.locator(site.controlPolicyOption).all()) {
@@ -409,7 +430,7 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     }
     // OME-2338 (judge round 13): at 1280×800 the column ran 86 px past the screen and the cue sat on Everyone / Only me.
     // There it fits, unscrolled; anywhere the cue shows, its box never meets a playback tile's.
-    if (w === 1280) expect(await side.evaluate((e) => e.scrollHeight - e.clientHeight), `${at} editing: the column's overflow`).toBeLessThanOrEqual(0);
+    if (w === 1280) for (const s of await scrollers.all()) expect(await s.evaluate((e) => e.scrollHeight - e.clientHeight), `${at} editing: the column's overflow`).toBeLessThanOrEqual(0);
     if (await more.isVisible()) {
       const cue = await more.boundingBox();
       for (const tile of await host.locator(site.controlPolicyOption).all()) {
@@ -420,10 +441,10 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
     }
     const cut = await host.locator(site.controlPolicy).evaluate((card) => card.getBoundingClientRect().bottom > window.innerHeight);
     if (cut) await expect(more, `${at} the column says there's more`).toBeVisible();
-    await side.evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    for (const s of await scrollers.all()) await s.evaluate((e) => { e.scrollTop = e.scrollHeight; });
     await expect(more, `${at} scrolled to its end, the cue goes`).toBeHidden();
     await expect(host.locator(site.controlPolicy), `${at} scrolled to its end, the playback card`).toBeInViewport({ ratio: 1 });
-    await side.evaluate((e) => { e.scrollTop = 0; });
+    for (const s of await scrollers.all()) await s.evaluate((e) => { e.scrollTop = 0; });
     expect(await host.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && window.scrollY === 0), `${at} the page doesn't scroll`).toBe(true);
   }
   // OME-2283: nothing to save or undo, the two keys look alike, under the pointer too (a secondary key's hover face beat its disabled one).
@@ -453,14 +474,16 @@ test("1280×720 to 1280×850 and 1024×768 touch, editing: the More below cue ne
     for (const [w, h] of sizes) {
       const at = `${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}`;
       await host.setViewportSize({ width: w, height: h });
+      // While editing the column is the editor's sheet and has no tabs (OME-2306): the Room tab is only there to open it.
+      if (await host.getByRole("tab", { name: "Room", exact: true }).isVisible()) await tab(host, "Room");
       if ((await editKey.getAttribute("aria-pressed")) === "true") await editKey.click();
       await expect(host.locator(site.editorTray)).toHaveCount(0);
       await editKey.click();
       await expect(host.locator(site.editorTray)).toBeVisible();
-      await host.locator(".room-side").evaluate((e) => { e.scrollTop = 0; });
+      for (const s of await host.locator(".room-side, .room-side .panel-room").all()) await s.evaluate((e) => { e.scrollTop = 0; });
       const tiles = await host.locator(site.controlPolicyOption).all();
-      // Both ways round: the cue says so while the tiles are all below the fold, and is gone once any shows.
-      const below = (await Promise.all(tiles.map((t) => t.evaluate((e) => e.getBoundingClientRect().top >= window.innerHeight)))).every(Boolean);
+      // Both ways round: the cue says so while the tiles are all below the fold, and is gone once any shows. 1 px of slack: at 1024×740 the tiles start 0.27 px inside the fold, a sliver nobody sees (OME-2306).
+      const below = (await Promise.all(tiles.map((t) => t.evaluate((e) => e.getBoundingClientRect().top >= window.innerHeight - 1)))).every(Boolean);
       await expect.poll(() => more.isVisible(), { message: `${at} the cue shows only while the tiles are below the fold` }).toBe(below);
       const cue = (await more.isVisible()) ? await more.boundingBox() : null;
       for (const tile of tiles) {

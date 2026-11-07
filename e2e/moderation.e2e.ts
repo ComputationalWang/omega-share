@@ -235,6 +235,7 @@ test("control policy owner-only: a guest's play, pause, seek and share are refus
   await everyone(PLAYING);
 
   // Owner-only: the guest's and the observer's keys are held; the owner's isn't.
+  await owner.page.getByTestId("portrait-settings").click(); // the policy tiles are in the Room tab (OME-2306)
   await clickSettled(owner.page, owner.page.locator(site.controlPolicyOption).filter({ hasText: "Only me" }));
   for (const p of [guest.page, observer.page]) {
     await expect(p.locator(site.playToggle)).toHaveAttribute("aria-disabled", "true");

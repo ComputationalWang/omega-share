@@ -83,8 +83,26 @@ for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080], ["w2560
     await expect(latest).toContainText("hello from the side");
 
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
-    for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow, site.chatInput, site.chatSend, site.queuePanel]) await inView(page, page.locator(l));
+    // One tab shows at a time (OME-2306): the always-visible parts (tablist, invite, composer) and the TV are in view,
+    // and so is each tab's content once it is selected.
+    const tablist = page.getByRole("tablist", { name: "Room panel" });
+    for (const l of [site.tv, site.playToggle, site.muteToggle, site.roomWindow, site.chatInput, site.chatSend, site.inviteLink, site.inviteCopy]) await inView(page, page.locator(l));
+    await inView(page, tablist);
     await inView(page, latest);
+    for (const [tab, panel, content] of [
+      ["portrait-chat", "#panel-chat", [site.chatLog]],
+      ["portrait-queue", "#panel-queue", [site.queuePanel, site.queueUrl]],
+      ["portrait-settings", "#panel-room", [site.reportKey]],
+    ] as const) {
+      await page.locator(`[data-testid="${tab}"]`).click();
+      await expect(page.locator(`[data-testid="${tab}"]`)).toHaveAttribute("aria-selected", "true");
+      await inView(page, page.locator(panel));
+      for (const l of content) await inView(page, page.locator(l));
+      for (const l of [site.chatInput, site.chatSend, site.inviteLink, site.inviteCopy]) await inView(page, page.locator(l));
+      await inView(page, tablist);
+    }
+    await page.locator('[data-testid="portrait-chat"]').click();
+    await expect(page.locator('[data-testid="portrait-chat"]')).toHaveAttribute("aria-selected", "true");
     // The page itself doesn't scroll.
     expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(h);
 

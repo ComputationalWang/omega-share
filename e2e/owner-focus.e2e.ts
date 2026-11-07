@@ -101,6 +101,7 @@ test("after a kick, focus moves to the next member's tag, never <body>", async (
 
 test("editor: Keep it goes back to Delete room; Escape closes the editor onto Edit room", async ({ browser }) => {
   const owner = await room(browser, "edfocus", []);
+  await owner.getByTestId("portrait-settings").click(); // Edit room is in the Room tab (OME-2306)
   const edit = owner.locator(site.editRoom);
   await edit.focus();
   await owner.keyboard.press("Enter");

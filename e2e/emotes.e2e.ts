@@ -333,15 +333,15 @@ test.describe("emotes", () => {
       await expect(wheel.locator(".ui-wheel-label .ui-kbd")).toBeHidden();
       await page.getByRole("menuitem", { name: "Clap" }).tap();
       await expect(wheel).toBeHidden();
-      // Portrait keeps the document fixed. Rotate to verify the existing landscape page-scroll behavior.
+      // Below 1024 px the room's page box scrolls when a short window can't fit the minimums (OME-2306); the document stays fixed.
       await page.setViewportSize({ width: 390, height: 320 });
-      await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
-      // Scrolling the page closes it: it's placed once, and would be left behind off your head (OME-776).
+      // Scrolling the room closes it: it's placed once, and would be left behind off your head (OME-776).
       await key.tap();
       await expect(wheel).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(true);
-      await page.evaluate(() => {
-        scrollBy(0, 40);
+      const roomBox = page.locator("#room-root");
+      expect(await roomBox.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+      await roomBox.evaluate((e) => {
+        e.scrollBy(0, 40);
       });
       await expect(wheel).toBeHidden();
     });
