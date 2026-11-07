@@ -392,8 +392,9 @@ test("reduced motion: an early exit is instant", async () => {
 
 // OME-1050: ten stacked bubbles are 330 px; over a back-row head they would climb out of the room's view (ROOM_VIEW,
 // the part of the stage the page shows, from y 60) and be clipped.
-test("a stack never climbs out of the room's view: an older bubble whose rise would cross its top goes instead", async () => {
+test("a stack never climbs out of the room's view: an older bubble whose rise would cross its top, with no room beside, goes instead", async () => {
   const { floats, frame, texts, bubbleOf } = await setup();
+  floats.sides(420, 540); // one column: no room to spill into
   // Head at 300: the newest box's top is 266 and each older one 33 px higher; with the 24 px rise, l0 to l3 cross 60.
   for (const t of lines(10)) floats.say(say("a", t, 480, 300));
   frame();
@@ -404,9 +405,49 @@ test("a stack never climbs out of the room's view: an older bubble whose rise wo
 
 test("reduced motion has no rise: only a box that would itself cross the top goes", async () => {
   const { floats, frame, texts } = await setup({ reduced: true });
+  floats.sides(420, 540);
   for (const t of lines(10)) floats.say(say("a", t, 480, 300));
   frame();
   expect(texts().sort()).toEqual(lines(10).slice(3).sort());
+});
+
+// OME-2368: a cluster of speakers stacks every line in one column; with free wall beside it, a line spills sideways
+// before it leaves. Centred, a 100 px box is at -50; one column right is +103 (the box and the 3 px gap).
+test("a stack that would cross the top spills into the nearest free column beside it before a line goes", async () => {
+  const { floats, frame, texts, bubbleOf, push } = await setup();
+  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  frame();
+  expect(texts().sort()).toEqual(lines(10).sort());
+  for (const t of ["l0", "l1", "l2", "l3"]) {
+    expect(bubbleOf(t).style.left).toBe("53px");
+    expect(bubbleOf(t).classList.contains("is-stacked")).toBe(true);
+    expect(bubbleOf(t).classList.contains("is-leaving")).toBe(false);
+  }
+  // The spilled column climbs from the heads like the first: l3 lowest, newest in it.
+  expect(push("l3")).toBe("0px");
+  expect(push("l2")).toBe("-33px");
+  expect(bubbleOf("l4").style.left).toBe("-50px");
+});
+
+test("blocked on the right (the stage edge), it spills left", async () => {
+  const { floats, frame, texts, bubbleOf } = await setup();
+  floats.sides(0, 540);
+  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  frame();
+  expect(texts().sort()).toEqual(lines(10).sort());
+  expect(bubbleOf("l3").style.left).toBe("-153px");
+});
+
+test("a spilled bubble keeps its column: a walk end or a later line doesn't send it back over the stack", async () => {
+  const { floats, frame, bubbleOf } = await setup();
+  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  frame();
+  floats.say(say("b", "far", 100));
+  frame();
+  expect(bubbleOf("l3").style.left).toBe("53px");
+  floats.settle("a", 480, 300);
+  expect(bubbleOf("l3").style.left).toBe("53px");
+  expect(bubbleOf("l3").classList.contains("is-leaving")).toBe(false);
 });
 
 test("an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker", async () => {
