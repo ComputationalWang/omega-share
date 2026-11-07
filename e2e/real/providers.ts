@@ -199,3 +199,23 @@ export const siteNotices = (page: Page): Promise<string[]> =>
   page
     .locator(`${site.roomNotice}, ${site.syncNotice}, ${site.systemLine}, ${site.catchingNotice}`)
     .evaluateAll((els) => els.filter((e) => e instanceof HTMLElement && !e.hidden && e.offsetParent !== null).map((e) => e.textContent.trim()).filter((t) => t !== ""));
+
+export type Kick = "paused" | "stalled";
+
+/**
+ * Which kick a room player needs, if any, given a sample at `now`: "paused" 20 s after the start (OME-2057), or "stalled"
+ * when it reports playing but its currentTime hasn't moved for 20 s (OME-2364, Vimeo stuck at 0). Each kick once.
+ */
+export function stallWatch(startMs: number, afterMs = 20_000): (s: { paused: boolean; currentTime: number }, now: number) => Kick | null {
+  let lastTime = Number.NaN;
+  let movedAt = startMs;
+  const done = new Set<Kick>();
+  return (s, now) => {
+    // A paused sample restarts the stall clock, so the paused kick's play isn't read as a 20 s freeze.
+    if (s.paused || s.currentTime !== lastTime) [lastTime, movedAt] = [s.currentTime, now];
+    const kick: Kick = s.paused ? "paused" : "stalled";
+    if (done.has(kick) || now - (s.paused ? startMs : movedAt) <= afterMs) return null;
+    done.add(kick);
+    return kick;
+  };
+}
