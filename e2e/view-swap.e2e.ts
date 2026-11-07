@@ -83,6 +83,8 @@ test("my view turns when my drawn avatar passes the doorway, not on the click (O
   const near = (c: { col: number; row: number }): boolean => Math.abs(c.col - 1) <= 1 && Math.abs(c.row - 4) <= 1;
   const north = await cellAtTurn(a.page, "north", () => clickCell(a.page, 2, 2));
   expect(near(north), `turned north at ${JSON.stringify(north)}`).toBe(true);
+  // Walking north, past the doorway's middle my avatar is drawn behind the partition piece at (2,4) in the south view (QA OME-2352): turn before it leaves the doorway.
+  expect(north.row, `turned north at ${JSON.stringify(north)}, past the doorway`).toBeGreaterThanOrEqual(4);
   const south = await cellAtTurn(a.page, "south", () => clickCell(a.page, 3, 8));
   expect(near(south), `turned south at ${JSON.stringify(south)}`).toBe(true);
 });

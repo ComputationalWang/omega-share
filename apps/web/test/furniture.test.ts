@@ -739,17 +739,18 @@ describe("partitions (OME-1960)", () => {
     for (const s of scene.sprites) for (const k of [s.key, ...(s.use?.frames ?? [])]) expect(v6.frames[k]).toBeDefined();
   });
 
-  test("cutaway: behind a row of walls (a smaller row) cuts them, in front doesn't, the doorway row keeps the last state", () => {
+  test("cutaway: behind a row of walls (a smaller row) cuts them, in front doesn't, the doorway counts as behind (OME-2346)", () => {
     expect(cutaway(row, cellOf(3, 2), false)).toBe(true);
     expect(cutaway(row, cellOf(3, 7), true)).toBe(false);
     expect(cutaway(row, cellOf(1, 4), true)).toBe(true);
-    expect(cutaway(row, cellOf(1, 4), false)).toBe(false);
+    expect(cutaway(row, cellOf(1, 4), false)).toBe(true);
   });
 
   test("cutaway: a column of walls (facing se) cuts for a viewer at a smaller col", () => {
     expect(cutaway(col, cellOf(3, 5), false)).toBe(true);
     expect(cutaway(col, cellOf(8, 1), true)).toBe(false);
     expect(cutaway(col, cellOf(6, 1), true)).toBe(true);
+    expect(cutaway(col, cellOf(6, 1), false)).toBe(true);
   });
 
   test("cutaway: no partition never cuts; no avatar of mine keeps the last state", () => {
