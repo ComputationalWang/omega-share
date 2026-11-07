@@ -46,7 +46,7 @@ function layoutMotion(page: Page): Promise<string[]> {
       const durations = cs.transitionDuration.split(",").map((s) => parseFloat(s));
       props.forEach((p, i) => {
         const d = durations[i % durations.length] ?? 0;
-        if (d > 0 && !allowed.includes(p)) out.push(`${e.tagName.toLowerCase()}.${String(e.className)} transitions ${p}`);
+        if (d > 0 && !allowed.includes(p)) out.push(`${e.tagName.toLowerCase()}.${e.className} transitions ${p}`);
       });
     }
     for (const a of document.getAnimations()) {
@@ -90,7 +90,7 @@ test("Enter shows its press slice on pointerdown, at 0 ms, and keeps it while th
 test("a room key shows -press on pointerdown; tab content enters by opacity + transform in 140 ms; nothing animates layout", async ({ browser }) => {
   const room = testRoom("motion", "desk");
   clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "motion",
-    contextOptions: () => ({ viewport: { width: 1280, height: 800 } }), setup: (c) => c.addInitScript(RECORD) });
+    contextOptions: () => ({ viewport: { width: 1280, height: 800 } }), setup: async (c) => { await c.addInitScript(RECORD); } });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("No client");
   await page.locator(site.helpKey).hover();
@@ -114,7 +114,7 @@ test("a room key shows -press on pointerdown; tab content enters by opacity + tr
 test("reduced motion: no Web Animation runs, the underline sits without a transform, and turning it on cancels a running one", async ({ browser }) => {
   const room = testRoom("motion", "reduced");
   clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "still",
-    contextOptions: () => ({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }), setup: (c) => c.addInitScript(RECORD) });
+    contextOptions: () => ({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }), setup: async (c) => { await c.addInitScript(RECORD); } });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("No client");
   const running = (): Promise<number> => page.evaluate(() => document.getAnimations().filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition) && a.playState === "running").length);
