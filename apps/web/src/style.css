@@ -293,6 +293,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .welcome :is(.enter:not(.install-link), .tint[aria-checked="true"], .accessory[aria-checked="true"]):hover, .welcome .avatar[aria-checked="true"]:hover .avatar-caption { border-image-source: url("../../../assets/ui/slices/button-primary-hover.png"); }
 .welcome :is(.enter:not(.install-link), .tint[aria-checked="true"], .accessory[aria-checked="true"]):active, .welcome .avatar[aria-checked="true"]:active .avatar-caption { border-image-source: url("../../../assets/ui/slices/button-primary-press.png"); padding: 4px 6px 0; }
 .welcome .landing .enter:disabled { border-image-source: url("../../../assets/ui/slices/button-primary-disabled.png"); color: #cbbd9f; cursor: default; padding: 0 6px 4px; }
+/* Opening the room, Enter keeps its press slice (OME-2308), not the disabled one. */
+.welcome .landing .enter.is-press:disabled { border-image-source: url("../../../assets/ui/slices/button-primary-press.png"); color: var(--plum); opacity: 1; padding: 4px 6px 0; }
 .doorstep .enter { width: 100%; min-height: 48px; font-size: 16px; font-weight: 750; }
 .doorstep .find-room { width: 100%; min-height: 48px; margin-top: 8px; font-size: 15px; }
 /* Focus on the cream card: the honey outline over a plum ring (after the keys, which clear their own shadow). */

@@ -11,6 +11,7 @@ import { loadProfile, saveAccessory, saveHair, saveProfile, saveTint, validateNi
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
 import { mountRejoinChip } from "./rejoin-chip";
+import "./motion";
 import { loadResume, takeHandOff, takeLeft, takePendingEnter } from "./session-record";
 import { takeShareLink } from "./share-link";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
@@ -211,6 +212,8 @@ const checkedNickname = (): Nickname | null => {
 const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): void => {
   const label = enter.textContent;
   enter.disabled = true;
+  // Enter holds its press slice while the room opens (HANDOFF "Motion"), not the disabled one.
+  enter.classList.add("is-press");
   enter.textContent = "Opening the room…";
   void loadRoom()
     .then(({ startRoom }) => {
@@ -238,6 +241,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
       console.error(e);
       show("entry");
       enter.disabled = false;
+      enter.classList.remove("is-press");
       enter.textContent = label;
       error.textContent = "Could not load the room.";
       const reload = document.createElement("button");
@@ -251,6 +255,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
       console.error(e);
       show("entry");
       enter.disabled = false;
+      enter.classList.remove("is-press");
       enter.textContent = label;
       error.textContent = "Could not open the room. Try again.";
     });
