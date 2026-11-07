@@ -587,7 +587,9 @@ test("said while the stage is hidden: placed, stacked and shown at its age once 
   expect(push("before")).toBe("-29px");
 });
 
-test("a bubble sent away drops to half its opacity and is gone at the clock's first step FLOAT_LEAVE_MS on", async () => {
+// OME-2373: one sent away often sits where the newer one now is (beside the TV, the same slot): it goes FLOAT_LEAVE_MS on,
+// not at the clock's next step (up to 368 ms of two bubbles on one box).
+test("a bubble sent away drops to half its opacity and is gone FLOAT_LEAVE_MS on, between the clock's steps", async () => {
   const { floats, frame, advance, shown, bubbleOf, motionOf, FLOAT_LEAVE_MS } = await setup();
   for (const t of lines(10)) floats.say(say("a", t, 200, 580));
   frame();
@@ -596,9 +598,9 @@ test("a bubble sent away drops to half its opacity and is gone at the clock's fi
   expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
   expect(motionOf("l0").style.opacity).toBe("0.5");
   expect(shown()).toHaveLength(11);
-  advance(FLOAT_LEAVE_MS); // 310 ms: the step at 209 ms was too soon
+  advance(FLOAT_LEAVE_MS - 1);
   expect(shown()).toHaveLength(11);
-  advance(STEP);
+  advance(1); // 310 ms: no step falls here
   expect(shown()).toHaveLength(10);
 });
 
@@ -968,9 +970,9 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     // Each member's first line (ms), 300 ms apart after it.
     const starts = [63, 58, 298, 18, 115];
     const px = (v: string | undefined): number => (v === undefined || v === "" ? 0 : Number.parseFloat(v));
-    /** Every placed bubble not leaving, in stage px: head + translate, minus push and rise. */
+    /** Every placed bubble, leaving ones too (they're shown), in stage px: head + translate, minus push and rise. */
     const boxes = () =>
-      [...layer.querySelectorAll<HTMLElement>(".float-slot:not([hidden]) .ui-float.is-live:not(.is-leaving)")].map((p) => {
+      [...layer.querySelectorAll<HTMLElement>(".float-slot:not([hidden]) .ui-float.is-live")].map((p) => {
         const m = p.parentElement?.style;
         const [ax = 0, ay = 0] = (p.closest<HTMLElement>(".float-slot")?.style.transform.match(/-?[\d.]+/g) ?? []).map(Number);
         const [dx, dy] = p.style.translate.split(" ").map(px);
