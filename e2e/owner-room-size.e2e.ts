@@ -407,6 +407,17 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
       await expect(tile, `${at} a playback tile`).toBeEnabled();
       expect(await tile.evaluate((e) => getComputedStyle(e).opacity), `${at} a playback tile isn't dimmed`).toBe("1");
     }
+    // OME-2338 (judge round 13): at 1280×800 the column ran 86 px past the screen and the cue sat on Everyone / Only me.
+    // There it fits, unscrolled; anywhere the cue shows, its box never meets a playback tile's.
+    if (w === 1280) expect(await side.evaluate((e) => e.scrollHeight - e.clientHeight), `${at} editing: the column's overflow`).toBeLessThanOrEqual(0);
+    if (await more.isVisible()) {
+      const cue = await more.boundingBox();
+      for (const tile of await host.locator(site.controlPolicyOption).all()) {
+        const b = await tile.boundingBox();
+        const meets = cue !== null && b !== null && cue.y < b.y + b.height && b.y < cue.y + cue.height;
+        expect(meets, `${at} the cue clear of a playback tile`).toBe(false);
+      }
+    }
     const cut = await host.locator(site.controlPolicy).evaluate((card) => card.getBoundingClientRect().bottom > window.innerHeight);
     if (cut) await expect(more, `${at} the column says there's more`).toBeVisible();
     await side.evaluate((e) => { e.scrollTop = e.scrollHeight; });
