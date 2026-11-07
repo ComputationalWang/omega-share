@@ -18,7 +18,7 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "provider-generic-sync": ["main"],
   "room-view": ["main"],
-  "view-swap": ["main"],
+  "view-swap": ["main", "drawn"],
   "view-swap-perf": ["frames"],
   "wall-screen": ["north"],
   "tag-clusters": ["busy", "seated"],
