@@ -211,7 +211,8 @@ export function stallWatch(startMs: number, afterMs = 20_000): (s: { paused: boo
   let movedAt = startMs;
   const done = new Set<Kick>();
   return (s, now) => {
-    if (s.currentTime !== lastTime) [lastTime, movedAt] = [s.currentTime, now];
+    // A paused sample restarts the stall clock, so the paused kick's play isn't read as a 20 s freeze.
+    if (s.paused || s.currentTime !== lastTime) [lastTime, movedAt] = [s.currentTime, now];
     const kick: Kick = s.paused ? "paused" : "stalled";
     if (done.has(kick) || now - (s.paused ? startMs : movedAt) <= afterMs) return null;
     done.add(kick);
