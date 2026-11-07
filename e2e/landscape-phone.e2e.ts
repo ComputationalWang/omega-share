@@ -63,9 +63,9 @@ for (const [name, width, height] of [["l932", 932, 430], ["l844", 844, 390], ["l
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.evaluate(() => document.scrollingElement?.scrollHeight ?? 0)).toBeLessThanOrEqual(height);
     expect(await page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0)).toBeLessThanOrEqual(width);
-    // Nothing on: no player, so no ADR 0012 minimum; the curtain is 21:9 and the room gets the height (OME-2263). The field keeps its room.
+    // Nothing on: the curtain keeps a player's 16:9 box (OME-2347), so a video starting moves nothing. The field keeps its room.
     const curtain = await box(page.locator(site.tv));
-    expect(Math.abs(curtain.width / curtain.height - 21 / 9)).toBeLessThanOrEqual(0.03);
+    expect(Math.abs(curtain.width / curtain.height - 16 / 9)).toBeLessThanOrEqual(0.03);
     expect((await box(input)).width).toBeGreaterThanOrEqual(120);
     expect((await box(page.locator(site.queueUrl))).width).toBeGreaterThanOrEqual(120);
 

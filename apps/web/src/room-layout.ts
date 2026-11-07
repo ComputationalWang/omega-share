@@ -495,6 +495,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
   };
+  /** The box the layout reserves: nothing on, a player's (OME-2347), so a video starting or skipped moves nothing on anyone's screen. */
+  const laidOut = (): Embed["provider"] | null => (tvBox.empty() ? "youtube" : tvBox.provider());
   const fit = (): void => {
     band = null;
     const roomOut = o.roomOut();
@@ -512,7 +514,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // Hidden only where it doesn't show: hiding the key drops its focus (QA OME-2183), so a fit that keeps it never does.
       roomViewKey.hidden = true;
       // The room popped out: its chat is in the window, so the picture is alone.
-      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
+      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, laidOut(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
       boxTv(l, wrap.clientHeight, l.at);
       box(fsChat.bubbles, l.strip);
       // The hide/show-chat handle (OME-1593): on the strip's edge, or the screen's while hidden; none on the band.
@@ -562,7 +564,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const on = roomView();
       roomViewKey.ariaPressed = String(on);
-      const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider(), zoom, roomScale(window.innerWidth, window.innerHeight), on, tvBox.empty(), document.body.classList.contains("room-editing"));
+      const editing = document.body.classList.contains("room-editing");
+      // Editing, the curtain gives way to the whole room again (OME-2283): the owner's own act, on no one else's screen.
+      const shown = editing ? tvBox.provider() : laidOut();
+      const l = roomOut ? fullscreenLayout(w, h, laidOut(), "none") : wideLayout(w, h, shown, zoom, roomScale(window.innerWidth, window.innerHeight), on, editing && tvBox.empty(), editing);
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
@@ -591,11 +596,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
         } else {
-          // With a video the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
-          // if it must. Without one the room isn't a band and keeps its whole scale (OME-1811).
-          const video = tvBox.provider() !== null;
+          // With a video, or nothing on (OME-2347), the room fits the band (OME-2148, ADR 0060): the back wall's art to the lowest name tag, below 1×
+          // if it must. A generic page's room isn't a band and keeps its whole scale (OME-1811).
+          const video = shown !== null;
           // The open editor fits the whole room (OME-2264): cropped to the column beside it, the walls and their pieces were cut.
-          const editing = document.body.classList.contains("room-editing");
           const k = editing ? editFit(l.scale, l.stage.w, l.stage.h) : video ? bandFit(l.scale, l.stage.h, [...seatPoints, ...standingPoints], me) : l.scale;
           const sw = Math.min(l.stage.w, ROOM_VIEW.w * k);
           // Room view's box (OME-2233) keeps its place: centred where the TV clears the walls, else right of centre.
@@ -621,8 +625,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     wrap.classList.remove("is-tv-corner");
     const onPhone = phone.matches;
     const l = portraitOn
-      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"), tvBox.empty())
-      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone, onPhone && tvBox.empty());
+      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, laidOut(), root.classList.contains("portrait-typing"))
+      : roomLayout(wrap.clientWidth, laidOut(), onPhone);
     boxTv(l, roomOut ? l.stage.y : l.height);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);

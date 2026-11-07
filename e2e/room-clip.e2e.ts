@@ -1,8 +1,6 @@
-// OME-2282 (judge round 10 on OME-2061): with nothing on, 1280×800's room band was 366 px, so it looked at the seats: the
-// walls' art (the window, the poster) went under the TV's shelf, and from the north the floor and the front furniture went
-// under the column's foot. A Pixel 7's window did the same to the art. The empty TV's curtain gives the room the height
-// now, and the window looks from the art's top (stage y 113) to the floor's front corner (y 540), 8 px clear. Read off
-// the screenshot's pixels. The geometry is apps/web/test/{wide-layout,band-wall,touch-home}.test.ts.
+// What the room's window shows at 1280×800 and on a Pixel 7, read off the screenshot's pixels. Nothing on, the curtain
+// keeps a player's box (OME-2347), so the room's window is the one a video gets. The geometry is
+// apps/web/test/{wide-layout,band-wall,touch-home}.test.ts.
 import { devices, type Browser, type BrowserContextOptions, type Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { presetFile, showLayout } from "../perf/show-layout";
@@ -15,9 +13,6 @@ import type { RoomName } from "./support/test-rooms";
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
 
-/** The tallest wall art's top and the floor's front corner, stage px (layout.ts BAND_WALL_TOP, FLOOR_FOOT). */
-const ART_TOP = 113;
-const FLOOR_FOOT = 540;
 /** How far inside the room's window its lowest painted row must sit. */
 const CLEAR = 8;
 const PIXEL_7 = devices["Pixel 7"];
@@ -88,62 +83,27 @@ async function pixels(page: Page, g: Geometry): Promise<(x: number, y: number) =
 const near = (a: readonly number[], b: readonly number[]): boolean => a.reduce((s, v, i) => s + Math.abs(v - (b[i] ?? 0)), 0) <= 40;
 
 /** The room's backdrop: the window's bottom-left corner, left of the walls' ends (stage x 150) and under the floor's left
- * corner. Its top-left may be the curtain's, which takes the free corner over the left wall (OME-2300). */
+ * corner. Its top-left may be the TV's, which takes the free corner over the left wall (OME-2233). */
 const backdrop = (g: Geometry, px: (x: number, y: number) => readonly [number, number, number]) => px(g.clip.x + 2, g.clip.y + g.clip.h - 2);
 
-/** Where the walls' top edge is at the art's top (stage y 113: the walls slope 1:2 from the corner, x 480 at y 0), the
- * window shows the backdrop just over it and the wall just under it: nothing on the walls is cut at the window's top. */
-async function artWhole(page: Page): Promise<void> {
-  const g = await geometry(page);
-  const px = await pixels(page, g);
-  const bg = backdrop(g, px);
-  for (const x of [480 - 2 * ART_TOP, 480 + 2 * ART_TOP]) {
-    const sky = g.at(x, ART_TOP - 2);
-    expect(sky.y, `stage (${String(x)}, ${String(ART_TOP - 2)}) in the window`).toBeGreaterThanOrEqual(g.clip.y);
-    expect(near(px(sky.x, sky.y), bg), `the backdrop over the wall at stage x ${String(x)}`).toBe(true);
-    const wall = g.at(x, ART_TOP + 4);
-    expect(near(px(wall.x, wall.y), bg), `the wall under it at stage x ${String(x)}`).toBe(false);
-  }
-}
-
-/** The window's last CLEAR rows, across it, are the backdrop: the floor's front corner and every piece end above them. */
-async function floorWhole(page: Page): Promise<void> {
-  const g = await geometry(page);
-  const px = await pixels(page, g);
-  const bg = backdrop(g, px);
-  const foot = Math.floor(g.clip.y + g.clip.h) - 1;
-  for (let y = foot; y > foot - CLEAR; y--) {
-    const hit: number[] = [];
-    for (let x = Math.ceil(g.clip.x) + 1; x < g.clip.x + g.clip.w - 1; x++) if (!near(px(x, y), bg)) hit.push(x);
-    expect(hit, `row ${String(y)}, ${String(foot - y)} px over the window's foot, painted at x ${hit.slice(0, 8).join(",")}`).toEqual([]);
-  }
-  // And the floor's corner itself is in it: painted just above its foot, the backdrop just below.
-  const corner = g.at(480, FLOOR_FOOT);
-  expect(near(px(corner.x, corner.y - 4), bg)).toBe(false);
-  expect(near(px(corner.x, corner.y + 4), bg)).toBe(true);
-  expect(corner.y + CLEAR).toBeLessThanOrEqual(g.clip.y + g.clip.h);
-}
-
-for (const [name, preset] of [["idle1280", undefined], ["studio", "studio"], ["penthouse", "penthouse"]] as const) {
-  test(`1280×800, nothing on${preset === undefined ? "" : `, ${preset}`}: the walls' art clears the shelf and the floor clears the column's foot`, async ({ browser }) => {
-    const page = await open(browser, name, { viewport: { width: 1280, height: 800 } }, preset);
-    await artWhole(page);
-    await floorWhole(page);
+// OME-2347 (audit OME-2344 item 2): a video starting in an empty room moved the TV, its shelf and the room on every
+// screen (CLS 0.035–0.068 for the members who pressed nothing). Nothing on, the curtain keeps a player's box: when another
+// member's video comes on, the TV, its shelf, the room's window and the fields stay where they were.
+for (const [name, label, options] of [["idle1280", "1280×800", { viewport: { width: 1280, height: 800 } }], ["idlepixel7", "Pixel 7 upright", PIXEL_7], ["idleland7", "Pixel 7 sideways", { ...PIXEL_7, viewport: { width: 915, height: 412 } }]] as const) {
+  test(`${label}: a video coming on moves neither the TV, its shelf, the room's window nor the fields`, async ({ browser, request }) => {
+    const page = await open(browser, name, options);
+    const boxes = (): Promise<string[]> => page.evaluate(() => [".tv.ui-tv-frame", ".controls.ui-tv-shelf", "[data-testid=room-window]", "[data-testid=chat-input]", "[data-testid=queue-url]"].map((sel) => {
+      const r = document.querySelector(sel)?.getBoundingClientRect();
+      // Where each starts and how wide (a layout shift is a moved start): upright, the chat's first line takes the window's foot.
+      return r === undefined || r.width === 0 ? `${sel} none` : `${sel} ${[r.x, r.y, r.width].map(Math.round).join(",")}`;
+    }));
+    const before = await boxes();
+    await shareProvider(request, "https://youtu.be/rckeep00001", testRoom("room-clip", name).id);
+    await expect(page.locator(`${site.tv} iframe`)).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(500);
+    expect(await boxes()).toEqual(before);
   });
 }
-
-test("Pixel 7 upright, nothing on: the walls' art clears the shelf and the floor's corner the window's foot", async ({ browser }) => {
-  const page = await open(browser, "idlepixel7", PIXEL_7);
-  const g = await geometry(page);
-  // Sideways the window crops the room by design (its pan hint says so, OME-2234); upright it holds the art to the floor.
-  // From the stage as drawn (the zoom keys and the pan hint float over the window's foot and its corner, OME-2171).
-  expect(g.at(480, ART_TOP).y).toBeGreaterThanOrEqual(g.clip.y);
-  expect(g.at(480, FLOOR_FOOT).y + CLEAR).toBeLessThanOrEqual(g.clip.y + g.clip.h);
-  // The shelf ends over the window: what the window shows from its top row is the room's.
-  const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
-  if (shelf === null) throw new Error("no shelf");
-  expect(shelf.y + shelf.height).toBeLessThanOrEqual(g.clip.y + 1);
-});
 
 // The curtain's height follows the column's now, so the column must not change as the room comes in: the head row (Leave,
 // sound, People) showed only at the first snapshot and took 35 px from it, and the TV, its shelf and the room moved up
@@ -188,9 +148,8 @@ test("1280×800, the entry script held: the footer isn't drawn until the room vi
   await expect(footer).toBeVisible();
 });
 
-// OME-2300 (judge round 11): with nothing on, 1280×800's window looked from the walls' art (stage y 113), so the walls'
-// corner and its post (stage y 0, x 480) started at the shelf's foot, cut. The curtain takes the free corner over the left
-// wall now, as Room view's TV does (OME-2233), and the window holds the corner 8 px under its top, the sky over it.
+// OME-2300 (judge round 11): 1280×800's window looked from the walls' art (stage y 113), so the walls' corner and its post
+// (stage y 0, x 480) started at the shelf's foot, cut. The window holds the corner 8 px under its top, the sky over it.
 async function cornerWhole(page: Page): Promise<void> {
   const g = await geometry(page);
   const px = await pixels(page, g);
@@ -202,24 +161,17 @@ async function cornerWhole(page: Page): Promise<void> {
   const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
   if (shelf === null) throw new Error("no shelf");
   expect(shelf.y + shelf.height).toBeLessThanOrEqual(g.clip.y);
-  // OME-2323 (judge round 12): the window was 660×563 right of an empty column under the curtain, 36 % of the screen.
+  // OME-2323 (judge round 12): the window was 660×563 right of an empty column, 36 % of the screen.
   const vp = page.viewportSize();
   if (vp === null) throw new Error("no viewport");
   expect(g.clip.w * g.clip.h, "the room's window covers ≥ 45 % of the screen").toBeGreaterThanOrEqual(0.45 * vp.width * vp.height);
-  // Nothing on, the curtain's frame (6 px bezel) ends over the left wall's top, from the walls' corner (480, 0) to its end (150, 165).
-  if (!(await page.locator(site.tvEmpty).isVisible())) return;
-  const tv = await page.locator(site.tv).boundingBox();
-  if (tv === null) throw new Error("no TV");
-  for (let x = 150; x <= 480; x += 2) {
-    const p = g.at(x, (480 - x) / 2);
-    if (p.x <= tv.x + tv.width + 6) expect(p.y, `the left wall's top at stage x ${String(x)}`).toBeGreaterThanOrEqual(tv.y + tv.height + 6);
-  }
 }
 
-for (const [name, preset, playing] of [["idle1280", undefined, false], ["studio", "studio", false], ["penthouse", "penthouse", false], ["play1280", undefined, true], ["playstudio", "studio", true], ["playpenthouse", "penthouse", true]] as const) {
-  test(`1280×800, ${playing ? "a video on" : "nothing on"}${preset === undefined ? "" : `, ${preset}`}: the walls' corner is whole, 8 px under the window's top`, async ({ browser, request }) => {
-    if (playing) await shareProvider(request, "https://youtu.be/rcplay00001", testRoom("room-clip", name).id);
-    const page = await open(browser, name, { viewport: { width: 1280, height: 800 } }, preset, playing);
+// Nothing on lays out as a video does (OME-2347, above), so these hold for an empty room too.
+for (const [name, preset] of [["play1280", undefined], ["playstudio", "studio"], ["playpenthouse", "penthouse"]] as const) {
+  test(`1280×800, a video on${preset === undefined ? "" : `, ${preset}`}: the walls' corner is whole, 8 px under the window's top`, async ({ browser, request }) => {
+    await shareProvider(request, "https://youtu.be/rcplay00001", testRoom("room-clip", name).id);
+    const page = await open(browser, name, { viewport: { width: 1280, height: 800 } }, preset, true);
     await cornerWhole(page);
   });
 }
@@ -272,6 +224,5 @@ for (const [name, playing] of [["hint7", false], ["hintplay7", true]] as const) 
     const dy = Math.max(0, y0 - FLOOR.y, FLOOR.y - y1);
     expect(dx / FLOOR.rx + dy / FLOOR.ry, "the hint's box against the floor").toBeGreaterThan(1);
     expect(y1, "the hint's foot over the back wall's desk").toBeLessThanOrEqual(DESK_TOP);
-    if (!playing) expect(g.clip.h / (PIXEL_7.viewport.height), "the room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
   });
 }

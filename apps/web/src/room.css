@@ -225,7 +225,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 /* Wide, with a video: Report room sits at the right end of the reaction bar's row (OME-2241), the column's foot, not a row
  * of its own under it. Room view needs those 50 px to show the walls' tops at 1280×800. Its box is .room-wide's, whose
  * padding is outside the chrome zoom. */
-.room-wide > .reaction-bar:not([hidden]) ~ .room-foot { position: absolute; right: calc(16px / var(--chrome, 1)); bottom: calc(12px / var(--chrome, 1)); margin: 0; }
+.room-wide > .reaction-bar:not([hidden], .is-idle) ~ .room-foot { position: absolute; right: calc(16px / var(--chrome, 1)); bottom: calc(12px / var(--chrome, 1)); margin: 0; }
+/* In its own row it keeps the right end too (OME-2347): full width, its box jumped 780 px when a video started. */
+.room-wide > .room-foot { align-self: flex-end; }
 .room-foot .report-key { font-size: 11px; }
 .ui-touch .room-foot .report-key { font-size: 12px; }
 .ui-button.report-key.is-disabled { border-image-source: url("../../../assets/ui/slices/button-primary-disabled.png"); color: var(--ui-disabled-text); cursor: default; }
@@ -279,6 +281,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .reaction-glyph { position: absolute; left: 0; top: 0; translate: -50% -100%; }
 .reaction-bar { --ui-px: 1px; display: flex; gap: 4px; justify-content: center; margin: 6px 0 0; }
 .reaction-bar.is-cooling > .reaction-key { opacity: 0.5; }
+/* Nothing playing: on a phone upright, at the page's foot, the bar keeps its row (OME-2347); wide, or a tablet upright
+ * (its whole room would lose its floor's foot, a11y sweep 1024×1366), its row is the room's. */
+.reaction-bar.is-idle { visibility: hidden; }
+.room-wide > .reaction-bar.is-idle { display: none; }
+@media (min-width: 601px) { .room-portrait > .reaction-bar.is-idle { display: none; } }
 
 /* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
 .tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
@@ -626,6 +633,10 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
   .room-side .queue-head > h3 { flex: none; white-space: nowrap; }
   /* The log takes what's left but keeps three lines (QA OME-1309); past that Up next shrinks, its list scrolling. */
   .room-side > .chat-log { flex: 1 1 0; min-height: 60px; }
+  /* Up next keeps that box whatever it holds, its field at its foot (OME-2347): an add or a skip moved the field and the log
+   * 55 px for everyone. The log keeps its three lines. */
+  .room-side:not(.poll-open, .people-open) > .queue-panel { flex-grow: 1; }
+  .room-side:not(.poll-open, .people-open) > .chat-log { flex: none; height: 60px; }
   .room-side .queue-panel > .queue-content { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; }
   .room-side .queue-content > * { flex: none; }
   /* The list scrolls, not its box: an empty queue leaves no scroll region without a focusable stop (axe). */
@@ -853,8 +864,9 @@ body.room-is-portrait > .site-footer { display: none; }
   .room-portrait:not(.portrait-typing) > .chat-log:not(:focus) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
 }
 /* No chat yet: the empty strip would read as a dark band under the room (QA OME-2186), so the room takes its height
- * until the first line. Only visually hidden, so it stays the live log and a Tab stop, as above. */
-.room-portrait:not(.portrait-typing) > .chat-log:empty:not(:focus) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0; }
+ * until the first line. Collapsed in place, not lifted out (OME-2347: from the page's corner, the first line was a 0.04
+ * layout shift), so it stays the live log and a Tab stop, as above. */
+.room-portrait:not(.portrait-typing) > .chat-log:empty:not(:focus) { height: 0; padding: 0; border: 0; overflow: hidden; }
 .room-portrait > .chat { margin: 0; gap: 4px; padding: 4px; min-width: 0; }
 .room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
 /* The field stays 16 px (no iOS zoom); its hint is 14 px so "Say something…" fits at 360 px, and ellipsizes, never cuts mid-letter (OME-1597). */
