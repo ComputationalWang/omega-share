@@ -9,7 +9,7 @@
 With nothing on, the layout reserves the box of a synced player (`laidOut()` in `apps/web/src/room-layout.ts` lays out as YouTube). This covers the TV, its shelf, the room's band and its fit to the audience (ADR 0060). The curtain fills that box. Only Twitch's larger floor still resizes the TV. A few smaller pieces follow the same rule, so that a video starting or being skipped moves nothing for the members who didn't act:
 
 - Wide: Report room keeps its place at the right end of its own row (`.room-wide > .room-foot`). The reaction bar's row still appears only with a video.
-- Upright: the idle reaction bar keeps its row, invisible (`.reaction-bar.is-idle`). Its keys do nothing. The empty chat strip collapses in place instead of being lifted out of the flow.
+- Upright on a phone: the idle reaction bar keeps its row, invisible (`.reaction-bar.is-idle`). Its keys do nothing. A tablet held upright doesn't reserve the row, because its whole room would lose its floor's foot. The empty chat strip collapses in place instead of being lifted out of the flow.
 - Sideways (≤ 500 px tall): Up next keeps the column's box whatever it holds, with its field at its foot. The log keeps three lines (60 px).
 
 The perf rows `room.observerCls.{desktop,portrait,landscape}` (< 0.01) hold this. So does `e2e/room-clip.e2e.ts` ("a video coming on moves neither…").

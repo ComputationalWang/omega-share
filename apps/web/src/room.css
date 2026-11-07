@@ -281,9 +281,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .reaction-glyph { position: absolute; left: 0; top: 0; translate: -50% -100%; }
 .reaction-bar { --ui-px: 1px; display: flex; gap: 4px; justify-content: center; margin: 6px 0 0; }
 .reaction-bar.is-cooling > .reaction-key { opacity: 0.5; }
-/* Nothing playing: upright, at the page's foot, the bar keeps its row (OME-2347); wide, its row is the room's. */
+/* Nothing playing: on a phone upright, at the page's foot, the bar keeps its row (OME-2347); wide, or a tablet upright
+ * (its whole room would lose its floor's foot, a11y sweep 1024×1366), its row is the room's. */
 .reaction-bar.is-idle { visibility: hidden; }
 .room-wide > .reaction-bar.is-idle { display: none; }
+@media (min-width: 601px) { .room-portrait > .reaction-bar.is-idle { display: none; } }
 
 /* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
 .tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
