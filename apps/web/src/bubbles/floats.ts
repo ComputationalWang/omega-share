@@ -168,6 +168,8 @@ interface Slot {
   /** Which sizes have arrived since `say`: 1 the bubble's, 2 the twin's. */
   sized: number;
   push: number;
+  /** Columns beside its speaker the box spilled into (OME-2368): + right, − left, one box width and GAP each. */
+  col: number;
   stacked: boolean;
   /** False until both sizes arrive (a frame later, or once a hidden stage shows): not placed, stacked or shown. */
   measured: boolean;
@@ -209,7 +211,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const outer = el("div", { className: "float-slot", hidden: true });
     outer.append(motion, twin);
     layer.append(outer);
-    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
+    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, col: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
   });
   /** Typing on, not yet a whole step: no node yet (where their head is, and since when). */
   const waiting = new Map<MemberId, { x: number; y: number; since: number }>();
@@ -321,7 +323,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    */
   const placeBox = (s: Slot): void => {
     const w = s.w * k;
-    const left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
+    const left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax + s.col * (w + GAP) - w / 2)));
     s.dx = left - Math.round(s.ax);
     const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
     s.p.style.left = px(s.dx / k);
@@ -354,7 +356,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
    * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
    * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: a bubble never
-   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
+   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) spills into the
+   * nearest column beside it where it fits, right first (OME-2368: a cluster's lines otherwise all share one column),
+   * and keeps that column; with none free, it goes.
    */
   const resolve = (): void => {
     order.length = 0;
@@ -362,10 +366,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     // Typing dots stay nearest the heads (they never rise): lines climb over them.
     order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
     const reduced = o.reducedMotion.matches;
-    for (let i = 0; i < order.length; i++) {
-      const s = order[i];
-      if (s === undefined) continue;
-      let push = s.push;
+    /** The push that clears every bubble newer than `order[i]`, from `push` up. */
+    const climb = (s: Slot, i: number, push: number): number => {
       for (let moved = true; moved; ) {
         moved = false;
         for (let j = 0; j < i; j++) {
@@ -387,9 +389,35 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           moved = true;
         }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced || s.typing ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
-        leave(s);
-        continue;
+      return push;
+    };
+    const over = (s: Slot, push: number): boolean => s.ay - (s.h + TAIL_BELOW) * k - push - (reduced || s.typing ? 0 : FLOAT_RISE) < ROOM_VIEW.y;
+    for (let i = 0; i < order.length; i++) {
+      const s = order[i];
+      if (s === undefined) continue;
+      let push = climb(s, i, s.push);
+      if (i > 0 && over(s, push)) {
+        const col = s.col;
+        const reach = Math.ceil((sideR - sideL) / (s.w * k + GAP));
+        let fits = false;
+        // A spilled column climbs from the heads afresh: only there may a push shrink.
+        for (let d = 1; d <= reach && !fits && !s.typing; d++) {
+          for (const c of [col + d, col - d]) {
+            s.col = c;
+            placeBox(s);
+            push = climb(s, i, 0);
+            if (!over(s, push)) {
+              fits = true;
+              break;
+            }
+          }
+        }
+        if (!fits) {
+          s.col = col;
+          placeBox(s);
+          leave(s);
+          continue;
+        }
       }
       setPush(s, push);
     }
@@ -453,6 +481,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   /** Shown at `at`, unplaced until its sizes arrive in the frame's layout. */
   const show = (s: Slot, at: Point, now: number): void => {
     s.push = 0;
+    s.col = 0;
     s.rise = 0;
     s.alpha = 1;
     s.motion.style.transform = "";
