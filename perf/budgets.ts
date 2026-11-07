@@ -173,6 +173,10 @@ const THEATRE_JOIN: readonly Budget[] = [
   { id: "join.theatre.longTask.slow4g", area: "Site", metric: "Longest task in the first 2 s after joining the Theatre preset, Pixel 7 on Slow 4G at 4× CPU", docMetric: "Longest task in the first 2 s after joining the Theatre preset on a phone on Slow 4G", unit: "ms", limit: 100, comparator: "<=" },
 ];
 
+// OME-2345: layout shift on an observer while another member starts a video and skips once (perf/room-cls.perf.ts).
+const OBSERVER_CLS_PROFILES = { desktop: "desktop 1280×800", portrait: "Pixel 7 portrait (412×915)", landscape: "Pixel 7 landscape (915×412)" } as const;
+const OBSERVER_CLS: readonly Budget[] = Object.entries(OBSERVER_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.observerCls.${p}`, area: "Site", metric: `Cumulative Layout Shift on an observer while another member starts a video and skips, ${pl}`, docMetric: "Cumulative Layout Shift on an observer while another member starts a video and skips", unit: "score", limit: 0.01, comparator: "<" }));
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -188,6 +192,7 @@ export const BUDGETS: readonly Budget[] = [
   ...THEATRE,
   ...FULLSCREEN,
   ...ROOM_CLS,
+  ...OBSERVER_CLS,
   ...COLD_CLS,
   ...THEATRE_JOIN,
   ...VIEW_SWAP,
