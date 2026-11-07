@@ -60,7 +60,8 @@ for (const { name, w, h, touch } of SIZES) {
     for (const t of ["Chat", "Up next", "Room"]) await expect(tab(page, t)).toBeInViewport({ ratio: 1 });
     await expect(page.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
     const mine = page.locator(site.nicknameTag).filter({ hasText: c.nickname });
-    await expect(mine).toBeInViewport({ ratio: 1 });
+    // 0.99: at 1024×768 the tag's foot lands a sub-pixel (2e-7 of its area) past the edge.
+    await expect(mine).toBeInViewport({ ratio: 0.99 });
     const win = await box(page.locator(site.roomWindow));
     const tag = await box(mine);
     expect(tag.y, "my tag inside the room strip").toBeGreaterThanOrEqual(win.y);

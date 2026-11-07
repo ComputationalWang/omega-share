@@ -122,7 +122,7 @@ async function meWhole(page: Page): Promise<void> {
 }
 
 test("Pixel 7 upright, nothing on: the strip is framed on me, whole between the shelf and the keys", async ({ browser }) => {
-  await meWhole(await open(browser, "idlepixel7", PIXEL_7));
+  await meWhole(await open(browser, "idleme7", PIXEL_7));
 });
 
 // The curtain's height follows the column's now, so the column must not change as the room comes in: the head row (Leave,

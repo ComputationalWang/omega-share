@@ -422,6 +422,8 @@ const REORDER = [ytUrl("9bZkp7q19f0"), ytUrl("M7lc1UVf-VE")] as const;
 /** The start link, then REORDER queued, from one member: the queue's ids in order. */
 async function fillQueue(page: Page): Promise<string[]> {
   await startWith(page, WATCH_URL);
+  // On a phone the Add that started the TV handed the panel back to Chat (OME-2348).
+  await page.getByRole("tab", { name: "Up next", exact: true }).click();
   for (const [i, url] of REORDER.entries()) {
     await paste(page, url);
     await expect(page.locator(site.queueRow)).toHaveCount(i + 1);

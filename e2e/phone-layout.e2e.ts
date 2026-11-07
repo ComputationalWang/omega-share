@@ -260,8 +260,8 @@ test("a two-finger pinch zooms the room around the fingers; the keys zoom out to
   await fit.tap();
   await frames(page);
   const fitScale = (await stageTransform(page)).scale;
-  expect(fitScale * ROOM_WALLS.w).toBeLessThanOrEqual(box.width + 0.5);
-  expect(fitScale * 960).toBeGreaterThan(box.width);
+  // The walls' fit, by width or (a short strip under the panel, OME-2306) by height: never the 960 px stage's.
+  expect(fitScale).toBeCloseTo(Math.min(1, box.width / ROOM_WALLS.w, box.height / ROOM_WALLS.h), 2);
   // Zoomed all the way out, a name tag is still readable: at least 10 px of text on screen.
   const tagPx = await page.locator(site.nicknameTag).first().evaluate((el) => el.getBoundingClientRect().height);
   expect(tagPx).toBeGreaterThanOrEqual(15);
