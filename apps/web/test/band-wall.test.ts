@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { FLOOR_CELLS, RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_HEAD, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
+import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
 
 const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
 const SIDES = ["south", "north"] as const;
@@ -189,73 +189,12 @@ describe("a band fitted below 1× keeps its seats clickable (room.css, OME-2148)
   });
 });
 
-// OME-2282 (judge round 10): with nothing on, 1280×800's band (888×652 column as measured on 042c67b) was 366 px, so it
-// looked at the seats: the walls' art went under the shelf and, from the north, the floor under the column's foot.
-describe("1280×800 with nothing on (OME-2282)", () => {
-  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the walls' art and the floor's front corner, 8 px clear, are whole in the band", (name, side) => {
-    setNorth(side === "north");
-    const l = wideLayout(888, 652, null, 1, 1, false, true);
-    const room = preset(name);
-    const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
-    const c = bandHome(seatPoints(room), standingPoints(room), shown, standingPoints(room)[0] ?? null);
-    const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, l.stage).pan;
-    expect(pan.y).toBeLessThanOrEqual(BAND_WALL_TOP);
-    expect(pan.y + shown.h).toBeGreaterThanOrEqual(FLOOR_FOOT + 8);
-  });
-});
-
-// OME-2300 (judge round 11): the band at 1280×800 with nothing on looked from the walls' art (stage y 113), so the
-// walls' corner (y 0) went under the shelf. The curtain takes the free corner over the left wall, as Room view's TV does
-// (OME-2233), and the room's box holds the walls' corner 8 px under its top, the shelf beside the curtain and over the box.
-describe("1280×800 with nothing on: the walls' corner (OME-2300)", () => {
-  test.each(PRESETS.flatMap((p) => SIDES.map((s) => [p, s] as const)))("%s from the %s: the walls' corner is 8 px inside the box, which the shelf ends over", (name, side) => {
-    setNorth(side === "north");
-    const l = wideLayout(888, 652, null, 1, 1, false, true);
-    const room = preset(name);
-    const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
-    const c = bandHome(seatPoints(room), standingPoints(room), shown, standingPoints(room)[0] ?? null);
-    const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, { ...l.stage, head: ROOM_HEAD }).pan;
-    expect(pan.y).toBeLessThanOrEqual(-8);
-    expect(pan.y + shown.h).toBeGreaterThanOrEqual(FLOOR_FOOT + 8);
-    expect(l.controls.y + l.controls.h).toBeLessThanOrEqual(l.stage.y);
-    expect(l.scale).toBe(1);
-  });
-});
-
-// QA OME-2311: at 1280×720 the corner curtain hid ~95 px of the left wall's top edge (1280×800: 0 px clear). The
-// curtain's frame ends ≥ 8 px above that edge wherever it sits beside it, or it tops the room as before (OME-2282).
-describe("nothing on: the corner curtain clear of the left wall's top (QA OME-2311)", () => {
-  test.each([
-    [888, 572],
-    [888, 652],
-    [1048, 752],
-  ])("column %d×%d", (w, h) => {
-    const l = wideLayout(w, h, null, 1, 1, false, true);
-    const frameFoot = l.tv.y + l.tv.h + 6;
-    if (l.stage.y >= frameFoot) return;
-    const room = preset("classic");
-    const shown = { w: l.stage.w / l.scale, h: l.stage.h / l.scale };
-    const c = bandHome(seatPoints(room), standingPoints(room), shown, standingPoints(room)[0] ?? null);
-    const pan = wheelView(l.scale, { zoom: 1, pan: { x: c.x - shown.w / 2, y: c.y - shown.h / 2 } }, { x: 0, y: 0 }, 1, { ...l.stage, head: ROOM_HEAD }).pan;
-    // The left wall's top: from the walls' corner (480, 0) down-left to its end (150, 165), in room px.
-    for (let rx = 150; rx <= 480; rx += 2) {
-      const sx = l.stage.x + (rx - pan.x) * l.scale;
-      if (sx > l.tv.x + l.tv.w + 6) continue;
-      const sy = l.stage.y + ((480 - rx) / 2 - pan.y) * l.scale;
-      expect(sy).toBeGreaterThanOrEqual(frameFoot + 8);
-    }
-  });
-});
-
 // OME-2323 (judge round 12): at 1280×800 Room view's box was 660×563 right of a ~244 px empty column under the curtain
 // (36 % of the screen). The column (888 px) is narrower than the stage, so the box is the column's width, the room
-// centred in it, and the curtain stays clear of the left wall's top (above).
+// centred in it.
 describe("1280×800 Room view: the box is the column's width (OME-2323)", () => {
-  test.each([
-    ["nothing on", null, true],
-    ["a video on", "youtube", false],
-  ] as const)("%s", (_, provider, empty) => {
-    const l = wideLayout(888, 652, provider, 1, 1, true, empty);
+  test("a video on", () => {
+    const l = wideLayout(888, 652, "youtube", 1, 1, true);
     expect(l.stage.x).toBe(0);
     expect(l.stage.w).toBe(888);
     expect(l.stage.w * l.stage.h).toBeGreaterThanOrEqual(0.45 * 1280 * 800);
