@@ -179,10 +179,11 @@ function watchPool(ms: number): Promise<unknown> {
  * The TV over the room: Room view's corner TV and its shelf take the room's top (OME-2349: no bubble goes under them, so
  * a cluster's stack has less room). The pool and text tests count bubbles, so they watch with the TV above the room.
  */
-const roomViewOff = (context: BrowserContext): Promise<void> =>
-  context.addInitScript(() => {
+const roomViewOff = async (context: BrowserContext): Promise<void> => {
+  await context.addInitScript(() => {
     localStorage.setItem("omega.roomView", "off");
   });
+};
 
 test("five speakers, twenty lines at once: never more than 16 bubbles shown, the layer holds 16 nodes throughout", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc", setup: roomViewOff });

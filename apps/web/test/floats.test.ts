@@ -900,6 +900,21 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     expect(bubbleOf("older").classList.contains("is-leaving")).toBe(false);
     expect(push("older")).toBe("0px");
   });
+
+  test("a lift past a tag doesn't stick: once the crowd takes it back, the bubble sits where the stack alone puts it", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.tags(new Map([["b", { x0: 450, x1: 510, y0: 140, y1: 160 }]]));
+    floats.say(say("a", "first", 480, 200));
+    frame();
+    // Past b's tag: 200 + 3 - 140. It fits (166 - 63 - 24 = 79, under the room's top).
+    expect(push("first")).toBe("-63px");
+    floats.say(say("c", "second", 490, 200));
+    frame();
+    // Both past the tag would carry "first" off the top, so neither lifts: "first" clears "second" only, 33 px.
+    expect(bubbleOf("first").classList.contains("is-leaving")).toBe(false);
+    expect(push("first")).toBe("-33px");
+    expect(push("second")).toBe("0px");
+  });
 });
 
 test("windowToStage: the room window's boxes (CSS px from its top-left) in stage px, by the window's sides and width", async () => {
