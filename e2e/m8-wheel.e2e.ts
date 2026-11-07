@@ -127,6 +127,7 @@ test.describe("T does not open the wheel", () => {
 
   test("in the queue's paste field (any other text field)", async ({ browser }) => {
     const { a } = await enter(browser, "gfield");
+    await a.page.locator("[data-testid=portrait-queue]").click();
     const field = a.page.locator(site.queueUrl);
     await field.scrollIntoViewIfNeeded();
     await field.focus();
@@ -139,6 +140,7 @@ test.describe("T does not open the wheel", () => {
 
   test("while a dialog is open (the report dialog, then any <dialog>)", async ({ browser }) => {
     const { a } = await enter(browser, "gdialog");
+    await a.page.locator("[data-testid=portrait-settings]").click();
     await a.page.locator(site.reportKey).focus();
     await a.page.keyboard.press("Enter");
     await expect(a.page.locator(site.reportDialog)).toBeVisible();

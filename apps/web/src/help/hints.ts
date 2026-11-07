@@ -96,7 +96,7 @@ export function createHints(o: HintsOptions): Hints {
     const h = root.offsetHeight;
     // An empty TV may be covered, but not its message (OME-2104).
     const tv = (o.tv.empty() ? o.tv.message : o.tv.box).getBoundingClientRect();
-    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), root.parentElement?.querySelector(".portrait-keys")?.getBoundingClientRect()];
+    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), root.parentElement?.querySelector(".panel-tabs")?.getBoundingClientRect()];
     const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone.

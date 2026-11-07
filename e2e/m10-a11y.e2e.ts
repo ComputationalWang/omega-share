@@ -1,9 +1,8 @@
 // OME-912 (M10 Q1): the accessibility pass over every NEW M10 surface. One test per surface; axe (wcag2a, wcag2aa,
 // wcag21a, wcag21aa, provider iframes excluded, border-image contrast judged by `paintedContrast`) with zero
 // violations, the same helper and rule config as m7-a11y.e2e.ts.
-//  - W2 (OME-909) portrait dock at 360×740 and 390×844 with touch: at rest, share-link sheet, Up next, Room sheet,
-//    People panel, chat sheet; focus moves into a sheet on open, Esc and Close return it to the opener, Tab is
-//    trapped (the sheet is a modal <dialog>).
+//  - W2 (OME-909, OME-2306) portrait dock at 360×740 and 390×844 with touch: at rest, People panel, and each tab of the
+//    one room panel (Up next, Room, Chat); the tablist is one keyboard stop (the old modal sheets are gone).
 //  - W1 (OME-905) landscape composer, 667×375 full screen with the strip open: "Send" is named and a 44 px target.
 //  - W3 (OME-910) create-room form: empty and with a saved layout; fieldset/legend naming, arrow-key selection of each
 //    preset, and the chosen preset in the create request (POST /rooms is refused in the page: nothing is created).
@@ -11,7 +10,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { RESUME_STORAGE_KEY_PREFIX, ROOM_PRESET_IDS } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, ROOT, URLS, available } from "./support/apps";
@@ -69,60 +68,47 @@ async function violations(page: Page, ignore: readonly string[] = []): Promise<s
 
 // W2: portrait dock ----------------------------------------------------------------------------------------------------
 
-const SHEET = id("portrait-sheet");
-
-/** Opens `opener`'s sheet and checks focus went inside it, the sheet is modal, and Tab / Shift+Tab never leave it. */
-async function expectModalSheet(page: Page, opener: Locator, label: string): Promise<void> {
-  const sheet = page.locator(SHEET);
-  await opener.click();
-  await expect(sheet, label).toBeVisible();
-  expect(await sheet.evaluate((el) => el.matches(":modal")), `${label}: modal`).toBe(true);
-  expect(await sheet.evaluate((el) => el.contains(document.activeElement)), `${label}: focus moved into the sheet`).toBe(true);
-  for (const key of ["Tab", "Shift+Tab"]) {
-    for (let i = 0; i < 14; i++) {
-      await page.keyboard.press(key);
-      expect(await sheet.evaluate((el) => el.contains(document.activeElement)), `${label}: ${key} #${String(i)} stays inside`).toBe(true);
-    }
-  }
+/** Selects a tab of the room panel (OME-2306): selected, its tabpanel is shown, the others are hidden, focus stays on the tab. */
+async function expectTab(page: Page, name: string, label: string): Promise<void> {
+  const tab = page.getByRole("tab", { name, exact: true });
+  await tab.click();
+  await expect(tab, `${label}: selected`).toHaveAttribute("aria-selected", "true");
+  const panel = page.locator(`#${(await tab.getAttribute("aria-controls")) ?? "none"}`);
+  await expect(panel, `${label}: its panel shows`).toBeVisible();
+  await expect(page.getByRole("tabpanel"), `${label}: only one panel shows`).toHaveCount(1);
+  await expect(panel, `${label}: has a name`).toHaveAccessibleName(name);
 }
 
 for (const [width, height] of [[360, 740], [390, 844]] as const) {
-  test(`${String(width)}×${String(height)} portrait dock: zero axe violations at rest and with each sheet open; focus enters, traps and returns`, async ({ browser }) => {
+  test(`${String(width)}×${String(height)} portrait dock: zero axe violations at rest and on each panel tab; the tablist is one keyboard stop`, async ({ browser }) => {
     clients = await joinRoom(browser, { roomUrl: testRoom("m10-a11y", width === 360 ? "dock360" : "dock390").url, count: 1, nicknamePrefix: `ax${String(width)}`, contextOptions: () => touch(width, height) });
     const page = clients[0]?.page;
     if (page === undefined) throw new Error("no client");
-    const sheet = page.locator(SHEET);
     await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
     expect(await violations(page), "at rest").toEqual([]);
 
-    // People: the room bar's panel (inline in portrait, not a sheet).
+    // People: the room bar's panel (inline in portrait, not a tab).
     await page.locator(site.peopleKey).click();
     await expect(page.locator(site.peoplePanel)).toBeVisible();
     expect(await violations(page), "People open").toEqual([]);
     await page.locator(site.peopleKey).click();
     await expect(page.locator(site.peoplePanel)).toBeHidden();
 
-    const sheets: readonly (readonly [string, Locator])[] = [
-      ["share-link sheet (Link)", page.locator(id("portrait-link"))],
-      ["Up next sheet", page.locator(id("portrait-queue"))],
-      ["Room sheet", page.locator(id("portrait-settings"))],
-      ["chat sheet", page.locator(id("portrait-chat"))],
-    ];
-    for (const [label, opener] of sheets) {
-      await expectModalSheet(page, opener, label);
-      await expect(sheet, `${label}: has a name`).toHaveAttribute("aria-label", /\S/);
+    // The sheets are tabs of one panel now (no dialog, no focus trap, no Close key): each is axe-clean when selected.
+    for (const [name, label] of [["Up next", "Up next tab"], ["Room", "Room tab"], ["Chat", "Chat tab"]] as const) {
+      await expectTab(page, name, label);
       expect(await violations(page), `${label}: axe`).toEqual([]);
-      // Esc returns focus to the opener, and so does the Close key.
-      await page.keyboard.press("Escape");
-      await expect(sheet, `${label}: Esc closes`).toBeHidden();
-      await expect(opener, `${label}: Esc returns focus`).toBeFocused();
-      await opener.click();
-      await expect(sheet).toBeVisible();
-      await page.locator(id("portrait-sheet-close")).click();
-      await expect(sheet, `${label}: Close closes`).toBeHidden();
-      await expect(opener, `${label}: Close returns focus`).toBeFocused();
     }
-    expect(await violations(page), "after the sheets").toEqual([]);
+    // Keyboard: the tablist is one tab stop (arrows move between tabs, Tab leaves it).
+    const chat = page.getByRole("tab", { name: "Chat", exact: true });
+    await chat.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: "Up next", exact: true })).toBeFocused();
+    await expect(page.getByRole("tab", { name: "Up next", exact: true })).toHaveAttribute("aria-selected", "true");
+    expect(await page.getByRole("tab").evaluateAll((tabs) => tabs.filter((t) => (t as HTMLElement).tabIndex >= 0).length), "one tab stop").toBe(1);
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("role")), "Tab leaves the tablist").not.toBe("tab");
+    expect(await violations(page), "after the tabs").toEqual([]);
   });
 }
 
@@ -294,6 +280,8 @@ test("Up next with a full list, a viewer's view at 1280×720: zero axe violation
     }
   }, socketUrl(room.id));
   await expect(viewer.page.locator(site.queueCount)).toHaveText("8 / 20");
+  // Up next is a tab of the room panel now (OME-2306).
+  await viewer.page.getByRole("tab", { name: "Up next", exact: true }).click();
   const list = viewer.page.locator(id("queue-list"));
   expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight), "the list overflows").toBe(true);
   await expect(list).toHaveAttribute("tabindex", "0");

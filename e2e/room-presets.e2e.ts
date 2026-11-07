@@ -214,6 +214,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
   test("a layout saved from the editor starts a new room, which gets exactly that layout", async ({ browser }) => {
     const { page, errors } = await newPage(browser);
     await createRoom(page, "Edit me", null);
+    await page.getByTestId("portrait-settings").click();
     await page.locator(site.editRoom).click();
     await expect(page.locator(site.editorTray)).toBeVisible();
     // Move the lamp from (9,0) to (8,1), then save the room.

@@ -122,6 +122,7 @@ test("1024×768 touch, the owner with a video in Theatre: all four reaction keys
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.roomTitle)).toBeVisible();
+  await page.getByTestId("portrait-queue").click();
   await page.locator(site.queueUrl).fill(EMBED_URL);
   await page.locator(site.queueAdd).click();
   await waitPlaying(clients);

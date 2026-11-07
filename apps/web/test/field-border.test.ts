@@ -4,9 +4,9 @@ import { describe, expect, test } from "bun:test";
 const css = await Bun.file(new URL("../src/style.css", import.meta.url)).text();
 const roomCss = await Bun.file(new URL("../src/room.css", import.meta.url)).text();
 const sheets = { "style.css": css, "room.css": roomCss };
-// The three CSS text fields (OME-1242 round 1): each draws the token and keeps a focus ring that stands off it.
+// The CSS text fields (OME-1242 round 1): each draws the token and keeps a focus ring that stands off it. The invite link
+// is on the atlas ticket now (OME-2306): its cream frame is its boundary.
 const fields = [
-  ["style.css", ".invite input"],
   ["room.css", ".chat input"],
   ["room.css", ".popout-chat input"],
 ] as const;

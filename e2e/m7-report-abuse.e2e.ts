@@ -740,6 +740,7 @@ test.describe("takedown in a browser (ADR 0033 §6)", () => {
     await other.waitFor(() => (other.has("snapshot") ? true : undefined), "a snapshot");
 
     // The guest reports from the page: a real POST to the server of this spec.
+    await page.locator("[data-testid=portrait-settings]").click();
     await page.locator(site.reportKey).focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(site.reportDialog)).toBeVisible();

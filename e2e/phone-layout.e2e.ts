@@ -99,7 +99,10 @@ test("stacked: TV, shelf, room window, chat log, chat row; the room at 1×, no s
   // (Under 1024 px: from there, landscape, it is the two-column wide layout, wide-layout.e2e.ts.)
   await page.setViewportSize({ width: 1000, height: 900 });
   await expect.poll(async () => (await stageTransform(page)).scale).toBeLessThan(1.0001);
-  await expect.poll(async () => (await page.locator(site.roomWindow).boundingBox())?.height).toBeGreaterThan(400);
+  // The panel sits under the room in the page's flow now (OME-2306): the strip keeps its 96 px floor (HANDOFF "Layout":
+  // "Reserve at least 200px of room on desktop and 96px on short phones") and the panel's tabs follow it.
+  await expect.poll(async () => (await page.locator(site.roomWindow).boundingBox())?.height).toBeGreaterThanOrEqual(96);
+  expect(await top(page.getByTestId("room-panel"))).toBeGreaterThanOrEqual(await top(page.locator(site.roomWindow)));
 });
 
 test("touch targets: every key and field in the room is ≥ 44×44 CSS px to the finger", async ({ browser }) => {
@@ -257,8 +260,8 @@ test("a two-finger pinch zooms the room around the fingers; the keys zoom out to
   await fit.tap();
   await frames(page);
   const fitScale = (await stageTransform(page)).scale;
-  expect(fitScale * ROOM_WALLS.w).toBeLessThanOrEqual(box.width + 0.5);
-  expect(fitScale * 960).toBeGreaterThan(box.width);
+  // The walls' fit, by width or (a short strip under the panel, OME-2306) by height: never the 960 px stage's.
+  expect(fitScale).toBeCloseTo(Math.min(1, box.width / ROOM_WALLS.w, box.height / ROOM_WALLS.h), 2);
   // Zoomed all the way out, a name tag is still readable: at least 10 px of text on screen.
   const tagPx = await page.locator(site.nicknameTag).first().evaluate((el) => el.getBoundingClientRect().height);
   expect(tagPx).toBeGreaterThanOrEqual(15);
@@ -338,6 +341,8 @@ test("no editor on a phone: the owner gets one line in chat instead; on a wide s
   expect(editorChunk).toBe(false);
 
   await page.setViewportSize({ width: 1280, height: 900 });
+  // The owner's bar lives in the panel's Room tab (OME-2306).
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(page.locator(site.editRoom)).toBeVisible();
   await page.locator(site.editRoom).click();
   await expect(page.locator(site.editorTray)).toBeVisible();
@@ -432,83 +437,64 @@ for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["
   });
 }
 
-// A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel keys, chat row and 44 px footer leave the room
-// window ~100 px with the chat strip under it. On a short portrait screen that strip goes (the Chat key's sheet holds the
-// log, bubbles still show in the room), so the room keeps ≥ 170 px and every seat shows whole, at 1×, without a pan.
-test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width, the empty one a player's 16:9 (OME-2347), and the Chat sheet opens (OME-1612)", async ({ browser }) => {
+// A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel and composer leave the room strip its 96 px floor
+// (HANDOFF "Layout": "Reserve at least ... 96px on short phones"; the page scrolls below it, never an inner box), framed
+// on the local avatar (OME-2306). It used to keep ≥ 170 px with every seat whole by hiding the chat strip; the panel's
+// Chat tab replaced that strip, so the property now is: the floor holds, my avatar is in the strip, a seat tap sits.
+test("360×640 touch: the room strip keeps its 96 px floor with me in it and a tap sits; the TV is full width, the empty one a player's 16:9 (OME-2347), and the Chat tab is open (OME-1612)", async ({ browser }) => {
   const page = await one(browser, "small360", { ...PHONE, viewport: { width: 360, height: 640 } });
   const tv = await page.locator(site.tv).boundingBox();
   if (tv === null) throw new Error("not laid out");
   expect(tv.width).toBe(360);
   expect(Math.abs(tv.height - (360 * 9) / 16)).toBeLessThanOrEqual(1);
   await frames(page);
-  const pane = await page.locator(".stage-pane").boundingBox();
-  if (pane === null) throw new Error("not laid out");
-  expect(pane.height, "room picture height").toBeGreaterThanOrEqual(170);
-  const seats = await page.locator(site.seat).all();
-  expect(seats.length).toBeGreaterThan(0);
-  for (const s of seats) {
-    const b = await s.boundingBox();
-    if (b === null) throw new Error("seat not laid out");
-    const cx = b.x + b.width / 2;
-    const cy = b.y + b.height / 2;
-    expect(cx >= pane.x && cx <= pane.x + pane.width && cy >= pane.y && cy <= pane.y + pane.height, "seat centre in the room picture").toBe(true);
-  }
-  // Tapping a seat sits (the avatar walks from the door), and the window then centres on it.
-  const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
-  await seat.focus();
-  await frames(page);
+  const win = await page.locator(site.roomWindow).boundingBox();
+  if (win === null) throw new Error("not laid out");
+  expect(win.height, "room strip height").toBeGreaterThanOrEqual(96);
+  // I walk in from the door: once I stand, my tag is in the picture.
+  await expect.poll(async () => {
+    const pane = await page.locator(".stage-pane").boundingBox();
+    const mine = await page.locator(site.nicknameTag).filter({ hasText: /^ph/ }).boundingBox();
+    if (mine === null || pane === null) return "not laid out";
+    return mine.y >= pane.y && mine.y + mine.height <= pane.y + pane.height ? "in" : `my tag ${String(mine.y)}+${String(mine.height)}, picture ${String(pane.y)}+${String(pane.height)}`;
+  }, { message: "my tag in the room picture" }).toBe("in");
+  // The strip is framed on me, so its seats may all be cropped (inert): Fit shows the whole room, and a tap on a seat sits.
+  await page.getByTestId("room-zoom-fit").tap();
+  const seat = page.locator(`${site.seat}[data-occupied="false"]:not([inert])`).first();
   await seat.tap();
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(640);
-  // The hidden strip is still a Tab stop (a scrollable log): focused, it shows again, so focus is never lost (QA OME-1614).
-  const log = page.locator(site.chatLog);
-  await log.focus();
-  const shown = await log.boundingBox();
-  expect(shown?.height ?? 0, "focused chat log height").toBeGreaterThanOrEqual(44);
-  await log.blur();
-  await page.getByTestId("portrait-chat").click();
-  await expect(page.getByTestId("portrait-sheet")).toBeVisible();
-  await expect(page.getByTestId("portrait-sheet").locator(site.chatLog)).toBeVisible();
+  // The Chat tab is the one open, its composer on screen.
+  await expect(page.getByTestId("portrait-chat")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
 });
 
-// Audit round 3 item 3 (OME-2344, OME-2348): the Up next sheet was the whole height under the TV, mostly blank, titled
-// "Share a video link", and it stayed over the room, the chat lines and the chat input after an Add had started the TV.
-test("412×915 touch: the Up next sheet is as tall as its content, and an Add that starts the TV closes it within 300 ms (OME-2348)", async ({ browser }) => {
+// Audit round 3 item 3 (OME-2344, OME-2348): Up next stayed over the chat lines after an Add had started the TV. With the
+// panel (OME-2306) Up next is a tab: an Add that starts the TV hands the panel back to Chat within 300 ms, the lines and
+// the composer in view.
+test("412×915 touch: an Add that starts the TV hands the panel back to the Chat tab within 300 ms (OME-2348)", async ({ browser }) => {
   const page = await one(browser, "upnext412", { ...PHONE, viewport: { width: 412, height: 915 } });
   await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+  const chat = page.getByTestId("portrait-chat");
   await page.getByTestId("portrait-queue").click();
-  const sheet = page.getByTestId("portrait-sheet");
-  await expect(sheet).toBeVisible();
-  await expect(sheet.locator("h2")).toHaveText("Up next");
-  // Blank under the paste row: the sheet's bottom padding (8 px) and a little rounding, not a screenful.
-  const blank = await sheet.evaluate((s) => {
-    const content = [...s.querySelectorAll<HTMLElement>(".portrait-sheet-content > *")].filter((e) => e.checkVisibility());
-    return s.getBoundingClientRect().bottom - Math.max(...content.map((e) => e.getBoundingClientRect().bottom));
-  });
-  expect(blank, "px of sheet under its content").toBeLessThanOrEqual(16);
+  await expect(page.getByTestId("portrait-queue")).toHaveAttribute("aria-selected", "true");
   await page.locator(site.queueUrl).fill(WATCH_URL);
-  await sheet.evaluate((s) => {
-    const t = { click: performance.now(), closed: -1 };
+  await chat.evaluate((tab) => {
+    const t = { click: performance.now(), chat: -1 };
     (window as unknown as { upNextTimes: typeof t }).upNextTimes = t;
-    s.addEventListener("close", () => { t.closed = performance.now(); }, { once: true });
+    new MutationObserver((_, o) => {
+      if (tab.getAttribute("aria-selected") === "true") { t.chat = performance.now(); o.disconnect(); }
+    }).observe(tab, { attributes: true, attributeFilter: ["aria-selected"] });
   });
   await page.locator(site.queueAdd).click();
-  await expect(sheet).toBeHidden();
+  await expect(chat).toHaveAttribute("aria-selected", "true");
   const took = await page.evaluate(() => {
-    const t = (window as unknown as { upNextTimes: { click: number; closed: number } }).upNextTimes;
-    return t.closed - t.click;
+    const t = (window as unknown as { upNextTimes: { click: number; chat: number } }).upNextTimes;
+    return t.chat - t.click;
   });
-  expect(took, "ms from Add to the sheet closing").toBeLessThan(300);
-  // Nothing covers the chat input or the chat lines now.
-  for (const target of [site.chatInput, site.chatLog]) {
-    const hit = await page.locator(target).evaluate((e) => {
-      const r = e.getBoundingClientRect();
-      const at = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 10));
-      return at !== null && (e.contains(at) || at.contains(e));
-    });
-    expect(hit, `${target} is on top at its centre`).toBe(true);
-  }
+  expect(took, "ms from Add to the Chat tab").toBeLessThan(300);
+  await expect(page.locator(site.chatLog)).toBeVisible();
+  await expect(page.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
 });
 
 // Design judge round 3 (OME-2169 request 5, OME-2171): at 412×915 the room was 360 px wide beside a column of zoom keys,
@@ -518,13 +504,13 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
   await frames(page);
   const pane = await page.locator(".stage-pane").boundingBox();
   const win = await page.locator(site.roomWindow).boundingBox();
-  const dock = await page.getByTestId("portrait-chat").boundingBox();
-  if (pane === null || win === null || dock === null) throw new Error("not laid out");
+  const panel = await page.getByTestId("room-panel").boundingBox();
+  if (pane === null || win === null || panel === null) throw new Error("not laid out");
   expect(pane.width, "room picture width").toBe(412);
   expect(pane.height, "room picture height").toBe(win.height);
-  // The window takes the free height: no chat yet, so the empty chat strip is folded too (QA OME-2186).
+  // The window takes the free height: the panel (OME-2306) starts right under it, no dead band between (QA OME-2186).
   await expect(page.locator(site.chatLogLine)).toHaveCount(0);
-  expect(dock.y - (win.y + win.height), "empty band under the window").toBeLessThanOrEqual(40);
+  expect(panel.y - (win.y + win.height), "empty band under the window").toBeLessThanOrEqual(1);
   for (const k of await page.locator('[data-testid^="room-zoom-"]').all()) {
     const b = await k.boundingBox();
     if (b === null) throw new Error("key not laid out");
@@ -547,26 +533,31 @@ test("412×915 touch: the room spans the whole width and the free height, its zo
   expect(await targetSize(page)).toEqual([]);
   await page.getByTestId("room-zoom-fit").tap();
   await frames(page);
-  // At Fit the walls span the width and show whole, centred in the window's height. The window is taller than the
-  // room at that width, so Fit leaves equal margins over and under it: the price of seeing the whole room.
+  // At Fit the walls show whole and fill the window one way, centred the other (OME-2306: with the panel under it the
+  // window is wider than the room's shape, so Fit is held by the height): the price of seeing the whole room.
   const fit = await walls();
-  expect(fit.w, "fitted walls' width").toBeCloseTo(412, 0);
-  expect(fit.h, "fitted walls' height").toBeLessThanOrEqual(win.height);
-  expect(Math.abs(fit.y - (win.height - fit.y - fit.h)), "walls centred").toBeLessThanOrEqual(2);
+  expect(fit.w, "fitted walls' width").toBeLessThanOrEqual(412.5);
+  expect(fit.h, "fitted walls' height").toBeLessThanOrEqual(win.height + 0.5);
+  expect(Math.max(fit.w / 412, fit.h / win.height), "the walls fill the window one way").toBeCloseTo(1, 2);
+  expect(Math.abs(fit.x - (412 - fit.x - fit.w)), "walls centred across").toBeLessThanOrEqual(2);
+  expect(Math.abs(fit.y - (win.height - fit.y - fit.h)), "walls centred down").toBeLessThanOrEqual(2);
   expect(await targetSize(page)).toEqual([]);
 });
 
 // QA OME-2186: the owner's log isn't empty (the "Arrange the room on a computer." line), so the strip under the room must
-// size to that line, not keep a 76 px strip with the line at its bottom and dark space above it.
-test("412×915 touch, the room's owner: no empty band between the room window and the hint line (OME-2171)", async ({ browser }) => {
+// not leave a dead band: since OME-2306 the panel starts right under the room window and the hint line is in its Chat tab.
+test("412×915 touch, the room's owner: no empty band between the room window and the panel with the hint line (OME-2171)", async ({ browser }) => {
   const page = await ownerOnPhone(browser, "phonefull", { ...PHONE, viewport: { width: 412, height: 915 } });
   const line = page.locator(site.chatLogLine).filter({ hasText: "Arrange the room on a computer." });
   await expect(line).toBeVisible();
+  await expect(line).toBeInViewport({ ratio: 1 });
   await frames(page);
   const win = await page.locator(site.roomWindow).boundingBox();
+  const panel = await page.getByTestId("room-panel").boundingBox();
   const first = await line.boundingBox();
-  if (win === null || first === null) throw new Error("not laid out");
-  expect(first.y - (win.y + win.height), "empty band between the window and the hint line").toBeLessThanOrEqual(40);
+  if (win === null || panel === null || first === null) throw new Error("not laid out");
+  expect(panel.y - (win.y + win.height), "empty band between the window and the panel").toBeLessThanOrEqual(1);
+  expect(first.y, "the hint line is inside the panel").toBeGreaterThanOrEqual(panel.y);
 });
 
 test("the room canvas holds one backing px per stage px on a DPR 2 phone: twice that is ~2 ms of commit a walking frame (OME-2330, ADR 0063)", async ({ browser }) => {

@@ -445,10 +445,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onProvider: () => {
       layout.fit();
     },
-    // Upright on a phone the field is in the Up next sheet: the composer's Link key opens it with the field focused.
+    // The curtain's link opens Up next with its field focused.
     onCurtain: () => {
-      if (layout.portraitOn()) layout.dock.link.click();
-      else queuePanel.root.querySelector("input")?.focus();
+      layout.panel.select("queue");
+      queuePanel.root.querySelector("input")?.focus();
     },
   });
   const { tv, controls } = tvBox;
@@ -522,7 +522,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Over my own head when it's in the room's window; else (watch-only, panned away, room popped out) docked. It may
     // overlap the TV and its shelf (it's brief): a scaled-down stage alone rarely has 196 px above a head.
     locate: () => {
-      if (layout.portraitOn() && (layout.dock.sheet.open || opts.root.classList.contains("portrait-typing"))) return null;
+      if (layout.portraitOn() && opts.root.classList.contains("portrait-typing")) return null;
       const visible = (r: DOMRect): Rect => {
         const x = Math.max(0, r.left);
         const y = Math.max(0, r.top);
@@ -786,7 +786,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       : { pollId: s.poll.pollId, question: s.poll.question, options: s.poll.options, counts: s.poll.counts, vote: s.vote, canClose: s.poll.by === s.self || s.owner, endsAt: s.poll.endsAt - clock.offsetMs };
 
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
-  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname], onStarted: () => { layout.dock.close(); } });
+  // On a phone my Add that starts the TV hands the panel back to Chat, the room's talk under the picture (OME-2348).
+  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname], onStarted: () => { if (layout.portraitOn()) layout.panel.select("chat"); } });
 
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
@@ -853,8 +854,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     side,
     ownerBar: editBar,
     editorPanel,
-    // The footer joins the Room sheet on a phone or tablet held upright (OME-1846); room.css hides it under the dock.
-    settings: [editBar, tvBox.personal, invite, cards.foot, ...document.querySelectorAll<HTMLElement>("body > .site-footer")],
     foot: cards.foot,
     phone,
     coarse,
@@ -961,7 +960,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const shown = screen(s);
     // Removed, closed or full: nothing to say any more, so the chat comes home (the log stays above a removal's card).
     if (popped && !shown.chat) relay?.bringBack();
-    chatForm.hidden = !shown.chat || popped;
+    // Until the first snapshot it keeps its place, invisible, as the stage does: under 1024 px it sizes the panel (OME-2306).
+    chatForm.hidden = (!shown.chat && !shown.reserve) || popped;
+    chatForm.classList.toggle("is-reserved", shown.reserve);
     // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
     chatLog.root.hidden = (!shown.chat && !shown.kicked) || popped;
     // The room's window holds the chat too: the room's placeholder says so.
@@ -1046,7 +1047,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Removed, closed or full: no picture to watch any more.
     if (!shown.stage && layout.fs.mode() !== "off") layout.fs.exit();
     renderChatRow(s);
-    invite.hidden = !shown.stage;
+    invite.hidden = !shown.stage && !shown.reserve;
+    invite.classList.toggle("is-reserved", shown.reserve);
     if (layout.syncPortrait()) layout.fit();
     queuePanel.root.hidden = !shown.stage;
     const queueClaimed = queuePanel.update(s);
@@ -1484,10 +1486,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
     if (cards.reportOpen() || help.isOpen()) return;
-    if (layout.dock.sheet.open) {
-      if (ev.target instanceof Node && picker.root.contains(ev.target) && picker.key(ev)) ev.preventDefault();
-      return;
-    }
     // Esc ends the first-visit tour and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
     // Tab peeks full screen's hidden chat (OME-1668), so it can take the focus; focus elsewhere lets it go again.

@@ -1,9 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { paintedContrast } from "./support/painted-contrast";
 import { joinForToken, type ShareMember } from "./support/share";
 
 test.fixme(!available.web, PENDING.web);
@@ -17,13 +18,19 @@ test.afterEach(async () => {
   clients = [];
 });
 
-/** The sheet reaches the screen's foot and no further: the footer's links are inside the Room sheet now (OME-1846). */
-async function clearOfFooter(sheet: Locator): Promise<void> {
-  const box = await sheet.boundingBox();
-  const height = await sheet.page().evaluate(() => window.innerHeight);
-  if (box === null) throw new Error("sheet not laid out");
-  expect(box.y + box.height, "sheet bottom vs screen bottom").toBeLessThanOrEqual(height + 0.5);
-  await expect(sheet.page().locator("body > .site-footer")).toBeHidden();
+/** Axe over the page's own document; border-image contrast (keys, chat lines, the invite ticket) is judged by paintedContrast. */
+async function violations(page: Page): Promise<string[]> {
+  const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("iframe").analyze();
+  const out: string[] = [];
+  for (const v of result.violations) {
+    if (v.id !== "color-contrast") out.push(`${v.id}: ${v.help} | ${v.nodes.map((n) => n.target.join(" ")).join(" ; ")}`);
+    else for (const n of v.nodes) {
+      const [selector] = n.target;
+      if (typeof selector === "string") out.push(...(await paintedContrast(page, selector)));
+      else out.push(`color-contrast: ${n.target.join(" ")}`);
+    }
+  }
+  return out;
 }
 
 async function visibleInViewport(target: Locator, height: number): Promise<void> {
@@ -45,38 +52,33 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     const panel = page.locator(site.peoplePanel);
     await expect(panel.locator(site.peopleRow)).toHaveCount(25);
     const input = page.locator(site.chatInput);
-    const link = page.locator('[data-testid="portrait-link"]');
+    const link = page.getByRole("tab", { name: "Up next", exact: true });
     await input.fill("last line with People open");
     await input.press("Enter");
     const last = page.locator(site.chatLogLine).last();
     await expect(last).toContainText("last line with People open");
     await page.locator(site.peopleKey).click();
     await expect(panel).toBeVisible();
-    const dockVisible = async (visibleHeight: number): Promise<void> => {
-      for (const target of [input, link, last]) await visibleInViewport(target, visibleHeight);
-      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(height);
+    // The tabs give way to the composer while the keyboard is up (room.css .portrait-typing).
+    const dockVisible = async (visibleHeight: number, typing = false): Promise<void> => {
+      // The panel is longer than the typing viewport: the page scrolls, the composer sticks (OME-2306).
+      if (typing) await last.evaluate((e) => { e.scrollIntoView({ block: "center" }); });
+      for (const target of typing ? [input, last] : [input, link, last]) await visibleInViewport(target, visibleHeight);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     };
     await dockVisible(height);
-    // Android adjustResize shrinks layout and visual viewports together; keyboard inference
-    // from their difference cannot guarantee that a sheet's controls fit its clipping bounds.
+    // Android adjustResize shrinks layout and visual viewports together. The panel is in the page's flow now (no sheet):
+    // Up next's field and Add key are reachable (scrolled to) and finger-sized.
     await page.setViewportSize({ width, height: 440 });
     await link.click();
-    const sheet = page.locator('[data-testid="portrait-sheet"]');
-    await expect(sheet).toBeVisible();
-    await expect(page.locator(site.queueUrl)).toBeFocused();
-    for (const target of [page.locator(site.queueUrl), page.locator(site.queueAdd),
-      page.locator('[data-testid="portrait-sheet-close"]')]) {
+    await expect(page.locator(site.queuePanel)).toBeVisible();
+    for (const target of [page.locator(site.queueUrl), page.locator(site.queueAdd)]) {
+      // Centred, as a thumb scroll would: the sticky tabs and composer cover the page's edges.
+      await target.evaluate((e) => { e.scrollIntoView({ block: "center" }); });
       await visibleInViewport(target, 440);
-      const bounds = await sheet.boundingBox();
       const control = await target.boundingBox();
-      expect(bounds).not.toBeNull();
-      expect(control).not.toBeNull();
       expect(control?.width).toBeGreaterThanOrEqual(44);
       expect(control?.height).toBeGreaterThanOrEqual(44);
-      expect(control?.y).toBeGreaterThanOrEqual(bounds?.y ?? 440);
-      expect((control?.y ?? 440) + (control?.height ?? 440))
-        .toBeLessThanOrEqual((bounds?.y ?? 0) + (bounds?.height ?? 0));
       expect(await target.evaluate((el) => {
         const rect = el.getBoundingClientRect();
         return [[rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]].every(([x, y]) => {
@@ -86,9 +88,7 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
         });
       })).toBe(true);
     }
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
-    await expect(link).toBeFocused();
+    await page.locator('[data-testid="portrait-chat"]').click();
     await page.setViewportSize({ width, height });
     await dockVisible(height);
     await input.focus();
@@ -101,22 +101,21 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await expect(page.locator("#room-root")).toHaveClass(/portrait-typing/);
     await expect(panel).toBeVisible();
     await expect(input).toBeFocused();
-    await dockVisible(height - 300 + 24);
+    await dockVisible(height - 300 + 24, true);
     const finalToggle = panel.locator(site.peopleToggle).last();
     await finalToggle.scrollIntoViewIfNeeded();
     await visibleInViewport(finalToggle, height - 300 + 24);
     await finalToggle.click();
     await expect(finalToggle).toHaveText("Show");
-    await dockVisible(height - 300 + 24);
+    await dockVisible(height - 300 + 24, true);
     await expect(page.locator(site.chatLog)).toHaveAttribute("role", "log");
     await expect(page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
-    const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("iframe").analyze();
-    expect(axe.violations).toEqual([]);
+    expect(await violations(page)).toEqual([]);
     await finalToggle.press("Escape");
     await expect(panel).toBeHidden();
     await expect(page.locator(site.peopleKey)).toBeFocused();
     await visibleInViewport(page.locator(site.peopleKey), height - 300 + 24);
-    await dockVisible(height - 300 + 24);
+    await dockVisible(height - 300 + 24, true);
   });
 }
 
@@ -127,27 +126,30 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
       contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
     const page = clients[0]?.page;
     if (page === undefined) throw new Error("No portrait client");
-    const link = page.locator('[data-testid="portrait-link"]');
+    // Up next is a tab of the one panel now (OME-2306): no sheet, no focus trap, no Link key.
+    const link = page.getByRole("tab", { name: "Up next", exact: true });
     const input = page.locator(site.chatInput);
     await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+    // Sit first (OME-1297). The strip is framed on me, so a seat may be cropped (inert): Fit shows them all.
+    await page.getByTestId("room-zoom-fit").tap();
+    const seat = page.locator(`${site.seat}[data-occupied="false"]:not([inert])`).first();
+    await seat.focus();
+    await seat.press("Enter");
+    await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
     await input.fill("last line stays visible");
     await input.press("Enter");
     const last = page.locator(site.chatLogLine).last();
     await expect(last).toContainText("last line stays visible");
     for (const target of [input, link, last]) await visibleInViewport(target, height);
-    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     const axe = async (): Promise<void> => {
-      const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("iframe").analyze();
-      expect(result.violations).toEqual([]);
+      expect(await violations(page)).toEqual([]);
     };
     expect((await input.boundingBox())?.width).toBeGreaterThanOrEqual(140);
     await axe();
     await link.click();
-    const sheet = page.locator('[data-testid="portrait-sheet"]');
-    await expect(sheet).toBeVisible();
-    await expect(page.locator(site.queueUrl)).toBeFocused();
-    await clearOfFooter(sheet);
+    await expect(link).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(site.queuePanel)).toBeVisible();
     // Each retry uses fresh video IDs so existing queue state cannot satisfy this share assertion.
     const [firstVideo, nextVideo] = test.info().retry === 0
       ? ["dQw4w9WgXcQ", "9bZkp7q19f0"] as const
@@ -157,25 +159,19 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await page.locator(site.queueUrl).fill(`https://youtu.be/${firstVideo}`);
     await page.locator(site.queueAdd).click();
     await expect(page.locator(site.sharedVideo)).toBeVisible();
+    // The Add that started the TV handed the panel back to Chat (OME-2348): Up next again for the next one.
+    await page.getByRole("tab", { name: "Up next", exact: true }).click();
     await page.locator(site.queueUrl).fill(`https://youtu.be/${nextVideo}`);
     await page.locator(site.queueAdd).click();
     await expect(queued).toHaveCount(1);
     await expect(queued).toContainText(nextVideo);
     await axe();
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
-    await expect(link).toBeFocused();
     await page.locator('[data-testid="portrait-chat"]').click();
     await expect(page.locator(site.chatLog)).toHaveAttribute("role", "log");
     await expect(page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
-    await expect(page.locator(site.chatLog)).toBeFocused();
-    await clearOfFooter(sheet);
-    for (let i = 0; i < 12; i++) {
-      await page.keyboard.press("Tab");
-      expect(await sheet.evaluate((el) => el.contains(document.activeElement))).toBe(true);
-    }
     await axe();
-    await page.keyboard.press("Escape");
+    // Back on Up next, so the field is the keyboard's target below.
+    await link.click();
     await input.focus();
     // The OS keyboard is outside browser automation. Simulate its public visualViewport events,
     // preserving the layout viewport exactly as a real keyboard does.
@@ -189,19 +185,19 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await expect(page.locator("#room-root")).toHaveClass(/portrait-typing/);
     await visibleInViewport(input, height - 300 + 24);
     await expect(input).toBeFocused();
-    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(height);
-    await link.click();
-    await expect(page.locator(site.queueUrl)).toBeFocused();
-    await visibleInViewport(page.locator(site.queueUrl), height - 300 + 24);
+    // The tabs give way to the composer while the keyboard is up; the Up next field is still one thumb scroll away.
+    const url = page.locator(site.queueUrl);
+    await url.focus();
+    await url.evaluate((e) => { e.scrollIntoView({ block: "center" }); });
+    await visibleInViewport(url, height - 300 + 24);
     await page.evaluate(() => {
       const viewport = window.visualViewport;
       if (viewport === null) throw new Error("No visual viewport");
       Object.assign(viewport, { height: 320, offsetTop: 24 });
       window.dispatchEvent(new Event("resize"));
     });
-    await visibleInViewport(page.locator(site.queueUrl), 344);
-    await visibleInViewport(page.locator('[data-testid="portrait-sheet-close"]'), 344);
-    await page.keyboard.press("Escape");
+    await url.evaluate((e) => { e.scrollIntoView({ block: "center" }); });
+    await visibleInViewport(url, 344);
     await page.evaluate(() => {
       const viewport = window.visualViewport;
       if (viewport === null) throw new Error("No visual viewport");
@@ -210,10 +206,6 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     });
     await expect(page.locator("#room-root")).not.toHaveClass(/portrait-typing/);
     // OME-1297: rotating to landscape and back keeps playback, the seat and a draft, and the dock comes back.
-    const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
-    await seat.focus();
-    await seat.press("Enter");
-    await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
     const video = page.locator(site.sharedVideo);
     // Marked, so a rebuilt player (playback restarting) would show.
     await video.evaluate((node) => { node.dataset["e2eKept"] = "1"; });
@@ -234,8 +226,10 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await rotate(844, 390);
     await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
     await expect(page.locator("#room-root")).toHaveClass(/room-wide/);
-    await expect(link).toHaveCount(0);
+    // Short and wide, the composer docks under Chat only (OME-2306: under a full Up next it left the list 0 px).
+    await page.locator('[data-testid="portrait-chat"]').click();
     await visibleInViewport(input, 390);
+    await link.click();
     await rotate(width, height);
     await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
     await expect(link).toBeVisible();
@@ -243,7 +237,7 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
   });
 }
 
-// OME-2361: an own row in the Up next sheet (Move up/down and Remove keys) keeps its title, name, badge and keys apart,
+// OME-2361: an own row in the phone's Up next tab (Move up/down and Remove keys) keeps its title, name, badge and keys apart,
 // and the Remove key's box stays its 12-art-px sprite cell (a bigger box showed the atlas around it); the 44 px is its ::before.
 for (const [width, height] of [[360, 740], [412, 915]] as const) {
   test(`${String(width)} portrait: an own Up next row keeps its title, badge and keys apart`, async ({ browser }) => {
@@ -252,12 +246,13 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
       contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
     const page = clients[0]?.page;
     if (page === undefined) throw new Error("No portrait client");
-    await page.locator('[data-testid="portrait-link"]').click();
-    await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
+    await page.getByRole("tab", { name: "Up next", exact: true }).click();
     const [firstVideo, nextVideo] = test.info().retry === 0 ? ["dQw4w9WgXcQ", "9bZkp7q19f0"] as const : ["M7lc1UVf-VE", "aqz-KE-bpKQ"] as const;
     await page.locator(site.queueUrl).fill(`https://youtu.be/${firstVideo}`);
     await page.locator(site.queueAdd).click();
     await expect(page.locator(site.sharedVideo)).toBeVisible();
+    // The Add that started the TV handed the panel back to Chat (OME-2348): Up next again for the next one.
+    await page.getByRole("tab", { name: "Up next", exact: true }).click();
     await page.locator(site.queueUrl).fill(`https://youtu.be/${nextVideo}`);
     await page.locator(site.queueAdd).click();
     const row = page.locator(site.queueRow).filter({ hasText: nextVideo });
