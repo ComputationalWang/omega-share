@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { FLOOR_CELLS, RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_HEAD, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
+import { AVATAR_TOP, BAND_WALL_TOP, FLOOR_FOOT, ROOM_VIEW, TAG_FOOT, TAG_OFFSET_Y, bandFit, bandHome, cellCenter, setNorth, wheelView, wideLayout, type Point } from "../src/layout";
 
 const PRESETS = ["bar", "cafe", "cinema", "classic", "dank-dungeon", "empty", "living", "lounge", "penthouse", "studio"] as const;
 const SIDES = ["south", "north"] as const;
