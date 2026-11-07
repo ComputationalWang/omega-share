@@ -531,6 +531,15 @@ body.room-editing .room-side > .edit-bar > .mod-policy { order: 1; }
   .room-side .editor-panel .editor-mood-options > .ui-button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
   .room-side .editor-panel :is(.editor-mine, .editor-settings) > .ui-input { flex: 1 1 140px; min-width: 0; }
 }
+/* 800 px tall or less (OME-2338, judge round 13): at 1280×800 the sheet ran 86 px past the screen and the "More below"
+ * cue sat on Everyone / Only me. Its keys and fields lose their extra line height, its rows close up and the playback
+ * card wears the 1× frame, so it all fits with a line to spare. */
+@media (min-height: 501px) and (max-height: 800px) {
+  .room-side .editor-panel :is(.editor-piece, .editor-mood, .editor-save-row, .editor-mine, .editor-settings) { row-gap: 4px; }
+  .room-side .editor-panel :is(.ui-button, .ui-input) { line-height: 16px; }
+  body.room-editing .room-side { gap: 4px; }
+  body.room-editing .room-side > .edit-bar > .mod-policy { --ui-px: 1px; }
+}
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .people { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* People open is the column's People tab (OME-1805): it has the log's height but three lines (OME-1842: with the log

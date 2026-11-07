@@ -407,6 +407,17 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
       await expect(tile, `${at} a playback tile`).toBeEnabled();
       expect(await tile.evaluate((e) => getComputedStyle(e).opacity), `${at} a playback tile isn't dimmed`).toBe("1");
     }
+    // OME-2338 (judge round 13): at 1280×800 the column ran 86 px past the screen and the cue sat on Everyone / Only me.
+    // There it fits, unscrolled; anywhere the cue shows, its box never meets a playback tile's.
+    if (w === 1280) expect(await side.evaluate((e) => e.scrollHeight - e.clientHeight), `${at} editing: the column's overflow`).toBeLessThanOrEqual(0);
+    if (await more.isVisible()) {
+      const cue = await more.boundingBox();
+      for (const tile of await host.locator(site.controlPolicyOption).all()) {
+        const b = await tile.boundingBox();
+        const meets = cue !== null && b !== null && cue.y < b.y + b.height && b.y < cue.y + cue.height;
+        expect(meets, `${at} the cue clear of a playback tile`).toBe(false);
+      }
+    }
     const cut = await host.locator(site.controlPolicy).evaluate((card) => card.getBoundingClientRect().bottom > window.innerHeight);
     if (cut) await expect(more, `${at} the column says there's more`).toBeVisible();
     await side.evaluate((e) => { e.scrollTop = e.scrollHeight; });
@@ -421,4 +432,42 @@ test("1280×800 to 2560×1440, editing: the whole room fits, never shrinks as th
   await expect(host.locator(site.editorSave)).toBeDisabled();
   await host.locator(site.editorReset).hover({ force: true });
   expect(await face(site.editorReset), "Undo changes, disabled and hovered").toBe(await face(site.editorSave));
+});
+
+// OME-2338 (QA OME-2342): wherever the column ran past the screen by less than the playback card's height, the cue sat on
+// Everyone / Only me, and shrinking the editor only moved that band (1280×720, 1024×768 touch; 1280×820–850 on main).
+// At every height the cue shows only while the tiles are wholly below the fold, so its box never meets one.
+test("1280×720 to 1280×850 and 1024×768 touch, editing: the More below cue never meets a playback tile", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { id, ownerToken, inviteKey } = ownedRoom("roomedit");
+  const secrets = JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } });
+  const sweeps: [BrowserContextOptions, [number, number][]][] = [
+    [DESK, [[1280, 720], [1280, 760], [1280, 800], [1280, 820], [1280, 850]]],
+    [{ viewport: { width: 1024, height: 768 }, isMobile: true, hasTouch: true }, [[1024, 740], [1024, 768]]],
+  ];
+  for (const [options, sizes] of sweeps) {
+    // A fresh nickname per window: the first one is still in the room.
+    const host = await open(browser, options, `${URLS.web}/r/${id}`, `host${String(test.info().retry)}${options.hasTouch === true ? "t" : ""}`, secrets);
+    const editKey = host.locator(site.editRoom);
+    const more = host.locator(site.controlPolicyMore);
+    for (const [w, h] of sizes) {
+      const at = `${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}`;
+      await host.setViewportSize({ width: w, height: h });
+      if ((await editKey.getAttribute("aria-pressed")) === "true") await editKey.click();
+      await expect(host.locator(site.editorTray)).toHaveCount(0);
+      await editKey.click();
+      await expect(host.locator(site.editorTray)).toBeVisible();
+      await host.locator(".room-side").evaluate((e) => { e.scrollTop = 0; });
+      const tiles = await host.locator(site.controlPolicyOption).all();
+      // Both ways round: the cue says so while the tiles are all below the fold, and is gone once any shows.
+      const below = (await Promise.all(tiles.map((t) => t.evaluate((e) => e.getBoundingClientRect().top >= window.innerHeight)))).every(Boolean);
+      await expect.poll(() => more.isVisible(), { message: `${at} the cue shows only while the tiles are below the fold` }).toBe(below);
+      const cue = (await more.isVisible()) ? await more.boundingBox() : null;
+      for (const tile of tiles) {
+        const b = await tile.boundingBox();
+        const meets = cue !== null && b !== null && cue.y < b.y + b.height && b.y < cue.y + cue.height;
+        expect(meets, `${at} the cue clear of a playback tile`).toBe(false);
+      }
+    }
+  }
 });
