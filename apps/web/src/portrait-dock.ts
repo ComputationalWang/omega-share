@@ -81,7 +81,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
     if (!active) return;
     close();
     opener = from;
-    title.textContent = kind === "chat" ? "Chat" : kind === "queue" ? "Share a video link" : "Room settings";
+    title.textContent = kind === "chat" ? "Chat" : kind === "queue" ? "Up next" : "Room settings";
     sheet.ariaLabel = title.textContent;
     sheet.dataset["panel"] = kind;
     const nodes = kind === "chat" ? [o.log, o.composer] : kind === "queue" ? [o.queue] : o.settings;

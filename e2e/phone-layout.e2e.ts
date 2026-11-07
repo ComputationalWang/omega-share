@@ -9,7 +9,7 @@ import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } fr
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
-import { stubExternalNetwork } from "./support/network";
+import { WATCH_URL, stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { joinForToken, postShare } from "./support/share";
@@ -31,7 +31,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412" | "upnext412", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -470,6 +470,45 @@ test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it a
   await page.getByTestId("portrait-chat").click();
   await expect(page.getByTestId("portrait-sheet")).toBeVisible();
   await expect(page.getByTestId("portrait-sheet").locator(site.chatLog)).toBeVisible();
+});
+
+// Audit round 3 item 3 (OME-2344, OME-2348): the Up next sheet was the whole height under the TV, mostly blank, titled
+// "Share a video link", and it stayed over the room, the chat lines and the chat input after an Add had started the TV.
+test("412×915 touch: the Up next sheet is as tall as its content, and an Add that starts the TV closes it within 300 ms (OME-2348)", async ({ browser }) => {
+  const page = await one(browser, "upnext412", { ...PHONE, viewport: { width: 412, height: 915 } });
+  await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+  await page.getByTestId("portrait-queue").click();
+  const sheet = page.getByTestId("portrait-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator("h2")).toHaveText("Up next");
+  // Blank under the paste row: the sheet's bottom padding (8 px) and a little rounding, not a screenful.
+  const blank = await sheet.evaluate((s) => {
+    const content = [...s.querySelectorAll<HTMLElement>(".portrait-sheet-content > *")].filter((e) => e.checkVisibility());
+    return s.getBoundingClientRect().bottom - Math.max(...content.map((e) => e.getBoundingClientRect().bottom));
+  });
+  expect(blank, "px of sheet under its content").toBeLessThanOrEqual(16);
+  await page.locator(site.queueUrl).fill(WATCH_URL);
+  await sheet.evaluate((s) => {
+    const t = { click: performance.now(), closed: -1 };
+    (window as unknown as { upNextTimes: typeof t }).upNextTimes = t;
+    s.addEventListener("close", () => { t.closed = performance.now(); }, { once: true });
+  });
+  await page.locator(site.queueAdd).click();
+  await expect(sheet).toBeHidden();
+  const took = await page.evaluate(() => {
+    const t = (window as unknown as { upNextTimes: { click: number; closed: number } }).upNextTimes;
+    return t.closed - t.click;
+  });
+  expect(took, "ms from Add to the sheet closing").toBeLessThan(300);
+  // Nothing covers the chat input or the chat lines now.
+  for (const target of [site.chatInput, site.chatLog]) {
+    const hit = await page.locator(target).evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 10));
+      return at !== null && (e.contains(at) || at.contains(e));
+    });
+    expect(hit, `${target} is on top at its centre`).toBe(true);
+  }
 });
 
 // Design judge round 3 (OME-2169 request 5, OME-2171): at 412×915 the room was 360 px wide beside a column of zoom keys,

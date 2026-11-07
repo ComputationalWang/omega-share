@@ -786,7 +786,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       : { pollId: s.poll.pollId, question: s.poll.question, options: s.poll.options, counts: s.poll.counts, vote: s.vote, canClose: s.poll.by === s.self || s.owner, endsAt: s.poll.endsAt - clock.offsetMs };
 
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
-  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
+  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname], onStarted: () => { layout.dock.close(); } });
 
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.

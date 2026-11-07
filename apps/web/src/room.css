@@ -878,6 +878,8 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-portrait > .portrait-stowed { display: none; }
 .portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 0; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px 4px max(8px, env(safe-area-inset-bottom)); overflow: hidden; }
 .portrait-sheet[open] { display: flex; flex-direction: column; }
+/* Up next is only as tall as its rows and paste row; a screenful under the TV was 70 % blank in an empty room (OME-2348). */
+.portrait-sheet[data-panel="queue"] { bottom: auto; max-height: calc(100dvh - var(--portrait-sheet-top, 260px)); }
 .portrait-sheet::backdrop { background: transparent; }
 .portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
 .portrait-sheet-head h2 { flex: 1; margin: 0; font-size: 18px; }
@@ -900,6 +902,7 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
 .room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
 .room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top)); }
+.room-portrait.portrait-typing .portrait-sheet[data-panel="queue"] { height: auto; max-height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top)); }
 @media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
 
 .room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }

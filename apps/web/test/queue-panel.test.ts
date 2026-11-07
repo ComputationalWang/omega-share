@@ -27,6 +27,7 @@ function room(over: Partial<RoomState> = {}): RoomState {
 
 async function setup(r: RoomState = room(), owner = false) {
   const { createQueuePanel } = await import("../src/controls/queue-panel");
+  const started = { count: 0 };
   let state: ViewState = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "me", room: r, owner }, now: 0 });
   const sent: ClientMessage[] = [];
   const net = { up: true };
@@ -39,6 +40,7 @@ async function setup(r: RoomState = room(), owner = false) {
       return true;
     },
     ownHosts: ["omega.example.net"],
+    onStarted: () => { started.count++; },
   });
   document.body.replaceChildren(panel.root);
   panel.update(state);
@@ -56,7 +58,7 @@ async function setup(r: RoomState = room(), owner = false) {
     (q("queue-url") as HTMLInputElement).value = url;
     (q("queue-form") as HTMLFormElement).requestSubmit();
   };
-  return { panel, sent, net, clock, server, q, rows, paste, state: () => state };
+  return { panel, sent, net, clock, server, q, rows, paste, started, state: () => state };
 }
 
 describe("the list", () => {
@@ -146,6 +148,24 @@ test("a pre-M6 server (no queue in the room) still draws the panel once, not on 
 });
 
 describe("paste a link", () => {
+  // OME-2348: on a phone the sheet closes when my Add starts the TV, so the room and the chat show again.
+  test("my add into an empty room says it started playback, once; someone else's share or an add into a playing room doesn't", async () => {
+    const empty = room({ embed: null, queue: [] });
+    delete empty.itemId;
+    const mineStarts = await setup(empty);
+    mineStarts.paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    mineStarts.server({ type: "embed-changed", embed: yt("dQw4w9WgXcQ"), by: "me", playback: null, itemId: "x" });
+    mineStarts.server({ type: "embed-changed", embed: yt("aaaaaaaaaaa"), by: "kit", playback: null, itemId: "y" });
+    expect(mineStarts.started.count).toBe(1);
+    const theirs = await setup(empty);
+    theirs.server({ type: "embed-changed", embed: yt("aaaaaaaaaaa"), by: "kit", playback: null, itemId: "y" });
+    expect(theirs.started.count).toBe(0);
+    const playing = await setup();
+    playing.paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    playing.server({ type: "queue-changed", queue: [item("q", yt("dQw4w9WgXcQ"), "me")], by: "me" });
+    expect(playing.started.count).toBe(0);
+  });
+
   test("a video link is sent as queue-add with the raw url, and the field clears", async () => {
     const { sent, paste, q } = await setup();
     paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
