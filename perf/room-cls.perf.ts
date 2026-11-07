@@ -264,7 +264,7 @@ for (const profile of ["desktop", "portrait", "landscape"] as const) {
         }
       }
       await observer.page.waitForTimeout(OBSERVER_SETTLE_MS);
-      await expect(observer.page.locator(site.chatLogLine)).toHaveCount(15);
+      await expect(observer.page.locator(site.chatLogLine).filter({ hasText: "burst" })).toHaveCount(15);
       const shifts = await observer.page.evaluate(() => {
         const seen: unknown = Reflect.get(window, "__roomShifts");
         return Array.isArray(seen) ? (seen as { value: number; nodes: string[] }[]) : [];
