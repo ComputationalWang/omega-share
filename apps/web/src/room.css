@@ -432,6 +432,9 @@ body.room-is-pseudo-fs { overflow: hidden; }
  * chat is in its window the row's place is the placeholder (page 2×). The window: the mustard rim, head, log, field. ---- */
 .pop-out { --ui-px: 1px; display: flex; align-items: center; }
 .chat-away { --ui-px: 2px; grid-template-columns: auto 1fr auto; align-items: center; justify-items: start; text-align: left; gap: 12px; margin-top: 8px; }
+/* In the panel's column (300/360 px, OME-2306) scene, text and key overran it by 3 px: the key takes a row of its own. */
+.room-panel .chat-away { grid-template-columns: auto minmax(0, 1fr); }
+.room-panel .chat-away > .ui-button { grid-column: 1 / -1; justify-self: end; }
 .chat-away b { color: var(--ui-text); }
 .chat-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
 .popout-page { height: 100vh; height: 100dvh; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
