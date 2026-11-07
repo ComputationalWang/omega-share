@@ -435,12 +435,12 @@ for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["
 // A small portrait phone (OME-1612): at 360×640 the TV, shelf, panel keys, chat row and 44 px footer leave the room
 // window ~100 px with the chat strip under it. On a short portrait screen that strip goes (the Chat key's sheet holds the
 // log, bubbles still show in the room), so the room keeps ≥ 170 px and every seat shows whole, at 1×, without a pan.
-test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width, the empty one 21:9 (OME-2263), and the Chat sheet opens (OME-1612)", async ({ browser }) => {
+test("360×640 touch: the room picture is ≥ 170 px tall, every seat is in it and a tap sits; the TV is full width, the empty one a player's 16:9 (OME-2347), and the Chat sheet opens (OME-1612)", async ({ browser }) => {
   const page = await one(browser, "small360", { ...PHONE, viewport: { width: 360, height: 640 } });
   const tv = await page.locator(site.tv).boundingBox();
   if (tv === null) throw new Error("not laid out");
   expect(tv.width).toBe(360);
-  expect(Math.abs(tv.height - (360 * 9) / 21)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tv.height - (360 * 9) / 16)).toBeLessThanOrEqual(1);
   await frames(page);
   const pane = await page.locator(".stage-pane").boundingBox();
   if (pane === null) throw new Error("not laid out");
