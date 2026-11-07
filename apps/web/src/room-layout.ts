@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, SHELF_SPEAKER, TV_BEZEL, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomPanel, type RoomPanel } from "./room-panel";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
@@ -60,6 +60,8 @@ export interface RoomLayoutOptions {
   readonly labelScale?: (k: number) => void;
   /** The phone window settled on stage x `x0`–`x1`, bottom `y1` and top `y0` (OME-1945, OME-2118, OME-2149): bubbles and tags keep inside it (Stage.bubbleSides). */
   readonly bubbleSides?: (x0: number, x1: number, y1: number, y0: number) => void;
+  /** What hangs over the room window (Room view's corner TV frame and shelf, ADR 0058), CSS px from its top-left, and its width (OME-2349, Stage.bubbleAvoid). */
+  readonly bubbleAvoid?: (boxes: readonly { x0: number; x1: number; y0: number; y1: number }[], w: number) => void;
   /** The TV and its shelf (room-tv.ts). */
   readonly tv: {
     readonly tv: HTMLElement;
@@ -569,6 +571,14 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
       const tvCorner = "stage" in l && l.stage.y < l.tv.y + l.tv.h && l.stage.x < l.tv.x + l.tv.w;
       wrap.classList.toggle("is-tv-corner", tvCorner);
+      /** The corner TV's frame and its shelf with its speakers, from the room window's top-left: bubbles keep clear of them (OME-2349). */
+      const avoidTv = (r: Rect): void => {
+        const { tv: t, controls: c } = l;
+        o.bubbleAvoid?.(tvCorner ? [
+          { x0: t.x - TV_BEZEL - r.x, x1: t.x + t.w + TV_BEZEL - r.x, y0: t.y - TV_BEZEL - r.y, y1: t.y + t.h + TV_BEZEL - r.y },
+          { x0: c.x - SHELF_SPEAKER - r.x, x1: c.x + c.w + SHELF_SPEAKER - r.x, y0: c.y - r.y, y1: c.y + c.h - r.y },
+        ] : [], r.w);
+      };
       if ("stage" in l) {
         // In the band's top corner, over its backdrop beside the room.
         roomViewKey.style.top = `${String(l.stage.y + 4)}px`;
@@ -589,6 +599,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, bottom - l.stage.y)) };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
+          avoidTv(r);
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
         } else {
@@ -602,6 +613,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           // Editing, the window is the room's own height: a taller one pans the stage up over the sky, cutting the floor's hit area.
           const r = { x: sw < l.stage.w ? Math.floor((w - sw) / 2) : l.stage.x, y: l.stage.y, w: sw, h: editing ? Math.min(l.stage.h, Math.ceil(ROOM_VIEW.h * k)) : l.stage.h };
           box(clip, r);
+          avoidTv(r);
           // The band's backdrop and dim reach the column's edges (OME-1843): no island in a column wider than the room.
           clip.classList.toggle("is-bleed", r.w < w);
           clip.style.setProperty("--bleed-l", `${String(r.x)}px`);
@@ -619,6 +631,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     }
     roomViewKey.hidden = true;
     wrap.classList.remove("is-tv-corner");
+    o.bubbleAvoid?.([], 0);
     // Under the wide page the room strip is the touch window, framed on me (HANDOFF "Layout"), whatever the pointer.
     const onPhone = phone.matches || portraitOn;
     const l = portraitOn

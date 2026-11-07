@@ -19,6 +19,7 @@ import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
 import { isShout, meAction, thinkText } from "../chat/effects";
 import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
+import type { Box } from "../tag-stack";
 
 /** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
 export const FLOAT_LIFE_MS = 5000;
@@ -96,6 +97,17 @@ export interface Floats {
   sides(x0: number, x1: number): void;
   /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
   typing(id: MemberId, on: boolean, at: Point): void;
+  /** What hangs over the room (stage px): Room view's corner TV and its shelf (OME-2349). Bubbles keep clear of it. */
+  avoid(boxes: readonly Box[]): void;
+  /** The members' name tags as placed (stage px): a bubble rises past another member's, never over it (OME-2349). */
+  tags(boxes: ReadonlyMap<MemberId, Box>): void;
+}
+
+/** Boxes in the room window's CSS px (from its top-left, `w` wide) in stage px, by the window's sides `x0`–`x1` and top `y0`. */
+export function windowToStage(boxes: readonly Box[], w: number, x0: number, x1: number, y0: number): Box[] {
+  if (w <= 0) return [];
+  const k = w / (x1 - x0);
+  return boxes.map((b) => ({ x0: x0 + b.x0 / k, x1: x0 + b.x1 / k, y0: y0 + b.y0 / k, y1: y0 + b.y1 / k }));
 }
 
 export interface FloatsOptions {
@@ -167,7 +179,10 @@ interface Slot {
   sh: number;
   /** Which sizes have arrived since `say`: 1 the bubble's, 2 the twin's. */
   sized: number;
+  /** How far the stack pushes it up (stage px): it only grows. */
   push: number;
+  /** As shown: the push, plus a lift past other members' tags where the crowd leaves room (OME-2349), planned afresh each resolve. */
+  lift: number;
   stacked: boolean;
   /** False until both sizes arrive (a frame later, or once a hidden stage shows): not placed, stacked or shown. */
   measured: boolean;
@@ -209,7 +224,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const outer = el("div", { className: "float-slot", hidden: true });
     outer.append(motion, twin);
     layer.append(outer);
-    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
+    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, lift: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
   });
   /** Typing on, not yet a whole step: no node yet (where their head is, and since when). */
   const waiting = new Map<MemberId, { x: number; y: number; since: number }>();
@@ -222,6 +237,18 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   /** The sides the boxes keep inside (stage px): the stage's, or the phone window's once it settles (OME-1945). */
   let sideL = 0;
   let sideR = STAGE_W;
+  /** What hangs over the room (OME-2349, `avoid`), and the members' tags (`tags`), stage px. */
+  let over: readonly Box[] = [];
+  let tagBoxes: ReadonlyMap<MemberId, Box> = new Map();
+
+  /** How far it rises in all (stage px): typing dots and reduced motion don't. */
+  const sweep = (s: Slot): number => (s.typing || o.reducedMotion.matches ? 0 : FLOAT_RISE);
+  /** Its box and tail, pushed `push`, from its highest to where it is now, overlap `b`'s (shifted `left` instead of where it is). */
+  const sweeps = (s: Slot, push: number, b: Box, left = s.ax + s.dx): boolean => {
+    if (left >= b.x1 || b.x0 >= left + s.w * k) return false;
+    const top = s.ay - (s.h + TAIL_BELOW) * k - push;
+    return top - sweep(s) + SLACK < b.y1 && top - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k > b.y0 + SLACK;
+  };
 
   /** Back to the pool; `hide` false when the node is reused at once (it stays shown: one attribute write fewer). */
   const free = (s: Slot, hide = true): void => {
@@ -319,21 +346,31 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    * Keep the box inside the stage's sides (the phone window's, once it settles: `sides`); the tail leans when the speaker is past a straight tail's reach. `dx` is in
    * stage px; the box's own styles are in its px (shown `k`× inside the motion wrapper).
    */
-  const placeBox = (s: Slot): void => {
+  const placeBox = (s: Slot, push = 0): void => {
     const w = s.w * k;
-    const left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
+    let left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
+    // Where its rise would reach the TV, it goes beside it, the nearer side that fits (OME-2349).
+    for (const b of over) {
+      if (!sweeps(s, push, b, left)) continue;
+      const r = Math.ceil(b.x1 + MARGIN);
+      const l = Math.floor(b.x0 - MARGIN - w);
+      const rFits = r + w <= sideR - MARGIN;
+      const lFits = l >= sideL + MARGIN;
+      if (rFits && (!lFits || r - left < left - l)) left = r;
+      else if (lFits) left = l;
+    }
     s.dx = left - Math.round(s.ax);
     const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
-    s.p.style.left = px(s.dx / k);
-    s.p.style.top = px(-(s.h + TAIL_BELOW));
+    // A transform, not left/top: re-placing it is no layout shift (OME-2349).
+    s.p.style.translate = `${px(s.dx / k)} ${px(-(s.h + TAIL_BELOW))}`;
     s.p.style.setProperty("--tail-x", px(tailX));
     s.p.classList.toggle("tail-sw", tailX < TAIL_S_REACH);
     s.p.classList.toggle("tail-se", tailX > s.w - TAIL_S_REACH);
   };
 
   const setPush = (s: Slot, push: number): void => {
-    if (push === s.push) return;
-    s.push = push;
+    if (push === s.lift) return;
+    s.lift = push;
     s.motion.style.transform = push === 0 ? "" : `translateY(${px(-push / k)})`;
   };
 
@@ -350,34 +387,36 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     placeBox(s);
   };
 
+  /** `plan`'s pushes, by place in `order`; NaN: it goes. `stackOnly`: the plan without tags, kept as the pushes to grow from. */
+  const planned: number[] = [];
+  const stackOnly: number[] = [];
   /**
-   * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
-   * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
-   * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: a bubble never
-   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
+   * Plan the pushes (stage px) into `planned`, newest first, past the newer bubbles and, `past`, other members' tags; the
+   * number that go. Writes nothing but `stack` (a stacked bubble stays stacked).
    */
-  const resolve = (): void => {
-    order.length = 0;
-    for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
-    // Typing dots stay nearest the heads (they never rise): lines climb over them.
-    order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
+  const plan = (past: boolean): number => {
     const reduced = o.reducedMotion.matches;
+    let gone = 0;
+    planned.length = order.length;
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       if (s === undefined) continue;
       let push = s.push;
+      let slid = false;
       for (let moved = true; moved; ) {
         moved = false;
         for (let j = 0; j < i; j++) {
           const n = order[j];
           if (n === undefined) continue;
+          // A newer one that goes keeps its place until it's gone.
+          const nPush = planned[j] ?? Number.NaN;
           const lead = reduced ? 0 : Math.max(0, Math.min(Math.floor(((n.startedAt - s.startedAt) * FLOAT_RISE) / FLOAT_LIFE_MS), s.rise - n.rise));
           const x0 = s.ax + s.dx;
           const nx0 = n.ax + n.dx;
           if (x0 >= nx0 + n.w * k || nx0 >= x0 + s.w * k) continue;
           const top = s.ay - (s.h + TAIL_BELOW) * k - push - lead;
           const bottom = top + s.h * k;
-          const nTop = n.ay - (n.h + TAIL_BELOW) * k - n.push;
+          const nTop = n.ay - (n.h + TAIL_BELOW) * k - (Number.isNaN(nPush) ? n.lift : nPush);
           const nBottom = nTop + (n.h + (n.stacked ? 0 : TAIL_BELOW)) * k;
           if (top + SLACK >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop + SLACK) continue;
           // Typing dots never stack, so they keep their tail.
@@ -386,11 +425,61 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           if (!s.stacked && !s.typing) stack(s);
           moved = true;
         }
+        // Another member's tag in its way: it rises past it, its tail's tip GAP over the tag (OME-2349).
+        if (past) {
+          for (const [id, b] of tagBoxes) {
+            if (id === s.speaker || !sweeps(s, push, b)) continue;
+            push += s.ay - (s.h + TAIL_BELOW) * k - push - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k + GAP - b.y0;
+            moved = true;
+          }
+        }
+        // Pushed up into the TV: once, it goes beside it at that height, and is checked against the newer ones there.
+        if (!moved && !slid && over.some((b) => sweeps(s, push, b))) {
+          slid = true;
+          placeBox(s, push);
+          moved = !over.some((b) => sweeps(s, push, b));
+        }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced || s.typing ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
+      // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
+      const out = (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b));
+      if (out) gone++;
+      planned[i] = out ? Number.NaN : push;
+    }
+    return gone;
+  };
+
+  /**
+   * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
+   * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
+   * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: the stack never
+   * slides a bubble down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
+   * They also lift past other members' tags (OME-2349) unless that sends one more away (in a crowd a line beats a clear
+   * tag); a lift is planned afresh each time, so a bubble can drop back to where the stack alone puts it.
+   */
+  const resolve = (): void => {
+    order.length = 0;
+    for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
+    // Typing dots stay nearest the heads (they never rise): lines climb over them.
+    order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
+    const without = plan(false);
+    stackOnly.length = 0;
+    stackOnly.push(...planned);
+    // The lifts past tags never become pushes: kept, the next line would stack on them and send the oldest off the top.
+    if (tagBoxes.size > 0 && plan(true) > without) {
+      planned.length = 0;
+      planned.push(...stackOnly);
+    }
+    for (let i = 0; i < order.length; i++) {
+      const s = order[i];
+      const push = planned[i] ?? Number.NaN;
+      if (s === undefined) continue;
+      if (Number.isNaN(push)) {
         leave(s);
         continue;
       }
+      // Kept only with the lifts (they sent another away instead): its push is where it shows.
+      const own = stackOnly[i] ?? Number.NaN;
+      s.push = Number.isNaN(own) ? push : own;
       setPush(s, push);
     }
   };
@@ -453,6 +542,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   /** Shown at `at`, unplaced until its sizes arrive in the frame's layout. */
   const show = (s: Slot, at: Point, now: number): void => {
     s.push = 0;
+    s.lift = 0;
     s.rise = 0;
     s.alpha = 1;
     s.motion.style.transform = "";
@@ -575,6 +665,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
       resolve();
     },
+    avoid(boxes) {
+      over = boxes;
+      for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
+      resolve();
+    },
+    tags(boxes) {
+      // Seen at the next resolve (a line, a walk's end): a tag that moves under a bubble already up doesn't push it.
+      tagBoxes = boxes;
+    },
     scale(next) {
       if (next === k) return;
       k = next;
@@ -582,8 +681,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         if (s.state === FREE || !s.measured) continue;
         placeBox(s);
         // The push is written in the wrapper's own px: rewrite it at the new scale (live ones are stacked again below).
-        const push = s.state === LIVE ? 0 : s.push;
-        s.push = Number.NaN;
+        const push = s.state === LIVE ? 0 : s.lift;
+        if (s.state === LIVE) s.push = 0;
+        s.lift = Number.NaN;
         setPush(s, push);
       }
       resolve();
