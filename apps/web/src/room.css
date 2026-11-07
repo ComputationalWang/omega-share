@@ -557,16 +557,16 @@ body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod
 /* The compact Up next card (OME-1804, design OME-1799 §2): in one row the chip and keys left the title 0–51 px, its text
  * running under them. Here the title has the top line to itself, the name, the chip and the keys share the second; to a
  * finger (44 px keys) the name gets a line of its own too. */
-.room-side .ui-qrow { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "src title title title" "src meta chip keys"; row-gap: var(--ui-px); }
-.ui-touch .room-side .ui-qrow { grid-template-areas: "src title title title" "src meta meta meta" "src . chip keys"; }
-.room-side .ui-qrow > .body { display: contents; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "src title title title" "src meta chip keys"; row-gap: var(--ui-px); }
+.ui-touch .room-side .ui-qrow, .room-portrait .panel-queue .ui-qrow { grid-template-areas: "src title title title" "src meta meta meta" "src . chip keys"; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow > .body { display: contents; }
 /* A shrunk list (a short window) scrolls its rows; it doesn't squash their lines into each other. */
 .room-side .ui-qlist { grid-auto-rows: max-content; }
-.room-side .ui-qrow > .ui-qsrc { grid-area: src; }
-.room-side .ui-qrow .title { grid-area: title; }
-.room-side .ui-qrow .meta { grid-area: meta; min-width: 0; overflow: hidden; }
-.room-side .ui-qrow > .ui-chip { grid-area: chip; }
-.room-side .ui-qrow > .queue-keys { grid-area: keys; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow > .ui-qsrc { grid-area: src; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow .title { grid-area: title; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow .meta { grid-area: meta; min-width: 0; overflow: hidden; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow > .ui-chip { grid-area: chip; }
+:is(.room-side, .room-portrait .panel-queue) .ui-qrow > .queue-keys { grid-area: keys; }
 @media (min-height: 501px) {
   /* The head keeps one line per word: no glyph (the card is named Up next), Play next now on a line of its own under it. */
   .room-side .queue-head { flex-wrap: wrap; row-gap: 4px; white-space: nowrap; }
@@ -968,7 +968,8 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-side .panel-chat:not([hidden]) { overflow: hidden; }
 .room-side .panel-queue > .queue-panel { flex: 1 1 auto; }
 /* The phone's Up next keeps its 44 px remove and move keys (as the old sheet did). */
-.room-portrait .panel-queue :is(.ui-qx, .queue-move) { min-width: 44px; min-height: 44px; }
+/* The × keeps its 12-art-px sprite cell (a bigger box shows the atlas around it); its 44 px is the touch ::before (OME-2361). */
+.room-portrait .panel-queue .queue-move { min-width: 44px; min-height: 44px; }
 /* Below 1024 px the panel is a sheet under the room strip, its tabs right over the docked composer (D: 48 px keys, 3 px
  * over and 4 px under them, a 1 px rule). Chat's log scrolls inside (at least 128 px); Up next and Room take their whole
  * height, the strip giving way to its floor and then the page growing (QA OME-2360: no control under the tabs). */
