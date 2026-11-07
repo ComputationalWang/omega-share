@@ -38,6 +38,15 @@ describe("stallWatch (room player kick, OME-2057/OME-2364)", () => {
     expect(w(at(true, 0), 45_500)).toBe("paused");
   });
 
+  test("the paused kick plays it: the next sample at the same currentTime is not 'stalled' at once", () => {
+    const w = stallWatch(0);
+    expect(w(at(true, 0), 250)).toBeNull();
+    expect(w(at(true, 0), 20_500)).toBe("paused");
+    expect(w(at(false, 0), 20_750)).toBeNull();
+    expect(w(at(false, 0), 40_000)).toBeNull();
+    expect(w(at(false, 0), 41_000)).toBe("stalled");
+  });
+
   test("a player whose currentTime moves is never 'stalled'", () => {
     const w = stallWatch(0);
     for (let t = 0; t <= 60_000; t += 500) expect(w(at(false, t / 100_000), t)).toBeNull();
