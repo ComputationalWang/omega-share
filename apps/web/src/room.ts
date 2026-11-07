@@ -959,7 +959,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const shown = screen(s);
     // Removed, closed or full: nothing to say any more, so the chat comes home (the log stays above a removal's card).
     if (popped && !shown.chat) relay?.bringBack();
-    chatForm.hidden = !shown.chat || popped;
+    // Until the first snapshot it keeps its place, invisible, as the stage does: under 1024 px it sizes the panel (OME-2306).
+    chatForm.hidden = (!shown.chat && !shown.reserve) || popped;
+    chatForm.classList.toggle("is-reserved", shown.reserve);
     // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
     chatLog.root.hidden = (!shown.chat && !shown.kicked) || popped;
     // The room's window holds the chat too: the room's placeholder says so.
@@ -1042,7 +1044,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Removed, closed or full: no picture to watch any more.
     if (!shown.stage && layout.fs.mode() !== "off") layout.fs.exit();
     renderChatRow(s);
-    invite.hidden = !shown.stage;
+    invite.hidden = !shown.stage && !shown.reserve;
+    invite.classList.toggle("is-reserved", shown.reserve);
     if (layout.syncPortrait()) layout.fit();
     queuePanel.root.hidden = !shown.stage;
     const queueClaimed = queuePanel.update(s);
