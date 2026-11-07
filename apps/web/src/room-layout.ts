@@ -426,7 +426,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (invite.parentElement !== panel.head) panel.head.append(invite);
     if (queuePanel.root.parentElement !== panel.panels.queue) panel.panels.queue.append(queuePanel.root);
     const room = panel.panels.room;
-    if (o.ownerBar.parentElement !== room) room.prepend(o.ownerBar, o.editorPanel, tvBox.personal);
+    // Not the personal bar: its catching-up notice and Unmute must show whatever tab is selected.
+    if (o.ownerBar.parentElement !== room) room.prepend(o.ownerBar, o.editorPanel);
     if (o.foot.parentElement !== room) o.editorPanel.after(o.foot);
     if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
     else {

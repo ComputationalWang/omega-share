@@ -963,6 +963,8 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-side .panel-body:not([hidden]) { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
 .room-side .panel-chat:not([hidden]) { overflow: hidden; }
 .room-side .panel-queue > .queue-panel { flex: 1 1 auto; }
+/* The phone's Up next keeps its 44 px remove and move keys (as the old sheet did). */
+.room-portrait .panel-queue :is(.ui-qx, .queue-move) { min-width: 44px; min-height: 44px; }
 /* Below 1024 px the panel is a sheet under the room strip: its content scrolls inside (at least 128 px), its tabs sit
  * right over the docked composer (D: 48 px keys, 3 px over and 4 px under them, a 1 px rule). */
 .room-portrait > .room-panel { flex: none; padding: 0 8px; }
