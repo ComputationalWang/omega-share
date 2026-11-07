@@ -356,8 +356,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .room-pan-hint { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 8px); margin: 0; padding: 0 6px; font-size: var(--text-sm); line-height: 1.2; color: var(--ui-text); background: var(--ui-page); border: 1px solid var(--ui-accent); pointer-events: none; }
 .room-pan-hint[hidden] { display: none; }
 /* Under the picture the strip is framed on me and is all floor (OME-2306): at its top the hint sat on my tag, so it takes
- * the foot's left corner beside the floating keys (3×44 + gaps), where the centred me never is. */
-.room-portrait .room-pan-hint { top: auto; bottom: 4px; left: 4px; transform: none; width: auto; max-width: calc(100% - 164px); }
+ * the foot's left corner, left of my tag (centred on me, at most 160 px wide, over my head or under my feet). */
+.room-portrait .room-pan-hint { top: auto; bottom: 4px; left: 4px; transform: none; width: auto; max-width: calc(50% - 84px); }
+.room-portrait > .room-bar { margin-top: 0; }
 /* One hint at a time (OME-2263): the pan hint waits for the tour. */
 .hint-chip:not([hidden]) ~ .stage-wrap .room-pan-hint { display: none; }
 /* The column's band reads as a rail, not an empty strip beside the room (OME-1597): panel fill, a wall-light edge. */
