@@ -89,8 +89,9 @@ export function createHints(o: HintsOptions): Hints {
     place();
   });
 
-  // Live UI a chip never covers (OME-2350): the panel's tabs, the chat lines and the top bar's keys (Photo).
-  const live = (): Element[] => [...(root.parentElement?.querySelectorAll(".panel-tabs, .chat-log, .room-top") ?? [])];
+  // Live UI a chip never covers (OME-2350): the panel's tabs, the chat lines, the top bar's keys (Photo), and the phone's
+  // reaction row and Invite field (OME-2381).
+  const live = (): Element[] => [...(root.parentElement?.querySelectorAll(".panel-tabs, .chat-log, .room-top, .reaction-bar, .invite") ?? [])];
 
   const place = (): void => {
     const side = STEPS[step]?.side;

@@ -311,7 +311,7 @@ describe("the first-visit tour", () => {
     expect(document.activeElement).toBe(after);
     hints.dismiss();
   });
-  test.each(["chat-log", "room-top"])("a chip never covers the %p (chat lines, the top bar's keys; OME-2350): it hides, and is back once that's clear", async (cls) => {
+  test.each(["chat-log", "room-top", "reaction-bar", "invite"])("a chip never covers the %p (chat lines, the top bar's keys, OME-2350; the reaction row and Invite field, OME-2381): it hides, and is back once that's clear", async (cls) => {
     const { hints } = await setup();
     const obstacle = document.createElement("div");
     obstacle.className = cls;
