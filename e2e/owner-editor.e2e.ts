@@ -116,6 +116,7 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
 
   // Only the owner gets the key, and nothing of the editor loads before it's pressed.
   await expect(guest.locator(site.editRoom)).toHaveCount(0);
+  await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
   await expect(owner.locator(site.editRoom)).toBeVisible();
   expect(ownerReq.filter((u) => EDITOR_URL.test(u))).toEqual([]);
   await owner.locator(site.editRoom).click();
@@ -214,6 +215,7 @@ test("keyboard only: a cell cursor places, selects, moves, turns and puts back f
   };
   const hit = owner.locator(site.editorHit);
   const cursor = owner.locator(site.editorCursor);
+  await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
   await press(site.editRoom);
   await expect(owner.locator(site.editorTray)).toBeVisible();
   // The room is a keyboard target, and the prompt names its keys.
@@ -283,6 +285,7 @@ test("placing a door asks for its room: a bad link is refused inline, a saved ro
   );
   await owner.goto(`${URLS.web}/r/${id}`);
   await enter(owner, "owner");
+  await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
   await owner.locator(site.editRoom).click();
   await expect(owner.locator(site.editorTray)).toBeVisible();
   await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
@@ -335,6 +338,7 @@ test("the new colours (OME-1463): the editor offers them, they save, and a guest
   );
   await owner.goto(`${URLS.web}/r/${id}`);
   await enter(owner, "owner");
+  await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
   await owner.locator(site.editRoom).click();
   await expect(owner.locator(site.editorTray)).toBeVisible();
   const swatch = (name: string) => owner.locator(`${site.editorSwatch}[aria-label="${name}"]`);
@@ -406,6 +410,7 @@ test("the wall pieces' new colours (OME-1503): a meadow print and peach lights s
   const hit = owner.locator(site.editorHit);
   const cursor = owner.locator(site.editorCursor);
   const swatch = (name: string) => owner.locator(`${site.editorSwatch}[aria-label="${name}"]`);
+  await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
   await owner.locator(site.editRoom).click();
   await expect(owner.locator(site.editorTray)).toBeVisible();
   await owner.locator(site.editorTab).filter({ hasText: "Floor & wall" }).click();
@@ -477,6 +482,7 @@ test("leaving the editor with unsaved changes asks first: Escape keeps editing, 
   const count = owner.locator(site.editorCount);
   const leave = owner.locator(site.editorLeave);
   const place = async (): Promise<void> => {
+    await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
     await owner.locator(site.editRoom).click();
     await expect(count).toContainText(`${String(n)} /`);
     await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
@@ -514,6 +520,7 @@ test("leaving the editor with unsaved changes asks first: Escape keeps editing, 
   await expect.poll(async () => (await savedOf(owner)).length).toBe(n + 1);
 
   // Nothing changed: Done closes at once, no prompt.
+  await owner.getByTestId("portrait-settings").click(); // the owner's tools are in the Room tab (OME-2306)
   await owner.locator(site.editRoom).click();
   await expect(count).toBeVisible();
   await owner.locator(site.editRoom).click();
