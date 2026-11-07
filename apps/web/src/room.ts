@@ -1025,7 +1025,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Until the first snapshot the wrap keeps its place, invisible (room.css), so nothing moves when it lands (OME-2262).
     wrap.hidden = !shown.stage && !shown.reserve;
     wrap.classList.toggle("is-reserved", shown.reserve);
-    reactionBar.root.hidden = !shown.stage || s.status !== "open" || s.room?.embed == null;
+    // Nothing playing, the bar is idle (room.css): upright it keeps its row, invisible (OME-2347), or the chat moved for everyone.
+    reactionBar.root.hidden = !shown.stage && !shown.reserve;
+    reactionBar.root.classList.toggle("is-idle", !shown.stage || s.status !== "open" || s.room?.embed == null);
     // The head row's keys keep their place too, invisible (OME-2282): shown later, they moved the TV and the room down.
     const headKeys = shown.stage || shown.reserve;
     help.key.hidden = !headKeys;
