@@ -178,7 +178,8 @@ for (const [name, options] of [
       await expect(lines).toHaveCount(5);
       await page.waitForTimeout(300);
       if (await hint.isVisible()) {
-        const keys = page.locator(`.room-top .ui-button, ${site.chatInput}`);
+        // The reaction row and the Invite field too (OME-2381).
+        const keys = page.locator(`.room-top .ui-button, ${site.chatInput}, .reaction-key, ${site.inviteLink}`);
         for (const covered of [...(await lines.all()), ...(await keys.all())]) {
           if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
         }
