@@ -969,10 +969,12 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-side .panel-queue > .queue-panel { flex: 1 1 auto; }
 /* The phone's Up next keeps its 44 px remove and move keys (as the old sheet did). */
 .room-portrait .panel-queue :is(.ui-qx, .queue-move) { min-width: 44px; min-height: 44px; }
-/* Below 1024 px the panel is a sheet under the room strip: its content scrolls inside (at least 128 px), its tabs sit
- * right over the docked composer (D: 48 px keys, 3 px over and 4 px under them, a 1 px rule). */
+/* Below 1024 px the panel is a sheet under the room strip, its tabs right over the docked composer (D: 48 px keys, 3 px
+ * over and 4 px under them, a 1 px rule). Chat's log scrolls inside (at least 128 px); Up next and Room take their whole
+ * height, the strip giving way to its floor and then the page growing (QA OME-2360: no control under the tabs). */
 .room-portrait > .room-panel { flex: none; padding: 0 8px; }
 .room-portrait .room-panel > .panel-body:not([hidden]) { flex: 1 1 0; min-height: 128px; overflow-y: auto; overscroll-behavior: contain; }
+.room-portrait .room-panel > .panel-body:not(.panel-chat, [hidden]) { flex: none; min-height: 0; overflow: visible; }
 /* An open poll above it never squeezes the log under a touch target's height (as the wide column, 60 px): the body scrolls instead. */
 .room-portrait .room-panel > .panel-body > .chat-log { flex: 1 1 auto; min-height: 60px; max-height: none; margin: 0; }
 .room-portrait .room-panel > .panel-tabs { position: sticky; bottom: 56px; z-index: 2; padding-top: 4px; background: var(--bg); }

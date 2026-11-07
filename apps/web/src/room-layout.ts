@@ -356,9 +356,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   // The Doorstep desk panel (OME-2306): the invite on top, then Chat / Up next / Room, the composer at its foot. One
   // panel for every layout: the wide page's right-hand column, else right under the room.
   const panel = createRoomPanel({
-    onSelect: () => {
+    onSelect: (kind) => {
       o.hint.dismiss();
       fit();
+      // Past the strip's floor the page grows (QA OME-2360): Up next's field and the Room tab's keys end the page, so show its end.
+      if (portraitOn && kind !== "chat") root.scrollTop = root.scrollHeight;
     },
   });
   // The site's footer joins the Room tab while the page is the viewport (OME-1846): under the dock it never shows.
