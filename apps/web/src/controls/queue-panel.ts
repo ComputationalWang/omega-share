@@ -12,6 +12,8 @@ export interface QueuePanelOptions {
   readonly ownHosts: readonly string[];
   /** Client ms (Date.now): how long ago an add went out. */
   readonly now?: () => number;
+  /** My add into an empty room started the TV (the phone's Up next sheet closes on it, OME-2348). */
+  readonly onStarted?: () => void;
 }
 
 export interface QueuePanel {
