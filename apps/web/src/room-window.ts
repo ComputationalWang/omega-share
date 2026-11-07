@@ -36,6 +36,9 @@ const KEYS_BAND = 52;
 export const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
 /** The keys in a row beside the room (a wide short window): three 44 px keys, their gaps and the band's edges. */
 const KEYS_ROW_W = 3 * 44 + 4 * 4;
+/** The floating keys' corner of the window (room.css .room-zoom: three 44 px keys, 4 px gaps, 4 px off the edges). */
+const KEYS_FLOAT_W = 3 * 44 + 3 * 4;
+const KEYS_FLOAT_H = 44 + 4;
 /** From this width a short window has its keys beside the room (a phone held sideways, OME-1841); a portrait
  * phone's window (≤ 430 px) floats them on it. */
 const KEYS_SIDE_MIN_W = 480;
@@ -160,8 +163,10 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   // all (QA OME-1330 R2). The browser tracks the crossings off the main thread, so a drag costs nothing here. A tag's
   // 44 px ::before (room.css) reaches 16 px past its 20 px box, hence the tighter root for tags. Off the phone, nothing.
   const cropped = new Set<HTMLElement>();
+  /** Seats the floating zoom keys cover (OME-2375: a 96 px strip left one a 4 px sliver beside them). */
+  const covered = new Set<HTMLElement>();
   const crop = (e: HTMLElement): void => {
-    const off = active && cropped.has(e);
+    const off = active && (cropped.has(e) || covered.has(e));
     const id = e.dataset["member"];
     if (id === undefined) {
       e.inert = off;
@@ -182,6 +187,29 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
   const seatsSeen = watch("0px");
   const tagsSeen = watch(`-${String(TAG_CROP)}px`);
   for (const s of stage.querySelectorAll(".seat")) seatsSeen.observe(s);
+  // The keys' corner as an observer root: the pane shrunk to it by its margin, so made again when the window resizes.
+  let keysSeen: IntersectionObserver | null = null;
+  let keysMargin = "";
+  const watchKeys = (margin: string): void => {
+    if (margin === keysMargin) return;
+    keysMargin = margin;
+    keysSeen?.disconnect();
+    keysSeen = null;
+    for (const e of covered) {
+      covered.delete(e);
+      crop(e);
+    }
+    if (margin === "") return;
+    keysSeen = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!(e.target instanceof HTMLElement)) continue;
+        if (e.intersectionRatio > 0) covered.add(e.target);
+        else covered.delete(e.target);
+        crop(e.target);
+      }
+    }, { root: pane, rootMargin: margin, threshold: [0, 0.01] });
+    for (const s of stage.querySelectorAll(".seat")) keysSeen.observe(s);
+  };
   const tagLayer = stage.querySelector(".tags");
   if (tagLayer !== null) {
     for (const t of tagLayer.querySelectorAll(".tag")) tagsSeen.observe(t);
@@ -479,7 +507,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       clip.classList.remove("is-band", "is-fit");
       const was = active;
       active = on;
-      if (on !== was) for (const e of cropped) crop(e);
+      if (on !== was) for (const e of [...cropped, ...covered]) crop(e);
       // A short portrait strip (OME-2306, ≥ 96 px) keeps them floating too: a row under it left me a 44 px sliver.
       const keysAt = h >= KEYS_COLUMN_H || w < KEYS_SIDE_MIN_W ? "float" : "side";
       view.w = on && keysAt === "side" ? Math.max(0, w - KEYS_ROW_W) : w;
@@ -487,6 +515,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (w
       // Framing lifts me above the keys only when the window has the height to spare.
       keysOver = h >= KEYS_COLUMN_H ? KEYS_BAND : 0;
       clip.dataset["keys"] = keysAt;
+      watchKeys(on && keysAt === "float" ? `-${String(Math.max(0, h - KEYS_FLOAT_H))}px 0px 0px -${String(Math.max(0, w - KEYS_FLOAT_W))}px` : "");
       clip.classList.toggle("is-phone", on);
       // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).
       clip.style.visibility = on && h < windowMinH(w) ? "hidden" : "";

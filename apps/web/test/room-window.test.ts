@@ -461,7 +461,7 @@ describe("on a computer", () => {
 // OME-2375: in a 96 px portrait strip the floating zoom keys cover a seat key all but a sliver: like a seat the pane
 // crops, a seat under the keys is inert.
 describe("a seat under the zoom keys", () => {
-  type Seen = { cb: IntersectionObserverCallback; opts: IntersectionObserverInit | undefined; watched: Set<Element> };
+  interface Seen { cb: IntersectionObserverCallback; opts: IntersectionObserverInit | undefined; watched: Set<Element> }
   const made: Seen[] = [];
   const Real = globalThis.IntersectionObserver;
   beforeEach(() => {
@@ -480,8 +480,7 @@ describe("a seat under the zoom keys", () => {
   afterAll(() => {
     globalThis.IntersectionObserver = Real;
   });
-  const fire = (s: Seen, target: Element, ratio: number): void =>
-    s.cb([{ target, intersectionRatio: ratio, isIntersecting: ratio > 0 } as IntersectionObserverEntry], {} as IntersectionObserver);
+  const fire = (s: Seen, target: Element, ratio: number): void => { s.cb([{ target, intersectionRatio: ratio, isIntersecting: ratio > 0 } as IntersectionObserverEntry], {} as IntersectionObserver); };
 
   async function seated() {
     const { createRoomWindow } = await import("../src/room-window");
