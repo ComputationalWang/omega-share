@@ -242,3 +242,57 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     for (const target of [input, link]) await visibleInViewport(target, height);
   });
 }
+
+// OME-2361: an own row in the Up next sheet (Move up/down and Remove keys) keeps its title, name, badge and keys apart,
+// and the Remove key's box stays its 12-art-px sprite cell (a bigger box showed the atlas around it); the 44 px is its ::before.
+for (const [width, height] of [[360, 740], [412, 915]] as const) {
+  test(`${String(width)} portrait: an own Up next row keeps its title, badge and keys apart`, async ({ browser }) => {
+    clients = await joinRoom(browser, { roomUrl: testRoom("m10-portrait", width === 360 ? "qrow360" : "qrow412").url,
+      count: 1, nicknamePrefix: `qrow${String(width)}`,
+      contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("No portrait client");
+    await page.locator('[data-testid="portrait-link"]').click();
+    await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
+    const [firstVideo, nextVideo] = test.info().retry === 0 ? ["dQw4w9WgXcQ", "9bZkp7q19f0"] as const : ["M7lc1UVf-VE", "aqz-KE-bpKQ"] as const;
+    await page.locator(site.queueUrl).fill(`https://youtu.be/${firstVideo}`);
+    await page.locator(site.queueAdd).click();
+    await expect(page.locator(site.sharedVideo)).toBeVisible();
+    await page.locator(site.queueUrl).fill(`https://youtu.be/${nextVideo}`);
+    await page.locator(site.queueAdd).click();
+    const row = page.locator(site.queueRow).filter({ hasText: nextVideo });
+    await expect(row.locator('[data-testid="queue-remove"]')).toBeVisible();
+    const layout = await row.evaluate((li) => {
+      const box = (sel: string): DOMRect => {
+        const n = li.querySelector(sel);
+        if (n === null) throw new Error(`no ${sel}`);
+        return n.getBoundingClientRect();
+      };
+      const parts = { title: box(".title"), meta: box(".meta"), chip: box(".ui-chip"), up: box("[data-testid=queue-move-up]"),
+        down: box("[data-testid=queue-move-down]"), remove: box("[data-testid=queue-remove]") };
+      const overlaps: string[] = [];
+      const names = Object.keys(parts) as (keyof typeof parts)[];
+      for (const [i, a] of names.entries()) for (const b of names.slice(i + 1)) {
+        const p = parts[a], q = parts[b];
+        if (p.left < q.right - 0.5 && q.left < p.right - 0.5 && p.top < q.bottom - 0.5 && q.top < p.bottom - 0.5) overlaps.push(`${a}×${b}`);
+      }
+      const rowBox = li.getBoundingClientRect();
+      const outside = names.filter((n) => parts[n].left < rowBox.left - 0.5 || parts[n].right > rowBox.right + 0.5);
+      const touch = (sel: string): number => {
+        const n = li.querySelector(sel);
+        if (n === null) throw new Error(`no ${sel}`);
+        const r = n.getBoundingClientRect(), before = getComputedStyle(n, "::before");
+        const bw = parseFloat(before.width), bh = parseFloat(before.height);
+        return Math.min(Math.max(r.width, Number.isNaN(bw) ? 0 : bw), Math.max(r.height, Number.isNaN(bh) ? 0 : bh));
+      };
+      const x = li.querySelector("[data-testid=queue-remove]");
+      const cell = x === null ? 0 : 12 * parseFloat(getComputedStyle(x).getPropertyValue("--ui-px"));
+      return { overlaps, outside, cell, remove: [parts.remove.width, parts.remove.height],
+        touch: [touch("[data-testid=queue-move-up]"), touch("[data-testid=queue-move-down]"), touch("[data-testid=queue-remove]")] };
+    });
+    expect(layout.overlaps, "title, name, badge and keys intersect").toEqual([]);
+    expect(layout.outside, "parts past the row's edge").toEqual([]);
+    expect(layout.remove, "Remove key box vs its sprite cell").toEqual([layout.cell, layout.cell]);
+    for (const t of layout.touch) expect(t, "touch target").toBeGreaterThanOrEqual(44);
+  });
+}
