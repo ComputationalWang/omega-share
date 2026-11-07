@@ -384,18 +384,16 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     placeBox(s);
   };
 
+  /** `plan`'s pushes, by place in `order`; NaN: it goes. */
+  const planned: number[] = [];
   /**
-   * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
-   * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
-   * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: a bubble never
-   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
+   * Plan the pushes (stage px) into `planned`, newest first, past the newer bubbles and, `past`, other members' tags; the
+   * number that go. Writes nothing but `stack` (a stacked bubble stays stacked).
    */
-  const resolve = (): void => {
-    order.length = 0;
-    for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
-    // Typing dots stay nearest the heads (they never rise): lines climb over them.
-    order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
+  const plan = (past: boolean): number => {
     const reduced = o.reducedMotion.matches;
+    let gone = 0;
+    planned.length = order.length;
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       if (s === undefined) continue;
@@ -405,13 +403,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         for (let j = 0; j < i; j++) {
           const n = order[j];
           if (n === undefined) continue;
+          // A newer one that goes keeps its place until it's gone.
+          const nPush = planned[j] ?? Number.NaN;
           const lead = reduced ? 0 : Math.max(0, Math.min(Math.floor(((n.startedAt - s.startedAt) * FLOAT_RISE) / FLOAT_LIFE_MS), s.rise - n.rise));
           const x0 = s.ax + s.dx;
           const nx0 = n.ax + n.dx;
           if (x0 >= nx0 + n.w * k || nx0 >= x0 + s.w * k) continue;
           const top = s.ay - (s.h + TAIL_BELOW) * k - push - lead;
           const bottom = top + s.h * k;
-          const nTop = n.ay - (n.h + TAIL_BELOW) * k - n.push;
+          const nTop = n.ay - (n.h + TAIL_BELOW) * k - (Number.isNaN(nPush) ? n.push : nPush);
           const nBottom = nTop + (n.h + (n.stacked ? 0 : TAIL_BELOW)) * k;
           if (top + SLACK >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop + SLACK) continue;
           // Typing dots never stack, so they keep their tail.
@@ -421,18 +421,44 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           moved = true;
         }
         // Another member's tag in its way: it rises past it, its tail's tip GAP over the tag (OME-2349).
-        for (const [id, b] of tagBoxes) {
-          if (id === s.speaker || !sweeps(s, push, b)) continue;
-          push += s.ay - (s.h + TAIL_BELOW) * k - push - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k + GAP - b.y0;
-          moved = true;
+        if (past) {
+          for (const [id, b] of tagBoxes) {
+            if (id === s.speaker || !sweeps(s, push, b)) continue;
+            push += s.ay - (s.h + TAIL_BELOW) * k - push - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k + GAP - b.y0;
+            moved = true;
+          }
         }
       }
-      // Pushed up into the TV, it goes, the newest too (placeBox keeps one unpushed beside it).
-      if ((i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b))) {
-        leave(s);
-        continue;
-      }
-      setPush(s, push);
+      // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
+      const out = (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b));
+      if (out) gone++;
+      planned[i] = out ? Number.NaN : push;
+    }
+    return gone;
+  };
+
+  /**
+   * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
+   * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
+   * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: a bubble never
+   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead. They rise
+   * past other members' tags too (OME-2349), unless that would send one more away: in a crowd a line beats a clear tag.
+   */
+  const resolve = (): void => {
+    order.length = 0;
+    for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
+    // Typing dots stay nearest the heads (they never rise): lines climb over them.
+    order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
+    if (tagBoxes.size > 0) {
+      const without = plan(false);
+      if (plan(true) > without) plan(false);
+    } else plan(false);
+    for (let i = 0; i < order.length; i++) {
+      const s = order[i];
+      const push = planned[i] ?? Number.NaN;
+      if (s === undefined) continue;
+      if (Number.isNaN(push)) leave(s);
+      else setPush(s, push);
     }
   };
 
