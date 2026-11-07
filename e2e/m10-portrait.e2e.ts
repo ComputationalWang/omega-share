@@ -224,7 +224,10 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await rotate(844, 390);
     await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
     await expect(page.locator("#room-root")).toHaveClass(/room-wide/);
+    // Short and wide, the composer docks under Chat only (OME-2306: under a full Up next it left the list 0 px).
+    await page.locator('[data-testid="portrait-chat"]').click();
     await visibleInViewport(input, 390);
+    await link.click();
     await rotate(width, height);
     await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
     await expect(link).toBeVisible();
