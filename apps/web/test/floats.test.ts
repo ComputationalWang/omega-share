@@ -875,6 +875,19 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     expect(push("mine")).toBe("-63px");
     expect(bubbleOf("mine").classList.contains("is-stacked")).toBe(false);
   });
+
+  // CI on the first cut (m8-bubbles: a 4-member cluster lost a bubble, a 5-member burst peaked under 12): in a crowd there's
+  // no room for both. A line on screen beats a clear tag; the chat log has every line, but a bubble gone early is a miss.
+  test("clearing tags never costs a bubble: where rising past one would carry a bubble off the room's top, it stays over it", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.tags(new Map([["b", { x0: 670, x1: 730, y0: 70, y1: 90 }]]));
+    floats.say(say("a", "older", 700, 120));
+    floats.say(say("c", "newer", 300, 200));
+    frame();
+    // Past the tag it'd need 53 px: 86 - 53 - 24 is above the room's top (60), so it would go. It stays, unpushed.
+    expect(bubbleOf("older").classList.contains("is-leaving")).toBe(false);
+    expect(push("older")).toBe("0px");
+  });
 });
 
 test("windowToStage: the room window's boxes (CSS px from its top-left) in stage px, by the window's sides and width", async () => {
