@@ -338,6 +338,7 @@ test("the owner token is in no URL, Referer, query or broadcast; only the owner'
   expect(await guest.evaluate((k) => localStorage.getItem(k) ?? "", ROOM_SECRETS_STORAGE_KEY), "a guest's storage has no owner token").not.toContain(ownerToken);
 
   // Owner actions: open the editor and save a layout (the lamp from (9,0) to (8,1)), rename, then delete.
+  await owner.getByTestId("portrait-settings").click();
   await owner.locator(site.editRoom).click();
   await expect(owner.locator(site.editorTray)).toBeVisible();
   await clickCell(owner, 9, 0);

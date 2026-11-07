@@ -31,7 +31,8 @@ export const SPEC_ROOMS = {
   "ext-firefox": ["share"],
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
-  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360", "full412", "upnext412"],
+  "room-chrome": ["v360", "v412", "v768", "v900", "v1024", "v1280", "v1920", "keys", "v360tabs", "v412tabs", "v768tabs", "v900tabs"],
+  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360", "full412", "upnext412", "upnextdesk"],
   wide: ["w1280", "w1920", "w2560", "people1920", "people2560", "tw1920", "tw2560", "help2560", "phone", "keys", "fs", "scroll", "mo1920", "mo2560", "mophone", "hero1280", "hero1440", "hero1920", "hero2560", "int1280", "int1920", "int2560", "type1280", "aud1280", "aud1920", "aud2560", "rv1280", "rv1024", "rvclassic", "rvpenthouse", "rvstudio", "rvdank-dungeon", "rvbusy"],
   "provider-shelf": ["vimeo", "live", "twseats", "liveseats"],
   "phone-perf": ["frames"],
@@ -88,7 +89,7 @@ export const SPEC_ROOMS = {
   lie: ["sofa", "bed"],
   replay: ["wire", "clear", "ui"],
   "reaction-safety": ["shape", "big", "flood", "start"],
-  "room-clip": ["idle1280", "idlepixel7", "idleland7", "studio", "penthouse", "slow1280", "boot1280", "play1280", "playstudio", "playpenthouse", "playpixel7", "hint7", "hintplay7"],
+  "room-clip": ["idle1280", "idlepixel7", "idleland7", "idleme7", "studio", "penthouse", "slow1280", "boot1280", "play1280", "playstudio", "playpenthouse", "playpixel7", "hint7", "hintplay7"],
   rpolish: ["c1280", "c1920", "c2560", "d1280", "d1920", "d2560", "f1024", "f1366", "f1280", "e1280", "e1920", "e2560", "w320", "w360", "w1280", "p320", "p360", "p390", "t320", "t390", "m1024", "foot390", "nightdim", "fsband412"],
 } as const;
 

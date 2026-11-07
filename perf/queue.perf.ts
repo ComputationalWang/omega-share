@@ -37,6 +37,11 @@ async function share(request: Parameters<typeof postShare>[0], roomId: string, u
 
 /** Paste each url into "Up next", spread over the clients; a refusal (the add buckets) is retried after a pause. */
 async function fill(clients: readonly Client[], urls: readonly string[]): Promise<void> {
+  // The panel shows one tab at a time (OME-2306): select Up next first, outside any measured window.
+  for (const c of clients) {
+    await c.page.getByTestId("portrait-queue").click();
+    await expect(c.page.getByTestId("portrait-queue")).toHaveAttribute("aria-selected", "true");
+  }
   for (const [i, url] of urls.entries()) {
     const c = clients[i % clients.length];
     if (c === undefined) throw new Error("no clients");

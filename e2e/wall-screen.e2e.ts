@@ -28,6 +28,7 @@ test("the owner swaps the TV for a wall screen: the tray offers it, its span is 
   await page.locator(site.joinButton).click();
   expect(requests.some((u) => u.includes("furniture-v8"))).toBe(false);
 
+  await page.getByTestId("portrait-settings").click();
   await page.locator(site.editRoom).click();
   await expect(page.locator(site.editorTray)).toBeVisible();
   const hit = page.locator(site.editorHit);

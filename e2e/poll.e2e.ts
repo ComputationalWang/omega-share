@@ -128,7 +128,10 @@ test("the owner of a private room at 1280×720 reaches Close poll, the last opti
     const guest = await open(null, "kit");
     await say(guest, "/poll Sizes? A | B | C | D");
     await expect(card(owner).locator('[data-testid="poll-option"]')).toHaveCount(4);
+    // The owner's tools are the Room tab's now (OME-2306); back on Chat, the open poll scrolls the tab body, the card whole.
+    await owner.getByTestId("portrait-settings").click();
     await expect(owner.locator(site.editRoom)).toBeVisible();
+    await owner.getByTestId("portrait-chat").click();
     await expect(card(owner).locator("button.poll-close")).toBeInViewport({ ratio: 1 });
     await expect(owner.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
     // The log keeps a few lines beside the card.

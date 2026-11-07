@@ -108,7 +108,13 @@ test("theatre: frames per provider in the theatre layout on a phone, all 8 seate
     const [observer, ...senders] = clients;
     if (observer === undefined) throw new Error("no observer");
     // Everyone takes a theatre seat, facing the screen.
-    for (const [i, c] of clients.entries()) await c.page.locator(`${site.seat}[data-seat="${String(i)}"]`).click();
+    // The phone's strip is framed on the observer at the door (OME-2306): its seat is cropped (inert, no user input), so
+    // its click is dispatched, leaving its zoom as measured. The desktops show the whole room.
+    for (const [i, c] of clients.entries()) {
+      const seat = c.page.locator(`${site.seat}[data-seat="${String(i)}"]`);
+      if (c === observer) await seat.dispatchEvent("click");
+      else await seat.click();
+    }
     await expect
       .poll(async () => {
         const snap: unknown = JSON.parse(await rawSnapshot(browser, room.id));

@@ -72,6 +72,14 @@ async function handle(page: Page, read: "itemId" | "queueRenders"): Promise<unkn
 const itemId = async (page: Page): Promise<string | null> => v.parse(v.nullable(v.string()), (await handle(page, "itemId")) ?? null);
 const renders = async (page: Page): Promise<number> => v.parse(v.number(), await handle(page, "queueRenders"));
 
+/** The side column shows one tab at a time (OME-2306): select Up next before touching the queue. */
+async function upNext(...pages: Page[]): Promise<void> {
+  for (const page of pages) {
+    await page.locator('[data-testid="portrait-queue"]').click();
+    await expect(page.locator('[data-testid="portrait-queue"]')).toHaveAttribute("aria-selected", "true");
+  }
+}
+
 async function paste(page: Page, url: string): Promise<void> {
   await page.locator(site.queueUrl).fill(url);
   await page.locator(site.queueAdd).click();
@@ -102,6 +110,7 @@ test("paste a link, everyone sees the list, remove your own row, play next now",
   const [a, b] = clients;
   const aSent = logs[0];
   if (a === undefined || b === undefined || aSent === undefined) throw new Error("need two clients");
+  await upNext(a.page, b.page);
   await expect(a.page.locator(site.queuePanel)).toBeVisible();
   await expect(a.page.locator(site.queueCount)).toHaveText("0 / 20");
 
@@ -151,6 +160,7 @@ test("the end of a video advances everyone to the next item; no client reports e
   clients = await joinRoom(browser, { roomUrl: testRoom("provider-queue", "ended").url, count: 3, nicknamePrefix: "e", setup });
   const [a] = clients;
   if (a === undefined) throw new Error("need clients");
+  await upNext(...clients.map((c) => c.page));
   await startWith(a.page, WATCH_URL);
   for (const c of clients) await tvShows(c.page, VIDEO_ID);
   const first = await itemId(a.page);
@@ -191,6 +201,7 @@ test("a queued generic page stays click-to-load when it becomes current", async 
   });
   const [a, b] = clients;
   if (a === undefined || b === undefined) throw new Error("need two clients");
+  await upNext(a.page, b.page);
   await startWith(a.page, WATCH_URL);
   for (const c of clients) await tvShows(c.page, VIDEO_ID);
   await paste(a.page, GENERIC_URL);
@@ -316,6 +327,7 @@ for (const c of CASES) {
     });
     const [a, b, d] = clients;
     if (a === undefined || b === undefined || d === undefined) throw new Error("need three clients");
+    await upNext(a.page, b.page, d.page);
     const [n1, n2, n3] = c.queued;
 
     // Everyone is on the starting video.
@@ -410,6 +422,8 @@ const REORDER = [ytUrl("9bZkp7q19f0"), ytUrl("M7lc1UVf-VE")] as const;
 /** The start link, then REORDER queued, from one member: the queue's ids in order. */
 async function fillQueue(page: Page): Promise<string[]> {
   await startWith(page, WATCH_URL);
+  // On a phone the Add that started the TV handed the panel back to Chat (OME-2348).
+  await page.getByRole("tab", { name: "Up next", exact: true }).click();
   for (const [i, url] of REORDER.entries()) {
     await paste(page, url);
     await expect(page.locator(site.queueRow)).toHaveCount(i + 1);
@@ -427,6 +441,7 @@ test("reorder Up next: Move up/down and Alt+Arrow, focus stays, announced, the o
   clients = await joinRoom(browser, { roomUrl: testRoom("provider-queue", "reorder").url, count: 2, nicknamePrefix: "mv" });
   const [a, b] = clients;
   if (a === undefined || b === undefined) throw new Error("need two clients");
+  await upNext(a.page, b.page);
   const [x, y] = await fillQueue(a.page);
   await paste(b.page, ytUrl("aqz-KE-bpKQ"));
   await expect(a.page.locator(site.queueRow)).toHaveCount(3);
@@ -462,7 +477,7 @@ test("reorder Up next: Move up/down and Alt+Arrow, focus stays, announced, the o
   await expect(a.page.locator(site.queueStatus)).toHaveText("Moved YouTube video 9bZkp7q19f0 to place 1 of 3.");
 });
 
-test("reorder in the phone's Up next sheet: 44 px keys, the move lands and focus stays", async ({ browser }) => {
+test("reorder in the phone's Up next tab: 44 px keys, the move lands and focus stays", async ({ browser }) => {
   test.setTimeout(90_000);
   clients = await joinRoom(browser, { roomUrl: testRoom("provider-queue", "reorderphone").url, count: 1, nicknamePrefix: "mvp",
     contextOptions: () => ({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
@@ -470,7 +485,8 @@ test("reorder in the phone's Up next sheet: 44 px keys, the move lands and focus
   if (page === undefined) throw new Error("No portrait client");
   await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
   await page.locator('[data-testid="portrait-queue"]').click();
-  await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
+  await expect(page.locator('[data-testid="portrait-queue"]')).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#panel-queue")).toBeVisible();
   const [x, y] = await fillQueue(page);
   if (x === undefined || y === undefined) throw new Error("two rows");
   expect(await size(page, site.queueMoveUp)).toBeGreaterThanOrEqual(44);

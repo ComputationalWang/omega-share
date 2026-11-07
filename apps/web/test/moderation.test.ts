@@ -265,6 +265,21 @@ describe("member menu", () => {
     expect(menu()?.style.getPropertyValue("--ui-tail-x")).toBe("calc(50% + -100px)");
   });
 
+  test("it stays inside the wrap by its own height (OME-2306: a 96 px room strip under the TV clipped Close off its top)", async () => {
+    const { tag, menu, setAnchor, setRects } = await setup();
+    setRects({ left: 0, top: 0, width: 960, height: 600 }, { left: 0, top: 0, width: 960, height: 600 });
+    setAnchor({ x: 300, y: 100 });
+    const h = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get(this: HTMLElement) { return this.dataset["testid"] === "mod-menu" ? 250 : 0; } });
+    try {
+      tag("kit").click();
+    } finally {
+      if (h !== undefined) Object.defineProperty(HTMLElement.prototype, "offsetHeight", h);
+    }
+    // Its bottom edge at 250 (it hangs above its point by its height), not 97: its top would be 153 px over the wrap.
+    expect(menu()?.style.transform).toBe("translate(300px, 250px)");
+  });
+
   test("Enter on a focused tag opens its menu (keyboard)", async () => {
     const { tag, menu } = await setup();
     tag("kit").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
