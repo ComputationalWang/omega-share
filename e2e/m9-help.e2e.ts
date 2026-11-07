@@ -174,9 +174,9 @@ for (const [name, options] of [
 
 // OME-2263 (audit OME-2260 item 2): a Pixel 7's first visit stacked the floor chip, the pan hint and the empty TV, and
 // the room got ~35 % of the height. On touch the chip says tap; one hint shows at a time (the pan hint waits for the
-// tour); with nothing on, the room window gets at least half the viewport.
+// tour). (The room's ≥ 50 % with nothing on went with the curtain's own box, OME-2347: it keeps a player's.)
 for (const [name, width, height] of [["onep", 412, 915], ["onel", 915, 412]] as const) {
-  test(`${String(width)}×${String(height)} touch, nothing on: one hint at a time, tap wording, the room strip keeps its floor (≥ 50 % of the viewport sideways)`, async ({ browser }) => {
+  test(`${String(width)}×${String(height)} touch, nothing on: one hint at a time, tap wording, the room strip keeps its floor upright`, async ({ browser }) => {
     const page = await join(name, browser, false, { ...devices["Pixel 7"], viewport: { width, height } });
     const chip = page.locator(site.firstHint);
     const pan = page.getByTestId("room-pan-hint");
@@ -187,9 +187,8 @@ for (const [name, width, height] of [["onep", 412, 915], ["onel", 915, 412]] as 
     const win = await page.locator(site.roomWindow).boundingBox();
     if (win === null) throw new Error("not laid out");
     // Held upright the panel (invite, tabs, composer: ~296 px, OME-2306) sits under the room, so the strip is what's left
-    // of the free height (0.36 of a 412×915 screen), never under HANDOFF "Layout"'s 96 px floor; sideways it keeps half.
+    // of the free height (0.36 of a 412×915 screen), never under HANDOFF "Layout"'s 96 px floor.
     if (width < height) expect(win.height, "room strip's floor").toBeGreaterThanOrEqual(96);
-    else expect(win.height / height, "room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
     // The tour ends: now the pan hint may say its piece (when the window crops the room), and the chip is gone.
     await page.locator(site.hintSkip).tap();
     await expect(chip).toBeHidden();

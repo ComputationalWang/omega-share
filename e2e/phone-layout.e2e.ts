@@ -9,7 +9,7 @@ import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } fr
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
-import { stubExternalNetwork } from "./support/network";
+import { WATCH_URL, stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { joinForToken, postShare } from "./support/share";
@@ -31,7 +31,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412" | "upnext412", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -441,12 +441,12 @@ for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["
 // (HANDOFF "Layout": "Reserve at least ... 96px on short phones"; the page scrolls below it, never an inner box), framed
 // on the local avatar (OME-2306). It used to keep ≥ 170 px with every seat whole by hiding the chat strip; the panel's
 // Chat tab replaced that strip, so the property now is: the floor holds, my avatar is in the strip, a seat tap sits.
-test("360×640 touch: the room strip keeps its 96 px floor with me in it and a tap sits; the TV is full width, the empty one 21:9 (OME-2263), and the Chat tab is open (OME-1612)", async ({ browser }) => {
+test("360×640 touch: the room strip keeps its 96 px floor with me in it and a tap sits; the TV is full width, the empty one a player's 16:9 (OME-2347), and the Chat tab is open (OME-1612)", async ({ browser }) => {
   const page = await one(browser, "small360", { ...PHONE, viewport: { width: 360, height: 640 } });
   const tv = await page.locator(site.tv).boundingBox();
   if (tv === null) throw new Error("not laid out");
   expect(tv.width).toBe(360);
-  expect(Math.abs(tv.height - (360 * 9) / 21)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tv.height - (360 * 9) / 16)).toBeLessThanOrEqual(1);
   await frames(page);
   const win = await page.locator(site.roomWindow).boundingBox();
   if (win === null) throw new Error("not laid out");
@@ -467,6 +467,45 @@ test("360×640 touch: the room strip keeps its 96 px floor with me in it and a t
   // The Chat tab is the one open, its composer on screen.
   await expect(page.getByTestId("portrait-chat")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
+});
+
+// Audit round 3 item 3 (OME-2344, OME-2348): the Up next sheet was the whole height under the TV, mostly blank, titled
+// "Share a video link", and it stayed over the room, the chat lines and the chat input after an Add had started the TV.
+test("412×915 touch: the Up next sheet is as tall as its content, and an Add that starts the TV closes it within 300 ms (OME-2348)", async ({ browser }) => {
+  const page = await one(browser, "upnext412", { ...PHONE, viewport: { width: 412, height: 915 } });
+  await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+  await page.getByTestId("portrait-queue").click();
+  const sheet = page.getByTestId("portrait-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator("h2")).toHaveText("Up next");
+  // Blank under the paste row: the sheet's bottom padding (8 px) and a little rounding, not a screenful.
+  const blank = await sheet.evaluate((s) => {
+    const content = [...s.querySelectorAll<HTMLElement>(".portrait-sheet-content > *")].filter((e) => e.checkVisibility());
+    return s.getBoundingClientRect().bottom - Math.max(...content.map((e) => e.getBoundingClientRect().bottom));
+  });
+  expect(blank, "px of sheet under its content").toBeLessThanOrEqual(16);
+  await page.locator(site.queueUrl).fill(WATCH_URL);
+  await sheet.evaluate((s) => {
+    const t = { click: performance.now(), closed: -1 };
+    (window as unknown as { upNextTimes: typeof t }).upNextTimes = t;
+    s.addEventListener("close", () => { t.closed = performance.now(); }, { once: true });
+  });
+  await page.locator(site.queueAdd).click();
+  await expect(sheet).toBeHidden();
+  const took = await page.evaluate(() => {
+    const t = (window as unknown as { upNextTimes: { click: number; closed: number } }).upNextTimes;
+    return t.closed - t.click;
+  });
+  expect(took, "ms from Add to the sheet closing").toBeLessThan(300);
+  // Nothing covers the chat input or the chat lines now.
+  for (const target of [site.chatInput, site.chatLog]) {
+    const hit = await page.locator(target).evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 10));
+      return at !== null && (e.contains(at) || at.contains(e));
+    });
+    expect(hit, `${target} is on top at its centre`).toBe(true);
+  }
 });
 
 // Design judge round 3 (OME-2169 request 5, OME-2171): at 412×915 the room was 360 px wide beside a column of zoom keys,

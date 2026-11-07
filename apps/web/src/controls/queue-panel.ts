@@ -12,6 +12,8 @@ export interface QueuePanelOptions {
   readonly ownHosts: readonly string[];
   /** Client ms (Date.now): how long ago an add went out. */
   readonly now?: () => number;
+  /** My add into an empty room started the TV (the phone's Up next sheet closes on it, OME-2348). */
+  readonly onStarted?: () => void;
 }
 
 export interface QueuePanel {
@@ -313,7 +315,8 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
       if (pending.length > 0) {
         // A new current item answers an add only if the room had none at the send (my add started it, ADR 0031 §5);
         // otherwise it's someone else's share or advance.
-        let answered = current === undefined && s.room?.itemId !== undefined ? 1 : 0;
+        const started = current === undefined && s.room?.itemId !== undefined;
+        let answered = started ? 1 : 0;
         current = s.room?.itemId;
         for (const i of queue) {
           if (i.by !== null && i.by === s.self && !mine.has(i.id)) {
@@ -322,6 +325,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
           }
         }
         pending.splice(0, answered);
+        if (started) o.onStarted?.();
         while (pending[0] !== undefined && now() - pending[0].at > ADD_ANSWER_MS) pending.shift();
       }
       if (s.lastError !== shownError) {

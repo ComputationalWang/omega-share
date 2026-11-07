@@ -195,13 +195,18 @@ describe("room layout", () => {
     expect(layout.fs.mode()).toBe("off");
     expect(wrap.querySelector<HTMLElement>('[data-testid="fullscreen-toggle"]')?.ariaLabel).toBe("Full screen");
   });
-  // OME-2148 CI: the band's fit (ADR 0060) shrank the room with no video too (0.86× at 1280×800), where it isn't a band.
-  test("with no video on a wide screen the room keeps its whole scale, however tall its audience", async () => {
-    const { layout, wrap, stage } = await setup({ wide: true });
-    Object.defineProperty(wrap, "clientWidth", { value: 888 });
-    Object.defineProperty(wrap, "clientHeight", { value: 727 });
-    layout.seats([{ x: 300, y: 200 }], [{ x: 600, y: 560 }]);
-    expect(stage.style.getPropertyValue("--stage-scale")).toBe("1");
+  // OME-2347: nothing on, the room is the band a video gives it (ADR 0060's fit to its audience), so a video coming on moves nothing.
+  test("with nothing on a wide screen the room fits its audience as it does with a video", async () => {
+    const scale = async (video: boolean): Promise<string> => {
+      const { layout, wrap, stage } = await setup({ wide: true, video });
+      Object.defineProperty(wrap, "clientWidth", { value: 888 });
+      Object.defineProperty(wrap, "clientHeight", { value: 727 });
+      layout.seats([{ x: 300, y: 200 }], [{ x: 600, y: 560 }]);
+      return stage.style.getPropertyValue("--stage-scale");
+    };
+    const playing = await scale(true);
+    expect(playing).not.toBe("1");
+    expect(await scale(false)).toBe(playing);
   });
 
   // OME-2170 (CEO decision C): one labelled key gives the room the column at 1280×800, and back. OME-2195: remembered.

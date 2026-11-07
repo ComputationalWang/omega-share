@@ -225,7 +225,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 /* Wide, with a video: Report room sits at the right end of the reaction bar's row (OME-2241), the column's foot, not a row
  * of its own under it. Room view needs those 50 px to show the walls' tops at 1280×800. Its box is .room-wide's, whose
  * padding is outside the chrome zoom. */
-.room-wide > .reaction-bar:not([hidden]) ~ .room-foot { position: absolute; right: calc(16px / var(--chrome, 1)); bottom: calc(12px / var(--chrome, 1)); margin: 0; }
+.room-wide > .reaction-bar:not([hidden], .is-idle) ~ .room-foot { position: absolute; right: calc(16px / var(--chrome, 1)); bottom: calc(12px / var(--chrome, 1)); margin: 0; }
+/* In its own row it keeps the right end too (OME-2347): full width, its box jumped 780 px when a video started. */
+.room-wide > .room-foot { align-self: flex-end; }
 .room-foot .report-key { font-size: 11px; }
 .ui-touch .room-foot .report-key { font-size: 12px; }
 .ui-button.report-key.is-disabled { border-image-source: url("../../../assets/ui/slices/button-primary-disabled.png"); color: var(--ui-disabled-text); cursor: default; }
@@ -279,6 +281,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .reaction-glyph { position: absolute; left: 0; top: 0; translate: -50% -100%; }
 .reaction-bar { --ui-px: 1px; display: flex; gap: 4px; justify-content: center; margin: 6px 0 0; }
 .reaction-bar.is-cooling > .reaction-key { opacity: 0.5; }
+/* Nothing playing: on a phone upright, at the page's foot, the bar keeps its row (OME-2347); wide, or a tablet upright
+ * (its whole room would lose its floor's foot, a11y sweep 1024×1366), its row is the room's. */
+.reaction-bar.is-idle { visibility: hidden; }
+.room-wide > .reaction-bar.is-idle { display: none; }
+@media (min-width: 601px) { .room-portrait > .reaction-bar.is-idle { display: none; } }
 
 /* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
 .tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
