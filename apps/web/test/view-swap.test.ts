@@ -68,9 +68,9 @@ describe("viewVerdict", () => {
     expect(viewVerdict(dungeon, bedroom, false, false, true)).toEqual({ behind: true, north: true, cut: false });
     expect(viewVerdict(dungeon, spa, true, false, true)).toEqual({ behind: false, north: false, cut: false });
   });
-  test("the doorway turns north from either side (OME-2346: drawn from the south, a sprite past its middle is behind the next piece); no avatar keeps the last verdict", () => {
+  test("the doorway line keeps the last verdict; no avatar keeps it too", () => {
     expect(viewVerdict(dungeon, doorway, true, false, true).north).toBe(true);
-    expect(viewVerdict(dungeon, doorway, false, false, true).north).toBe(true);
+    expect(viewVerdict(dungeon, doorway, false, false, true).north).toBe(false);
     expect(viewVerdict(dungeon, null, true, false, true).north).toBe(true);
   });
   test("editing forces south, with no stubs", () => {

@@ -10,7 +10,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesBack, viewVerdict } from "./furniture";
+import { cutaway, doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesBack, viewVerdict } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -425,6 +425,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** My avatar's cell as drawn (OME-2346: not its walk's end, so the view turns as it passes the doorway), for the view verdict; null with no avatar. */
   let myCell: number | null = null;
   let myId: MemberId | null = null;
+  /** Where my walk ends (the server's cell): on the doorway line my drawn avatar already counts as behind if it is heading there. */
+  let myGoal: number | null = null;
   /** The back-view atlas once loaded (OME-1961): turned one-sided pieces and the north shell skin. */
   let backAtlas: FurnitureAtlas | null = null;
   let drawnPlaying = false;
@@ -643,10 +645,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const mine = placements.find((p) => p.id === s.self);
       myId = mine === undefined ? null : mine.id;
       myCell = mine === undefined ? null : cellAt(view.position(mine.id) ?? mine.at);
+      myGoal = mine === undefined ? null : cellAt(mine.at);
       inUseStale = true;
     }
     // Per render, not per placement: the editor opening turns the view south (OME-1961). Cheap: one find over the furniture.
-    const verdict = viewVerdict(nextLayout, myCell, behind, editing, backAtlas !== null);
+    // Walking north, past the doorway's middle my avatar is drawn behind the next partition piece from the south (QA OME-2352): turn as it steps in.
+    const verdict = viewVerdict(nextLayout, myCell, behind || cutaway(nextLayout, myGoal, behind), editing, backAtlas !== null);
     behind = verdict.behind;
     if (verdict.cut !== cut) {
       cut = verdict.cut;
