@@ -457,3 +457,64 @@ describe("on a computer", () => {
     expect(labels.length).toBe(told);
   });
 });
+
+// OME-2375: in a 96 px portrait strip the floating zoom keys cover a seat key all but a sliver: like a seat the pane
+// crops, a seat under the keys is inert.
+describe("a seat under the zoom keys", () => {
+  interface Seen { cb: IntersectionObserverCallback; opts: IntersectionObserverInit | undefined; watched: Set<Element> }
+  const made: Seen[] = [];
+  const Real = globalThis.IntersectionObserver;
+  beforeEach(() => {
+    made.length = 0;
+    globalThis.IntersectionObserver = class {
+      readonly s: Seen;
+      constructor(cb: IntersectionObserverCallback, opts?: IntersectionObserverInit) {
+        this.s = { cb, opts, watched: new Set() };
+        made.push(this.s);
+      }
+      observe(e: Element): void { this.s.watched.add(e); }
+      unobserve(e: Element): void { this.s.watched.delete(e); }
+      disconnect(): void { this.s.watched.clear(); }
+    } as unknown as typeof IntersectionObserver;
+  });
+  afterAll(() => {
+    globalThis.IntersectionObserver = Real;
+  });
+  const fire = (s: Seen, target: Element, ratio: number): void => { s.cb([{ target, intersectionRatio: ratio, isIntersecting: ratio > 0 } as IntersectionObserverEntry], {} as IntersectionObserver); };
+
+  async function seated() {
+    const { createRoomWindow } = await import("../src/room-window");
+    const clip = document.createElement("div");
+    const stage = document.createElement("div");
+    const seat = document.createElement("button");
+    seat.className = "seat";
+    stage.append(seat);
+    clip.append(stage);
+    document.body.append(clip);
+    const win = createRoomWindow(clip, stage, () => ({ x: 480, y: 300 }));
+    // The live watcher of the keys' corner: its root margin leaves only the keys' 144×48 corner of the window.
+    const keysSeen = (): Seen | undefined => made.findLast((s) => s.watched.has(seat) && s.opts?.rootMargin === "-48px 0px 0px -246px");
+    return { win, seat, keysSeen };
+  }
+
+  test("in a 390×96 strip, a seat the keys cover is inert, and live again once clear", async () => {
+    const { win, seat, keysSeen } = await seated();
+    win.set(true, 390, 96);
+    const w = keysSeen();
+    if (w === undefined) throw new Error("no watcher on the keys' corner");
+    fire(w, seat, 0.1);
+    expect(seat.inert).toBe(true);
+    fire(w, seat, 0);
+    expect(seat.inert).toBe(false);
+  });
+
+  test("off the phone a seat under the keys' corner stays live", async () => {
+    const { win, seat, keysSeen } = await seated();
+    win.set(true, 390, 96);
+    const w = keysSeen();
+    if (w === undefined) throw new Error("no watcher on the keys' corner");
+    fire(w, seat, 0.1);
+    win.set(false, 0, 0);
+    expect(seat.inert).toBe(false);
+  });
+});
