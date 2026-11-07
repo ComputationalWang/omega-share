@@ -2,9 +2,12 @@
 // top bar, the panel head's invite and the Chat / Up next / Room tablist are on screen; two columns from 1024 px (the
 // panel 300 px to 1279, 360 above), the phone layout below with the tabs right above the docked composer; the local
 // avatar in its room strip; no sideways scroll.
-import type { BrowserContextOptions, Locator, Page } from "@playwright/test";
-import { expect, test } from "./support/csp";
-import { PENDING, available } from "./support/apps";
+import type { BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
+import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { expect, test, watchCsp } from "./support/csp";
+import { PENDING, URLS, available } from "./support/apps";
+import { stubExternalNetwork } from "./support/network";
+import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 
@@ -12,9 +15,12 @@ test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
 
 let clients: Client[] = [];
+let ownerContexts: BrowserContext[] = [];
 test.afterEach(async () => {
   await leaveAll(clients);
   clients = [];
+  await Promise.all(ownerContexts.map((c) => c.close()));
+  ownerContexts = [];
 });
 
 type Name = "v360" | "v412" | "v768" | "v900" | "v1024" | "v1280" | "v1920";
@@ -101,4 +107,54 @@ test("the tabs: one tab stop, arrows wrap, and each tab shows its own panel", as
   await expect(page.locator(site.chatInput)).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(tab(page, "Up next")).not.toBeFocused();
+});
+
+// QA OME-2360: below 1024 px the open tab's controls are on screen, not under the sticky tabs in a 128 px inner
+// scroller. The strip gives way toward its floor (96 px) first; past that, the page grows.
+async function aboveTabs(page: Page, key: Locator, what: string): Promise<void> {
+  await expect(key, what).toBeInViewport({ ratio: 1 });
+  const k = await box(key);
+  const tabs = await box(page.getByRole("tablist", { name: "Room panel" }));
+  expect(k.y + k.height, `${what} above the sticky tabs`).toBeLessThanOrEqual(tabs.y + 0.5);
+  const panel = page.getByRole("tabpanel");
+  expect(await panel.evaluate((e) => e.scrollHeight - e.clientHeight), `${what}: the tab doesn't scroll inside`).toBeLessThanOrEqual(1);
+}
+
+const NARROW = [
+  { room: "v360tabs", w: 360, h: 740, touch: true },
+  { room: "v412tabs", w: 412, h: 915, touch: true },
+  { room: "v768tabs", w: 768, h: 1024, touch: true },
+  { room: "v900tabs", w: 900, h: 768, touch: false },
+] as const;
+for (const { room, w, h, touch } of NARROW) {
+  test(`${String(w)}×${String(h)}: Up next's paste field and Add, and the Room tab's report key, on screen above the tabs`, async ({ browser }) => {
+    clients = await joinRoom(browser, { roomUrl: testRoom("room-chrome", room).url, count: 1, nicknamePrefix: `rt${String(w)}`, contextOptions: () => options(w, h, touch) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await tab(page, "Up next").click();
+    await aboveTabs(page, page.locator(site.queueUrl), "the paste field");
+    await aboveTabs(page, page.locator(site.queueAdd), "Add");
+    await tab(page, "Room").click();
+    await aboveTabs(page, page.locator(site.reportKey), "Report");
+  });
+}
+
+test("900×768 owner: Edit room on screen above the tabs", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("chromeown");
+  const context = await watchCsp(await browser.newContext(options(900, 768, false)));
+  ownerContexts.push(context);
+  await context.addInitScript(
+    ([origin, key, value]) => {
+      if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+    },
+    [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })],
+  );
+  await stubExternalNetwork(context);
+  const page = await context.newPage();
+  await page.goto(`${URLS.web}/r/${id}`);
+  await page.locator(site.nicknameInput).fill("host");
+  await page.locator(site.joinButton).click();
+  await expect(page.locator(site.room)).toBeVisible();
+  await tab(page, "Room").click();
+  await aboveTabs(page, page.locator(site.editRoom), "Edit room");
 });
