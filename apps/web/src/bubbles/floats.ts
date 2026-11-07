@@ -103,8 +103,11 @@ export interface Floats {
   tags(boxes: ReadonlyMap<MemberId, Box>): void;
 }
 
-export function windowToStage(_boxes: readonly Box[], _w: number, _x0: number, _x1: number, _y0: number): Box[] {
-  return [];
+/** Boxes in the room window's CSS px (from its top-left, `w` wide) in stage px, by the window's sides `x0`–`x1` and top `y0`. */
+export function windowToStage(boxes: readonly Box[], w: number, x0: number, x1: number, y0: number): Box[] {
+  if (w <= 0) return [];
+  const k = w / (x1 - x0);
+  return boxes.map((b) => ({ x0: x0 + b.x0 / k, x1: x0 + b.x1 / k, y0: y0 + b.y0 / k, y1: y0 + b.y1 / k }));
 }
 
 export interface FloatsOptions {
@@ -231,6 +234,18 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   /** The sides the boxes keep inside (stage px): the stage's, or the phone window's once it settles (OME-1945). */
   let sideL = 0;
   let sideR = STAGE_W;
+  /** What hangs over the room (OME-2349, `avoid`), and the members' tags (`tags`), stage px. */
+  let over: readonly Box[] = [];
+  let tagBoxes: ReadonlyMap<MemberId, Box> = new Map();
+
+  /** How far it rises in all (stage px): typing dots and reduced motion don't. */
+  const sweep = (s: Slot): number => (s.typing || o.reducedMotion.matches ? 0 : FLOAT_RISE);
+  /** Its box and tail, pushed `push`, from its highest to where it is now, overlap `b`'s (shifted `left` instead of where it is). */
+  const sweeps = (s: Slot, push: number, b: Box, left = s.ax + s.dx): boolean => {
+    if (left >= b.x1 || b.x0 >= left + s.w * k) return false;
+    const top = s.ay - (s.h + TAIL_BELOW) * k - push;
+    return top - sweep(s) + SLACK < b.y1 && top - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k > b.y0 + SLACK;
+  };
 
   /** Back to the pool; `hide` false when the node is reused at once (it stays shown: one attribute write fewer). */
   const free = (s: Slot, hide = true): void => {
@@ -330,11 +345,21 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    */
   const placeBox = (s: Slot): void => {
     const w = s.w * k;
-    const left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
+    let left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
+    // Where its rise would reach the TV, it goes beside it, the nearer side that fits (OME-2349).
+    for (const b of over) {
+      if (!sweeps(s, 0, b, left)) continue;
+      const r = Math.ceil(b.x1 + MARGIN);
+      const l = Math.floor(b.x0 - MARGIN - w);
+      const rFits = r + w <= sideR - MARGIN;
+      const lFits = l >= sideL + MARGIN;
+      if (rFits && (!lFits || r - left < left - l)) left = r;
+      else if (lFits) left = l;
+    }
     s.dx = left - Math.round(s.ax);
     const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
-    s.p.style.left = px(s.dx / k);
-    s.p.style.top = px(-(s.h + TAIL_BELOW));
+    // A transform, not left/top: re-placing it is no layout shift (OME-2349).
+    s.p.style.translate = `${px(s.dx / k)} ${px(-(s.h + TAIL_BELOW))}`;
     s.p.style.setProperty("--tail-x", px(tailX));
     s.p.classList.toggle("tail-sw", tailX < TAIL_S_REACH);
     s.p.classList.toggle("tail-se", tailX > s.w - TAIL_S_REACH);
@@ -395,8 +420,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           if (!s.stacked && !s.typing) stack(s);
           moved = true;
         }
+        // Another member's tag in its way: it rises past it, its tail's tip GAP over the tag (OME-2349).
+        for (const [id, b] of tagBoxes) {
+          if (id === s.speaker || !sweeps(s, push, b)) continue;
+          push += s.ay - (s.h + TAIL_BELOW) * k - push - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k + GAP - b.y0;
+          moved = true;
+        }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced || s.typing ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
+      // Pushed up into the TV, it goes, the newest too (placeBox keeps one unpushed beside it).
+      if ((i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b))) {
         leave(s);
         continue;
       }
@@ -584,8 +616,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
       resolve();
     },
-    avoid() {},
-    tags() {},
+    avoid(boxes) {
+      over = boxes;
+      for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
+      resolve();
+    },
+    tags(boxes) {
+      // Seen at the next resolve (a line, a walk's end): a tag that moves under a bubble already up doesn't push it.
+      tagBoxes = boxes;
+    },
     scale(next) {
       if (next === k) return;
       k = next;
