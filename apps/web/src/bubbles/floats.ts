@@ -19,6 +19,7 @@ import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
 import { isShout, meAction, thinkText } from "../chat/effects";
 import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
+import type { Box } from "../tag-stack";
 
 /** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
 export const FLOAT_LIFE_MS = 5000;
@@ -96,6 +97,14 @@ export interface Floats {
   sides(x0: number, x1: number): void;
   /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
   typing(id: MemberId, on: boolean, at: Point): void;
+  /** What hangs over the room (stage px): Room view's corner TV and its shelf (OME-2349). Bubbles keep clear of it. */
+  avoid(boxes: readonly Box[]): void;
+  /** The members' name tags as placed (stage px): a bubble rises past another member's, never over it (OME-2349). */
+  tags(boxes: ReadonlyMap<MemberId, Box>): void;
+}
+
+export function windowToStage(_boxes: readonly Box[], _w: number, _x0: number, _x1: number, _y0: number): Box[] {
+  return [];
 }
 
 export interface FloatsOptions {
@@ -575,6 +584,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
       resolve();
     },
+    avoid() {},
+    tags() {},
     scale(next) {
       if (next === k) return;
       k = next;
