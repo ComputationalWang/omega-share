@@ -848,14 +848,26 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     expect(leftOf(bubbleOf("beside"))).toBe("-124px");
   });
 
-  test("an older bubble pushed up into the TV goes instead", async () => {
-    const { floats, frame, bubbleOf } = await setup();
+  test("an older bubble pushed up into the TV goes beside it, at the height it was pushed to", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
     floats.avoid([{ x0: 0, x1: 383, y0: 0, y1: 220 }]);
     floats.say(say("a", "older", 300));
     frame();
     floats.say(say("b", "newer", 320));
     frame();
-    // Newer: 242 at its highest, clear. Older pushed 33: 209 at its highest, in the TV.
+    // Newer: 242 at its highest, clear. Older pushed 33: 209 at its highest, in the TV; right of it (box at 387) it fits.
+    expect(bubbleOf("older").classList.contains("is-leaving")).toBe(false);
+    expect(leftOf(bubbleOf("older"))).toBe("87px");
+    expect(push("older")).toBe("-33px");
+  });
+
+  test("an older bubble pushed up into the TV, with no room beside it, goes instead", async () => {
+    const { floats, frame, bubbleOf } = await setup();
+    floats.avoid([{ x0: 0, x1: 900, y0: 0, y1: 220 }]);
+    floats.say(say("a", "older", 300));
+    frame();
+    floats.say(say("b", "newer", 320));
+    frame();
     expect(bubbleOf("older").classList.contains("is-leaving")).toBe(true);
     expect(bubbleOf("newer").classList.contains("is-leaving")).toBe(false);
   });
