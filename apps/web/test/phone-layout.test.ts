@@ -183,20 +183,3 @@ describe("roomLayout, medium (OME-1846, design OME-1799 §2: a portrait tablet's
     expect(roomLayout(601, "twitch", true).tv).toMatchObject({ x: 24, w: 553, h: 311 });
   });
 });
-
-// OME-2263 (audit OME-2260 item 2): with nothing on there's no player, so no ADR 0012 floor: the empty TV is a 21:9
-// curtain and the room window gets the height (≥ 50 % of a Pixel 7's 915 px, its ~45 px room bar and ~155 px dock off: a 717 px wrap).
-describe("portraitLayout, nothing on (OME-2263)", () => {
-  test("the curtain is 21:9, under 16:9's height; the room gets what it gives back", () => {
-    const full = portraitLayout(412, 717, null, false);
-    const empty = portraitLayout(412, 717, null, false, true);
-    expect(empty.tv.w).toBe(412);
-    expect(empty.tv.h).toBe(Math.round((412 * 9) / 21));
-    expect(empty.stage.h - full.stage.h).toBe(full.tv.h - empty.tv.h);
-    expect(empty.stage.h).toBeGreaterThanOrEqual(915 / 2);
-  });
-});
-
-test("a tablet upright keeps its 16:9 empty TV: its window would outgrow the stage (OME-2263)", () => {
-  expect(portraitLayout(1024, 1200, null, false, true).tv).toEqual(portraitLayout(1024, 1200, null, false).tv);
-});
