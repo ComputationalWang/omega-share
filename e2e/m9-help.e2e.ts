@@ -155,6 +155,54 @@ for (const [name, options] of [
   });
 }
 
+// OME-2350 (audit OME-2344 item 5): with a video on, the walk chip covered the phone's chat lines and the desktop Photo
+// key, and stayed until a tap or a walk. Now it never covers a chat line, the field or a top-bar key, the phone's strip
+// shows 4 lines while the video plays, and my first line ends the tour.
+for (const [name, options] of [
+  ["chatw", { viewport: { width: 1280, height: 800 } }],
+  ["chatp", { ...devices["Pixel 7"], viewport: { width: 412, height: 915 } }],
+] as const) {
+  const { width, height } = options.viewport;
+  test(`${String(width)}×${String(height)}: with a video on and a chat burst, the walk chip covers no chat line, the field or a top-bar key; my first line ends it`, async ({ browser, request }) => {
+    const room = testRoom("m9-help", name);
+    const other = await joinForToken(room.id, `c${name}`);
+    try {
+      expect((await postShare(request, room.id, other.token, "https://youtu.be/aqz-KE-bpKQ")).status()).toBe(200);
+      const page = await join(name, browser, false, options);
+      await expect(page.locator(site.sharedVideo)).toBeVisible();
+      const hint = page.locator(site.firstHint);
+      await expect(hint).toContainText(/(Click|Tap) the floor/);
+      // The server's chat burst is 5 lines.
+      for (let i = 0; i < 5; i += 1) other.say(`line ${String(i)}`);
+      const lines = page.locator(`${site.chatLog} ${site.chatLogLine}`);
+      await expect(lines).toHaveCount(5);
+      await page.waitForTimeout(300);
+      if (await hint.isVisible()) {
+        const keys = page.locator(`.room-top .ui-button, ${site.chatInput}`);
+        for (const covered of [...(await lines.all()), ...(await keys.all())]) {
+          if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
+        }
+      }
+      if (width < 600) {
+        // Lines wholly inside the strip's box: at least 4 show while the video plays.
+        const log = await page.locator(site.chatLog).boundingBox();
+        if (log === null) throw new Error("no chat strip");
+        let shown = 0;
+        for (const line of await lines.all()) {
+          const b = await line.boundingBox();
+          if (b !== null && b.y >= log.y - 1 && b.y + b.height <= log.y + log.height + 1) shown += 1;
+        }
+        expect(shown).toBeGreaterThanOrEqual(4);
+      }
+      await page.locator(site.chatInput).fill("hello");
+      await page.locator(site.chatInput).press("Enter");
+      await expect(hint).toBeHidden();
+    } finally {
+      other.close();
+    }
+  });
+}
+
 // OME-2104 (audit item 7): with nothing on, the floor chip never sits on the empty TV's message.
 for (const [name, options] of [
   ["emw", { viewport: { width: 1280, height: 800 } }],

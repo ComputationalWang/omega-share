@@ -1480,7 +1480,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       chatInput.value = "";
       // A line clears typing on the server; a slash command sends no line, so say it here.
       if (ran === true) typingSender.input("");
-      else typingSender.sent();
+      else {
+        typingSender.sent();
+        // My first line ends the tour (OME-2350): someone chatting is past the walk chip, and on a phone it sat on the strip.
+        firstHint.dismiss();
+      }
       // Sent from the key without the field focused: the next line goes straight in.
       if (document.activeElement === chatSend) chatInput.focus({ preventScroll: true });
     }

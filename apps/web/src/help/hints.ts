@@ -89,6 +89,9 @@ export function createHints(o: HintsOptions): Hints {
     place();
   });
 
+  // Live UI a chip never covers (OME-2350): the panel's tabs, the chat lines and the top bar's keys (Photo).
+  const live = (): Element[] => [...(root.parentElement?.querySelectorAll(".panel-tabs, .chat-log, .room-top") ?? [])];
+
   const place = (): void => {
     const side = STEPS[step]?.side;
     if (side === undefined) return;
@@ -96,12 +99,12 @@ export function createHints(o: HintsOptions): Hints {
     const h = root.offsetHeight;
     // An empty TV may be covered, but not its message (OME-2104).
     const tv = (o.tv.empty() ? o.tv.message : o.tv.box).getBoundingClientRect();
-    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), root.parentElement?.querySelector(".panel-tabs")?.getBoundingClientRect()];
+    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
     const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone.
     if (at !== null && blocked(at)) at = spot(o.tv.empty() ? o.tv.message : o.tv.picture, "below", w, h);
-    // Nothing to sit beside, or nowhere clear of the TV, composer and phone dock: out of sight until there is.
+    // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
     root.style.visibility = away ? "hidden" : "";
@@ -124,6 +127,8 @@ export function createHints(o: HintsOptions): Hints {
     if (a !== null) sized.observe(a);
     // Room view re-boxes the TV after a video's screen swap (OME-2195): its new box moves the chip too.
     sized.observe(o.tv.box);
+    // A chat line arriving grows the log: the chip moves off it.
+    for (const e of live()) sized.observe(e);
     root.hidden = false;
     text.textContent = to === 0 && o.touch() ? "Tap the floor to walk, double-tap to jog" : s.text;
     place();

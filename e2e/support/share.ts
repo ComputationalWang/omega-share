@@ -8,6 +8,8 @@ import { URLS } from "./apps";
 
 export interface ShareMember {
   readonly token: string;
+  /** Sends a chat line as this member. */
+  readonly say: (text: string) => void;
   readonly close: () => void;
 }
 
@@ -38,7 +40,7 @@ export function joinForToken(roomId: string, nickname: string): Promise<ShareMem
         reject(new Error("snapshot carried no shareToken"));
         return;
       }
-      resolve({ token: msg.shareToken, close: () => { ws.close(); } });
+      resolve({ token: msg.shareToken, say: (text) => { ws.send(JSON.stringify({ type: "chat", text })); }, close: () => { ws.close(); } });
     });
     ws.addEventListener("error", () => {
       clearTimeout(timer);
