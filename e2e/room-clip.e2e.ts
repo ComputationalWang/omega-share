@@ -229,16 +229,16 @@ const DESK_TOP = 198;
 
 // OME-2300: a Pixel 7 upright with a video plays looked at the middle of the seats and me, so the back wall's desk went
 // under the shelf and the floor's front under the pan hint. The window looks as high as the seats and me stay whole 8 px
-// over the zoom keys and the hint: the desk is whole 8 px under the shelf, every seat 8 px over the keys' row.
-test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are whole, 8 px clear of the shelf and the hint", async ({ browser, request }) => {
+// over the zoom keys (the hint is over the walls now, OME-2325): the desk is whole 8 px under the shelf, every seat 8 px
+// over the keys' row.
+test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are whole, 8 px clear of the shelf and the keys", async ({ browser, request }) => {
   await shareProvider(request, "https://youtu.be/rcplay00002", testRoom("room-clip", "playpixel7").id);
   const page = await open(browser, "playpixel7", PIXEL_7, undefined, true);
   const g = await geometry(page);
   const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
   const keys = await page.locator(".room-zoom").boundingBox();
   if (shelf === null || keys === null) throw new Error("no shelf or keys");
-  const hint = await page.locator(".room-pan-hint").boundingBox();
-  const floor = Math.min(keys.y, hint?.y ?? Infinity);
+  const floor = keys.y;
   expect(g.at(480, DESK_TOP).y, "the desk's top under the shelf").toBeGreaterThanOrEqual(Math.max(g.clip.y, shelf.y + shelf.height) + CLEAR);
   const seats = await page.locator(site.seat).evaluateAll((es) => es.map((e) => { const r = e.getBoundingClientRect(); return [r.top, r.bottom] as const; }));
   expect(seats.length).toBeGreaterThanOrEqual(8);
@@ -247,3 +247,31 @@ test("Pixel 7 upright, a video on: the back wall's desk and both seat rows are w
     expect(bottom + CLEAR).toBeLessThanOrEqual(floor);
   }
 });
+
+/** The drawn floor, a diamond, stage px (layout.ts: its top corner at (480, 220), 10 tiles of 64×32 each way). */
+const FLOOR = { x: 480, y: 380, rx: 320, ry: 160 } as const;
+
+// OME-2325 (judge round 12): a Pixel 7 upright kept the cropped 1× window (OME-2234), and its pan hint sat on the floor's
+// front tip. The hint is clear of the drawn floor now, idle and playing, and the room keeps half the viewport.
+for (const [name, playing] of [["hint7", false], ["hintplay7", true]] as const) {
+  test(`Pixel 7 upright, ${playing ? "a video on" : "nothing on"}: the pan hint is clear of the drawn floor`, async ({ browser, request }) => {
+    if (playing) await shareProvider(request, "https://youtu.be/rcplay00003", testRoom("room-clip", name).id);
+    const page = await open(browser, name, PIXEL_7, undefined, playing);
+    const skip = page.locator(site.hintSkip);
+    if (await skip.isVisible()) await skip.tap();
+    const hint = page.getByTestId("room-pan-hint");
+    await expect(hint).toBeVisible();
+    const box = await hint.boundingBox();
+    if (box === null) throw new Error("no hint");
+    const g = await geometry(page);
+    const o = g.at(0, 0);
+    const k = g.at(1, 0).x - o.x;
+    const [x0, x1, y0, y1] = [(box.x - o.x) / k, (box.x + box.width - o.x) / k, (box.y - o.y) / k, (box.y + box.height - o.y) / k];
+    // The box's nearest point to the diamond's centre, in the diamond's own norm: over 1 is outside it.
+    const dx = Math.max(0, x0 - FLOOR.x, FLOOR.x - x1);
+    const dy = Math.max(0, y0 - FLOOR.y, FLOOR.y - y1);
+    expect(dx / FLOOR.rx + dy / FLOOR.ry, "the hint's box against the floor").toBeGreaterThan(1);
+    expect(y1, "the hint's foot over the back wall's desk").toBeLessThanOrEqual(DESK_TOP);
+    if (!playing) expect(g.clip.h / (PIXEL_7.viewport.height), "the room window's share of the viewport height").toBeGreaterThanOrEqual(0.5);
+  });
+}
