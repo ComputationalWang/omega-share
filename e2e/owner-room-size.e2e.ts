@@ -470,14 +470,16 @@ test("1280×720 to 1280×850 and 1024×768 touch, editing: the More below cue ne
     for (const [w, h] of sizes) {
       const at = `${String(w)}×${String(h)}${options.hasTouch === true ? " touch" : ""}`;
       await host.setViewportSize({ width: w, height: h });
+      // While editing the column is the editor's sheet and has no tabs (OME-2306): the Room tab is only there to open it.
+      if (await host.getByRole("tab", { name: "Room", exact: true }).isVisible()) await tab(host, "Room");
       if ((await editKey.getAttribute("aria-pressed")) === "true") await editKey.click();
       await expect(host.locator(site.editorTray)).toHaveCount(0);
       await editKey.click();
       await expect(host.locator(site.editorTray)).toBeVisible();
-      await host.locator(".room-side").evaluate((e) => { e.scrollTop = 0; });
+      for (const s of await host.locator(".room-side, .room-side .panel-room").all()) await s.evaluate((e) => { e.scrollTop = 0; });
       const tiles = await host.locator(site.controlPolicyOption).all();
-      // Both ways round: the cue says so while the tiles are all below the fold, and is gone once any shows.
-      const below = (await Promise.all(tiles.map((t) => t.evaluate((e) => e.getBoundingClientRect().top >= window.innerHeight)))).every(Boolean);
+      // Both ways round: the cue says so while the tiles are all below the fold, and is gone once any shows. 1 px of slack: at 1024×740 the tiles start 0.27 px inside the fold, a sliver nobody sees (OME-2306).
+      const below = (await Promise.all(tiles.map((t) => t.evaluate((e) => e.getBoundingClientRect().top >= window.innerHeight - 1)))).every(Boolean);
       await expect.poll(() => more.isVisible(), { message: `${at} the cue shows only while the tiles are below the fold` }).toBe(below);
       const cue = (await more.isVisible()) ? await more.boundingBox() : null;
       for (const tile of tiles) {
