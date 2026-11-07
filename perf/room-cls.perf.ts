@@ -188,6 +188,8 @@ for (const profile of ["desktop", "portrait", "landscape"] as const) {
     const [observer, actor] = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "obs", contextOptions: (i) => (i === 0 ? OBSERVER[profile] : OBSERVER.desktop) });
     try {
       if (observer === undefined || actor === undefined) throw new Error("no clients");
+      // The queue's field is in the actor's Up next tab (OME-2306): its page, not the observer's, so nothing measured moves.
+      await actor.page.getByTestId("portrait-queue").click();
       await observer.page.waitForTimeout(OBSERVER_SETTLE_MS);
       await observer.page.evaluate(() => {
         const shifts: { value: number; nodes: string[] }[] = [];
