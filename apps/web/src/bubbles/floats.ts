@@ -183,6 +183,8 @@ interface Slot {
   push: number;
   /** As shown: the push, plus a lift past other members' tags where the crowd leaves room (OME-2349), planned afresh each resolve. */
   lift: number;
+  /** Columns beside its speaker the box spilled into (OME-2368): + right, − left, one box width and GAP each. */
+  col: number;
   stacked: boolean;
   /** False until both sizes arrive (a frame later, or once a hidden stage shows): not placed, stacked or shown. */
   measured: boolean;
@@ -224,7 +226,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const outer = el("div", { className: "float-slot", hidden: true });
     outer.append(motion, twin);
     layer.append(outer);
-    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, lift: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
+    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, lift: 0, col: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
   });
   /** Typing on, not yet a whole step: no node yet (where their head is, and since when). */
   const waiting = new Map<MemberId, { x: number; y: number; since: number }>();
@@ -348,7 +350,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    */
   const placeBox = (s: Slot, push = 0): void => {
     const w = s.w * k;
-    let left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax - w / 2)));
+    let left = Math.round(Math.max(sideL + MARGIN, Math.min(sideR - MARGIN - w, s.ax + s.col * (w + GAP) - w / 2)));
     // Where its rise would reach the TV, it goes beside it, the nearer side that fits (OME-2349).
     for (const b of over) {
       if (!sweeps(s, push, b, left)) continue;
@@ -392,16 +394,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const stackOnly: number[] = [];
   /**
    * Plan the pushes (stage px) into `planned`, newest first, past the newer bubbles and, `past`, other members' tags; the
-   * number that go. Writes nothing but `stack` (a stacked bubble stays stacked).
+   * number that go. Writes nothing but `stack` (a stacked bubble stays stacked) and, stack-only, a spilled column.
    */
   const plan = (past: boolean): number => {
     const reduced = o.reducedMotion.matches;
-    let gone = 0;
+    let goneCount = 0;
     planned.length = order.length;
-    for (let i = 0; i < order.length; i++) {
-      const s = order[i];
-      if (s === undefined) continue;
-      let push = s.push;
+    /** The push that clears every bubble newer than `order[i]` (and, `past`, the tags), from `push` up. */
+    const climb = (s: Slot, i: number, push: number): number => {
       let slid = false;
       for (let moved = true; moved; ) {
         moved = false;
@@ -440,12 +440,38 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           moved = !over.some((b) => sweeps(s, push, b));
         }
       }
-      // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
-      const out = (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b));
-      if (out) gone++;
-      planned[i] = out ? Number.NaN : push;
+      return push;
+    };
+    // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
+    const out = (s: Slot, i: number, push: number): boolean => (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b));
+    for (let i = 0; i < order.length; i++) {
+      const s = order[i];
+      if (s === undefined) continue;
+      let push = climb(s, i, s.push);
+      let gone = out(s, i, push);
+      // Before it goes, the stack-only plan tries the nearest column beside it, right first (OME-2368: a cluster's lines
+      // otherwise all share one column), and it keeps that column; a spilled column climbs from the heads afresh.
+      if (gone && !past && !s.typing) {
+        const col = s.col;
+        const reach = Math.ceil((sideR - sideL) / (s.w * k + GAP));
+        for (let d = 1; d <= reach && gone; d++) {
+          for (const c of [col + d, col - d]) {
+            s.col = c;
+            placeBox(s);
+            push = climb(s, i, 0);
+            gone = out(s, i, push);
+            if (!gone) break;
+          }
+        }
+        if (gone) {
+          s.col = col;
+          placeBox(s);
+        }
+      }
+      if (gone) goneCount++;
+      planned[i] = gone ? Number.NaN : push;
     }
-    return gone;
+    return goneCount;
   };
 
   /**
@@ -543,6 +569,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const show = (s: Slot, at: Point, now: number): void => {
     s.push = 0;
     s.lift = 0;
+    s.col = 0;
     s.rise = 0;
     s.alpha = 1;
     s.motion.style.transform = "";
