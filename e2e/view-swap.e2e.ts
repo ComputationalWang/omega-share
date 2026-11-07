@@ -67,7 +67,7 @@ async function cellAtTurn(page: Page, to: "north" | "south", click: () => Promis
   const turn = log.findIndex(([v]) => v === to);
   const before = log[turn - 1]?.[1] ?? "";
   const [x, y] = before.split(" ").map((s) => Number.parseFloat(s));
-  if (x === undefined || y === undefined) throw new Error(`no tag before the turn: ${before}`);
+  if (x === undefined || y === undefined) throw new Error(`no tag before the turn: "${before}" at frame ${String(turn)} of ${String(log.length)}, ${String(log.filter(([, t]) => t === "").length)} without a tag`);
   // The frame before the turn is drawn in the old projection; north is south turned 180° about the stage centre.
   const p = to === "north" ? { x, y: y - TAG_OFFSET_Y } : { x: 960 - x, y: 760 - (y - TAG_OFFSET_Y) };
   const c = cellAt(p);

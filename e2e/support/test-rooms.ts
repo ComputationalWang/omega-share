@@ -32,7 +32,7 @@ export const SPEC_ROOMS = {
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
   "room-chrome": ["v360", "v412", "v768", "v900", "v1024", "v1280", "v1920", "keys", "v360tabs", "v412tabs", "v768tabs", "v900tabs"],
-  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360", "full412", "upnext412"],
+  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360", "full412", "upnext412", "upnextdesk"],
   wide: ["w1280", "w1920", "w2560", "people1920", "people2560", "tw1920", "tw2560", "help2560", "phone", "keys", "fs", "scroll", "mo1920", "mo2560", "mophone", "hero1280", "hero1440", "hero1920", "hero2560", "int1280", "int1920", "int2560", "type1280", "aud1280", "aud1920", "aud2560", "rv1280", "rv1024", "rvclassic", "rvpenthouse", "rvstudio", "rvdank-dungeon", "rvbusy"],
   "provider-shelf": ["vimeo", "live", "twseats", "liveseats"],
   "phone-perf": ["frames"],

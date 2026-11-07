@@ -31,7 +31,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412" | "upnext412", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320" | "small360" | "full412" | "upnext412" | "upnextdesk", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -495,6 +495,21 @@ test("412×915 touch: an Add that starts the TV hands the panel back to the Chat
   expect(took, "ms from Add to the Chat tab").toBeLessThan(300);
   await expect(page.locator(site.chatLog)).toBeVisible();
   await expect(page.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
+});
+
+// At a desk the panel stays where I put it (OME-2348 is the phone's): Up next keeps its tab once the TV starts.
+test("1280×720 desk: an Add that starts the TV leaves the panel on Up next (OME-2348)", async ({ browser }) => {
+  const page = await one(browser, "upnextdesk", { viewport: { width: 1280, height: 720 } });
+  await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
+  const queue = page.getByTestId("portrait-queue");
+  await queue.click();
+  await expect(queue).toHaveAttribute("aria-selected", "true");
+  await page.locator(site.queueUrl).fill(WATCH_URL);
+  await page.locator(site.queueAdd).click();
+  await expect(page.locator(site.sharedVideo)).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(queue).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("portrait-chat")).toHaveAttribute("aria-selected", "false");
 });
 
 // Design judge round 3 (OME-2169 request 5, OME-2171): at 412×915 the room was 360 px wide beside a column of zoom keys,

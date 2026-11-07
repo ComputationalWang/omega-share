@@ -183,13 +183,20 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     await enter(phone.page, "phone");
     const seats = phone.page.locator(site.seat);
     await expect(seats).toHaveCount(8);
-    const hits = await seats.evaluateAll((keys) =>
-      keys.map((k) => {
+    // The strip is the design's ~150 px under the 16:9 TV (ADR 0064), framed on me: the seats in it, both rows of a riser
+    // pair among them, each hit their own key.
+    const hits = await seats.evaluateAll((keys) => {
+      const clip = document.querySelector(".stage-clip")?.getBoundingClientRect();
+      return keys.flatMap((k) => {
         const r = k.getBoundingClientRect();
-        return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? null;
-      }),
-    );
-    expect(hits).toEqual(["0", "1", "2", "3", "4", "5", "6", "7"]);
+        const x = r.x + r.width / 2;
+        const y = r.y + r.height / 2;
+        if (clip === undefined || y < clip.top || y > clip.bottom || x < clip.left || x > clip.right) return [];
+        return [[k.dataset["seat"], document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? null]];
+      });
+    });
+    expect(hits.length, "seats in the strip").toBeGreaterThanOrEqual(4);
+    for (const [seat, hit] of hits) expect(hit, `seat ${String(seat)}`).toBe(seat);
     expect(phone.errors).toEqual([]);
   });
 

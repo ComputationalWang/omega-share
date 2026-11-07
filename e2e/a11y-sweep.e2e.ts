@@ -169,6 +169,9 @@ const KNOWN: readonly { issue: string; surface: RegExp; problem: RegExp }[] = [
   // By design: at 320×640 the room strip is 96 px (OME-2306), so the owner's member menu, kept whole inside its wrap, covers
   // the shelf's own mute key while it is open; Close or Escape uncovers it.
   { issue: "OME-2306", surface: /^member menu$/, problem: /^target-size \(serious\) button\[aria-label="Mute, only for you"\] :: .*partially obscured/ },
+  // At 390×844 the owner's Room tab drops the strip to its 96 px floor, where the strip's zoom keys cover all but 4 px
+  // of a seat key; the pane's crop (room-window.ts) only knows the pane's edges.
+  { issue: "OME-2375", surface: /^owner settings$/, problem: /^target-size \(serious\) button\[data-seat="\d+"\] :: .*partially obscured/ },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */

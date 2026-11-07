@@ -148,6 +148,10 @@ for (const [size, viewport, name] of [["1280×800", DESK, "roomfull"], ["1024×7
 
 test("390×844 touch: the guest's tag and every key in the member menu are 44×44 to the finger", async ({ browser }) => {
   const { host, kitTag } = await ownerAndGuest(browser, "roomtouch", TOUCH, DESK);
+  // The 16:9 TV (ADR 0064) leaves the strip the design's ~150 px, framed on me: the guest's tag can start past its top
+  // edge, cropped and off to pointers (OME-1325). Its focus pans the window to show it whole (QA OME-1330 R2).
+  await kitTag.focus();
+  await expect(kitTag).not.toHaveClass(/is-cropped/);
   const tag = await hitBox(kitTag);
   expect(tag.w, "tag opener width").toBeGreaterThanOrEqual(44);
   expect(tag.h, "tag opener height").toBeGreaterThanOrEqual(44);
