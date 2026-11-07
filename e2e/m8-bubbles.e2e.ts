@@ -3,7 +3,7 @@
 // bubbles overlap; reduced motion shows it at once without a rise or fade-in; the screen reader reads a line once (the
 // chat log, never the aria-hidden layer); markup, RTL text and a max-length line are only ever text, bounded and
 // non-overlapping. Each test has its own seeded room (support/test-rooms.ts, "m8-bubbles").
-import type { BrowserContext, Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { CHAT_MAX_LENGTH } from "@omega/shared";
 import * as v from "valibot";
 import { expect, test } from "./support/csp";
@@ -175,18 +175,8 @@ function watchPool(ms: number): Promise<unknown> {
   });
 }
 
-/**
- * The TV over the room: Room view's corner TV and its shelf take the room's top (OME-2349: no bubble goes under them, so
- * a cluster's stack has less room). The pool and text tests count bubbles, so they watch with the TV above the room.
- */
-const roomViewOff = async (context: BrowserContext): Promise<void> => {
-  await context.addInitScript(() => {
-    localStorage.setItem("omega.roomView", "off");
-  });
-};
-
 test("five speakers, twenty lines at once: never more than 16 bubbles shown, the layer holds 16 nodes throughout", async ({ browser }) => {
-  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc", setup: roomViewOff });
+  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc" });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   for (const c of clients) await atRest(c.page);
@@ -365,7 +355,7 @@ const BubblesState = v.object({
 
 test("markup, RTL and max-length lines are text only: no elements inside, bounded, inside the room, not overlapping", async ({ browser }) => {
   expect(LONG_WORDS).toHaveLength(CHAT_MAX_LENGTH);
-  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "abuse").url, count: 4, nicknamePrefix: "mx", setup: roomViewOff });
+  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "abuse").url, count: 4, nicknamePrefix: "mx" });
   const [watcher, s1, s2, s3] = clients;
   if (watcher === undefined || s1 === undefined || s2 === undefined || s3 === undefined) throw new Error("need 4 clients");
   for (const c of clients) await atRest(c.page);
