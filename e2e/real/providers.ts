@@ -199,3 +199,10 @@ export const siteNotices = (page: Page): Promise<string[]> =>
   page
     .locator(`${site.roomNotice}, ${site.syncNotice}, ${site.systemLine}, ${site.catchingNotice}`)
     .evaluateAll((els) => els.filter((e) => e instanceof HTMLElement && !e.hidden && e.offsetParent !== null).map((e) => e.textContent.trim()).filter((t) => t !== ""));
+
+export type Kick = "paused" | "stalled";
+
+/** Which kick a room player needs, if any, given a sample at `now`. Stub: OME-2364 red. */
+export function stallWatch(_startMs: number, _afterMs = 20_000): (s: { paused: boolean; currentTime: number }, now: number) => Kick | null {
+  return () => null;
+}
