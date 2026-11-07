@@ -52,6 +52,7 @@ test("moderation: owner frames with the member menu open (8 avatars + video)", a
   const all: Client[] = [{ context: ctx, page: owner, nickname: "owner", avatarIndex: 0 }, ...guests];
   try {
     await waitPlaying(all);
+    await owner.getByTestId("portrait-settings").click(); // the control policy is in the Room tab (OME-2306)
     await expect(owner.locator(site.controlPolicy)).toBeVisible();
     out["ownerMenuClosed"] = row(await tracedFrames(browser, owner, 5000));
     const [g] = guests;
