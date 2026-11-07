@@ -256,16 +256,16 @@ export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, p
 
 /**
  * The partitions are cut down for this viewer (OME-1960): my cell `self` is behind a partition (a smaller row than a row
- * of them, facing sw; a smaller col than a col of them, facing se). On a partition's own line (the doorway), or with no
- * avatar of mine, it stays `was`. Worked out on a walk event, never per frame.
+ * of them, facing sw; a smaller col than a col of them, facing se). On a partition's own line (the doorway) it counts as
+ * behind: seen from the front, a sprite past the doorway's middle is drawn behind the next piece (OME-2346). With no
+ * avatar of mine it stays `was`. Worked out on a walk event, never per frame.
  */
 export function cutaway(layout: RoomLayout, self: number | null, was: boolean): boolean {
   // One verdict for the layout's one partition line (the contract rejects two, ADR 0058).
   const line = partitionLine(layout);
   if (line === undefined) return false;
   if (self === null) return was;
-  const side = sideOf(line, colOf(self), rowOf(self));
-  return side === 1 ? was : side === 0;
+  return sideOf(line, colOf(self), rowOf(self)) !== 2;
 }
 
 /** True if the layout has a partition, i.e. the back-view sheet must load (OME-1961). */
