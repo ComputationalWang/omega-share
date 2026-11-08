@@ -66,11 +66,15 @@ test("the stage and the vanity ship their turned views for the swap", () => {
   for (const k of ["stage/boards/nw", "stage/boards/ne", "vanity/bulbs/nw", "vanity/bulbs/ne"]) expect(byKey.has(`furniture/${k}/back`)).toBe(true);
 });
 
-test("recolours.json: the lava lamp's bubbles is variant 1, swapping the blobs and the glass on the v8 sheet", () => {
-  const t = recoloursTable() as { kinds: Record<string, { sheet: string; frames: string; variants: { variant: number; id: string }[] }> };
-  const lamp = t.kinds["lavalamp"];
+test("the lava lamp's bubbles is variant 1, a PLTE swap on the v8 sheet listed in v9's meta; recolours.json is left alone", () => {
+  const read = (f: string): unknown => JSON.parse(readFileSync(join(ROOT, f), "utf8"));
+  const v9 = read("furniture/furniture-v9.json") as { meta: { omega: { recolours?: Record<string, { sheet: string; frames: string; variants: { variant: number; id: string }[] }> } } };
+  const lamp = v9.meta.omega.recolours?.["lavalamp"];
   expect(lamp?.sheet).toBe("furniture/furniture-v8.png");
   expect(lamp?.frames).toBe("furniture/lavalamp/lilac/");
   expect(lamp?.variants.map((v) => [v.variant, v.id])).toEqual([[1, "bubbles"]]);
-  expect(JSON.parse(readFileSync(join(ROOT, "furniture", "recolours.json"), "utf8"))).toEqual(JSON.parse(JSON.stringify(t)));
+  // The web's recolours.json schema lists the sheets it swaps; a v8 entry there would fail its parse (CI, PR #997).
+  const table = recoloursTable() as { kinds: Record<string, unknown> };
+  expect(Object.keys(table.kinds)).not.toContain("lavalamp");
+  expect(read("furniture/recolours.json")).toEqual(JSON.parse(JSON.stringify(table)));
 });
