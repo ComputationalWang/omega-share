@@ -45,6 +45,7 @@ import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { WAVE2, buildWave2Pieces, buildWave2Previews, buildWave2Shell, wave2Thumb } from "./wave2";
+import { buildWave26Previews, buildWave26Sheets } from "./wave26";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -1409,6 +1410,12 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   writeFurnitureAtlas("furniture-v8-shell", w2Shell, [], 512, true, true);
   for (const f of [...w2.frames, ...w2Shell]) all.set(f.key, f);
   WAVE2_PIECES = w2.pieces;
+  // OME-2440: rooms wave 26 (Stage Door, Reef Tunnel), the same two-sheet pattern as v8.
+  const w26 = buildWave26Sheets();
+  for (const f of [...w26.frames, ...w26.shell]) if (all.has(f.key)) throw new Error(`wave 26: ${f.key} is already shipped`);
+  writeFurnitureAtlas("furniture-v9", w26.frames, w26.pieces, 512, true, true);
+  writeFurnitureAtlas("furniture-v9-shell", w26.shell, [], 512, true, true);
+  WAVE26 = w26;
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
   buildFurnitureSheet(pieces, all);
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
@@ -1506,6 +1513,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
         ...(pieces.some((p) => p.open === true) ? { openKey: "furniture/<id>/<colour>/open/<dir>" } : {}),
         ...(pieces.some((p) => p.cut === true) ? { cutKey: "furniture/<id>/<colour>/cut/<dir>" } : {}),
+        ...(pieces.some((p) => p.frontColours) ? { frontKey: "furniture/<id>/<colour>/<dir>/front (pieces[].frontColours only)" } : {}),
         ...(pieces.some((p) => p.covers) ? { coverKey: "furniture/<id>/<colour>/cover/<dir>/<sleeper>" } : {}),
         // OME-1519: frame time in `pieces[].walk.ms`, the avatars' Basic walk clock (`avatars/motion.json` meta.omega.walk.frameMs).
         ...(pieces.some((p) => p.walk) ? { walkKey: "furniture/<id>/<colour>/walk/<dir>/<n>", sitKey: "furniture/<id>/<colour>/sit/<dir>", bedKey: "furniture/<id>/<colour>/bed/<dir>" } : {}),
@@ -1916,6 +1924,8 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
 // ---------------------------------------------------------------- Dank Dungeon (OME-1670, lazy)
 
 const WAVE2_FILES = ["furniture/furniture-v8.png", "furniture/furniture-v8.json", "furniture/furniture-v8-shell.png", "furniture/furniture-v8-shell.json"];
+/** OME-2440: lazy, loaded with a wave-26 room's shell. */
+const WAVE26_FILES = ["furniture/furniture-v9.png", "furniture/furniture-v9.json", "furniture/furniture-v9-shell.png", "furniture/furniture-v9-shell.json"];
 const DUNGEON_FILES = ["furniture/furniture-v6.png", "furniture/furniture-v6.json", "furniture/furniture-v7.png", "furniture/furniture-v7.json", "furniture/furniture-back.png", "furniture/furniture-back.json", "avatars/dungeon.png", "avatars/dungeon.json"];
 const V6_SEATS: readonly string[] = ["bed", "whirlpool"];
 
@@ -2513,6 +2523,8 @@ function presetPlan(layout: RoomLayout): RoomPlan {
     if (f.kind === "tv" || f.kind === "rug") continue; // the console and the big rug are part of the room shell
     // shortcut: wave 2's kinds and colours are left out of this sheet; preview/w2-* draws those rooms in full (OME-2071).
     if (WAVE2.some((d) => d.id === f.kind && d.variant === (f.variant ?? 0))) continue;
+    // shortcut: likewise wave 26's kinds and partition colours (OME-2440); preview/w26-* draws those rooms in full.
+    if (WAVE26_KINDS.has(f.kind) || (f.kind === "partition" && (f.variant ?? 0) >= 4)) continue;
     if (f.kind === "lamp" || f.kind === "plant") { plan.standing.push([`${f.kind}/0`, f.col, f.row]); continue; }
     if (f.kind === "armchair") {
       plan.standing.push([`armchair/${f.facing}/back`, f.col, f.row]);
@@ -2532,6 +2544,25 @@ function presetPlan(layout: RoomLayout): RoomPlan {
 }
 let PIECES_BY_ID = new Map<string, PieceMeta>();
 let WAVE2_PIECES: PieceMeta[] = [];
+const WAVE26_KINDS: ReadonlySet<string> = new Set(["stage", "vanity", "rack"]);
+let WAVE26: ReturnType<typeof buildWave26Sheets> | undefined;
+/** OME-2440: the wave-26 rooms' thumbs (their own skins), used for their presets instead of presetThumb's plain shell. */
+let WAVE26_THUMBS: Record<string, Uint8Array> = {};
+
+/** OME-2440: wave 26's previews (preview/w26-*) and its two preset thumbs, palette-compacted into presets/thumbs/ like the rest. */
+function buildWave26(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
+  if (!WAVE26) throw new Error("wave 26: sheets not built");
+  const pieces = [...set.pieces, ...WAVE2_PIECES.filter((m) => !set.pieces.some((p) => p.id === m.id))];
+  WAVE26_THUMBS = buildWave26Previews({ pieces, all: set.all, compose: composeFurnitureRoom, northView, presetPlan }, WAVE26);
+  // They ship as presets/thumbs/<id>.png from buildPresets once OME-2439 adds the two presets (no stray thumb before that).
+  WAVE26_THUMB_BYTES = Object.entries(WAVE26_THUMBS).filter(([id]) => !PRESETS.some((p) => p.id === id)).reduce((a, [id, img]) => {
+    const small = compactPalette(img);
+    const n = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette).length;
+    console.log(`wave 26: thumb ${id} ${String(n)} B (ships with its preset)`);
+    return a + n;
+  }, 0);
+}
+let WAVE26_THUMB_BYTES = 0;
 
 /** OME-2066: wave 2's previews and proposed layouts, on the shipped set plus the v8 pieces (new ids only: v8's colours of older
  *  kinds are drawn by key with the older kind's meta). */
@@ -2555,7 +2586,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
     const parsed = v.safeParse(RoomLayoutInputSchema, pr.layout);
     if (!parsed.success) throw new Error(`preset ${pr.id}: ${parsed.issues.map((i) => i.message).join("; ")}`);
     writeFileSync(join(dir, `${pr.id}.json`), JSON.stringify(pr.layout) + "\n");
-    const small = compactPalette(presetThumb(pr.layout, wave2Thumb));
+    const small = compactPalette(WAVE26_THUMBS[pr.id] ?? presetThumb(pr.layout, wave2Thumb));
     const png = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette);
     writeFileSync(join(dir, "thumbs", `${pr.id}.png`), png);
     bytes += png.length;
@@ -2570,7 +2601,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   const tw = cols * THUMB.w + (cols + 1) * G, th = rows * THUMB.h + (rows + 1) * G;
   const sheet = new Uint8Array(tw * th).fill(colorIndex("night", 2));
   PRESETS.forEach((pr, i) => {
-    const img = presetThumb(pr.layout, wave2Thumb);
+    const img = WAVE26_THUMBS[pr.id] ?? presetThumb(pr.layout, wave2Thumb);
     blitAt(sheet, tw, th, img, THUMB.w, THUMB.h, G + (i % cols) * (THUMB.w + G), G + Math.floor(i / cols) * (THUMB.h + G));
   });
   writeFileSync(join(ROOT, "preview", "presets-thumbs@3x.png"), encodeIndexedPng(tw * 3, th * 3, upscale(sheet, tw, th, 3), PALETTE));
@@ -2876,12 +2907,12 @@ function writeCss(file: string, css: string): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...WAVE26_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", "ui/edit.png", "ui/edit.json", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...WAVE26_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.map((p) => `presets/thumbs/${p.id}.png`));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -2894,6 +2925,7 @@ function report(): void {
   }
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
   console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 460800 (ADR 0056, amended 2026-10-29)`);
+  if (WAVE26_THUMB_BYTES > 0) console.log(`  + wave 26 thumbs still waiting for their presets (OME-2439): ${String(WAVE26_THUMB_BYTES)} B → ${String(total + WAVE26_THUMB_BYTES)} B of 460800`);
   // OME-2094: only the server reads presets/<id>.json (apps/web loads presets.json and the thumbs), so they're reported apart.
   const layouts = PRESETS.map((p) => gzipSync(readFileSync(join(ROOT, "presets", `${p.id}.json`)), { level: 9 }).length);
   console.log(`preset layouts (server only, not in the art budget): ${String(layouts.reduce((a, b) => a + b, 0))} B gz`);
@@ -2987,12 +3019,9 @@ const avatarImages = buildAvatars();
 buildScene(avatarImages);
 buildRoom(avatarImages);
 const furnitureSet = buildFurnitureSet(buildRoomFrames(), avatarImages);
-// OME-2434 concept round: `CONCEPTS=26 bun assets/src/build.ts` renders preview/c-wave26-* and stops (later sets aren't rewritten).
-if (process.env["CONCEPTS"] === "26") {
-  const { buildConcepts26 } = await import("./concepts-wave26");
-  buildConcepts26({ pieces: [...furnitureSet.pieces, ...WAVE2_PIECES.filter((m) => !furnitureSet.pieces.some((p) => p.id === m.id))], all: furnitureSet.all, compose: composeFurnitureRoom, northView, presetPlan });
-  process.exit(0);
-}
+// OME-2440: `W26=1 bun assets/src/build.ts` writes wave 26's sheets, thumbs and preview/w26-* and stops (a quick loop for the set).
+buildWave26(furnitureSet);
+if (process.env["W26"] === "1") process.exit(0);
 const uiFrames = buildUi(avatarImages, furnitureSet.frames);
 buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);

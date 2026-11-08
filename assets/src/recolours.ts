@@ -50,6 +50,13 @@ export const RECOLOURS: Readonly<Record<string, Recolour>> = {
   wallshelf: { sheet: "furniture/furniture-v2.png", frames: "furniture/wallshelf/wood/", thumb: "thumb/wallshelf/wood", existing: 1, from: ["wood", "teal"], variants: [{ id: "cream", to: ["cream", "teal"] }, { id: "teal", to: ["teal", "rust"] }] },
 };
 
+/** Recolours of wave-2+ kinds (ADR 0058), in recolours.json alongside RECOLOURS but not in its catalogue contact sheet (their frames
+ *  are on the lazy v8 sheet, outside the catalogue build). OME-2440: the lava lamp's bubble column for Reef Tunnel, pink blobs →
+ *  glow bubbles and navy glass → teal water (the brass stays). Its loop frames share the `frames` prefix, so they swap too. */
+export const AMBIENT_RECOLOURS: Readonly<Record<string, Recolour>> = {
+  lavalamp: { sheet: "furniture/furniture-v8.png", frames: "furniture/lavalamp/lilac/", existing: 1, from: ["pink", "navy"], variants: [{ id: "bubbles", to: ["glow", "teal"] }] },
+};
+
 /** Wall-mounted kinds: they get their own contact sheet, on the wall and under the room moods, not on the floor. */
 export const WALL_KINDS: ReadonlySet<string> = new Set(["frame", "garland", "wallshelf"]);
 
@@ -67,7 +74,7 @@ export function recoloursTable(): object {
     method:
       "runtime PLTE swap: in a copy of `sheet` replace PLTE entry slots[i] with colors[i] and use that copy only for the frames whose key starts with `frames` (the source colour's); do the same in a copy of ui/edit.png for `thumb`. Layout variant `variant` draws those frames; its tray chip is swatch/<id>",
     kinds: Object.fromEntries(
-      Object.entries(RECOLOURS).map(([kind, r]) => [
+      Object.entries({ ...RECOLOURS, ...AMBIENT_RECOLOURS }).map(([kind, r]) => [
         kind,
         {
           sheet: r.sheet,
