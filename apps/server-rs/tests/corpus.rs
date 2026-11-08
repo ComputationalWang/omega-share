@@ -18,7 +18,7 @@ use omega_server::contract::requests::{parse_create_room_request, parse_report_r
 use omega_server::contract::responses::{
     CreateRoomResponse, DeleteRoomResponse, QueueAddResponse, ReportResponse, RoomListResponse, ShareResponse,
 };
-use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
+use omega_server::contract::room::{Avatar, ControlPolicy, FloorCell, RoomVisibility, SeatIndex, StandingSlot};
 use omega_server::contract::server_message::{encode, parse_server_message};
 use omega_server::contract::state::PlaybackState;
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
@@ -81,6 +81,7 @@ const RUNNERS: &[&str] = &[
     "furniture-lie",
     "hash-secret",
     "is-loopback-key",
+    "is-standable",
     "layout-seats",
     "member-id",
     "metrics-render",
@@ -403,6 +404,21 @@ fn footprint_cells_agree() {
 fn furniture_lie_agrees() {
     agree(load::<Kind, Value>(include_str!("../corpus/out/furniture-lie.json")), |k| {
         Some(json!({ "lie": spec(*k).lie }))
+    });
+}
+
+#[derive(Debug, Deserialize)]
+struct StandIn {
+    layout: Value,
+    x: u64,
+    y: u64,
+}
+
+#[test]
+fn is_standable_agrees() {
+    agree(load::<StandIn, bool>(include_str!("../corpus/out/is-standable.json")), |s| {
+        let layout = RoomLayout::parse(s.layout.to_string().as_bytes()).ok()?;
+        Some(layout.standable(FloorCell::new(s.x, s.y)?))
     });
 }
 

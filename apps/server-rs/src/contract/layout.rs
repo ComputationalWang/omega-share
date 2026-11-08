@@ -908,7 +908,7 @@ mod tests {
                     assert!(l.standable(cell(x, y)), "{facing} {variant} leaves ({x}, {y}) free");
                 }
             }
-            assert!(!piece_accepts(&pv("partition", 5, 4, facing, 4)), "no doorframe variant");
+            assert!(!piece_accepts(&pv("partition", 5, 4, facing, 8)), "no ninth colour");
         }
         for facing in ["ne", "nw"] {
             assert!(!piece_accepts(&p("partition", 5, 4, facing)), "{facing} is not an axis");
@@ -1637,6 +1637,41 @@ mod tests {
         assert!(serde_json::from_str::<RoomPresetId>("null").is_err());
         assert!(serde_json::from_str::<RoomPresetId>("{}").is_err());
         assert!(serde_json::from_str::<RoomPresetId>("0").is_err());
+    }
+
+    // packages/shared/test/wave26-contract.test.ts (OME-2439): stage, vanity, rack; partition and lavalamp colours.
+    #[test]
+    fn the_wave_26_kinds_and_colours() {
+        let ok = |more: Vec<Value>| accepts_input(&base(more.clone())) && accepts(&base(more));
+        assert!(ok(vec![p("stage", 7, 8, "sw")]));
+        assert!(!ok(vec![p("stage", 8, 8, "sw")]), "3 cols");
+        assert!(ok(vec![p("stage", 8, 7, "se")]), "turned: 2 cols, 3 rows");
+        assert!(!ok(vec![p("stage", 8, 8, "ne")]), "se/sw only");
+        assert!(ok(vec![p("vanity", 0, 8, "se")]));
+        assert!(ok(vec![p("vanity", 8, 0, "sw")]));
+        assert!(!ok(vec![p("vanity", 3, 8, "se")]), "backs onto a wall");
+        assert!(ok(vec![p("rack", 8, 9, "sw")]));
+        assert!(!ok(vec![p("rack", 9, 9, "sw")]), "2 cols");
+        assert!(ok(vec![pv("partition", 5, 9, "sw", 7)]));
+        assert!(!ok(vec![pv("partition", 5, 9, "sw", 8)]), "eight colours");
+        assert!(ok(vec![pv("lavalamp", 9, 9, "se", 1)]));
+        assert!(!ok(vec![pv("lavalamp", 9, 9, "se", 2)]), "lilac and bubbles");
+        for shell in ["stage-door", "reef"] {
+            let mut v = base(vec![]);
+            v["shell"] = json!(shell);
+            assert!(accepts_input(&v) && accepts(&v), "{shell}");
+        }
+    }
+
+    // packages/shared/test/wave26-contract.test.ts (OME-2439, CEO: option A): partition/tunnel is floor.
+    #[test]
+    fn a_tunnel_partition_is_walkable_and_still_takes_its_cell() {
+        let cell = |x: u64, y: u64| FloorCell::new(x, y).unwrap();
+        for variant in 0..8 {
+            let l = parse(&base(vec![pv("partition", 5, 9, "sw", variant)]));
+            assert_eq!(l.standable(cell(5, 9)), variant == 7, "variant {variant}");
+        }
+        assert!(!accepts(&base(vec![pv("partition", 9, 9, "sw", 7), p("plant", 9, 9, "se")])), "nothing solid shares it");
     }
 
     fn parse_json_preset(s: &str) -> Option<RoomPresetId> {

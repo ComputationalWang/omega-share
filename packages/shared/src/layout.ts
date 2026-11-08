@@ -167,6 +167,7 @@ interface Placed {
   readonly col: number;
   readonly row: number;
   readonly facing: Facing;
+  readonly variant?: number | undefined;
 }
 
 const turned = (f: Placed): boolean => f.facing === "nw" || f.facing === "se";
@@ -240,6 +241,9 @@ export type FloorCell = v.InferOutput<typeof FloorCellSchema>;
 
 /** Where people walk in, and where a layout change sends someone whose cell it covered: the floor's front corner. */
 export const DOOR_CELL: FloorCell = { x: FLOOR_CELLS - 1, y: FLOOR_CELLS - 1 };
+
+/** A piece someone can't walk through. Stub (OME-2439, red). */
+export const isSolid = (f: Placed): boolean => FURNITURE[f.kind].layer === "object";
 
 /** A cell someone may stand on (`walk`): no solid piece covers it. Seats are solid, so they need `sit`. */
 export function isStandable(layout: { readonly furniture: readonly Placed[] }, cell: FloorCell): boolean {
