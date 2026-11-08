@@ -2987,6 +2987,12 @@ const avatarImages = buildAvatars();
 buildScene(avatarImages);
 buildRoom(avatarImages);
 const furnitureSet = buildFurnitureSet(buildRoomFrames(), avatarImages);
+// OME-2434 concept round: `CONCEPTS=26 bun assets/src/build.ts` renders preview/c-wave26-* and stops (later sets aren't rewritten).
+if (process.env["CONCEPTS"] === "26") {
+  const { buildConcepts26 } = await import("./concepts-wave26");
+  buildConcepts26({ pieces: [...furnitureSet.pieces, ...WAVE2_PIECES.filter((m) => !furnitureSet.pieces.some((p) => p.id === m.id))], all: furnitureSet.all, compose: composeFurnitureRoom, northView, presetPlan });
+  process.exit(0);
+}
 const uiFrames = buildUi(avatarImages, furnitureSet.frames);
 buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);
