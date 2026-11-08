@@ -17,6 +17,13 @@ test.afterEach(async () => {
   clients = [];
 });
 
+declare global {
+  interface Window {
+    /** OME-2425: when the connection status first showed text after the socket went dark. */
+    __statusAt?: number;
+  }
+}
+
 const GAP = "You were disconnected; messages sent meanwhile aren't shown";
 
 test("a drop: Say is held, one gap line after the rejoin, and `online` reconnects within 1 s", async ({ browser }) => {
@@ -113,6 +120,14 @@ test("a blackholed socket: reconnecting within 10 s, the unanswered line is rese
   if (a === undefined || b === undefined) throw new Error("no clients");
   await waitPlaying(clients);
 
+  // The reconnecting status may last well under a poll interval, so the page records when it first shows.
+  await a.page.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    if (el === null) throw new Error("no status");
+    new MutationObserver(() => {
+      if (el.textContent !== "" && window.__statusAt === undefined) window.__statusAt = Date.now();
+    }).observe(el, { childList: true, characterData: true, subtree: true });
+  }, site.connectionStatus);
   dark = routes.at(-1) ?? null;
   const darkAt = Date.now();
   const before = routes.length;
@@ -123,8 +138,8 @@ test("a blackholed socket: reconnecting within 10 s, the unanswered line is rese
   await expect.poll(() => fakeState(b.page)).toBe(PAUSED);
 
   // 1. Reconnecting shows within 10 s of the silence.
-  await expect(a.page.locator(site.connectionStatus)).not.toHaveText("", { timeout: 10_000 });
-  expect(Date.now() - darkAt).toBeLessThan(10_000);
+  await expect.poll(() => a.page.evaluate(() => window.__statusAt ?? null), { timeout: 10_000, intervals: [100] }).not.toBeNull();
+  expect((await a.page.evaluate(() => window.__statusAt ?? Infinity)) - darkAt).toBeLessThan(10_000);
 
   // 3. Within 1 s of the rejoin, A's player is paused where the room is.
   await expect.poll(() => routes.length, { timeout: 10_000, intervals: [50] }).toBeGreaterThan(before);
