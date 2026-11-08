@@ -406,22 +406,20 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       }, NO_GO_NOTE_MS);
     };
     let hover: FloorCell | null = null;
-    let hoverScale = 1;
     floorHit.addEventListener("pointermove", (ev) => {
       // A finger has no hover: a tap walks, a drag pans the phone's room window.
       if (ev.pointerType === "touch") return;
       const c = cellUnder(ev);
-      // The scale too: after a zoom or resize the same cell's diamond gets its new stroke.
-      const k = floorHit.getBoundingClientRect().width / Math.max(1, floorHit.offsetWidth);
-      if (c?.x === hover?.x && c?.y === hover?.y && k === hoverScale) return;
+      if (cursorOwner === "floor" && c?.x === hover?.x && c?.y === hover?.y) return;
       hover = c;
-      hoverScale = k;
-      view.marker(c, k);
+      cursorOwner = c === null ? null : "floor";
+      view.marker(c === null ? null : cellCenter(c.x, c.y), "free");
     });
     floorHit.addEventListener("pointerleave", () => {
-      if (hover === null) return;
       hover = null;
-      view.marker(null, 1);
+      if (cursorOwner !== "floor") return;
+      cursorOwner = null;
+      view.marker(null, "free");
     });
     let lastTap: { cell: FloorCell; at: number } | null = null;
     floorHit.addEventListener("click", (ev) => {
@@ -559,6 +557,36 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   };
 
   /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
+  // The hover cursor (OME-2307): the floor's hover cell or a seat key's, painted by the view; the last to write owns it.
+  let cursorOwner: "floor" | number | null = null;
+  let seatTilePts: readonly Point[] = [];
+  const showSeatCursor = (i: number): void => {
+    const b = seatButtons[i];
+    const at = seatTilePts[i];
+    if (b === undefined || at === undefined) return;
+    cursorOwner = i;
+    view.marker(at, b.classList.contains("mine") ? "mine" : b.dataset["occupied"] === "true" ? "taken" : "free");
+  };
+  const hideSeatCursor = (i: number): void => {
+    if (cursorOwner !== i) return;
+    cursorOwner = null;
+    view.marker(null, "free");
+  };
+  seatButtons.forEach((b, i) => {
+    // A finger has no hover: a tap's sticky enter must not leave the cursor over the sitter (OME-2175).
+    b.addEventListener("pointerenter", (ev) => {
+      if (ev.pointerType !== "touch") showSeatCursor(i);
+    });
+    b.addEventListener("focus", () => {
+      if (b.matches(":focus-visible")) showSeatCursor(i);
+    });
+    b.addEventListener("pointerleave", () => {
+      hideSeatCursor(i);
+    });
+    b.addEventListener("blur", () => {
+      hideSeatCursor(i);
+    });
+  });
   const applyLayout = (next: RoomLayout): void => {
     layout = next;
     const key = keyOfLayout(next);
@@ -574,6 +602,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
     // on the tile, not the lifted sitter: a riser's 44 px phone key would otherwise cover the row in front (QA OME-1743).
     const tiles = seatTiles(next);
+    seatTilePts = tiles;
+    if (typeof cursorOwner === "number") showSeatCursor(cursorOwner);
     seatButtons.forEach((b, i) => {
       const p = tiles[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
@@ -758,6 +788,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       b.dataset["occupied"] = String(v.member !== null);
       b.disabled = s.status !== "open";
       b.classList.toggle("mine", v.isSelf);
+      if (cursorOwner === v.index) showSeatCursor(v.index);
       b.ariaLabel = v.member === null ? `Seat ${String(v.index + 1)}, free` : v.isSelf ? `Seat ${String(v.index + 1)}, yours: stand up` : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
     }
 
@@ -928,7 +959,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return r === undefined ? [] : [{ kind, rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k } }];
       });
     },
-    cursorRect: () => null,
+    cursorRect: () => {
+      const cur = view.cursor();
+      if (cur === null) return null;
+      const c = view.canvas.getBoundingClientRect();
+      const k = c.width / STAGE_W;
+      return { kind: cur.kind, rect: { x: c.left + cur.rect.x * k, y: c.top + cur.rect.y * k, w: cur.rect.w * k, h: cur.rect.h * k } };
+    },
     tagAnchor: (id) => anchors.get(id),
     hideTags: (hidden) => {
       view.tags.hide(hidden);
