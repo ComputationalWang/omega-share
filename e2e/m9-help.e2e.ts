@@ -179,12 +179,12 @@ for (const [name, options] of [
       const lines = page.locator(`${site.chatLog} ${site.chatLogLine}`);
       await expect(lines).toHaveCount(5);
       await page.waitForTimeout(300);
-      if (await hint.isVisible()) {
-        // The reaction row and the Invite field too (OME-2381), and its Copy key (OME-2384).
-        const keys = page.locator(`.room-top .ui-button, ${site.chatInput}, .reaction-key, ${site.inviteLink}, ${site.inviteCopy}`);
-        for (const covered of [...(await lines.all()), ...(await keys.all())]) {
-          if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
-        }
+      // Shown, not just clear: a chip that's always out of sight covers nothing (OME-2398).
+      await expect(hint).toBeVisible();
+      // The reaction row and the Invite field too (OME-2381), and its Copy key (OME-2384).
+      const keys = page.locator(`.room-top .ui-button, ${site.chatInput}, .reaction-key, ${site.inviteLink}, ${site.inviteCopy}`);
+      for (const covered of [...(await lines.all()), ...(await keys.all())]) {
+        if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
       }
       if (width < 600) {
         // Lines wholly inside the strip's box: at least 4 show while the video plays.

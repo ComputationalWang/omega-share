@@ -292,7 +292,8 @@ describe("the first-visit tour", () => {
     dock.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: control === "composer" ? 700 : 600, width: 412, height: 44 });
     Object.defineProperties(hints.root, { offsetWidth: { value: 300 }, offsetHeight: { value: 80 } });
     tv.empty = false;
-    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 412, height: 400 });
+    // The TV fills the picture: no floor under it to fall back on (OME-2398).
+    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 412, height: 600 });
     tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 412, height: 600 });
     hints.show();
     expect(hints.root.style.visibility).toBe("hidden");
@@ -310,6 +311,24 @@ describe("the first-visit tour", () => {
     expect(hints.root.style.visibility).toBe("hidden");
     expect(document.activeElement).toBe(after);
     hints.dismiss();
+  });
+  // OME-2398: while a video plays the reaction row sits right under the picture, so that spot is never clear: the walk chip
+  // goes on the floor under the TV instead of out of sight.
+  test("with a video on and the spot under the picture taken (the reaction row), the walk chip sits on the floor under the TV", async () => {
+    const { hints, tv } = await setup();
+    const row = document.createElement("div");
+    row.className = "reaction-bar";
+    document.body.append(row);
+    Object.defineProperties(hints.root, { offsetWidth: { value: 300 }, offsetHeight: { value: 64 } });
+    tv.empty = false;
+    tv.box.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 400 });
+    tv.picture.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 });
+    row.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 606, width: 800, height: 28 });
+    hints.show();
+    expect(hints.root.style.visibility).toBe("");
+    expect(hints.root.style.top).toBe("408px");
+    hints.dismiss();
+    row.remove();
   });
   test.each(["chat-log", "room-top", "reaction-bar", "invite"])("a chip never covers the %p (chat lines, the top bar's keys, OME-2350; the reaction row and Invite field, OME-2381): it hides, and is back once that's clear", async (cls) => {
     const { hints } = await setup();

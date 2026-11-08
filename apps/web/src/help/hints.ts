@@ -35,7 +35,7 @@ export interface HintsOptions {
   /** What chip `step` sits beside; while it's null or has no box the chip is out of sight (and the tour still open). */
   readonly anchor: (step: number) => HTMLElement | null;
   /** While the TV shows anything (a player, a Load card), no chip covers it; while it's empty, none covers `message`: Twitch's player doesn't start covered
-   * (OME-1778). One that would goes under the picture (the TV and the stage), or out of sight if that's on the TV too. */
+   * (OME-1778). One that would goes under the picture (the TV and the stage), else under the TV, or out of sight if that's blocked too. */
   readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement; readonly message: HTMLElement };
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
@@ -103,8 +103,9 @@ export function createHints(o: HintsOptions): Hints {
     const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
     const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
-    // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone.
-    if (at !== null && blocked(at)) at = spot(o.tv.empty() ? o.tv.message : o.tv.picture, "below", w, h);
+    // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone. Off a video,
+    // under the picture, else on the floor under the TV: the reaction row takes the spot under the picture (OME-2398).
+    for (const f of o.tv.empty() ? [o.tv.message] : [o.tv.picture, o.tv.box]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
     // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
