@@ -120,9 +120,12 @@ test("reduced motion: no Web Animation runs, the underline sits without a transf
   const running = (): Promise<number> => page.evaluate(() => document.getAnimations().filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition) && a.playState === "running").length);
   // Motion on: a tab switch starts the panel's entrance (and the sheet's slide); reduced motion arriving cancels them.
   await page.getByRole("tab", { name: "Room", exact: true }).click();
-  expect(await running()).toBeGreaterThan(0);
+  const started = await page.evaluateHandle(() => document.getAnimations().filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition) && a.playState === "running"));
+  expect(await started.evaluate((as) => as.length)).toBeGreaterThan(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  expect(await running()).toBe(0);
+  // The media query's change event is async: poll, and require "idle" (cancelled), not "finished" (ran out on its own).
+  await expect.poll(() => started.evaluate((as) => as.some((a) => a.playState === "running")), { timeout: 2000 }).toBe(false);
+  expect(await started.evaluate((as) => as.map((a) => a.playState).filter((s) => s !== "idle"))).toEqual([]);
   const n = (await calls(page)).length;
   await page.getByRole("tab", { name: "Up next", exact: true }).click();
   await page.getByRole("tab", { name: "Chat", exact: true }).click();
