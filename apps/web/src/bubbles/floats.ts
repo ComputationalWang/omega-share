@@ -459,7 +459,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       return push;
     };
     // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
-    const out = (s: Slot, i: number, push: number): boolean => (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < sideT) || over.some((b) => sweeps(s, push, b));
+    const out = (s: Slot, i: number, push: number): boolean => (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b));
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       if (s === undefined) continue;
