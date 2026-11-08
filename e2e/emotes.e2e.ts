@@ -253,10 +253,10 @@ test.describe("emotes", () => {
       const page = clients[0]?.page;
       if (page === undefined) throw new Error("no client");
       await page.evaluate(() => {
-        const long: number[] = [];
+        const long: { start: number; duration: number }[] = [];
         Reflect.set(window, "__longTasks", long);
         new PerformanceObserver((list) => {
-          for (const e of list.getEntries()) long.push(e.duration);
+          for (const e of list.getEntries()) long.push({ start: e.startTime, duration: e.duration });
         }).observe({ type: "longtask" });
       });
       await page.locator("body").click({ position: { x: 2, y: 2 } });
@@ -274,6 +274,8 @@ test.describe("emotes", () => {
           { timeout: 20_000, intervals: [0] },
         )
         .toBe(true);
+      // Only long tasks from the wheel count: one the runner hits while the room loads or settles is not the wheel's (OME-2401).
+      const opened = await page.evaluate(() => performance.now());
       await page.keyboard.press("t");
       await expect(page.getByRole("menu", { name: "Emotes" })).toBeVisible();
       await page.keyboard.press("ArrowRight");
@@ -282,10 +284,12 @@ test.describe("emotes", () => {
       await page.keyboard.press("t");
       await page.waitForTimeout(500);
       expect(await roomRenders(page)).toBe(last);
-      const long = await page.evaluate(() => {
+      const long = await page.evaluate((opened) => {
         const l: unknown = Reflect.get(window, "__longTasks");
-        return Array.isArray(l) ? l.filter((d): d is number => typeof d === "number" && d > 50) : [];
-      });
+        const mine = (t: unknown): t is { start: number; duration: number } =>
+          typeof t === "object" && t !== null && Reflect.get(t, "start") >= opened && Reflect.get(t, "duration") > 50;
+        return Array.isArray(l) ? l.filter(mine) : [];
+      }, opened);
       expect(long).toEqual([]);
     });
 
