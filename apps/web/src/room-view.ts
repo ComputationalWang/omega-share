@@ -1,13 +1,15 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
-import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
-import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
+import { Application, Container, Graphics, Sprite, ImageSource, Texture, Ticker } from "pixi.js";
+import { AVATAR_COUNT, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
-import { drawCursor } from "./cell-cursor";
 import { createSceneTags, type SceneTags } from "./scene-tags";
 import type { GlyphPaint } from "./reactions/glyphs";
 import tagPlainUrl from "../../../assets/ui/slices/tag-0.png?url";
+import cursorFreeUrl from "../../../assets/ui/slices/cursor-free.png?url";
+import cursorMineUrl from "../../../assets/ui/slices/cursor-mine.png?url";
+import cursorTakenUrl from "../../../assets/ui/slices/cursor-taken.png?url";
 import tagSelfUrl from "../../../assets/ui/slices/tag-self.png?url";
 import { standDepth, type CatWalker, type FurnitureSprite, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
@@ -106,8 +108,10 @@ export interface RoomView {
   headLift(id: MemberId): number | undefined;
   /** The owner editor's layer (set (h) grid and footprint markers): over the floor, rugs and walls, under seats and objects. */
   readonly editLayer: Container;
-  /** Free walking (OME-1350): the editor's cursor diamond on the floor cell under the pointer, or none. Draws once per change. `scale`: screen px per stage px. */
-  marker(cell: FloorCell | null, scale: number): void;
+  /** The hover cursor (OME-2307, atlas `cursor/<kind>`): its diamond centred on `at` (stage px), or none. Draws once per change. */
+  marker(at: Point | null, kind: CursorKind): void;
+  /** The cursor as painted (stage px), or null while hidden. */
+  cursor(): { kind: CursorKind; rect: { x: number; y: number; w: number; h: number } } | null;
   /** Draw once now, after the editor changed its layer. */
   redraw(): void;
   /** Full screen hides the room (OME-597): stop drawing until resumed, then draw once as things are now. */
@@ -159,6 +163,8 @@ export interface RoomView {
 const DIM_COLOR = 0x080612;
 const DIM_MS = 400;
 const DIM_STEPS = 8;
+
+export type CursorKind = "free" | "mine" | "taken";
 
 /** A slice PNG, decoded (the tag frames are inlined by Vite: no request). */
 async function sliceImage(url: string): Promise<HTMLImageElement> {
@@ -318,7 +324,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const editLayer = new Container({ label: "edit" });
   const markerLayer = new Container();
   // Free walking's hover diamond (OME-1350): on the floor, under seats and avatars; not in `drawOrder`.
-  const hover = new Graphics({ label: "walk-marker", visible: false });
+  const hover = new Sprite({ label: "walk-marker", visible: false, anchor: { x: 0.5, y: 16 / 33 } });
   const objectLayer = new Container({ sortableChildren: true });
   // The cinema dim (OME-1406) is part of the scene (OME-2307): over the room and the avatars, under the painted tags.
   const dimLayer = new Graphics({ label: "dim", alpha: 0, visible: false }).rect(0, 0, STAGE_W, STAGE_H).fill(DIM_COLOR);
@@ -329,7 +335,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Reaction glyphs (OME-2307) over the stickers, where the DOM layer stacked.
   const reactionLayer = new Container({ label: "reactions" });
   app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, dimLayer, tagLayer, emoteLayer, reactionLayer);
-  const [tagPlain, tagSelf] = await Promise.all([sliceImage(tagPlainUrl), sliceImage(tagSelfUrl)]);
+  const [tagPlain, tagSelf, curFree, curMine, curTaken] = await Promise.all([sliceImage(tagPlainUrl), sliceImage(tagSelfUrl), sliceImage(cursorFreeUrl), sliceImage(cursorMineUrl), sliceImage(cursorTakenUrl)]);
+  // The three cursor frames (64×33, anchor 32,16), one texture each, built once.
+  const cursorTexture = (img: HTMLImageElement): Texture => new Texture({ source: new ImageSource({ resource: img, scaleMode: "nearest" }) });
+  const cursorTextures: Record<CursorKind, Texture> = { free: cursorTexture(curFree), mine: cursorTexture(curMine), taken: cursorTexture(curTaken) };
+  let cursorKind: CursorKind = "free";
   const tags = createSceneTags(tagLayer, { plain: tagPlain, self: tagSelf });
   /** At most 12 sprites, made on a glyph's first use (reactions/glyphs.ts owns the pool size). */
   const glyphSprites: Sprite[] = [];
@@ -1379,18 +1389,24 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       }
     },
     editLayer,
-    marker(cell, scale) {
-      if (cell === null) {
+    marker(at, kind) {
+      if (at === null) {
         if (!hover.visible) return;
         hover.visible = false;
       } else {
-        drawCursor(hover, { col: cell.x, row: cell.y, wall: null }, scale);
+        const x = Math.round(at.x);
+        const y = Math.round(at.y);
+        if (hover.visible && cursorKind === kind && hover.x === x && hover.y === y) return;
+        if (hover.texture !== cursorTextures[kind]) hover.texture = cursorTextures[kind];
+        cursorKind = kind;
+        hover.position.set(x, y);
         hover.visible = true;
-        const b = hover.getBounds();
-        hoverBox = { x0: b.minX, y0: b.minY, x1: b.maxX, y1: b.maxY };
+        const b = boxOf(hover);
+        hoverBox = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 };
       }
       render();
     },
+    cursor: () => (hover.visible ? { kind: cursorKind, rect: { x: hover.x - hover.anchor.x * hover.texture.width, y: hover.y - hover.anchor.y * hover.texture.height, w: hover.texture.width, h: hover.texture.height } } : null),
     redraw: render,
     setPaused(next) {
       if (next === paused) return;
