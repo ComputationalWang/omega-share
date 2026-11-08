@@ -170,8 +170,9 @@ test("1280×800, the entry script held: the footer isn't drawn until the room vi
 });
 
 // OME-2394: while the wrap is hidden (until the first snapshot) every fit measures 0×0, so the TV is boxed 0×0 at its
-// left edge and the shelf 0 px wide. Left to the ResizeObserver, a loaded machine painted one frame of those boxes once the
-// wrap showed: the curtain and the shelf jumped right (room.coldCls.desktop 0.055). They're fitted as the wrap shows.
+// left edge and the shelf 0 px wide. A loaded machine painted one frame of those boxes once the wrap showed: the curtain
+// and the shelf jumped right (room.coldCls.desktop 0.055). OME-2397: fitted in the task that shows it, the forced layout
+// made the join's long task (join.theatre.longTask.slow4g 102 ms), so the wrap stays invisible until the next frame's fit.
 test("1280×800, a reload: the TV and its shelf are boxed when the wrap shows, not a frame later", async ({ browser }) => {
   const page = await open(browser, "shown1280", { viewport: { width: 1280, height: 800 } });
   await page.addInitScript(() => {
@@ -179,16 +180,17 @@ test("1280×800, a reload: the TV and its shelf are boxed when the wrap shows, n
     Reflect.set(window, "__shownBoxes", seen);
     new MutationObserver((ms) => {
       for (const m of ms) {
-        if (!(m.target instanceof HTMLElement) || !m.target.classList.contains("stage-wrap") || m.target.hidden) continue;
+        if (!(m.target instanceof HTMLElement) || !m.target.classList.contains("stage-wrap")) continue;
         const width = (s: string): string => document.querySelector<HTMLElement>(s)?.style.width ?? "none";
-        seen.push(`tv ${width(".tv.ui-tv-frame")}, shelf ${width(".controls.ui-tv-shelf")}`);
+        const shown = m.target.checkVisibility({ visibilityProperty: true });
+        seen.push(`${shown ? "shown" : "hidden"}: tv ${width(".tv.ui-tv-frame")}, shelf ${width(".controls.ui-tv-shelf")}`);
       }
-    }).observe(document, { subtree: true, attributes: true, attributeFilter: ["hidden"] });
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ["hidden", "class"] });
   });
   await page.reload();
   await expect(page.locator(site.tvEmpty)).toBeVisible();
-  const shown = await page.evaluate(() => Reflect.get(window, "__shownBoxes") as string[]);
-  expect(shown[0]).toBe("tv 356px, shelf 420px");
+  const seen = await page.evaluate(() => Reflect.get(window, "__shownBoxes") as string[]);
+  expect(seen.find((b) => b.startsWith("shown"))).toBe("shown: tv 356px, shelf 420px");
 });
 
 // OME-2300 (judge round 11): 1280×800's window looked from the walls' art (stage y 113), so the walls' corner and its post
