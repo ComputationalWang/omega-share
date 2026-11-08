@@ -186,6 +186,16 @@ for (const [name, options] of [
       for (const covered of [...(await lines.all()), ...(await keys.all())]) {
         if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
       }
+      if (width < 1024) {
+        // OME-2407 (judge round 15): on a phone the chip sat on the TV's bar, over the top bubbles, and sideways its foot
+        // on the room window. It sits off the bar and below the window's top 40 px (where the bubbles are).
+        expect(await overlaps(hint, page.getByRole("group", { name: "Playback controls" })), "TV bar").toBe(false);
+        const chip = await hint.boundingBox();
+        const win = await page.locator(site.roomWindow).boundingBox();
+        if (chip === null || win === null) throw new Error("not laid out");
+        const top40 = chip.x < win.x + win.width && win.x < chip.x + chip.width && chip.y < win.y + 40 && win.y < chip.y + chip.height;
+        expect(top40, "the room window's top 40 px").toBe(false);
+      }
       if (width < 600) {
         // Lines wholly inside the strip's box: at least 4 show while the video plays.
         const log = await page.locator(site.chatLog).boundingBox();

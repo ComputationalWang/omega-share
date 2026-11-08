@@ -48,6 +48,7 @@ async function setup(store: ReturnType<typeof memoryStore> | typeof blocked = me
       return anchors[step] ?? null;
     },
     tv: { box: tv.box, empty: () => tv.empty, picture: tv.picture, message: tv.message },
+    room: document.createElement("div"),
     next: () => after,
     touch: () => touch,
   });
