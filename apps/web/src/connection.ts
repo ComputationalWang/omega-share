@@ -1,4 +1,4 @@
-import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, parseServerMessage, type ClientMessage, type ResumeToken, type ServerMessage } from "@omega/shared";
+import { CLOSE_CODES, PING_ID_MAX, RATE_LIMITED_RECONNECT_MS, parseServerMessage, type ClientMessage, type ResumeToken, type ServerMessage } from "@omega/shared";
 
 /** The part of `WebSocket` we use, so tests can fake it. */
 export interface SocketLike {
@@ -49,6 +49,10 @@ export interface ConnectionOptions<Timer = unknown> {
   readonly resumeToken?: ResumeToken;
   /** [0, 1); defaults to Math.random. Spreads reconnects so clients don't stampede a restarted server. */
   readonly random?: () => number;
+  /**
+   * Notice a socket that went dark without a close (OME-2425): a KEEPALIVE_MS window with no frame sends a `ping`,
+   * and the probe drops the socket if nothing answers it.
+   */
   readonly keepalive?: boolean;
 }
 
@@ -75,6 +79,7 @@ export const BACKOFF_MAX_MS = 5000;
 const PROBE_TIMEOUT_MS = 3000;
 /** A socket with no snapshot by then is dropped and retried. */
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
+/** Keepalive check period: silence is caught within 2 windows plus the probe, under 10 s. */
 export const KEEPALIVE_MS = 2500;
 /**
  * How long a client that was in the room keeps retrying refused rejoins. The server holds a dead member's
@@ -114,6 +119,9 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   /** 4007 stopped us; only reclaim() restarts. */
   let replaced = false;
   let handshakeTimer: Timer | null = null;
+  let keepaliveTimer: Timer | null = null;
+  /** Frames since the last keepalive check: a counter, so a busy socket costs no timer churn. */
+  let frames = 0;
 
   const clearHandshake = (): void => {
     if (handshakeTimer !== null) opts.clearTimer(handshakeTimer);
@@ -123,6 +131,26 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   const clearProbe = (): void => {
     if (probeTimer !== null) opts.clearTimer(probeTimer);
     probeTimer = null;
+  };
+
+  const clearKeepalive = (): void => {
+    if (keepaliveTimer !== null) opts.clearTimer(keepaliveTimer);
+    keepaliveTimer = null;
+  };
+
+  const keepalive = (s: SocketLike): void => {
+    clearKeepalive();
+    keepaliveTimer = opts.setTimer(() => {
+      keepaliveTimer = null;
+      if (socket !== s || !open) return;
+      if (frames === 0) {
+        // The clock ignores a pong it didn't ask for; this id is the last it reaches before wrapping.
+        s.send(JSON.stringify({ type: "ping", id: PING_ID_MAX } satisfies ClientMessage));
+        ensureConnected({ probe: true });
+      }
+      frames = 0;
+      keepalive(s);
+    }, KEEPALIVE_MS);
   };
 
   const joinMessage = (): ClientMessage => {
@@ -147,6 +175,8 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
     }, HANDSHAKE_TIMEOUT_MS);
     s.onopen = () => {
       open = true;
+      frames = 0;
+      if (opts.keepalive === true) keepalive(s);
       opts.onOpen?.();
       s.send(JSON.stringify(joinMessage()));
     };
@@ -213,6 +243,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
     s.onmessage = (ev) => {
       // A socket we already let go of (close(), a reconnect) says nothing more.
       if (socket !== s) return;
+      frames++;
       if (typeof ev.data !== "string") return;
       const frame = parseServerMessage(ev.data);
       if (frame === null) return;
@@ -234,6 +265,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       socket = null;
       clearHandshake();
       clearProbe();
+      clearKeepalive();
       if (closed) return;
       if (ev.code === CLOSE_CODES.SESSION_REPLACED) {
         replaced = true;
@@ -322,6 +354,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       retryTimer = null;
       clearHandshake();
       clearProbe();
+      clearKeepalive();
       retryAfter = null;
       refusedRetry = false;
       // Forget the socket now: its close event may land after a resume(), and must not count for the new one.
