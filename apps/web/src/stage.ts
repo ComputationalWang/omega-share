@@ -101,6 +101,10 @@ export interface Stage {
   tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
   /** Hide the painted tags (or show them again), for e2e shots of the room without them. */
   hideTags(hidden: boolean): void;
+  /** Every chat bubble as painted, its member, text and box in CSS px from the viewport (the e2e contract, OME-2307 3c). */
+  bubbleRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number } }[];
+  /** Hide the painted bubbles (or show them again), for e2e pixel checks. */
+  hideBubbles(hidden: boolean): void;
   /** Where a member's painted tag hangs from now (stage px), for e2e walk paths: the DOM target no longer rides the walk. */
   tagAnchor(id: MemberId): Point | undefined;
   /** Where the last render put a member: where their walk in ends. */
@@ -917,6 +921,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led }];
       });
     },
+    bubbleRects: () => [],
+    hideBubbles: () => undefined,
     tagAnchor: (id) => anchors.get(id),
     hideTags: (hidden) => {
       view.tags.hide(hidden);

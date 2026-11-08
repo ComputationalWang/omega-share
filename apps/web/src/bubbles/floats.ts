@@ -113,7 +113,43 @@ export function windowToStage(boxes: readonly Box[], w: number, x0: number, x1: 
   return boxes.map((b) => ({ x0: x0 + b.x0 / k, x1: x0 + b.x1 / k, y0: y0 + b.y0 / k, y1: y0 + b.y1 / k }));
 }
 
+/** How a bubble looks to the painter (OME-2307): everything but where it is. Sizes are the DOM box's, CSS px unscaled. */
+export interface BubbleLook {
+  /** The line as shown (`/me` and `/think` stripped), and the speaker's name when the bubble shows it (stacked, an action), else "". */
+  readonly text: string;
+  readonly who: string;
+  readonly self: boolean;
+  readonly mention: boolean;
+  readonly shout: boolean;
+  readonly action: boolean;
+  readonly think: boolean;
+  readonly tint: string;
+  readonly stacked: boolean;
+  /** The tail: none (stacked), straight down, or leaning; its tip's x inside the box. */
+  readonly tail: "" | "s" | "sw" | "se";
+  readonly tailX: number;
+  readonly w: number;
+  readonly h: number;
+  /** Typing dots, and the lit one (-1: all). */
+  readonly typing: boolean;
+  readonly dot: number;
+  /** Shown this many times its size (the phone's label scale). */
+  readonly k: number;
+}
+
+/** Where the bubbles are painted (scene-bubbles.ts): one sprite per pool slot, told only what changed. */
+export interface BubblePaint {
+  /** True when the slot's look differs from the last one told (its canvas was redrawn). */
+  look(slot: number, l: BubbleLook): boolean;
+  /** The box's top-left (stage px) and opacity. */
+  place(slot: number, x: number, y: number, alpha: number): void;
+  drop(slot: number): void;
+}
+
 export interface FloatsOptions {
+  /** Paints the bubbles (the DOM ones keep their layout and paint nothing); `requestRender` draws the canvas once after a change. */
+  readonly paint?: BubblePaint;
+  readonly requestRender?: () => void;
   readonly reducedMotion: { readonly matches: boolean };
   readonly now: () => number;
   /** Runs the step clock: one timer at a time for the whole layer. */

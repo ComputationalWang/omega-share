@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { BubbleLook, BubblePaint } from "../src/bubbles/floats";
 
 // A real DOM for this file only; the other web tests stay DOM-free.
 beforeAll(() => {
@@ -24,7 +25,7 @@ interface Sized {
   readonly borderBoxSize: readonly { inlineSize: number; blockSize: number }[];
 }
 
-async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
+async function setup(o: { reduced?: boolean; nameW?: number; paint?: BubblePaint; requestRender?: () => void } = {}) {
   const { createFloats, FLOAT_LIFE_MS, FLOAT_LEAVE_MS } = await import("../src/bubbles/floats");
   const layer = document.createElement("div");
   layer.setAttribute("aria-live", "polite");
@@ -41,6 +42,8 @@ async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
   let onSizes: ((entries: readonly Sized[]) => void) | null = null;
   const floats = createFloats(layer, {
     reducedMotion: { matches: o.reduced ?? false },
+    ...(o.paint === undefined ? {} : { paint: o.paint }),
+    ...(o.requestRender === undefined ? {} : { requestRender: o.requestRender }),
     now: () => now,
     setTimer: (fn, ms) => {
       const h = nextHandle++;
@@ -1034,5 +1037,119 @@ describe("the room window's top (OME-2384)", () => {
     // The window lets go of its top: nothing to nudge under.
     floats.sides(420, 540, Number.NEGATIVE_INFINITY);
     expect(push("l1")).toBe("0px");
+  });
+});
+
+// OME-2307 3c: the bubbles are painted on the room canvas (scene-bubbles.ts). The DOM nodes keep the layout; floats tells
+// the painter each slot's box top-left, opacity and look, and asks for one canvas render after a step that changed a
+// sprite, none for a step that changed nothing, none on a walk frame (the canvas draws those anyway).
+describe("paint sink (OME-2307 3c)", () => {
+  function fakePaint() {
+    const places: { slot: number; x: number; y: number; alpha: number }[] = [];
+    const looks: { slot: number; l: BubbleLook }[] = [];
+    const drops: number[] = [];
+    let renders = 0;
+    const paint: BubblePaint = {
+      look(slot, l) {
+        looks.push({ slot, l });
+        return true;
+      },
+      place(slot, x, y, alpha) {
+        places.push({ slot, x, y, alpha });
+      },
+      drop(slot) {
+        drops.push(slot);
+      },
+    };
+    return {
+      paint,
+      places,
+      looks,
+      drops,
+      requestRender: () => {
+        renders++;
+      },
+      renders: () => renders,
+    };
+  }
+
+  test("a bubble sized in a frame is placed at its box's top-left with its look: one render", async () => {
+    const f = fakePaint();
+    const { floats, frame } = await setup({ paint: f.paint, requestRender: f.requestRender });
+    floats.say(say("a", "hi", 480, 300, { self: true, accent: "#e8b33c" }));
+    expect(f.places).toEqual([]);
+    expect(f.renders()).toBe(0);
+    frame();
+    // Centred on the head (x 480 - 50), the tail's tip 4 px under the head: top = 300 - (30 + 4).
+    expect(f.places.at(-1)).toEqual({ slot: 0, x: 430, y: 266, alpha: 1 });
+    expect(f.looks.at(-1)?.l).toMatchObject({ text: "hi", who: "", self: true, tint: "#e8b33c", stacked: false, tail: "s", tailX: 50, w: W, h: H, typing: false, k: 1 });
+    expect(f.renders()).toBe(1);
+  });
+
+  test("each step of the rise moves the sprite one pixel and asks for one render, and no look is told again", async () => {
+    const f = fakePaint();
+    const { floats, frame, advance } = await setup({ paint: f.paint, requestRender: f.requestRender });
+    floats.say(say("a", "hi", 480, 300));
+    frame();
+    const looks = f.looks.length;
+    const renders = f.renders();
+    advance(STEP + 1);
+    expect(f.places.at(-1)).toEqual({ slot: 0, x: 430, y: 265, alpha: 1 });
+    expect(f.renders()).toBe(renders + 1);
+    advance(STEP);
+    expect(f.places.at(-1)?.y).toBe(264);
+    expect(f.renders()).toBe(renders + 2);
+    expect(f.looks.length).toBe(looks);
+  });
+
+  test("a step that changes nothing renders nothing: reduced motion holds still until the fade", async () => {
+    const f = fakePaint();
+    const { floats, frame, advance } = await setup({ reduced: true, paint: f.paint, requestRender: f.requestRender });
+    floats.say(say("a", "hi", 480, 300));
+    frame();
+    const renders = f.renders();
+    const placed = f.places.length;
+    advance(3000);
+    expect(f.places.length).toBe(placed);
+    expect(f.renders()).toBe(renders);
+  });
+
+  test("the fade writes the sprite's opacity; the slot is dropped when the bubble goes", async () => {
+    const f = fakePaint();
+    const { floats, frame, advance, FLOAT_LIFE_MS } = await setup({ paint: f.paint, requestRender: f.requestRender });
+    floats.say(say("a", "hi", 480, 300));
+    frame();
+    advance(FLOAT_LIFE_MS - 300);
+    expect(f.places.at(-1)?.alpha).toBeLessThan(1);
+    expect(f.drops).toEqual([]);
+    const renders = f.renders();
+    advance(400);
+    expect(f.drops).toEqual([0]);
+    expect(f.renders()).toBeGreaterThan(renders);
+  });
+
+  test("a walk frame moves the sprite with the head and asks for no render of its own", async () => {
+    const f = fakePaint();
+    const { floats, frame } = await setup({ paint: f.paint, requestRender: f.requestRender });
+    floats.say(say("a", "hi", 480, 300));
+    frame();
+    const renders = f.renders();
+    floats.move("a", 500, 310);
+    expect(f.places.at(-1)).toEqual({ slot: 0, x: 450, y: 276, alpha: 1 });
+    expect(f.renders()).toBe(renders);
+  });
+
+  test("a stacked older bubble is told its look with the speaker's name and no tail; a leaning tail is told as such", async () => {
+    const f = fakePaint();
+    const { floats, frame } = await setup({ paint: f.paint, requestRender: f.requestRender });
+    floats.say(say("a", "older", 480, 300));
+    frame();
+    floats.say(say("a", "newer", 480, 300));
+    frame();
+    const older = f.looks.filter((x) => x.l.text === "older").at(-1)?.l;
+    expect(older).toMatchObject({ stacked: true, who: "name-a", tail: "" });
+    floats.say(say("b", "edge", 10, 300));
+    frame();
+    expect(f.looks.filter((x) => x.l.text === "edge").at(-1)?.l.tail).toBe("sw");
   });
 });

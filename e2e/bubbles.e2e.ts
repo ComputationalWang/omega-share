@@ -8,6 +8,7 @@ import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { clickClosing, joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { hideBubbles, roomBubbles } from "./support/tag-stack";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -69,9 +70,63 @@ test("the layer is aria-hidden with no live region, holds 16 nodes, and a bubble
   await say(a.page, "my own bubble");
   await expect(a.page.locator(site.chatMessage)).toHaveText(["first bubble", "my own bubble"], { useInnerText: true });
   await expect(a.page.locator(".ui-float.is-self")).toHaveCount(1);
+  // OME-2307 3c, deliberate: the bubbles are painted on the canvas now, so landing one renders the room (once per sprite
+  // change: a line's arrival, the fade's steps), where OME-1206 had it cost none. Under reduced motion nothing rises, so a
+  // second of bubbles at rest is at most the two arrivals; and once they've faded, an idle room renders nothing.
   await a.page.waitForTimeout(1000);
-  expect(await roomRenders(a.page)).toBe(before);
+  expect(await roomRenders(a.page)).toBeLessThanOrEqual(before + 4);
   await expect(layer.locator(".float-slot")).toHaveCount(16);
+  await expect(a.page.locator(site.chatMessage)).toHaveCount(0, { timeout: 7000 });
+  await settledRenders(a.page);
+});
+
+// OME-2307 3c: the bubbles are painted on the room canvas, the DOM bubble a transparent box that keeps the layout.
+test("a line is painted on the canvas inside the DOM bubble's box, which paints nothing itself", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "painted").url, count: 1, nicknamePrefix: "bd", contextOptions: () => ({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" }) });
+  const [a] = clients;
+  if (a === undefined) throw new Error("no client");
+  await say(a.page, "painted line");
+  const dom = a.page.locator(".ui-float.is-live").filter({ hasText: "painted line" });
+  await expect(dom).toHaveCount(1);
+  const css = await dom.evaluate((e) => {
+    const s = getComputedStyle(e);
+    return { border: s.borderImageSource, color: s.color, after: getComputedStyle(e, "::after").backgroundImage, before: getComputedStyle(e, "::before").backgroundColor };
+  });
+  expect(css, "the DOM bubble is a bare box").toEqual({ border: "none", color: "rgba(0, 0, 0, 0)", after: "none", before: "rgba(0, 0, 0, 0)" });
+  await a.page.waitForTimeout(600);
+  const box = await dom.boundingBox();
+  if (box === null) throw new Error("no DOM box");
+  const painted = (await roomBubbles(a.page)).find((b) => b.text === "painted line");
+  expect(painted, "a painted bubble").toBeDefined();
+  if (painted === undefined) return;
+  for (const [k, want] of [["x", box.x], ["y", box.y], ["width", box.width], ["height", box.height]] as const) expect(Math.abs(painted.rect[k] - want), k).toBeLessThanOrEqual(1);
+  // Hiding the painted bubbles changes the canvas inside their box: they are really drawn there.
+  const shown = await a.page.screenshot();
+  await hideBubbles(a.page, true);
+  const hidden = await a.page.screenshot();
+  await hideBubbles(a.page, false);
+  const changed = await a.page.evaluate(
+    async ({ a, b, r }) => {
+      const px = async (b64: string): Promise<{ d: Uint8ClampedArray; w: number }> => {
+        const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))], { type: "image/png" }));
+        const c = new OffscreenCanvas(bmp.width, bmp.height);
+        const g = c.getContext("2d");
+        if (g === null) throw new Error("no 2d");
+        g.drawImage(bmp, 0, 0);
+        return { d: g.getImageData(0, 0, bmp.width, bmp.height).data, w: bmp.width };
+      };
+      const [s, h] = [await px(a), await px(b)];
+      let n = 0;
+      for (let y = Math.ceil(r.y); y < Math.floor(r.y + r.height); y++)
+        for (let x = Math.ceil(r.x); x < Math.floor(r.x + r.width); x++) {
+          const i = (y * s.w + x) * 4;
+          if (s.d[i] !== h.d[i] || s.d[i + 1] !== h.d[i + 1] || s.d[i + 2] !== h.d[i + 2]) n++;
+        }
+      return n;
+    },
+    { a: shown.toString("base64"), b: hidden.toString("base64"), r: painted.rect },
+  );
+  expect(changed, "painted pixels in the bubble's box").toBeGreaterThan(200);
 });
 
 test("two bubbles from one speaker never overlap: the older one moves up, 3 px clear, and names its speaker", async ({ browser }) => {
