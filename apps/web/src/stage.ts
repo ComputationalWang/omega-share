@@ -101,6 +101,8 @@ export interface Stage {
   tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
   /** The reaction glyphs live now as painted: kind and box in CSS px from the viewport (e2e, OME-2307). */
   glyphRects(): { kind: ReactionKind; rect: { x: number; y: number; width: number; height: number } }[];
+  /** The hover cursor as painted: its kind and box in CSS px from the viewport, or null while hidden (e2e, OME-2307). */
+  cursorRect(): { kind: "free" | "mine" | "taken"; rect: { x: number; y: number; w: number; h: number } } | null;
   /** Hide the painted tags (or show them again), for e2e shots of the room without them. */
   hideTags(hidden: boolean): void;
   /** Where a member's painted tag hangs from now (stage px), for e2e walk paths: the DOM target no longer rides the walk. */
@@ -926,6 +928,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return r === undefined ? [] : [{ kind, rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k } }];
       });
     },
+    cursorRect: () => null,
     tagAnchor: (id) => anchors.get(id),
     hideTags: (hidden) => {
       view.tags.hide(hidden);
