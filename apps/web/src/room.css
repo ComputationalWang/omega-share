@@ -142,9 +142,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .mention-option { min-height: 28px; padding: 4px 8px; display: flex; align-items: center; cursor: pointer; border-radius: 4px; overflow-wrap: anywhere; }
 .mention-option[aria-selected="true"] { background: var(--ui-accent); color: var(--ui-bubble-text); }
 .ui-touch .mention-option { min-height: 44px; }
-/* The chat log (OME-594, set k): the strip's lines at 1× art. It scrolls; the first line's auto margin keeps a short log at the foot. */
+/* The chat log (OME-594, set k): the strip's lines at 1× art. It scrolls; a spacer one box tall keeps a short log at the foot
+ * (chat/log.ts sticks to it). Not an auto margin: that shrank with every line and moved the older ones up, a layout shift
+ * on everyone watching (OME-2383). With the spacer a line only adds to the foot, and the stick is a scroll, not a shift. */
 .chat-log { --ui-px: 1px; contain: content; justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; max-height: 168px; margin-top: 8px; padding: 4px; }
-.chat-log > :first-child { margin-top: auto; }
+.chat-log::before { content: ""; flex: none; height: 100%; }
 .chat-log:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
 .chat-log-sys .ui-sysline { max-width: 100%; }
 /* Held (pointer or focus inside): faded lines read as settled again (the ageing itself is held in chat/log.ts). */

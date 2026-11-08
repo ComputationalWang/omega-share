@@ -73,6 +73,25 @@ test("keyboard: Tab reaches the log and the message field, each with a visible f
   expect(await ring(site.chatInput)).not.toBe("none");
 });
 
+test("a new line never moves the older ones inside the log, on a member who doesn't type (OME-2383)", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("chat-log", "still").url, count: 2, nicknamePrefix: "cs", contextOptions: () => ({ viewport: { width: 1280, height: 800 } }) });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  const log = b.page.locator(site.chatLog);
+  await say(a.page, "first");
+  const first = log.locator(site.chatLogLine).filter({ hasText: "first" });
+  await expect(first).toBeVisible();
+  // Its place in the log's content (scroll-independent): a scroll to the foot is no layout shift, a pushed line is.
+  const place = (): Promise<number> => first.evaluate((e) => {
+    const box = e.closest("[role=log]");
+    return box === null ? Number.NaN : e.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+  });
+  const before = await place();
+  for (let n = 0; n < 4; n++) await say(a.page, `more ${String(n)}`);
+  await expect(log.locator(site.chatLogLine).filter({ hasText: "more 3" })).toBeInViewport();
+  expect(await place()).toBe(before);
+});
+
 test("lines settle at 6 s; under reduced motion the turn has no scrim frame", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("chat-log", "reduced").url, count: 1, nicknamePrefix: "cr" });
   const [a] = clients;
