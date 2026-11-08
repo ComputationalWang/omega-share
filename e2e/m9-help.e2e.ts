@@ -195,6 +195,12 @@ for (const [name, options] of [
         if (chip === null || win === null) throw new Error("not laid out");
         const top40 = chip.x < win.x + win.width && win.x < chip.x + chip.width && chip.y < win.y + 40 && win.y < chip.y + chip.height;
         expect(top40, "the room window's top 40 px").toBe(false);
+        // OME-2413: and 0 px² with the burst's bubbles, the name tags and the Room view key.
+        const floats = page.locator(`${site.room} .ui-float.is-live`);
+        expect(await floats.count(), "live bubbles").toBeGreaterThanOrEqual(1);
+        for (const covered of [...(await floats.all()), ...(await page.locator(`${site.nicknameTag}, ${site.roomViewKey}`).all())]) {
+          if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
+        }
       }
       if (width < 600) {
         // Lines wholly inside the strip's box: at least 4 show while the video plays.
