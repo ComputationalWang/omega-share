@@ -556,7 +556,6 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       });
   };
 
-  /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
   // The hover cursor (OME-2307): the floor's hover cell or a seat key's, painted by the view; the last to write owns it.
   let cursorOwner: "floor" | number | null = null;
   let seatTilePts: readonly Point[] = [];
@@ -587,6 +586,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       hideSeatCursor(i);
     });
   });
+  /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
   const applyLayout = (next: RoomLayout): void => {
     layout = next;
     const key = keyOfLayout(next);
