@@ -87,3 +87,24 @@ test("keyboard focus on a seat shows the cursor and keeps the focus ring", async
   await seat(a.page, 1).blur();
   await expect.poll(() => roomCursor(a.page)).toBeNull();
 });
+
+test("on a touch screen a compat mouse event shows no cursor (OME-2408)", async ({ browser }) => {
+  clients = await joinRoom(browser, {
+    roomUrl: testRoom("walk", "main").url,
+    count: 1,
+    nicknamePrefix: "touchcur",
+    contextOptions: () => ({ viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true }),
+  });
+  const [a] = clients;
+  if (a === undefined) throw new Error("no client");
+  expect(await a.page.evaluate(() => matchMedia("(hover: hover)").matches)).toBe(false);
+  // After a tap moves the room window, Chromium fires a compat enter typed "mouse" (OME-2408).
+  await seat(a.page, 0).dispatchEvent("pointerenter", { pointerType: "mouse" });
+  const box = await a.page.locator("canvas.scene").boundingBox();
+  if (box === null) throw new Error("no canvas");
+  const k = box.width / STAGE_W;
+  const p = cellCenter(2, 2);
+  await a.page.locator(".walk-floor").dispatchEvent("pointermove", { pointerType: "mouse", clientX: box.x + p.x * k, clientY: box.y + p.y * k });
+  await a.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  expect(await roomCursor(a.page)).toBeNull();
+});
