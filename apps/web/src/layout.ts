@@ -247,6 +247,11 @@ export function wideLayout(width: number, height: number, provider: Provider | n
 }
 
 
+/** A touch column's room beside its TV (OME-2406). */
+export function touchSideLayout(_width: number, _height: number, _provider: Provider): RoomLayout | null {
+  return null;
+}
+
 /**
  * Room view where the column holds the whole room (OME-2233, judge round 5): the shelf tops the TV's side, and the room's
  * box, walls' tops (with ROOM_HEAD's sky over them, less where the column is short) to the lowest name tag, sits under the
