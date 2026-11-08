@@ -1061,8 +1061,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     renderChatRow(s);
     invite.hidden = !shown.stage && !shown.reserve;
     invite.classList.toggle("is-reserved", shown.reserve);
-    // Hidden, every fit measured 0×0: fitted now, once what sizes it shows, not by the ResizeObserver a painted frame later (OME-2394).
-    if (layout.syncPortrait() || wrapShows) layout.fit();
+    // Hidden, every fit measured 0×0 (OME-2394): invisible until the next frame fits it. Fitted here, its forced layout
+    // landed in the join's long task (OME-2397).
+    if (wrapShows) {
+      wrap.classList.add("is-fitting");
+      requestAnimationFrame(() => {
+        layout.fit();
+        wrap.classList.remove("is-fitting");
+      });
+    }
+    if (layout.syncPortrait()) layout.fit();
     queuePanel.root.hidden = !shown.stage;
     const queueClaimed = queuePanel.update(s);
     cards.render(s);
