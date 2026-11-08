@@ -47,7 +47,8 @@ assets/
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
-  ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
+  ui/reference.css      # design spec for the DOM chrome (generated, comments stripped); apps/web ports what it needs.
+                        #   The commented copy is preview/ui-reference.css (OME-2433), likewise preview/ui-moments.css
   preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), m7.html + ui-m7-*@1x/@2x.png (set k, M7 layouts), store.html (set j store kit source),
                         #   owner-edit@1x/@2x.png (set h edit mode in the room),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated),
@@ -2038,3 +2039,26 @@ whole branch: `furniture.png` −310, `room.png` −29, `furniture-v8-shell.png`
 Judge round 8: in a 3× seated crop, Pip's cream beanie (42° hue) read close to a crowned Pip's gold crown (42°) and ginger hair (25°).
 The knit (`A` in `src/avatars.ts`) now uses the shared `glow` ramp (190–193°), ≥ 146° from both. The ribbed band and pom-pom still follow the
 shirt tint. No new colours. Net art +28 B (459 074 → 459 102 of 460 800, as `bun assets/src/build.ts` measures it).
+
+## Art headroom, rooms wave 26 (OME-2433)
+
+`bun assets/src/build.ts`, art total: **459 599 → 405 384 B of 460 800 (−54 215 B)**; eager 116 630 → 100 213, lazy 342 969 → 305 171.
+Nothing that ships looks or behaves differently, and no frame was dropped:
+
+- **PNG recompression (≈ −35 KB).** `src/png.ts` packs every IDAT with libdeflate at level 12 (built into Bun, no new dependency)
+  and keeps zlib level 9's stream when that is smaller, so no file grows. Same filters, PLTE and tRNS. Every rewritten PNG
+  decodes to the same indices as before (checked against `main` for all 247 changed PNGs), so the runtime PLTE swaps (tints, hairs,
+  recolours) are untouched. Two guards keep the bundle as it was: a file at or over 4 096 B never drops under it (apps/web's Vite
+  inlines smaller images as data: URLs, and `avatars.png` would have moved into the site stylesheet), and `site/` and `store/`
+  stay on zlib (outside the art budget, and the server serves them byte for byte).
+- **Compact atlas JSON (≈ −8 KB).** The atlases, `presets/presets.json` and `furniture/recolours.json` are written without
+  indentation. Each parses deep-equal to the old file. Vite bundles imported JSON as JS, so the whitespace never shipped.
+- **Comment-free generated CSS (≈ −11 KB).** `ui/reference.css` and `ui/moments.css` are written without comments, and Vite already
+  stripped them: `vite build` of apps/web gives byte-identical CSS bundles before and after. The commented spec lives on in
+  `preview/ui-reference.css` and `preview/ui-moments.css` (not shipped). `ui/popup/kit.css` keeps its comments, since the extension
+  copies it verbatim.
+
+Ruled out, measured: other zlib strategies and per-row adaptive filters (−75 B), trimming palettes (−324 B; recolour slots need the
+full PLTE), 1/2/4-bit depth for small palettes (−254 B), sorting frame keys (−1.3 KB), duplicate frames (only a few in
+`furniture-v2`). Every furniture piece is named in the shared catalogue, and hats are looked up for any frame an avatar shows, so
+no frame could be proven unreferenced.

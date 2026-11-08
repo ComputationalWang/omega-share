@@ -182,7 +182,7 @@ function buildAvatars(): Map<string, Uint8Array> {
       },
     },
   };
-  writeFileSync(join(dir, "avatars.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, "avatars.json"), JSON.stringify(atlas) + "\n");
   // Sheet preview at 4× on a mid-tone so outlines are visible.
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
@@ -394,7 +394,7 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
       },
     },
   };
-  writeFileSync(join(dir, "room.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, "room.json"), JSON.stringify(atlas) + "\n");
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 2).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "room-sheet@2x.png"), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
@@ -629,12 +629,12 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
       },
     },
   };
-  writeFileSync(join(dir, "ui.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, "ui.json"), JSON.stringify(atlas) + "\n");
   const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
   const edit = writeAtlas(dir, "edit", editKit, "ui");
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects) + moderationCss() + queueCss(rects) + fullscreenCss() + chatFloatCss(rects));
+  writeCss("ui/reference.css", referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects) + moderationCss() + queueCss(rects) + fullscreenCss() + chatFloatCss(rects));
   // Set (f): the extension popup is plain HTML, so its key icon ships as two standalone files (drawn 1× and 2×, not upscaled).
   mkdirSync(join(dir, "popup"), { recursive: true });
   for (const [file, k] of Object.entries(POPUP_ICONS)) {
@@ -697,7 +697,7 @@ function writeAtlas(dir: string, name: string, frames: readonly UiFrame[], set: 
   }
   writeFileSync(join(dir, `${name}.png`), encodeIndexedPng(w, h, sheet, PALETTE));
   const atlas = { frames: out, meta: { app: "omega-share assets/src/build.ts", version: "1", image: `${name}.png`, format: "RGBA8888", size: { w, h }, scale: "1", omega: { license: "CC-BY-SA-4.0", roomScale: 1, uiScale: 2 } } };
-  writeFileSync(join(dir, `${name}.json`), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, `${name}.json`), JSON.stringify(atlas) + "\n");
   return { rects: Object.fromEntries(Object.entries(out).map(([k, f]) => [k, f.frame])), size: { w, h } };
 }
 
@@ -899,7 +899,7 @@ function buildMotion(base: Map<string, Uint8Array>): void {
       },
     },
   };
-  writeFileSync(join(dir, "motion.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, "motion.json"), JSON.stringify(atlas) + "\n");
   const all = new Map<string, { img: Uint8Array; w: number; h: number }>(images);
   for (const [k, img] of base) all.set(k, { img, w: CELL.w, h: CELL.h });
   buildMotionPreviews(all);
@@ -998,7 +998,7 @@ function buildExpressions(base: Map<string, Uint8Array>): void {
       },
     },
   };
-  writeFileSync(join(dir, "expressions.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, "expressions.json"), JSON.stringify(atlas) + "\n");
   const all = new Map<string, { img: Uint8Array; w: number; h: number }>(images);
   for (const [k, img] of base) all.set(k, { img, w: CELL.w, h: CELL.h });
   // Strip: per avatar a cheer row and a yawn row, each the base pose then frames 0 and 1, poses × (se, ne) (sw/nw are their mirrors).
@@ -1112,7 +1112,7 @@ function buildWatching(base: Map<string, Uint8Array>, furniture: { pieces: reado
       },
     },
   };
-  writeFileSync(join(dir, "watching.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, "watching.json"), JSON.stringify(atlas) + "\n");
   // Strip: per avatar, the plain seated back (sit/<dir>/0) then base, laugh 0–1, gasp 0–1, for ne and nw.
   const all = new Map<string, { img: Uint8Array; w: number; h: number }>();
   for (const [k, img] of [...base, ...images]) all.set(k, { img, w: CELL.w, h: CELL.h });
@@ -1514,7 +1514,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
       },
     },
   };
-  writeFileSync(join(dir, `${name}.json`), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, `${name}.json`), JSON.stringify(atlas) + "\n");
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 2).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", `${name}-atlas@2x.png`), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
@@ -1985,7 +1985,7 @@ function buildDungeon(pieces: readonly PieceMeta[], all0: FurnSprites): void {
       },
     },
   };
-  writeFileSync(join(ROOT, "avatars", "dungeon.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(ROOT, "avatars", "dungeon.json"), JSON.stringify(atlas) + "\n");
 
   // Strip: per avatar and dir, the plain idle then bend over and thrust 0–2; then each pair mid-emote (thrust 0 and 2).
   const strips = new Map<string, { img: Uint8Array; w: number; h: number }>();
@@ -2563,7 +2563,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   });
   if (bytes > PRESET_THUMBS_MAX) throw new Error(`preset thumbnails are ${String(bytes)} B, over ${String(PRESET_THUMBS_MAX)}`);
   const manifest = { version: 1, license: "CC-BY-SA-4.0", default: "classic", thumb: { ...THUMB, scale: THUMB_SCALE }, presets: index };
-  writeFileSync(join(dir, "presets.json"), JSON.stringify(manifest, null, 1) + "\n");
+  writeFileSync(join(dir, "presets.json"), JSON.stringify(manifest) + "\n");
   console.log(`presets (set n): ${String(PRESETS.length)} thumbnails ${String(bytes)} B of ${String(PRESET_THUMBS_MAX)}`);
   // Previews: thumbnails 3 across at 3× on the night page, then the same rooms at full size.
   const G = 4, cols = 3, rows = Math.ceil(PRESETS.length / cols);
@@ -2657,7 +2657,7 @@ function buildTheme(t: ThemeDef, avatarImages: Map<string, Uint8Array>): void {
       },
     },
   };
-  writeFileSync(join(dir, `${id}.json`), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, `${id}.json`), JSON.stringify(atlas) + "\n");
   // Previews: the sheet, a hat contact strip, and the classic room dressed for the theme.
   const big = upscale(sheet, packed.w, packed.h, 2).map((v) => (v === 0 ? colorIndex("wall", 1) : v));
   writeFileSync(join(ROOT, "preview", `${id}-sheet@2x.png`), encodeIndexedPng(packed.w * 2, packed.h * 2, big, PALETTE));
@@ -2859,11 +2859,18 @@ function buildReactions(): void {
   const { animations, omega } = reactionAnims();
   const atlas = { frames: out, animations, meta: { app: "omega-share assets/src/build.ts", version: "1", image: "reactions.png", format: "RGBA8888", size: REACT_SHEET, scale: "1", omega } };
   writeFileSync(join(ROOT, "ui", "reactions.json"), JSON.stringify(atlas) + "\n");
-  writeFileSync(join(ROOT, "ui", "moments.css"), momentsCss(at));
+  writeCss("ui/moments.css", momentsCss(at));
   // Preview: the sheet at 4× on the wall shade (not shipped).
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, REACT_SHEET.w, REACT_SHEET.h, 4).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "reactions-sheet@4x.png"), encodeIndexedPng(REACT_SHEET.w * 4, REACT_SHEET.h * 4, big, PALETTE));
+}
+
+/** OME-2433: generated CSS is written without its comments, which Vite drops from the bundle anyway, so the art budget counts what
+ *  ships. The commented copy, the readable design spec, goes to preview/ (not shipped). */
+function writeCss(file: string, css: string): void {
+  writeFileSync(join(ROOT, file), `/* GENERATED by assets/src/build.ts, CC BY-SA 4.0; commented spec: assets/preview/${file.replace("/", "-")} */\n` + css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n"));
+  writeFileSync(join(ROOT, "preview", file.replace("/", "-")), css);
 }
 
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
@@ -2914,7 +2921,7 @@ function buildStore(): void {
   mkdirSync(join(ROOT, "store"), { recursive: true });
   for (const f of [...buildStoreIcons(), ...buildToolbarIcons()]) {
     const small = compactPalette(f.pixels);
-    writeFileSync(join(ROOT, "store", f.file), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
+    writeFileSync(join(ROOT, "store", f.file), encodeIndexedPng(f.w, f.h, small.pixels, small.palette, 0, "zlib"));
   }
   // OME-1041: the rejected "found" directions, for preview/popup-kit.html only (A: a flat glow dot; C: the screen off until found).
   mkdirSync(join(ROOT, "preview", "toolbar"), { recursive: true });
@@ -2931,7 +2938,8 @@ function buildSite(src: SiteSources): void {
   mkdirSync(join(ROOT, "site"), { recursive: true });
   const write = (f: { file: string; w: number; h: number; pixels: Uint8Array }): Uint8Array => {
     const small = compactPalette(f.pixels);
-    const png = encodeIndexedPng(f.w, f.h, small.pixels, small.palette);
+    // zlib: these are outside the art budget and copied byte for byte by the server (apps/server site.test.ts).
+    const png = encodeIndexedPng(f.w, f.h, small.pixels, small.palette, 0, "zlib");
     writeFileSync(join(ROOT, "site", f.file), png);
     return png;
   };
@@ -2956,7 +2964,7 @@ function buildTints(): void {
 
 /** Furniture recolours (OME-1462): the PLTE-swap table and a contact sheet of every variant at 1× and 2×. No sheet bytes change. */
 function buildRecolours(): void {
-  writeFileSync(join(ROOT, "furniture", "recolours.json"), JSON.stringify(recoloursTable(), null, 1) + "\n");
+  writeFileSync(join(ROOT, "furniture", "recolours.json"), JSON.stringify(recoloursTable()) + "\n");
   const c = recolourSheet();
   writeFileSync(join(ROOT, "preview", "recolours-sheet@1x.png"), encodeIndexedPng(c.w, c.h, c.img, c.palette));
   writeFileSync(join(ROOT, "preview", "recolours-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
