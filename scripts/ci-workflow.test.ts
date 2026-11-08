@@ -72,6 +72,18 @@ describe(".github/workflows/check.yml", () => {
     expect(install).toMatch(new RegExp(`echo "[0-9a-f]{64} {2}${(tarball ?? "?").replace(/\./g, "\\.")}" \\| sha256sum -c -`));
     expect(install).toContain(`tar xzf ${tarball ?? "?"} `);
   });
+
+  // OME-2404: a Releases 5xx outage kept check red for hours. The binary is cached by version; a miss retries the
+  // download, then builds the same version from crates.io (locked) instead of failing the gate.
+  test("caches cargo-deny by version and survives a Releases outage", () => {
+    const steps = load().jobs["check"]?.steps ?? [];
+    const install = steps.find((s) => s.run?.includes("cargo-deny") === true)?.run ?? "";
+    const version = /releases\/download\/(\d+\.\d+\.\d+)\//.exec(install)?.[1] ?? "?";
+    const cache = steps.find((s) => s.uses?.startsWith("actions/cache@") === true && String(s.with?.["path"]).includes("cargo-deny"));
+    expect(String(cache?.with?.["key"])).toContain(`cargo-deny-${version}`);
+    expect(install).toMatch(/curl [^\n]*--retry \d+[^\n]*--retry-all-errors/);
+    expect(install).toContain(`cargo install --locked cargo-deny --version ${version}`);
+  });
 });
 
 // `bun run check` is the gate (ADR 0039 §7); its Rust half (ADR 0050) must keep every check.
