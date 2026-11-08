@@ -2067,15 +2067,14 @@ no frame could be proven unreferenced.
 
 The shipped set from the OME-2434 concepts (judge PASS 32/40; concept previews `preview/c-wave26-*`). Source: `src/wave26.ts`, same
 palette (no new colours), Kit ray-caster, plum outline and top-left light. Two new lazy sheets in the v8 pattern (tight height, filter
-Up, identical frames deduped to one rect). Everything else that ships is byte-identical except `furniture/recolours.json`.
+Up, identical frames deduped to one rect). Everything else that ships is byte-identical.
 
 | file | what | bytes |
 |---|---|---|
-| `furniture/furniture-v9.png` + `.json` (512×755) | `stage/boards`, `vanity/bulbs`, `rack/costumes`, `partition/{velvet,wings,tank,tunnel}`, their loops, the tunnel's front layer, the stage's and vanity's turned views | 23 741 + 1 728 gz |
+| `furniture/furniture-v9.png` + `.json` (512×755) | `stage/boards`, `vanity/bulbs`, `rack/costumes`, `partition/{velvet,wings,tank,tunnel}`, their loops, the tunnel's front layer, the stage's and vanity's turned views, `meta.omega.recolours` (the bubble column) | 23 741 + 1 852 gz |
 | `furniture/furniture-v9-shell.png` + `.json` (512×453) | club brick and deep-water walls, the split segments, sand and the split floors | 10 061 + 676 gz |
-| `furniture/recolours.json` | + `lavalamp` → `bubbles` (variant 1) | +33 gz |
 | `presets/thumbs/stage-door.png`, `reef.png` | the preset thumbs with the rooms' own skins, `compactPalette`d. **Written by `buildPresets` once OME-2439 adds the two presets** (the presets test forbids a thumb with no preset) | 4 399 + 4 109 |
-| **total** | `main` 405 384 → 441 623 B now, **450 131 B of 460 800** with the thumbs (+44 747; eager +8 508 thumbs, the rest lazy) | |
+| **total** | `main` 405 384 → 441 714 B now, **450 222 B of 460 800** with the thumbs (+44 838; eager +8 508 thumbs, the rest lazy) | |
 
 **Thumb cap:** the ten shipped thumbs are 35 550 B; with these two, 44 058 B, over `PRESET_THUMBS_MAX` (40 960, `src/build.ts`) and the
 literal in `src/presets.test.ts`. OME-2439 raises both (≥ 45 056 suggested).
@@ -2110,6 +2109,9 @@ wall screen and lava lamp).
 - **Two-deep loops** now go through `useFrames` like any piece: `kitImage` centres a two-deep model on its footprint as `pieceFrames`
   does (`anchorOf` in `src/furniture.ts`). No shipped frame moved.
 - **`lavalamp/bubbles`:** a runtime PLTE swap of the v8 lava lamp (pink blobs → glow, navy glass → teal), its loop frames included.
+  The entry is in **`furniture-v9.json` `meta.omega.recolours.lavalamp`**, in `recolours.json`'s shape (sheet `furniture/furniture-v8.png`,
+  frames `furniture/lavalamp/lilac/`, slots, variant 1 `bubbles`), not in `recolours.json`: the web's schema for that file lists the
+  sheets it swaps, and a v8 entry fails its parse. Moving it there later is a one-line change once the web takes v8 (`AMBIENT_RECOLOURS`).
 
 ### Shell skin (`furniture-v9-shell`, the room atlas's rects and anchors)
 
