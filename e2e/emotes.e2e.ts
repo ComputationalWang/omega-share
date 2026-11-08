@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
-import { tagBox } from "./support/tag-stack";
+import { roomBubbles, tagBox } from "./support/tag-stack";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -137,12 +137,8 @@ test.describe("emotes", () => {
       await expect(page.locator(site.chatLogLine).filter({ hasText: "/think" })).toHaveCount(0);
       const bubble = page.locator(".ui-float", { has: page.locator(site.chatMessage, { hasText: "is this live?" }) });
       await expect(bubble).toHaveClass(/is-think/);
-      // A cloud, not the speech sprite: rounded, no border-image; its tail is two small circles.
-      const look = await bubble.evaluate((e) => ({ image: getComputedStyle(e).borderImageSource, radius: getComputedStyle(e).borderTopLeftRadius, tail: getComputedStyle(e, "::after").backgroundImage, font: getComputedStyle(e.querySelector(".say") ?? e).fontStyle }));
-      expect(look.image).toBe("none");
-      expect(look.radius).not.toBe("0px");
-      expect(look.tail).toContain("radial-gradient");
-      expect(look.font).toBe("italic");
+      // Painted as a cloud, not the speech sprite (OME-2307 3c: the DOM bubble is a bare layout box).
+      await expect.poll(async () => (await roomBubbles(page)).find((x) => x.text === "is this live?")?.think).toBe(true);
     }
   });
 

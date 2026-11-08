@@ -37,7 +37,7 @@ export async function hideTags(page: Page, hidden: boolean): Promise<void> {
   }, hidden);
 }
 
-const BubbleSchema = v.object({ member: v.string(), text: v.string(), rect: RectSchema });
+const BubbleSchema = v.object({ member: v.string(), text: v.string(), think: v.boolean(), rect: RectSchema });
 export type RoomBubble = v.InferOutput<typeof BubbleSchema>;
 
 /** Every chat bubble painted in the room (OME-2307 3c): the room handle's `bubbles()`, in CSS px from the viewport. */

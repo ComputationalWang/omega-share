@@ -119,7 +119,7 @@ export interface RoomHandle {
   /** The name tags as painted (stage.ts `tagRects`): `[{member, text, rect}]` in CSS px, for e2e tag geometry (OME-2307). */
   readonly tags: () => ReturnType<Stage["tagRects"]>;
   readonly hideTags: (hidden: boolean) => void;
-  /** The chat bubbles as painted (stage.ts `bubbleRects`): `[{member, text, rect}]` in CSS px (OME-2307 3c). */
+  /** The chat bubbles as painted (stage.ts `bubbleRects`): `[{member, text, think, rect}]` in CSS px (OME-2307 3c). */
   readonly bubbles: () => ReturnType<Stage["bubbleRects"]>;
   readonly hideBubbles: (hidden: boolean) => void;
   /** Where a member's painted tag hangs from (stage.ts `tagAnchor`), for e2e walk paths (OME-2307). */
@@ -1650,5 +1650,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     .catch((e: unknown) => {
       console.warn("sound: not loaded", e);
     });
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), hideTags: (h) => { roomStage.hideTags(h); }, bubbles: () => roomStage.bubbleRects(), hideBubbles: (h) => { roomStage.hideBubbles(h); },tagAnchor: (id) => roomStage.tagAnchor(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), hideTags: (h) => { roomStage.hideTags(h); }, bubbles: () => roomStage.bubbleRects(), hideBubbles: (h) => { roomStage.hideBubbles(h); }, tagAnchor: (id) => roomStage.tagAnchor(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }
