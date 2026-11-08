@@ -42,7 +42,18 @@ export interface ReactionGlyphs {
   destroy(): void;
 }
 
-export function createReactionGlyphs(layer: HTMLElement, o: GlyphOptions): ReactionGlyphs {
+/** Where glyphs are painted (the room view's pooled sprites), and the render request. Type stub (red commit). */
+export interface GlyphPaint {
+  show(i: number, frame: string, x: number, y: number, alpha: number): void;
+  hide(i: number): void;
+  render(): void;
+}
+export const glyphFrame = (_kind: ReactionKind): string => "";
+export function createReactionGlyphs(_paint: GlyphPaint, _o: GlyphOptions): ReactionGlyphs & { active(): { kind: ReactionKind; i: number }[] } {
+  return { burst: () => 0, live: () => 0, active: () => [], destroy() {} };
+}
+
+export function createReactionGlyphsDom(layer: HTMLElement, o: GlyphOptions): ReactionGlyphs {
   layer.setAttribute("aria-hidden", "true");
   const nodes: HTMLElement[] = [];
   const born = new Float64Array(GLYPH_POOL);
