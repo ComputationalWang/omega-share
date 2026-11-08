@@ -4,7 +4,7 @@
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, type FloorCell, type MemberId, type ReactionKind, type RoomLayout } from "@omega/shared";
 import type { Texture } from "pixi.js";
-import { createFloats, windowToStage } from "./bubbles/floats";
+import { createFloats, windowToStage, type BubblePaint } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
@@ -297,7 +297,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
   };
-  const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), ...timers });
+  // The bubbles are painted in the scene (OME-2307 3c); the DOM ones keep the layout. `view` exists by the first measured bubble.
+  const paint: BubblePaint = { look: (slot, l) => view.bubbles.look(slot, l), place: (slot, x, y, alpha) => { view.bubbles.place(slot, x, y, alpha); }, drop: (slot) => { view.bubbles.drop(slot); } };
+  const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), paint, requestRender: () => { view.redraw(); }, ...timers });
   const handoff = createHandoff();
   const speaking = new Set<MemberId>();
   /** Who shows typing dots, so a member who left takes theirs along. */
@@ -921,8 +923,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led }];
       });
     },
-    bubbleRects: () => [],
-    hideBubbles: () => undefined,
+    bubbleRects: () => {
+      const c = view.canvas.getBoundingClientRect();
+      const k = c.width / STAGE_W;
+      return view.bubbles.rects().map((b) => ({ member: b.look.member, text: b.look.text, rect: { x: c.left + b.x * k, y: c.top + b.y * k, width: b.w * k, height: b.h * k } }));
+    },
+    hideBubbles: (hidden) => {
+      view.bubbles.hide(hidden);
+      view.redraw();
+    },
     tagAnchor: (id) => anchors.get(id),
     hideTags: (hidden) => {
       view.tags.hide(hidden);

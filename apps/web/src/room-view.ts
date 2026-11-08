@@ -5,9 +5,15 @@ import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "
 import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
+import { createSceneBubbles, type SceneBubbles } from "./scene-bubbles";
 import { createSceneTags, type SceneTags } from "./scene-tags";
 import tagPlainUrl from "../../../assets/ui/slices/tag-0.png?url";
 import tagSelfUrl from "../../../assets/ui/slices/tag-self.png?url";
+import bubblePlainUrl from "../../../assets/ui/slices/bubble-float.png?url";
+import bubbleSelfUrl from "../../../assets/ui/slices/bubble-float-self.png?url";
+import bubbleTailSUrl from "../../../assets/ui/slices/bubble-tail-s.png?url";
+import bubbleTailSwUrl from "../../../assets/ui/slices/bubble-tail-sw.png?url";
+import bubbleTailSeUrl from "../../../assets/ui/slices/bubble-tail-se.png?url";
 import { standDepth, type CatWalker, type FurnitureSprite, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
@@ -147,6 +153,8 @@ export interface RoomView {
   reactionsAllowed(): boolean;
   /** The name tags painted over everyone (OME-2307); the stage places them. */
   readonly tags: SceneTags;
+  /** The chat bubbles painted over the tags (OME-2307 3c); floats.ts tells it where each is. */
+  readonly bubbles: SceneBubbles;
   /** The cinema dim over the room (OME-1406), under the tags (OME-2307): fades to `alpha` over DIM_MS in DIM_STEPS renders. */
   dim(alpha: number): void;
   destroy(): void;
@@ -321,11 +329,14 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const dimLayer = new Graphics({ label: "dim", alpha: 0, visible: false }).rect(0, 0, STAGE_W, STAGE_H).fill(DIM_COLOR);
   // Name tags over everyone (OME-2307), under the emote stickers, which float over the head and the tag on it.
   const tagLayer = new Container({ label: "tags" });
+  // Chat bubbles (OME-2307 3c) over the tags, newest nearest the heads (floats.ts orders them), under the emote stickers.
+  const bubbleLayer = new Container({ label: "bubbles" });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, dimLayer, tagLayer, emoteLayer);
-  const [tagPlain, tagSelf] = await Promise.all([sliceImage(tagPlainUrl), sliceImage(tagSelfUrl)]);
+  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, dimLayer, tagLayer, bubbleLayer, emoteLayer);
+  const [tagPlain, tagSelf, bubblePlain, bubbleSelf, tailS, tailSw, tailSe] = await Promise.all([sliceImage(tagPlainUrl), sliceImage(tagSelfUrl), sliceImage(bubblePlainUrl), sliceImage(bubbleSelfUrl), sliceImage(bubbleTailSUrl), sliceImage(bubbleTailSwUrl), sliceImage(bubbleTailSeUrl)]);
   const tags = createSceneTags(tagLayer, { plain: tagPlain, self: tagSelf });
+  const bubbles = createSceneBubbles(bubbleLayer, { plain: bubblePlain, self: bubbleSelf, tail: { s: tailS, sw: tailSw, se: tailSe } });
   let dimTo = 0;
   let dimTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1360,6 +1371,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     paused: () => paused,
     renders: () => renders,
     tags,
+    bubbles,
     dim(alpha) {
       if (alpha === dimTo) return;
       dimTo = alpha;

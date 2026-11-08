@@ -134,6 +134,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .ui-float .dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
 .ui-float[data-dot] .dots i { opacity: 0.35; }
 .ui-float[data-dot="0"] .dots i:nth-child(1), .ui-float[data-dot="1"] .dots i:nth-child(2), .ui-float[data-dot="2"] .dots i:nth-child(3) { opacity: 1; }
+/* The bubbles are painted on the room canvas (OME-2307 3c, scene-bubbles.ts): the DOM bubble keeps its box (floats.ts reads
+ * its size from a ResizeObserver and lays everything out by it) and paints nothing: no frame, rim, ring, thought, tail,
+ * edge or ink (not display: none or visibility: hidden, which would drop its box). */
+.bubbles .ui-float.ui-float { border-image: none; background: none; box-shadow: none; outline: none; color: transparent; }
+.bubbles .ui-float::before, .bubbles .ui-float::after { content: none; background: none; }
 .chat { display: flex; gap: 8px; margin-top: 8px; position: relative; }
 /* @-completion (OME-1531): the listbox sits over the composer's start. Options are not focusable (the field keeps focus
  * with aria-activedescendant); 44 px tall to the touch. Ink on the panel: --ui-text on --ui-panel, 13:1. */

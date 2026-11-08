@@ -115,6 +115,8 @@ export function windowToStage(boxes: readonly Box[], w: number, x0: number, x1: 
 
 /** How a bubble looks to the painter (OME-2307): everything but where it is. Sizes are the DOM box's, CSS px unscaled. */
 export interface BubbleLook {
+  /** Whose it is (the e2e contract reads it). */
+  readonly member: MemberId;
   /** The line as shown (`/me` and `/think` stripped), and the speaker's name when the bubble shows it (stacked, an action), else "". */
   readonly text: string;
   readonly who: string;
@@ -135,6 +137,11 @@ export interface BubbleLook {
   readonly dot: number;
   /** Shown this many times its size (the phone's label scale). */
   readonly k: number;
+}
+
+/** Whether two looks paint the same pixels. */
+export function sameLook(a: BubbleLook | null, b: BubbleLook): boolean {
+  return a !== null && a.member === b.member && a.text === b.text && a.who === b.who && a.self === b.self && a.mention === b.mention && a.shout === b.shout && a.action === b.action && a.think === b.think && a.tint === b.tint && a.stacked === b.stacked && a.tail === b.tail && a.tailX === b.tailX && a.w === b.w && a.h === b.h && a.typing === b.typing && a.dot === b.dot && a.k === b.k;
 }
 
 /** Where the bubbles are painted (scene-bubbles.ts): one sprite per pool slot, told only what changed. */
@@ -232,6 +239,14 @@ interface Slot {
   alpha: number;
   /** Sent away: it goes at this time, the clock woken for it between steps (OME-2373). */
   leaveAt: number;
+  /** Its place in the pool: the painter's slot. */
+  readonly idx: number;
+  /** What the painter was told (OME-2307 3c): its look, and the box top-left and opacity; `placed` false: nothing, or dropped. */
+  told: BubbleLook | null;
+  placed: boolean;
+  px: number;
+  py: number;
+  pa: number;
 }
 
 const px = (n: number): string => `${String(n)}px`;
@@ -242,7 +257,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const watch = (o.watch ?? resizeWatch)((entries) => {
     sized(entries);
   });
-  const slots: Slot[] = Array.from({ length: FLOAT_POOL }, () => {
+  const slots: Slot[] = Array.from({ length: FLOAT_POOL }, (_, idx) => {
     // One text node each, rewritten in place: a message inserts no node.
     const textNode = document.createTextNode("");
     const text = el("span");
@@ -265,8 +280,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const outer = el("div", { className: "float-slot", hidden: true });
     outer.append(motion, twin);
     layer.append(outer);
-    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, lift: 0, col: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
+    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, lift: 0, col: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0, idx, told: null, placed: false, px: 0, py: 0, pa: 1 };
   });
+  /** A sprite changed since the last render asked for (OME-2307 3c): `commit` asks for one. */
+  let dirty = false;
   /** Typing on, not yet a whole step: no node yet (where their head is, and since when). */
   const waiting = new Map<MemberId, { x: number; y: number; since: number }>();
   /** Live bubbles, newest first, rebuilt per resolve (no allocation). */
@@ -294,8 +311,67 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     return top - sweep(s) + SLACK < b.y1 && top - s.rise + (s.h + (s.stacked ? 0 : TAIL_BELOW)) * k > b.y0 + SLACK;
   };
 
+  /** The tail's tip x inside the box (the speaker's x, kept `TAIL_MIN` off the sides). */
+  const tailXOf = (s: Slot): number => Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
+
+  /**
+   * Tell the painter where `s` is and how it looks (OME-2307 3c), only what changed: the box's top-left and opacity as the
+   * DOM bubble's writes leave them (anchor + dx, up by its size, the push and the rise), and its look.
+   */
+  const sync = (s: Slot): void => {
+    const paint = o.paint;
+    if (paint === undefined || s.state === FREE || !s.measured || s.speaker === null) return;
+    const tailX = tailXOf(s);
+    const l: BubbleLook = {
+      member: s.speaker,
+      text: s.textNode.data,
+      who: s.who.hidden ? "" : s.whoText.data,
+      self: s.p.classList.contains("is-self"),
+      mention: s.p.classList.contains("is-mention"),
+      shout: s.p.classList.contains("is-shout"),
+      action: s.p.classList.contains("is-action"),
+      think: s.p.classList.contains("is-think"),
+      tint: s.p.style.getPropertyValue("--tint"),
+      stacked: s.stacked,
+      tail: s.stacked ? "" : tailX < TAIL_S_REACH ? "sw" : tailX > s.w - TAIL_S_REACH ? "se" : "s",
+      tailX,
+      w: s.w,
+      h: s.h,
+      typing: s.typing,
+      dot: s.dot,
+      k,
+    };
+    if (!sameLook(s.told, l)) {
+      s.told = l;
+      if (paint.look(s.idx, l)) dirty = true;
+    }
+    const x = s.ax + s.dx;
+    const y = s.ay - (s.h + TAIL_BELOW) * k - s.lift - s.rise;
+    if (s.placed && x === s.px && y === s.py && s.alpha === s.pa) return;
+    s.placed = true;
+    s.px = x;
+    s.py = y;
+    s.pa = s.alpha;
+    paint.place(s.idx, x, y, s.alpha);
+    dirty = true;
+  };
+
+  /** After a batch of writes: every slot told what changed, then one render asked for if anything did (never when nothing did). */
+  const commit = (): void => {
+    for (const s of slots) sync(s);
+    if (!dirty) return;
+    dirty = false;
+    o.requestRender?.();
+  };
+
   /** Back to the pool; `hide` false when the node is reused at once (it stays shown: one attribute write fewer). */
   const free = (s: Slot, hide = true): void => {
+    if (s.placed) {
+      o.paint?.drop(s.idx);
+      s.placed = false;
+      dirty = true;
+    }
+    s.told = null;
     s.state = FREE;
     s.speaker = null;
     watch.unobserve(s.p);
@@ -361,6 +437,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       waiting.delete(id);
       startTyping(id, w.x, w.y, now);
     }
+    commit();
     if (any || waiting.size > 0) run(now);
   };
 
@@ -414,7 +491,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       else if (lFits) left = l;
     }
     s.dx = left - Math.round(s.ax);
-    const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
+    const tailX = tailXOf(s);
     // A transform, not left/top: re-placing it is no layout shift (OME-2349).
     s.p.style.translate = `${px(s.dx / k)} ${px(-(s.h + TAIL_BELOW))}`;
     s.p.style.setProperty("--tail-x", px(tailX));
@@ -599,7 +676,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         break;
       }
     }
-    if (any) resolve();
+    if (any) {
+      resolve();
+      commit();
+    }
   };
 
   /** A node for `id`: a free one first, then the oldest leaving one, then the oldest on screen. */
@@ -708,6 +788,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       if (!on) {
         waiting.delete(id);
         for (const t of slots) if (t.typing && t.speaker === id) free(t);
+        commit();
         return;
       }
       // One already up or waiting; a leaving one is left to go.
@@ -724,7 +805,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         w.x = x;
         w.y = y;
       }
-      for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, x, y);
+      // A walk frame draws the canvas itself: the sprite follows the head, asking for no render of its own.
+      const was = dirty;
+      for (const s of slots) {
+        if (s.state === FREE || s.speaker !== id) continue;
+        anchor(s, x, y);
+        sync(s);
+      }
+      dirty = was;
     },
     settle(id, x, y) {
       let any = false;
@@ -735,10 +823,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         placeBox(s);
         any = true;
       }
-      if (any) resolve();
+      if (any) {
+        resolve();
+        commit();
+      }
     },
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !s.typing && !ids.has(s.speaker)) free(s);
+      commit();
     },
     sides(x0, x1, y0 = Number.NEGATIVE_INFINITY) {
       const t = Math.max(ROOM_VIEW.y, Number.isFinite(y0) ? y0 : Number.NEGATIVE_INFINITY);
@@ -748,11 +840,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       sideT = t;
       for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
       resolve();
+      commit();
     },
     avoid(boxes) {
       over = boxes;
       for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
       resolve();
+      commit();
     },
     tags(boxes) {
       // Seen at the next resolve (a line, a walk's end): a tag that moves under a bubble already up doesn't push it.
@@ -771,6 +865,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         setPush(s, push);
       }
       resolve();
+      commit();
     },
   };
 }
