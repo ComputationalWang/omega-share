@@ -6,6 +6,7 @@ import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { roomTags } from "./support/tag-stack";
 import { presetFile, showLayout } from "../perf/show-layout";
 import { TAG_H, cellCenter } from "../apps/web/src/layout";
 import { HEAD_H, HEAD_W, TAG_GAP } from "../apps/web/src/tag-stack";
@@ -26,23 +27,22 @@ const CELLS = [[4, 4], [5, 4], [4, 5], [5, 5], [6, 4], [4, 6]] as const;
 async function tags(page: Client["page"]): Promise<{ name: string; box: [number, number, number, number]; nearest: string }[]> {
   // `head()` is the point over the tag on the head (stage.ts overOf); the head's centre is under that tag.
   const down = TAG_GAP + TAG_H + HEAD_H / 2;
-  return page.evaluate((down) => {
+  const heads = await page.evaluate((down) => {
     const room = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { members: { id: string; nickname: string }[] } }; head: (id: string) => { x: number; y: number } | undefined };
     const floor = document.querySelector('[data-testid="walk-floor"]');
     if (!(floor instanceof HTMLElement)) return [];
     const f = floor.getBoundingClientRect();
     const k = f.width / floor.offsetWidth;
-    const heads = room.state().room.members.flatMap((m) => {
+    return room.state().room.members.flatMap((m) => {
       const h = room.head(m.id);
       return h === undefined ? [] : [{ name: m.nickname, x: f.left + h.x * k, y: f.top + (h.y + down) * k }];
     });
-    return [...document.querySelectorAll<HTMLElement>(".tag")].map((e) => {
-      const r = e.getBoundingClientRect();
-      const [cx, cy] = [(r.left + r.right) / 2, (r.top + r.bottom) / 2];
-      const nearest = heads.reduce((a, b) => (Math.hypot(b.x - cx, b.y - cy) < Math.hypot(a.x - cx, a.y - cy) ? b : a));
-      return { name: e.querySelector(".tag-name")?.textContent ?? "", box: [r.left, r.top, r.right, r.bottom] as [number, number, number, number], nearest: nearest.name };
-    });
   }, down);
+  return (await roomTags(page)).map(({ text, rect: r }) => {
+    const [cx, cy] = [r.x + r.width / 2, r.y + r.height / 2];
+    const nearest = heads.reduce((a, b) => (Math.hypot(b.x - cx, b.y - cy) < Math.hypot(a.x - cx, a.y - cy) ? b : a));
+    return { name: text, box: [r.x, r.y, r.x + r.width, r.y + r.height] as [number, number, number, number], nearest: nearest.name };
+  });
 }
 
 function overlapping(t: Awaited<ReturnType<typeof tags>>): string[] {
@@ -162,13 +162,8 @@ test("six seated in classic at 1280×800: each tag 2–6 px over its drawn head,
   const names = sitters.map((c) => c.nickname).filter((n) => n in at);
   expect(names.length, JSON.stringify(Object.keys(at))).toBe(6);
   interface B { l: number; r: number; t: number; b: number }
-  const tagBoxes = (): Promise<Record<string, B>> =>
-    watcher.page.evaluate(() =>
-      Object.fromEntries([...document.querySelectorAll<HTMLElement>(".tag")].map((e) => {
-        const r = e.getBoundingClientRect();
-        return [e.querySelector(".tag-name")?.textContent ?? "", { l: r.left, r: r.right, t: r.top, b: r.bottom }];
-      })),
-    );
+  const tagBoxes = async (): Promise<Record<string, B>> =>
+    Object.fromEntries((await roomTags(watcher.page)).map(({ text, rect: r }) => [text, { l: r.x, r: r.x + r.width, t: r.y, b: r.y + r.height }]));
   const tags = await tagBoxes();
   // The room without its tags (DOM over the canvas), as pixels.
   const shot = async (): Promise<Buffer> => {
