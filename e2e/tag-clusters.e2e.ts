@@ -256,6 +256,9 @@ test("tags are painted on the canvas: the DOM tag paints nothing, hiding the pai
     return { border: s.borderImageSource, color: s.color, underline: getComputedStyle(e, "::after").content };
   });
   expect(dom, "the DOM tag is a bare target").toEqual({ border: "none", color: "rgba(0, 0, 0, 0)", underline: "none" });
+  // The video plays, so the room is dimmed: in the scene, under the painted tags, not by a DOM layer over them.
+  await expect(watcher.page.locator(".cinema-dim.is-on")).toHaveCSS("box-shadow", /rgba\(8, 6, 18, 0\.45\)/);
+  await expect(watcher.page.locator(".cinema-dim.is-on")).toHaveCSS("background-color", "rgba(8, 6, 18, 0)");
   await watcher.page.waitForTimeout(1500);
   const shown = await watcher.page.screenshot();
   await hideTags(watcher.page, true);
