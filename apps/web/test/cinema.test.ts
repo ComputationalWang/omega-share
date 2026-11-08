@@ -115,13 +115,15 @@ describe("the room mood on the dim layer", () => {
 
 describe("room.css", () => {
   const css = readFileSync(new URL("../src/room.css", import.meta.url), "utf8");
-  test("the layer fills the stage, lets clicks through, and fades in over 400 ms in CSS (no canvas filter)", () => {
+  test("the layer fills the stage, lets clicks through, and fades its spread in over 400 ms in CSS (no canvas filter)", () => {
     const rule = /\.cinema-dim\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
     expect(rule).toMatch(/inset:\s*0/);
     expect(rule).toMatch(/pointer-events:\s*none/);
-    // The mood holds the layer visible, so the dim fades its background colour, not the layer's opacity (OME-1502).
-    expect(rule).toMatch(/transition:\s*background-color 400ms/);
-    expect(css).toMatch(/\.cinema-dim\.is-on\s*\{[^}]*background-color:\s*rgb\(8 6 18 \/ 0\.45\)/);
+    // The mood holds the layer visible, so the dim fades its spread, not the layer's opacity (OME-1502). Over the stage
+    // the scene paints the dim under the name tags (OME-2307): the layer's own background stays clear.
+    expect(rule).toMatch(/transition:\s*box-shadow 400ms/);
+    expect(css).toMatch(/\.cinema-dim\.is-on\s*\{[^}]*box-shadow:\s*0 0 0 100vmax rgb\(8 6 18 \/ 0\.45\)/);
+    expect(css).not.toMatch(/\.cinema-dim[^{]*\{[^}]*background-color:\s*rgb\(8 6 18 \/ 0\.[1-9]/);
     expect(css).not.toMatch(/filter:\s*brightness/);
   });
   test("each mood is a fixed rgba tint with a blend mode; none has no rule (OME-1502)", () => {
