@@ -64,25 +64,25 @@ async function seatTagAt(page: Page, seat: number): Promise<string> {
 
 /** Every distinct transform `nickname`'s tag takes on `page` over `ms`, sampled each frame from now. */
 async function tagPath(page: Page, nickname: string, ms: number): Promise<string[]> {
-  const tag = page.locator(site.nicknameTag).filter({ hasText: nickname });
-  await expect(tag).toHaveCount(1);
-  const handle = await tag.elementHandle();
+  await expect(page.locator(site.nicknameTag).filter({ hasText: nickname })).toHaveCount(1);
   return page.evaluate(
-    ([el, duration]) =>
+    ([nick, duration]) =>
       new Promise<string[]>((resolve) => {
         const seen: string[] = [];
         const end = performance.now() + duration;
         const tick = (): void => {
-          // A tag hangs from the translate property ("x y", or "x" when y is 0, OME-1184), read as translate(x, y).
-          const [x, y = "0px"] = (el as HTMLElement).style.translate.split(" ");
-          const t = x === undefined || x === "" ? "" : `translate(${x}, ${y})`;
+          // The painted tag's anchor (room.tagAnchor, OME-2307: the DOM target no longer rides the walk), as translate(x, y).
+          const room = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { members: { id: string; nickname: string }[] } | null }; tagAnchor: (id: string) => { x: number; y: number } | undefined };
+          const id = room.state().room?.members.find((m) => m.nickname === nick)?.id;
+          const p = id === undefined ? undefined : room.tagAnchor(id);
+          const t = p === undefined ? "" : `translate(${String(p.x)}px, ${String(p.y)}px)`;
           if (seen.at(-1) !== t) seen.push(t);
           if (performance.now() < end) requestAnimationFrame(tick);
           else resolve(seen);
         };
         requestAnimationFrame(tick);
       }),
-    [handle, ms] as const,
+    [nickname, ms] as const,
   );
 }
 
