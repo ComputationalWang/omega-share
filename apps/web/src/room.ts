@@ -118,6 +118,8 @@ export interface RoomHandle {
   readonly avatarFrames: (id: MemberId) => { avatar: string | null; sticker: string | null } | undefined;
   /** The name tags as painted (stage.ts `tagRects`): `[{member, text, rect}]` in CSS px, for e2e tag geometry (OME-2307). */
   readonly tags: () => ReturnType<Stage["tagRects"]>;
+  /** The reaction glyphs live now as painted: `[{kind, rect}]` in CSS px (OME-2307). */
+  readonly reactions: () => ReturnType<Stage["glyphRects"]>;
   readonly hideTags: (hidden: boolean) => void;
   /** Where a member's painted tag hangs from (stage.ts `tagAnchor`), for e2e walk paths (OME-2307). */
   readonly tagAnchor: (id: MemberId) => Point | undefined;
@@ -1655,5 +1657,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     .catch((e: unknown) => {
       console.warn("sound: not loaded", e);
     });
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), hideTags: (h) => { roomStage.hideTags(h); }, tagAnchor: (id) => roomStage.tagAnchor(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), reactions: () => roomStage.glyphRects(), hideTags: (h) => { roomStage.hideTags(h); }, tagAnchor: (id) => roomStage.tagAnchor(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }

@@ -99,6 +99,8 @@ export interface Stage {
   tag(id: MemberId): Point | undefined;
   /** Every name tag as painted, its text and box in CSS px from the viewport (the e2e test contract, OME-2307). */
   tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
+  /** The reaction glyphs live now as painted: kind and box in CSS px from the viewport (e2e, OME-2307). */
+  glyphRects(): { kind: ReactionKind; rect: { x: number; y: number; width: number; height: number } }[];
   /** Hide the painted tags (or show them again), for e2e shots of the room without them. */
   hideTags(hidden: boolean): void;
   /** Where a member's painted tag hangs from now (stage px), for e2e walk paths: the DOM target no longer rides the walk. */
@@ -306,8 +308,6 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     else typers.delete(id);
   };
   const badges = createEmoteBadges(bubbles, timers);
-  const reactionLayer = el("div", { className: "reactions" });
-  const glyphs = createReactionGlyphs(reactionLayer, { allowed: () => view.reactionsAllowed(), now: () => performance.now(), ...timers });
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
@@ -365,10 +365,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       o.onStop?.(id);
     },
   });
+  const glyphs = createReactionGlyphs(view.glyphs, { allowed: () => view.reactionsAllowed(), now: () => performance.now(), ...timers });
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
+  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
   // The cinema dim's layer (cinema.ts) keeps its spread past the stage; over the stage the scene paints it, under the tags
   // (OME-2307). Its class and mood flip on play, pause, the editor and a mood change: never per frame.
   const dimEl = o.dim;
@@ -915,6 +916,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         const r = view.tags.rect(member);
         const led = (tagAt.get(member) ?? aboveHead(member)).led;
         return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led }];
+      });
+    },
+    glyphRects: () => {
+      const c = view.canvas.getBoundingClientRect();
+      const k = c.width / STAGE_W;
+      return glyphs.active().flatMap(({ kind, i }) => {
+        const r = view.glyphs.rect(i);
+        return r === undefined ? [] : [{ kind, rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k } }];
       });
     },
     tagAnchor: (id) => anchors.get(id),
