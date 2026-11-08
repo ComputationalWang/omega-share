@@ -41,7 +41,7 @@ import {
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
-import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
+import { AMBIENT_RECOLOURS, recolourEntry, recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { WAVE2, buildWave2Pieces, buildWave2Previews, buildWave2Shell, wave2Thumb } from "./wave2";
@@ -1413,7 +1413,8 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   // OME-2440: rooms wave 26 (Stage Door, Reef Tunnel), the same two-sheet pattern as v8.
   const w26 = buildWave26Sheets();
   for (const f of [...w26.frames, ...w26.shell]) if (all.has(f.key)) throw new Error(`wave 26: ${f.key} is already shipped`);
-  writeFurnitureAtlas("furniture-v9", w26.frames, w26.pieces, 512, true, true);
+  // `recolours`: recolours.json's entry shape, for kinds whose source frames sit on a lazy sheet (the bubble column's lava lamp).
+  writeFurnitureAtlas("furniture-v9", w26.frames, w26.pieces, 512, true, true, { recolours: Object.fromEntries(Object.entries(AMBIENT_RECOLOURS).map(([k, r]) => [k, recolourEntry(r)])) });
   writeFurnitureAtlas("furniture-v9-shell", w26.shell, [], 512, true, true);
   WAVE26 = w26;
   for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
@@ -1453,7 +1454,7 @@ function paneMasks(frames: readonly RoomFrame[]): RoomFrame[] {
 }
 
 /** `furniture/<name>.png` + `.json` (PixiJS v8 atlas, `meta.omega.pieces`) and its `preview/<name>-atlas@2x.png`. */
-function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces: readonly PieceMeta[], maxW: number, dedupe = false, lean = false): void {
+function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces: readonly PieceMeta[], maxW: number, dedupe = false, lean = false, extra: object = {}): void {
   // With `dedupe`, identical frames (a loop's frame that equals the idle one, say) share one rect: same pixels, size and anchor.
   // shortcut: off for v1/v2, whose shipped packing it would reshuffle; turn it on there at their next repack.
   const firstOf = new Map<string, RoomFrame>();
@@ -1519,6 +1520,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         ...(pieces.some((p) => p.walk) ? { walkKey: "furniture/<id>/<colour>/walk/<dir>/<n>", sitKey: "furniture/<id>/<colour>/sit/<dir>", bedKey: "furniture/<id>/<colour>/bed/<dir>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
         pieces,
+        ...extra,
       },
     },
   };

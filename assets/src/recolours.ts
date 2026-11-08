@@ -50,8 +50,9 @@ export const RECOLOURS: Readonly<Record<string, Recolour>> = {
   wallshelf: { sheet: "furniture/furniture-v2.png", frames: "furniture/wallshelf/wood/", thumb: "thumb/wallshelf/wood", existing: 1, from: ["wood", "teal"], variants: [{ id: "cream", to: ["cream", "teal"] }, { id: "teal", to: ["teal", "rust"] }] },
 };
 
-/** Recolours of wave-2+ kinds (ADR 0058), in recolours.json alongside RECOLOURS but not in its catalogue contact sheet (their frames
- *  are on the lazy v8 sheet, outside the catalogue build). OME-2440: the lava lamp's bubble column for Reef Tunnel, pink blobs →
+/** Recolours of wave-2+ kinds (ADR 0058). Not in recolours.json: the web's schema for it lists the sheets it swaps, and these
+ *  frames are on the lazy v8 sheet. They ship in the atlas meta of the sheet whose rooms use them (`meta.omega.recolours`, the same
+ *  entry shape). OME-2440: the lava lamp's bubble column for Reef Tunnel, pink blobs →
  *  glow bubbles and navy glass → teal water (the brass stays). Its loop frames share the `frames` prefix, so they swap too. */
 export const AMBIENT_RECOLOURS: Readonly<Record<string, Recolour>> = {
   lavalamp: { sheet: "furniture/furniture-v8.png", frames: "furniture/lavalamp/lilac/", existing: 1, from: ["pink", "navy"], variants: [{ id: "bubbles", to: ["glow", "teal"] }] },
@@ -67,24 +68,24 @@ export function recolourRemap(r: Recolour, variant: number): Map<number, number>
   return new Map(r.from.flatMap((f, i) => TONES.map((t) => [colorIndex(f, t), colorIndex(i === 0 && t === 2 && v.shade ? v.shade : (v.to[i] ?? f), t)] as [number, number])));
 }
 
+/** One kind's entry, in recolours.json's shape: slots and the swapped colours per new variant. */
+export function recolourEntry(r: Recolour): object {
+  return {
+    sheet: r.sheet,
+    frames: r.frames,
+    ...(r.thumb ? { thumb: r.thumb } : {}),
+    slots: r.from.flatMap((f) => TONES.map((t) => colorIndex(f, t))),
+    variants: r.variants.map((v, i) => ({ variant: r.existing + i, id: v.id, colors: v.to.flatMap((t, i) => RAMPS[t].map((h, k) => (i === 0 && k === 2 && v.shade ? RAMPS[v.shade][2] : h))) })),
+  };
+}
+
 /** furniture/recolours.json: what the client needs for the PLTE swap. */
 export function recoloursTable(): object {
   return {
     license: "CC-BY-SA-4.0",
     method:
       "runtime PLTE swap: in a copy of `sheet` replace PLTE entry slots[i] with colors[i] and use that copy only for the frames whose key starts with `frames` (the source colour's); do the same in a copy of ui/edit.png for `thumb`. Layout variant `variant` draws those frames; its tray chip is swatch/<id>",
-    kinds: Object.fromEntries(
-      Object.entries({ ...RECOLOURS, ...AMBIENT_RECOLOURS }).map(([kind, r]) => [
-        kind,
-        {
-          sheet: r.sheet,
-          frames: r.frames,
-          ...(r.thumb ? { thumb: r.thumb } : {}),
-          slots: r.from.flatMap((f) => TONES.map((t) => colorIndex(f, t))),
-          variants: r.variants.map((v, i) => ({ variant: r.existing + i, id: v.id, colors: v.to.flatMap((t, i) => RAMPS[t].map((h, k) => (i === 0 && k === 2 && v.shade ? RAMPS[v.shade][2] : h))) })),
-        },
-      ]),
-    ),
+    kinds: Object.fromEntries(Object.entries(RECOLOURS).map(([kind, r]) => [kind, recolourEntry(r)])),
   };
 }
 
