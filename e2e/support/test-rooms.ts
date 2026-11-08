@@ -60,7 +60,7 @@ export const SPEC_ROOMS = {
   "m8-wheel": ["gchat", "gfield", "gdialog", "gime", "gmods", "pick", "close", "outside", "keys", "cool", "walk", "axe", "reduced"],
   "m8-bubbles": ["float", "cap", "reduced", "aria", "abuse", "overlap", "batch"],
   "m8-walk": ["gates", "forced", "latch", "arrival", "abuse"],
-  "m9-help": ["hint", "hintesc", "help", "helpkey", "touch", "reduced", "kbkey", "kbq", "tvw", "tvp", "tvl", "tvn", "emw", "emp", "eml", "emtap", "onep", "onel", "chatw", "chatp"],
+  "m9-help": ["hint", "hintesc", "help", "helpkey", "touch", "reduced", "kbkey", "kbq", "tvw", "tvp", "tvl", "tvn", "emw", "emp", "eml", "emtap", "onep", "onel", "chatw", "chatp", "chatl"],
   "m9-hide": ["main", "tag", "popchat", "poproom", "reconn", "typing", "desk", "tablet"],
   motion: ["enter", "desk", "reduced"],
   "m10-portrait": ["360", "390", "people360", "people390", "qrow360", "qrow412"],

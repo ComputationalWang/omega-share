@@ -93,8 +93,11 @@ export interface Floats {
    * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
    */
   scale(k: number): void;
-  /** The phone's room window settled on stage x `x0`–`x1` (OME-1945): the boxes keep inside those sides, not the stage's. */
-  sides(x0: number, x1: number): void;
+  /**
+   * The phone's room window settled on stage x `x0`–`x1` (OME-1945): the boxes keep inside those sides, not the stage's;
+   * and under its top `y0` (OME-2384), when it has one.
+   */
+  sides(x0: number, x1: number, y0?: number): void;
   /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
   typing(id: MemberId, on: boolean, at: Point): void;
   /** What hangs over the room (stage px): Room view's corner TV and its shelf (OME-2349). Bubbles keep clear of it. */
@@ -240,6 +243,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   /** The sides the boxes keep inside (stage px): the stage's, or the phone window's once it settles (OME-1945). */
   let sideL = 0;
   let sideR = STAGE_W;
+  /** The top the boxes keep under (stage px): the room's view's, or the phone window's (OME-2384). */
+  let sideT = ROOM_VIEW.y;
   /** What hangs over the room (OME-2349, `avoid`), and the members' tags (`tags`), stage px. */
   let over: readonly Box[] = [];
   let tagBoxes: ReadonlyMap<MemberId, Box> = new Map();
@@ -458,7 +463,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       if (s === undefined) continue;
-      let push = climb(s, i, s.push);
+      // The newest is never sent away: over a head near the top, it's nudged down so its whole rise stays inside (OME-2384).
+      let push = i === 0 ? Math.min(climb(s, i, 0), s.ay - (s.h + TAIL_BELOW) * k - sweep(s) - sideT) : climb(s, i, s.push);
       let gone = out(s, i, push);
       // Before it goes, the stack-only plan tries the nearest column beside it, right first (OME-2368: a cluster's lines
       // otherwise all share one column), and it keeps that column; a spilled column climbs from the heads afresh.
@@ -698,10 +704,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !s.typing && !ids.has(s.speaker)) free(s);
     },
-    sides(x0, x1) {
-      if (x0 === sideL && x1 === sideR) return;
+    sides(x0, x1, y0 = Number.NEGATIVE_INFINITY) {
+      const t = Math.max(ROOM_VIEW.y, Number.isFinite(y0) ? y0 : Number.NEGATIVE_INFINITY);
+      if (x0 === sideL && x1 === sideR && t === sideT) return;
       sideL = x0;
       sideR = x1;
+      sideT = t;
       for (const s of slots) if (s.state !== FREE && s.measured) placeBox(s);
       resolve();
     },
