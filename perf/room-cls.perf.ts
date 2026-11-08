@@ -303,7 +303,7 @@ for (const profile of ["desktop", "portrait", "landscape"] as const) {
       let live: { close: (o: { code: number }) => void } | undefined;
       await page.routeWebSocket(/./, (ws) => {
         if (refuse) {
-          ws.close({ code: 1012 });
+          void ws.close({ code: 1012 });
           return;
         }
         ws.connectToServer();
