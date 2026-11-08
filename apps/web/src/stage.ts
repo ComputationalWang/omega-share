@@ -101,6 +101,8 @@ export interface Stage {
   tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
   /** Hide the painted tags (or show them again), for e2e shots of the room without them. */
   hideTags(hidden: boolean): void;
+  /** Where a member's painted tag hangs from now (stage px), for e2e walk paths: the DOM target no longer rides the walk. */
+  tagAnchor(id: MemberId): Point | undefined;
   /** Where the last render put a member: where their walk in ends. */
   spot(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
@@ -197,6 +199,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
   const placeTag = (id: MemberId, x: number, y: number, dom: boolean): boolean => {
     const at = { x, y: y + TAG_OFFSET_Y };
+    anchors.set(id, at);
     const moved = tagAt.get(id) ?? aboveHead(id);
     const tag = tagEls.get(id);
     if (tag === undefined) return false;
@@ -230,6 +233,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
     return changed;
   };
+  /** Where each painted tag hangs from (stage px: its owner's point, TAG_OFFSET_Y down), for e2e walk paths. */
+  const anchors = new Map<MemberId, Point>();
   const stack = createTagStacker();
   /** Stack the tags of everyone standing still and place every tag. */
   const restack = (): void => {
@@ -773,6 +778,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       settling.delete(id);
       tagEls.delete(id);
       nameW.delete(e);
+      anchors.delete(id);
       view.tags.drop(id);
       padEls.get(id)?.remove();
       padEls.delete(id);
@@ -874,11 +880,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     labelScale: (k) => {
       floats.scale(k);
-      // Whole scales only (OME-2307): the painted 9-slice and its text stay crisp. The DOM targets wear the same (room.css --tag-scale).
-      const tk = Math.max(1, Math.min(Math.round(k), Math.floor(TAG_MAX_SCALE)));
+      const tk = Math.min(k, TAG_MAX_SCALE);
       if (tk !== labelK) {
         labelK = tk;
-        tags.style.setProperty("--tag-scale", String(tk));
         restack();
       }
     },
@@ -913,6 +917,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led }];
       });
     },
+    tagAnchor: (id) => anchors.get(id),
     hideTags: (hidden) => {
       view.tags.hide(hidden);
       view.redraw();

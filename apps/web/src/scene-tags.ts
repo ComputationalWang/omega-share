@@ -37,7 +37,7 @@ export interface TagLook {
 export interface SceneTags {
   /** Paint a member's tag as `look`; false when it already looked so. */
   look(id: string, look: TagLook): boolean;
-  /** Its top-left (stage px), its whole scale, and its leader pip: none, under the tag (`above`: it's over the head) or over it. */
+  /** Its top-left (stage px), its scale (the phone's readable-zoom label scale), and its leader pip: none, under the tag (`above`: it's over the head) or over it. */
   place(id: string, x: number, y: number, k: number, led: boolean, above: boolean): boolean;
   drop(id: string): void;
   /** Hide them all (e2e shots of the room without tags). */
@@ -87,7 +87,8 @@ export function createSceneTags(layer: Container, frames: { readonly plain: HTML
     const l = n.look;
     const a = n.at;
     if (l === null || a === null) return;
-    const k = a.k;
+    // Drawn at the next whole scale, so its pixels and text stay crisp, and shown at `a.k` (the sprite's scale, place).
+    const k = Math.ceil(a.k - 1e-6);
     const w = Math.max(1, Math.round(l.w * k));
     const h = TAG_H * k;
     const top = PIP * k;
@@ -150,7 +151,8 @@ export function createSceneTags(layer: Container, frames: { readonly plain: HTML
       if (a !== null && a.x === x && a.y === y && a.k === k && a.led === led && a.above === above) return false;
       n.at = { x, y, k, led, above };
       n.sprite.position.set(x, y - PIP * k);
-      if (a?.k !== k || a.led !== led || a.above !== above) draw(n);
+      n.sprite.scale.set(k / Math.ceil(k - 1e-6));
+      if (Math.ceil((a?.k ?? 0) - 1e-6) !== Math.ceil(k - 1e-6) || a?.led !== led || a.above !== above) draw(n);
       return true;
     },
     drop(id) {

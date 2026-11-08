@@ -82,7 +82,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
 .seat[data-occupied="true"]:not(.mine):hover, .seat[data-occupied="true"]:not(.mine):focus-visible { background: transparent; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
-/* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --tag-scale (below) grows
+/* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --label-scale (below) grows
  * them around their anchor. */
 .tag { position: absolute; left: 0; top: 0; transform: translateX(-50%); transform-origin: 0 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -344,9 +344,8 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * OME-1184): a tag grows around its anchor, a bubble around its speaker's head (the motion wrapper sits on the slot's
  * anchor; floats.ts `scale` places it). */
 .stage-clip:is(.is-phone, .is-fit) :is(.tag, .tag-pad, .float-motion) { transform-origin: 0 0; scale: var(--label-scale, 1); }
-/* …but a tag grows by whole steps, as its painted twin (stage.ts `labelScale`, OME-2307), and never taller than a seated
- * avatar (OME-2149, layout.ts TAG_MAX_SCALE); its hit pad keeps 24 px. */
-.stage-clip:is(.is-phone, .is-fit) .tag { scale: var(--tag-scale, 1); }
+/* …but a tag never shows taller than a seated avatar (OME-2149, layout.ts TAG_MAX_SCALE); its hit pad keeps 24 px. */
+.stage-clip:is(.is-phone, .is-fit) .tag { scale: min(var(--label-scale, 1), 2.5); }
 /* Its seats keep a 24 px target (WCAG 2.5.8, OME-2148): the 26 px tall diamond grows back as the band shrinks. */
 .stage-clip.is-fit .seat { scale: max(1, calc(0.94 / var(--stage-scale))); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
