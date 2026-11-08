@@ -1021,14 +1021,16 @@ describe("the room window's top (OME-2384)", () => {
     expect(push("hi")).toBe("38px");
   });
 
-  test("the phone window's top counts: the newest is nudged under it, an older one climbing past it goes", async () => {
+  // An older one climbing past the window's top stays (only the room's top sends it away): at 320×640 the window is too
+  // short for four lines, and OME-1945 keeps all four.
+  test("the phone window's top counts: the newest is nudged under it, an older one climbing past it stays", async () => {
     const { floats, frame, push, texts } = await setup();
     floats.sides(420, 540, 250);
     // Head at 300: the newest's top is 266, 242 at the top of its rise: 8 px over the window's top.
     for (const t of lines(2)) floats.say(say("a", t, 480, 300));
     frame();
     expect(push("l1")).toBe("8px");
-    expect(texts()).toEqual(["l1"]);
+    expect(texts()).toEqual(["l0", "l1"]);
     // The window lets go of its top: nothing to nudge under.
     floats.sides(420, 540, Number.NEGATIVE_INFINITY);
     expect(push("l1")).toBe("0px");
