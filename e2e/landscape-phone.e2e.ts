@@ -2,7 +2,7 @@
 // narrower chat column, so the picture fits the height and the shelf, Up next and the chat field are in view without
 // scrolling the page; the chat column follows the visual viewport while the keyboard is up, and the notch stays clear.
 // The rotation round trip (portrait dock back, playback, seat and draft kept) is in m10-portrait.e2e.ts.
-import type { Locator, Page } from "@playwright/test";
+import { devices, type Locator, type Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client, type JoinOptions } from "./support/room";
@@ -13,6 +13,8 @@ import { providerCase, shareProvider } from "../perf/providers";
 import { FAKE_VIMEO_SDK } from "./support/network";
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { ownedRoom } from "./support/owned-rooms";
+import { joinForToken, postShare } from "./support/share";
+import { tagBox } from "./support/tag-stack";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -494,3 +496,54 @@ for (const [, owned, width, height] of PIXEL7) {
     expect(await sideOverlaps(page)).toEqual([]);
   });
 }
+
+// OME-2406 (judge round 15): a Pixel 7 held sideways with a video on had a 611×112 room window under the TV's shelf, its
+// zoom keys in a dead band beside it, and after a burst only the newest bubble inside. The TV is at its ADR 0012 floor
+// there, so the room goes beside it, the column's height, with its keys on its corner.
+test("915×412 Pixel 7 playing: the room window is ≥ 200 px tall beside the TV, its keys on it, my tag 8 px inside, and every bubble of a 5-line burst whole in it, none under the TV's bar (OME-2406, OME-2412)", async ({ browser, request }) => {
+  const room = testRoom("landscape-phone", "burst915");
+  const other = await joinForToken(room.id, "oburst");
+  try {
+    expect((await postShare(request, room.id, other.token, "https://youtu.be/aqz-KE-bpKQ")).status()).toBe(200);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `burst${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
+      contextOptions: () => ({ ...devices["Pixel 7"], viewport: { width: 915, height: 412 } }) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await expect(page.locator(site.sharedVideo)).toBeVisible();
+    await page.waitForTimeout(300);
+    const win = await box(page.locator(site.roomWindow));
+    const tv = await box(page.locator(site.tv));
+    expect(win.height, "room window height").toBeGreaterThanOrEqual(200);
+    await inside(page.locator(site.roomWindow), 0, 412, 0, 915);
+    expect(tv.height, "the TV keeps its ADR 0012 floor").toBeGreaterThanOrEqual(200);
+    // No dead band: every zoom key is on the room window.
+    for (const k of ["in", "out", "fit"]) {
+      const b = await box(page.locator(`[data-testid=room-zoom-${k}]`));
+      expect(b.x >= win.x && b.x + b.width <= win.x + win.width && b.y >= win.y && b.y + b.height <= win.y + win.height, `zoom ${k} on the room`).toBe(true);
+    }
+    for (let i = 0; i < 5; i += 1) other.say(`line ${String(i)}`);
+    await expect(page.locator(`${site.chatLog} ${site.chatLogLine}`)).toHaveCount(5);
+    await page.waitForTimeout(300);
+    // OME-2412 (judge round 15): lines 0–3 rose over the window's top (clippedTop 99 / 5 / 70 / 41 px), under the TV's bar.
+    const shelf = await box(page.locator(".controls.ui-tv-shelf"));
+    const floats = await page.locator(`${site.room} .ui-float.is-live`).all();
+    expect(floats.length, "live bubbles").toBeGreaterThanOrEqual(3);
+    for (const [i, f] of floats.entries()) {
+      const b = await box(f);
+      expect(win.y - b.y, `bubble ${String(i)} clippedTop`).toBeLessThanOrEqual(0);
+      expect(b.y + b.height, `bubble ${String(i)} over the window's foot`).toBeLessThanOrEqual(win.y + win.height);
+      for (const [name, r] of [["TV", tv], ["TV's bar", shelf]] as const) {
+        expect(b.x >= r.x + r.width || b.x + b.width <= r.x || b.y >= r.y + r.height || b.y + b.height <= r.y, `bubble ${String(i)} clear of the ${name}`).toBe(true);
+      }
+    }
+    const tag = await tagBox(page, /^burst/);
+    if (tag === null) throw new Error("no tag of mine");
+    expect(tag.x - win.x, "my tag 8 px in from the window's left").toBeGreaterThanOrEqual(8);
+    expect(win.x + win.width - (tag.x + tag.width), "my tag 8 px in from the window's right").toBeGreaterThanOrEqual(8);
+    expect(tag.y - win.y, "my tag 8 px under the window's top").toBeGreaterThanOrEqual(8);
+    expect(win.y + win.height - (tag.y + tag.height), "my tag 8 px over the window's foot").toBeGreaterThanOrEqual(8);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  } finally {
+    other.close();
+  }
+});

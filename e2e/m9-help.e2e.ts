@@ -186,6 +186,33 @@ for (const [name, options] of [
       for (const covered of [...(await lines.all()), ...(await keys.all())]) {
         if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
       }
+      if (width < 1024) {
+        // OME-2407 (judge round 15): on a phone the chip sat on the TV's bar, over the top bubbles, and sideways its foot
+        // on the room window. It sits off the bar and below the window's top 40 px (where the bubbles are).
+        expect(await overlaps(hint, page.getByRole("group", { name: "Playback controls" })), "TV bar").toBe(false);
+        const chip = await hint.boundingBox();
+        const win = await page.locator(site.roomWindow).boundingBox();
+        if (chip === null || win === null) throw new Error("not laid out");
+        const top40 = chip.x < win.x + win.width && win.x < chip.x + chip.width && chip.y < win.y + 40 && win.y < chip.y + chip.height;
+        expect(top40, "the room window's top 40 px").toBe(false);
+        // OME-2413: and 0 px² with the burst's bubbles, the name tags and the Room view key.
+        const floats = page.locator(`${site.room} .ui-float.is-live`);
+        expect(await floats.count(), "live bubbles").toBeGreaterThanOrEqual(1);
+        // OME-2418 (judge round 16): portrait, lines 0–2 rose past the window's top (clippedTop 69 / 40 / 11 px), under the
+        // TV's bar. A bubble shown is whole under the window's top; one that would cross it goes.
+        const bar = await page.getByRole("group", { name: "Playback controls" }).boundingBox();
+        if (bar === null) throw new Error("no TV bar");
+        for (const [i, f] of (await floats.all()).entries()) {
+          if (!(await f.isVisible())) continue;
+          const b = await f.boundingBox();
+          if (b === null) continue;
+          expect(win.y - b.y, `bubble ${String(i)} clippedTop`).toBeLessThanOrEqual(0);
+          expect(b.x >= bar.x + bar.width || b.x + b.width <= bar.x || b.y >= bar.y + bar.height || b.y + b.height <= bar.y, `bubble ${String(i)} clear of the TV's bar`).toBe(true);
+        }
+        for (const covered of [...(await floats.all()), ...(await page.locator(`${site.nicknameTag}, ${site.roomViewKey}`).all())]) {
+          if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
+        }
+      }
       if (width < 600) {
         // Lines wholly inside the strip's box: at least 4 show while the video plays.
         const log = await page.locator(site.chatLog).boundingBox();

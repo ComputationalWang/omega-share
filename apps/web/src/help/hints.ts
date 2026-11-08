@@ -37,6 +37,8 @@ export interface HintsOptions {
   /** While the TV shows anything (a player, a Load card), no chip covers it; while it's empty, none covers `message`: Twitch's player doesn't start covered
    * (OME-1778). One that would goes under the picture (the TV and the stage), else under the TV, or out of sight if that's blocked too. */
   readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement; readonly message: HTMLElement };
+  /** The room window: with a video on and nowhere clear by the TV, the floor chip sits at its foot, above the zoom keys (OME-2407). */
+  readonly room: HTMLElement;
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
   /** A touch screen: the floor chip says tap (OME-2263). */
@@ -69,6 +71,26 @@ function spot(anchor: HTMLElement | null, side: Side, w: number, h: number): Spo
   return { left: Math.max(GAP, Math.min(r.left + (r.width - w) / 2, window.innerWidth - w - GAP)), top: Math.max(GAP, Math.min(top, window.innerHeight - h - GAP)) };
 }
 
+/** The room window's floating keys' band (room-window.ts: 44 px keys, 4 px off the edge, 4 px gap) and the top it leaves to the bubbles. */
+const KEYS_BAND = 52;
+const BUBBLES = 40;
+
+/** Where the bubbles rise: the room window from its top down to its lowest name tag (at least its top 40 px; OME-2413). */
+function bubbleZone(room: HTMLElement): DOMRect {
+  const r = room.getBoundingClientRect();
+  let floor = r.top + BUBBLES;
+  for (const t of room.querySelectorAll(".ui-tag")) floor = Math.max(floor, t.getBoundingClientRect().bottom);
+  return new DOMRect(r.left, r.top, r.width, floor - r.top);
+}
+
+/** A `w`×`h` chip at the foot of `room`, 4 px over its zoom keys; null when there's no window. */
+function foot(room: HTMLElement, w: number, h: number): Spot | null {
+  const r = room.getBoundingClientRect();
+  if (r.width === 0) return null;
+  const top = r.bottom - KEYS_BAND - h;
+  return { left: Math.max(GAP, Math.min(r.left + (r.width - w) / 2, window.innerWidth - w - GAP)), top };
+}
+
 export function createHints(o: HintsOptions): Hints {
   // The status exists (empty, hidden) before the words go in, so a screen reader announces them.
   const root = el("div", { className: "ui-panel hint-chip", hidden: true }, "first-hint");
@@ -96,16 +118,39 @@ export function createHints(o: HintsOptions): Hints {
   const place = (): void => {
     const side = STEPS[step]?.side;
     if (side === undefined) return;
-    const w = root.offsetWidth;
-    const h = root.offsetHeight;
-    // An empty TV may be covered, but not its message (OME-2104).
-    const tv = (o.tv.empty() ? o.tv.message : o.tv.box).getBoundingClientRect();
-    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
+    root.style.maxWidth = "";
+    let w = root.offsetWidth;
+    let h = root.offsetHeight;
+    const empty = o.tv.empty();
+    // An empty TV may be covered, but not its message (OME-2104); a playing one's bar neither (OME-2407).
+    const tv = (empty ? o.tv.message : o.tv.box).getBoundingClientRect();
+    const bar = empty ? undefined : o.anchor(0)?.getBoundingClientRect();
+    // shortcut: tags are read when the chip is placed, not as walkers move; follow them if a walker's tag lands on it.
+    const bubbles = empty ? undefined : bubbleZone(o.room);
+    const obstacles = [tv, bar, bubbles, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
     const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone. Off a video,
-    // under the picture, else on the floor under the TV: the reaction row takes the spot under the picture (OME-2398).
-    for (const f of o.tv.empty() ? [o.tv.message] : [o.tv.picture, o.tv.box]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
+    // under the picture, else on the floor under the TV: the reaction row takes the spot under the picture (OME-2398); else
+    // under the TV's bar (a landscape phone's free band beside the room, OME-2413).
+    for (const f of empty ? [o.tv.message] : [o.tv.picture, o.tv.box, o.anchor(0)]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
+    // Else, on a phone, the room window's foot above its keys, the chip as narrow as the window (its keys wrap under the words).
+    const fit = (max: number): void => {
+      root.style.maxWidth = `${String(Math.max(0, Math.min(320, max)))}px`;
+      w = root.offsetWidth;
+      h = root.offsetHeight;
+    };
+    if (!empty && (at === null || blocked(at))) {
+      const win = o.room.getBoundingClientRect();
+      fit(win.width - 2 * GAP);
+      at = foot(o.room, w, h);
+      // Else beside the zoom keys down to the window's foot: narrower and taller, it clears a low tag (OME-2413).
+      const keys = o.room.querySelector(".room-zoom")?.getBoundingClientRect();
+      if ((at === null || blocked(at)) && keys !== undefined && keys.width > 0) {
+        fit(keys.left - win.left - 2 * GAP);
+        at = { left: win.left + GAP, top: win.bottom - 4 - h };
+      }
+    }
     // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
@@ -129,6 +174,7 @@ export function createHints(o: HintsOptions): Hints {
     if (a !== null) sized.observe(a);
     // Room view re-boxes the TV after a video's screen swap (OME-2195): its new box moves the chip too.
     sized.observe(o.tv.box);
+    sized.observe(o.room);
     // A chat line arriving grows the log: the chip moves off it.
     for (const e of live()) sized.observe(e);
     root.hidden = false;
