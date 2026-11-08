@@ -36,3 +36,18 @@ test("IDAT packs smaller than zlib level 9 (OME-2433: art headroom, same pixels)
   const idat = Buffer.from(png).indexOf("IDAT"), len = Buffer.from(png).readUInt32BE(idat - 4);
   expect(len).toBeLessThan(deflateSync(raw, { level: 9 }).length);
 });
+
+test("a PNG never drops under Vite's 4 KB inline limit by the better packing (OME-2433), and \"zlib\" keeps zlib's bytes", () => {
+  const w = 256;
+  const sheet = (h: number): Uint8Array => {
+    const px = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x % 32 < 9 && y % 16 < 13) px[y * w + x] = 1 + ((x * 7 + y * 3 + ((x >> 5) ^ (y >> 4)) * 5) % 11);
+    return px;
+  };
+  let h = 16;
+  while (encodeIndexedPng(w, h, sheet(h), PALETTE, 0, "zlib").length < 4096) h += 16;
+  const zlib = encodeIndexedPng(w, h, sheet(h), PALETTE, 0, "zlib"), best = encodeIndexedPng(w, h, sheet(h), PALETTE);
+  expect(best.length).toBeGreaterThanOrEqual(4096);
+  expect(best.length).toBeLessThanOrEqual(zlib.length);
+  expect(decode(best, w, h)).toEqual(sheet(h));
+});
