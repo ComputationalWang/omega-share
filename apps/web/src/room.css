@@ -635,6 +635,8 @@ body.room-editing .room-side :where(.room-panel, .panel-body) > .edit-bar > .mod
    * column's padding, an empty status line and the footer's second line give their height to the floor. */
   .room-wide { padding: 4px 8px 0 max(8px, env(safe-area-inset-left)); }
   .room-wide > .status:empty { display: none; }
+  /* OME-2427: as in portrait, the connection line floats; shown and gone, it moved the TV and the room. */
+  .room-wide > .status { position: absolute; z-index: 5; top: 4px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 16px); margin: 0; padding: 4px 10px; min-height: 0; border-radius: 6px; background: var(--panel); color: var(--fg); pointer-events: none; }
   /* To a finger the wrap is what the column has (OME-1841), not 420 px: the room window takes what the shelf leaves on
    * screen (room-layout.ts sets the wrap's min-height where that's too little, and the column scrolls then). */
   .room-wide.ui-touch > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; }
@@ -833,6 +835,8 @@ body.room-is-portrait > .site-footer { display: none; }
 .room-portrait .room-top > .snap-key { display: none; }
 .room-portrait .room-top > .snap-key + .ui-button { margin-left: auto; }
 .room-portrait > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: var(--portrait-room-min, 0px); overflow: hidden; }
+/* OME-2427: the connection line floats over the room's head, out of the flow: shown and gone, it moved the TV and the room. */
+.room-portrait > .status { position: absolute; z-index: 5; top: 4px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 16px); margin: 0; padding: 4px 10px; min-height: 0; border-radius: 6px; background: var(--panel); color: var(--fg); pointer-events: none; }
 .room-portrait > .status:empty, .room-portrait > .editor-panel:empty, .room-portrait > .room-bar:empty { display: none; }
 .room-portrait .room-panel > .chat { margin: 0; gap: 4px; padding: 4px 0; min-width: 0; }
 .room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
