@@ -43,6 +43,9 @@ pub enum Shell {
     Dungeon,
     Penthouse,
     Studio,
+    #[serde(rename = "stage-door")]
+    StageDoor,
+    Reef,
 }
 
 pub const FACINGS: [Facing; 4] = [Facing::Ne, Facing::Nw, Facing::Se, Facing::Sw];
@@ -116,6 +119,10 @@ pub enum Kind {
     Window,
     Longclock,
     Lavalamp,
+    // Wave 26 (OME-2439).
+    Stage,
+    Vanity,
+    Rack,
 }
 
 impl Kind {
@@ -125,7 +132,7 @@ impl Kind {
     }
 }
 
-pub const KINDS: [Kind; 53] = [
+pub const KINDS: [Kind; 60] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -179,6 +186,13 @@ pub const KINDS: [Kind; 53] = [
     Kind::Lounger,
     Kind::Wallscreen,
     Kind::Projector,
+    Kind::Tripod,
+    Kind::Window,
+    Kind::Longclock,
+    Kind::Lavalamp,
+    Kind::Stage,
+    Kind::Vanity,
+    Kind::Rack,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -313,8 +327,9 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Minibar => Spec::new(Object, CAMERA, 1, 1).variants(2),
         Kind::Desk => Spec::new(Object, CAMERA, 1, 1),
         Kind::Washbasin => Spec::new(Object, CAMERA, 1, 1).backed(),
-        // The facing picks the axis; 0 and 2 solid, 1 and 3 glass (OME-1958, OME-1989).
-        Kind::Partition => Spec::new(Object, CAMERA, 1, 1).variants(4),
+        // The facing picks the axis; 0 and 2 solid, 1 and 3 glass (OME-1958, OME-1989); 4 velvet, 5 wings, 6 tank,
+        // 7 tunnel, which is walkable (OME-2439).
+        Kind::Partition => Spec::new(Object, CAMERA, 1, 1).variants(8),
         Kind::Sauna => Spec::new(Object, CAMERA, 2, 2).backed(),
         // Two bathers on its first row.
         Kind::Soaktub => Spec::new(Object, FIXED, 2, 2).seated(),
@@ -327,7 +342,11 @@ pub const fn spec(kind: Kind) -> Spec {
         // Variant 1 is the rainy one.
         Kind::Window => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Longclock => Spec::new(Object, CAMERA, 1, 1).backed(),
-        Kind::Lavalamp => Spec::new(Object, FIXED, 1, 1),
+        // Variant 1 is `bubbles`, a runtime recolour.
+        Kind::Lavalamp => Spec::new(Object, FIXED, 1, 1).variants(2),
+        Kind::Stage => Spec::new(Object, CAMERA, 3, 2),
+        Kind::Vanity => Spec::new(Object, CAMERA, 1, 1).backed(),
+        Kind::Rack => Spec::new(Object, CAMERA, 2, 1),
     }
 }
 
@@ -348,7 +367,15 @@ pub struct Furniture {
     pub target: Option<RoomId>,
 }
 
+/// `PARTITION_TUNNEL`: the partition colour that is a doorway (OME-2439): walkable, though it still takes its cell.
+pub const PARTITION_TUNNEL: u32 = 7;
+
 impl Furniture {
+    /// `isSolid`: someone can't walk through it. An object, except a tunnel partition.
+    pub fn is_solid(&self) -> bool {
+        spec(self.kind).layer == Layer::Object && !(self.kind == Kind::Partition && self.variant == Some(PARTITION_TUNNEL))
+    }
+
     pub const fn new(kind: Kind, col: u8, row: u8, facing: Facing) -> Self {
         Self {
             kind,
@@ -701,7 +728,7 @@ impl RoomLayout {
         !self
             .furniture
             .iter()
-            .any(|f| spec(f.kind).layer == Layer::Object && footprint_cells(f).contains(&at))
+            .any(|f| f.is_solid() && footprint_cells(f).contains(&at))
     }
 
     /// `canTeleport`: `from` is one pad's cell, `cell` the other's, and nothing solid covers it (OME-1545).
@@ -1365,7 +1392,7 @@ mod tests {
             ("minibar", 2, 3, 3, "sw"),
             ("tv", 2, 9, 9, "se"),
             ("carpet", 2, 8, 8, "se"),
-            ("partition", 4, 3, 3, "se"),
+            ("partition", 8, 3, 3, "se"),
         ] {
             let doc = |v: u8| {
                 let mut l = base(vec![pv(kind, col, row, facing, v)]);

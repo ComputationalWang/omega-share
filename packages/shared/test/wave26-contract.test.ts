@@ -86,7 +86,7 @@ describe("the wave 26 layouts", () => {
   });
 
   test("4 seats on each side of the line", () => {
-    const side = (l: unknown, axis: "col" | "row") => layoutSeats(l).filter((s) => s[axis] < 4).length;
+    const side = (l: typeof REEF | typeof STAGE_DOOR, axis: "col" | "row") => layoutSeats(l).filter((s) => s[axis] < 4).length;
     expect(side(STAGE_DOOR, "col")).toBe(4);
     expect(side(REEF, "row")).toBe(4);
   });

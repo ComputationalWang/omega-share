@@ -55,5 +55,8 @@
 {"input":"tripod","ok":true,"output":{"lie":null}},
 {"input":"window","ok":true,"output":{"lie":null}},
 {"input":"longclock","ok":true,"output":{"lie":null}},
-{"input":"lavalamp","ok":true,"output":{"lie":null}}
+{"input":"lavalamp","ok":true,"output":{"lie":null}},
+{"input":"stage","ok":true,"output":{"lie":null}},
+{"input":"vanity","ok":true,"output":{"lie":null}},
+{"input":"rack","ok":true,"output":{"lie":null}}
 ]
