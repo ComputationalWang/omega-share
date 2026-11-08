@@ -382,6 +382,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     new MutationObserver(sync).observe(dimEl, { attributes: true, attributeFilter: ["class", "data-mood"] });
     sync();
   }
+  // A touch screen's compat events can claim pointerType "mouse" (OME-2408): gate on the device, as the CSS :hover tint did.
+  const canHover = globalThis.matchMedia("(hover: hover)");
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
@@ -408,7 +410,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     let hover: FloorCell | null = null;
     floorHit.addEventListener("pointermove", (ev) => {
       // A finger has no hover: a tap walks, a drag pans the phone's room window.
-      if (ev.pointerType === "touch") return;
+      if (ev.pointerType === "touch" || !canHover.matches) return;
       const c = cellUnder(ev);
       if (cursorOwner === "floor" && c?.x === hover?.x && c?.y === hover?.y) return;
       hover = c;
@@ -574,7 +576,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   seatButtons.forEach((b, i) => {
     // A finger has no hover: a tap's sticky enter must not leave the cursor over the sitter (OME-2175).
     b.addEventListener("pointerenter", (ev) => {
-      if (ev.pointerType !== "touch") showSeatCursor(i);
+      if (ev.pointerType !== "touch" && canHover.matches) showSeatCursor(i);
     });
     b.addEventListener("focus", () => {
       if (b.matches(":focus-visible")) showSeatCursor(i);
