@@ -76,11 +76,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
  * trace the tile (a clip-path would cut a focus ring away, OME-701): a light ring over a dark one reads on any floor. */
 .seat { position: absolute; left: -18.385px; top: -18.385px; width: 36.77px; height: 36.77px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; transform: scaleY(0.5) rotate(45deg); }
-/* Only where the device hovers: on touch :hover sticks after a tap and left the tint over the seated avatar (OME-2175). */
-@media (hover: hover) { .seat:hover { background: rgb(234 172 139 / 0.35); } }
-.seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+/* The hover/focus cursor is painted on the canvas (room-view.ts `marker`, atlas cursor/*; OME-2307): no fill here, so touch's sticky :hover can't tint the sitter (OME-2175). */
+.seat:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
-.seat[data-occupied="true"]:not(.mine):hover, .seat[data-occupied="true"]:not(.mine):focus-visible { background: transparent; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
 /* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --label-scale (below) grows
  * them around their anchor. */
@@ -89,7 +87,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 /* The tag is painted on the room canvas (scene-tags.ts, OME-2307): its frame, name, tint edge and leader pip. The DOM tag
  * keeps its box (the painted one takes its width from it) as a bare target for clicks, focus and the people it names;
  * the glyphs on it (hourglass, mute) stay DOM and sit out a walk, while the target waits for the walker (stage.ts). */
-.tags .tag { border-image: none; color: transparent; }
+.tags .tag { border-image-source: none; color: transparent; }
 .tags .tag.walking > .ui-sprite { visibility: hidden; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
  * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
@@ -119,7 +117,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * twin's measured size holds; the bubble sprite's own fill and ink (bubble-float.png, every theme): 13:1, AA. The tail
  * becomes two small circles trailing to the speaker; a stacked thought has none, like a stacked line. */
 .chat-log-line.is-think, .ui-float.is-think .say, .float-twin.is-think > span { font-style: italic; }
-.ui-float.is-think { border-image: none; background: #f4ead2; border-radius: 14px / 12px; box-shadow: 0 0 0 2px var(--ui-bubble-text); }
+.ui-float.is-think { border-image-source: none; background: #f4ead2; border-radius: 14px / 12px; box-shadow: 0 0 0 2px var(--ui-bubble-text); }
 .ui-float.is-think.is-self { box-shadow: 0 0 0 2px var(--ui-bubble-text), inset 0 0 0 2px #f7d36b; }
 .ui-float.is-think::after { background: radial-gradient(circle at 70% 30%, #f4ead2 0 2.5px, var(--ui-bubble-text) 2.5px 4px, transparent 4.5px), radial-gradient(circle at 30% 85%, #f4ead2 0 1px, var(--ui-bubble-text) 1px 2.5px, transparent 3px); }
 /* @mentions (OME-1531): a line or bubble naming me wears a 2 px mustard frame, for me only. An outline: no layout change
@@ -404,7 +402,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * picture, shelf and strip from layout.ts `fullscreenLayout` (absolute, like the room page): nothing of ours over the player. ---- */
 /* Full screen's leftover is letterbox (OME-1810, design OME-1809 item 6): plain black, no bezel rule over the picture. */
 .stage-wrap.is-fs { background: #000; overflow: hidden; }
-.stage-wrap.is-fs .tv { border-image: none; }
+.stage-wrap.is-fs .tv { border-image-source: none; }
 /* In full screen the wrapper leaves the flow (or, with is-fs, its height), so what follows it sits higher. On the way out
    Chrome paints frames before the wrapper is back, and a visible reaction bar jumps (CLS, OME-2106): hidden behind full
    screen, it just reappears in place. Open dialogs are in the top layer, above full screen: they stay visible. A `~ *`

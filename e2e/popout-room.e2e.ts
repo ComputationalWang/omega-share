@@ -302,8 +302,8 @@ test("keyboard: Tab to the key and Enter; in the window focus starts in the mess
   const seat = pop.locator(`${site.seat}[data-seat="0"]`);
   await seat.focus();
   await expect(seat).toBeFocused();
-  // Focus shows as the seat's lit diamond (style.css `.seat:focus-visible`), the same as in the page.
-  expect(await seat.evaluate((e) => e.matches(":focus-visible") && getComputedStyle(e).backgroundColor !== "rgba(0, 0, 0, 0)")).toBe(true);
+  // Focus shows as the seat's ring (room.css `.seat:focus-visible`), the same as in the page; the cursor under it is painted (OME-2307).
+  expect(await seat.evaluate((e) => e.matches(":focus-visible") && getComputedStyle(e).outlineStyle === "solid")).toBe(true);
   await pop.keyboard.press("Enter");
   await expect.poll(() => mySeat(a.page)).toBe(0);
   // "Show the window" asks the window to come forward; "Bring the room back" is the first stop in the placeholder.

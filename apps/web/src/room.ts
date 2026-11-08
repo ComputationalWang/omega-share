@@ -6,6 +6,7 @@ import "pixi.js/unsafe-eval";
 import "pixi.js/browser";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, REACTIONS_MAX, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type Member, type MemberId, type Nickname, type Reaction, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
+import { createChatOutbox } from "./chat-outbox";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
 import { trackShareToken } from "./share-token";
@@ -120,6 +121,8 @@ export interface RoomHandle {
   readonly tags: () => ReturnType<Stage["tagRects"]>;
   /** The reaction glyphs live now as painted: `[{kind, rect}]` in CSS px (OME-2307). */
   readonly reactions: () => ReturnType<Stage["glyphRects"]>;
+  /** The hover cursor as painted: `{kind, rect}` in CSS px, or null (OME-2307). */
+  readonly cursor: () => ReturnType<Stage["cursorRect"]>;
   readonly hideTags: (hidden: boolean) => void;
   /** Where a member's painted tag hangs from (stage.ts `tagAnchor`), for e2e walk paths (OME-2307). */
   readonly tagAnchor: (id: MemberId) => Point | undefined;
@@ -399,6 +402,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let state = initialState;
   let conn: Connection | null = null;
   const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
+  const chatOut = createChatOutbox(send);
   // connection → clock → sync loop → player (ADR 0011). One 4 Hz timer drives the clock tick, the loop and the chrome.
   const clock = createClockSync({
     now: browserNow,
@@ -1411,6 +1415,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     url: opts.socketUrl,
     join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair, takeVia(viaStore, opts.roomId), opts.avatarAuto === true),
     durable: true,
+    keepalive: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,
     onOpen: () => {
@@ -1420,6 +1425,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // The session is over for this tab: a reload shows the ordinary Enter (a replaced one keeps its token in memory only).
       if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed") clearResume(resumeStore, opts.roomId);
       routeConnectionEvent(e, sinks, Date.now());
+      if (e.type !== "message") return;
+      if (e.msg.type === "snapshot") chatOut.resend();
+      else chatOut.onServer(e.msg, state.self);
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => {
@@ -1435,7 +1443,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     typeof BroadcastChannel === "function"
       ? createChatRelay({
           channel: browserChannel(channelName(opts.roomId, tab)),
-          send: (m) => c.send(m),
+          send: (m) => chatOut.send(m),
           command: runSlash,
           onVote: castVote,
           onPollClose: closePoll,
@@ -1497,7 +1505,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const ran = runSlash(chatInput.value);
     if (ran === null && chatView(state, Date.now()).cooling) return;
     const msg = ran === null ? chatIntent(chatInput.value) : null;
-    if (ran === true || (msg !== null && c.send(msg))) {
+    if (ran === true || (msg !== null && chatOut.send(msg))) {
       chatInput.value = "";
       // A line clears typing on the server; a slash command sends no line, so say it here.
       if (ran === true) typingSender.input("");
@@ -1658,5 +1666,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     .catch((e: unknown) => {
       console.warn("sound: not loaded", e);
     });
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), reactions: () => roomStage.glyphRects(), hideTags: (h) => { roomStage.hideTags(h); }, tagAnchor: (id) => roomStage.tagAnchor(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), reactions: () => roomStage.glyphRects(), cursor: () => roomStage.cursorRect(), hideTags: (h) => { roomStage.hideTags(h); }, tagAnchor: (id) => roomStage.tagAnchor(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }

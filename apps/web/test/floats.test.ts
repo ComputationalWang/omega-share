@@ -604,6 +604,20 @@ test("a bubble sent away drops to half its opacity and is gone FLOAT_LEAVE_MS on
   expect(shown()).toHaveLength(10);
 });
 
+// OME-2431: a freed slot kept `.is-live` while hidden, so e2e's `.ui-float.is-live` `.first()` could pick one off screen.
+test("a bubble gone back to the pool is no longer .is-live: only shown bubbles match", async () => {
+  const { floats, frame, advance, layer, FLOAT_LEAVE_MS } = await setup();
+  for (const t of lines(10)) floats.say(say("a", t, 200, 580));
+  frame();
+  advance(150);
+  floats.say(say("a", "l10", 200, 580));
+  frame();
+  advance(FLOAT_LEAVE_MS);
+  const live = [...layer.querySelectorAll<HTMLElement>(".ui-float.is-live")];
+  expect(live.length).toBeGreaterThan(0);
+  expect(live.filter((p) => p.closest<HTMLElement>(".float-slot")?.hidden === true)).toHaveLength(0);
+});
+
 // OME-1184: zoomed out on a phone, bubbles are shown k× their size (room.css --label-scale on the motion wrapper), so
 // they're clamped and stacked by the size they're shown at. Their box and push are written in the wrapper's own units.
 describe("shown k× their size (phone zoom, OME-1184)", () => {

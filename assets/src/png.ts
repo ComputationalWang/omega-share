@@ -27,6 +27,26 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   return out;
 }
 
+/** A zlib stream of `raw` packed by libdeflate at level 12 (built into Bun): ~10% smaller IDATs than zlib's level 9, the same bytes
+ *  once inflated (OME-2433: art headroom). Bun writes raw DEFLATE, so the 2-byte header and Adler-32 trailer are added here. */
+function libdeflatePack(raw: Uint8Array<ArrayBuffer>): Uint8Array {
+  const body = Bun.deflateSync(raw, { level: 12, library: "libdeflate" });
+  let a = 1, b = 0;
+  for (const v of raw) {
+    a = (a + v) % 65521;
+    b = (b + a) % 65521;
+  }
+  const out = new Uint8Array(body.length + 6);
+  out[0] = 0x78;
+  out[1] = 0xda;
+  out.set(body, 2);
+  new DataView(out.buffer).setUint32(out.length - 4, ((b << 16) | a) >>> 0);
+  return out;
+}
+
+/** apps/web's Vite build inlines an image under this many bytes as a data: URL (its default `assetsInlineLimit`). */
+const VITE_INLINE_LIMIT = 4096;
+
 export interface RGBA {
   r: number;
   g: number;
@@ -36,7 +56,9 @@ export interface RGBA {
 
 /** Encode an indexed image. `pixels[i]` indexes `palette`; index 0 should be transparent. */
 /** `filter` 2 (Up) packs tall sheets of stacked look-alike frames smaller (the v8 sheets, OME-2078); 0 (None) everywhere else. */
-export function encodeIndexedPng(width: number, height: number, pixels: Uint8Array, palette: readonly RGBA[], filter: 0 | 2 = 0): Uint8Array {
+/** `pack` "zlib" keeps zlib level 9's bytes, for files copied byte for byte elsewhere (site/, store/). "best" takes libdeflate's
+ *  smaller stream, unless it would bring a file under Vite's inline limit: that file would ship inside JS/CSS instead (OME-2433). */
+export function encodeIndexedPng(width: number, height: number, pixels: Uint8Array, palette: readonly RGBA[], filter: 0 | 2 = 0, pack: "best" | "zlib" = "best"): Uint8Array {
   const ihdr = new Uint8Array(13);
   const v = new DataView(ihdr.buffer);
   v.setUint32(0, width);
@@ -64,19 +86,23 @@ export function encodeIndexedPng(width: number, height: number, pixels: Uint8Arr
       raw[y * (width + 1) + 1 + x] = (v - up) & 255;
     }
   }
-  const idat = deflateSync(raw, { level: 9 });
   const sig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-  const parts = [sig, chunk("IHDR", ihdr), chunk("PLTE", plte)];
-  if (lastAlpha > 0) parts.push(chunk("tRNS", trns.subarray(0, lastAlpha)));
-  parts.push(chunk("IDAT", idat), chunk("IEND", new Uint8Array(0)));
-  const total = parts.reduce((n, p) => n + p.length, 0);
-  const out = new Uint8Array(total);
-  let o = 0;
-  for (const p of parts) {
-    out.set(p, o);
-    o += p.length;
-  }
-  return out;
+  const head = [sig, chunk("IHDR", ihdr), chunk("PLTE", plte)];
+  if (lastAlpha > 0) head.push(chunk("tRNS", trns.subarray(0, lastAlpha)));
+  const file = (idat: Uint8Array): Uint8Array => {
+    const parts = [...head, chunk("IDAT", idat), chunk("IEND", new Uint8Array(0))];
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let o = 0;
+    for (const p of parts) {
+      out.set(p, o);
+      o += p.length;
+    }
+    return out;
+  };
+  const zlib = file(deflateSync(raw, { level: 9 }));
+  if (pack === "zlib") return zlib;
+  const best = file(libdeflatePack(raw));
+  return best.length < zlib.length && (best.length >= VITE_INLINE_LIMIT || zlib.length < VITE_INLINE_LIMIT) ? best : zlib;
 }
 
 /** Animated PNG (APNG) of equal-size indexed frames, looping forever. Preview use only. `over`: frames after the first blend over

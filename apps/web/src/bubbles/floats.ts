@@ -265,6 +265,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     watch.unobserve(s.p);
     watch.unobserve(s.twin);
     if (hide) s.outer.hidden = true;
+    s.p.classList.remove("is-live");
     s.text.removeAttribute("data-testid");
     if (s.typing) {
       s.typing = false;

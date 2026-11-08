@@ -101,6 +101,8 @@ export interface Stage {
   tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
   /** The reaction glyphs live now as painted: kind and box in CSS px from the viewport (e2e, OME-2307). */
   glyphRects(): { kind: ReactionKind; rect: { x: number; y: number; width: number; height: number } }[];
+  /** The hover cursor as painted: its kind and box in CSS px from the viewport, or null while hidden (e2e, OME-2307). */
+  cursorRect(): { kind: "free" | "mine" | "taken"; rect: { x: number; y: number; w: number; h: number } } | null;
   /** Hide the painted tags (or show them again), for e2e shots of the room without them. */
   hideTags(hidden: boolean): void;
   /** Where a member's painted tag hangs from now (stage px), for e2e walk paths: the DOM target no longer rides the walk. */
@@ -380,6 +382,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     new MutationObserver(sync).observe(dimEl, { attributes: true, attributeFilter: ["class", "data-mood"] });
     sync();
   }
+  // A touch screen's compat events can claim pointerType "mouse" (OME-2408): gate on the device, as the CSS :hover tint did.
+  const canHover = globalThis.matchMedia("(hover: hover)");
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
@@ -404,22 +408,20 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       }, NO_GO_NOTE_MS);
     };
     let hover: FloorCell | null = null;
-    let hoverScale = 1;
     floorHit.addEventListener("pointermove", (ev) => {
       // A finger has no hover: a tap walks, a drag pans the phone's room window.
-      if (ev.pointerType === "touch") return;
+      if (ev.pointerType === "touch" || !canHover.matches) return;
       const c = cellUnder(ev);
-      // The scale too: after a zoom or resize the same cell's diamond gets its new stroke.
-      const k = floorHit.getBoundingClientRect().width / Math.max(1, floorHit.offsetWidth);
-      if (c?.x === hover?.x && c?.y === hover?.y && k === hoverScale) return;
+      if (cursorOwner === "floor" && c?.x === hover?.x && c?.y === hover?.y) return;
       hover = c;
-      hoverScale = k;
-      view.marker(c, k);
+      cursorOwner = c === null ? null : "floor";
+      view.marker(c === null ? null : cellCenter(c.x, c.y), "free");
     });
     floorHit.addEventListener("pointerleave", () => {
-      if (hover === null) return;
       hover = null;
-      view.marker(null, 1);
+      if (cursorOwner !== "floor") return;
+      cursorOwner = null;
+      view.marker(null, "free");
     });
     let lastTap: { cell: FloorCell; at: number } | null = null;
     floorHit.addEventListener("click", (ev) => {
@@ -556,6 +558,36 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       });
   };
 
+  // The hover cursor (OME-2307): the floor's hover cell or a seat key's, painted by the view; the last to write owns it.
+  let cursorOwner: "floor" | number | null = null;
+  let seatTilePts: readonly Point[] = [];
+  const showSeatCursor = (i: number): void => {
+    const b = seatButtons[i];
+    const at = seatTilePts[i];
+    if (b === undefined || at === undefined) return;
+    cursorOwner = i;
+    view.marker(at, b.classList.contains("mine") ? "mine" : b.dataset["occupied"] === "true" ? "taken" : "free");
+  };
+  const hideSeatCursor = (i: number): void => {
+    if (cursorOwner !== i) return;
+    cursorOwner = null;
+    view.marker(null, "free");
+  };
+  seatButtons.forEach((b, i) => {
+    // A finger has no hover: a tap's sticky enter must not leave the cursor over the sitter (OME-2175).
+    b.addEventListener("pointerenter", (ev) => {
+      if (ev.pointerType !== "touch" && canHover.matches) showSeatCursor(i);
+    });
+    b.addEventListener("focus", () => {
+      if (b.matches(":focus-visible")) showSeatCursor(i);
+    });
+    b.addEventListener("pointerleave", () => {
+      hideSeatCursor(i);
+    });
+    b.addEventListener("blur", () => {
+      hideSeatCursor(i);
+    });
+  });
   /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
   const applyLayout = (next: RoomLayout): void => {
     layout = next;
@@ -572,6 +604,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     // The translate property, not transform: style.css turns the seat into the floor diamond with its transform. Keys sit
     // on the tile, not the lifted sitter: a riser's 44 px phone key would otherwise cover the row in front (QA OME-1743).
     const tiles = seatTiles(next);
+    seatTilePts = tiles;
+    if (typeof cursorOwner === "number") showSeatCursor(cursorOwner);
     seatButtons.forEach((b, i) => {
       const p = tiles[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
@@ -756,6 +790,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       b.dataset["occupied"] = String(v.member !== null);
       b.disabled = s.status !== "open";
       b.classList.toggle("mine", v.isSelf);
+      if (cursorOwner === v.index) showSeatCursor(v.index);
       b.ariaLabel = v.member === null ? `Seat ${String(v.index + 1)}, free` : v.isSelf ? `Seat ${String(v.index + 1)}, yours: stand up` : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
     }
 
@@ -925,6 +960,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         const r = view.glyphs.rect(i);
         return r === undefined ? [] : [{ kind, rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k } }];
       });
+    },
+    cursorRect: () => {
+      const cur = view.cursor();
+      if (cur === null) return null;
+      const c = view.canvas.getBoundingClientRect();
+      const k = c.width / STAGE_W;
+      return { kind: cur.kind, rect: { x: c.left + cur.rect.x * k, y: c.top + cur.rect.y * k, w: cur.rect.w * k, h: cur.rect.h * k } };
     },
     tagAnchor: (id) => anchors.get(id),
     hideTags: (hidden) => {
