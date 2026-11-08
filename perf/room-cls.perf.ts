@@ -278,3 +278,68 @@ for (const profile of ["desktop", "portrait", "landscape"] as const) {
     }
   });
 }
+
+// OME-2426: CLS on an observer through a server restart (drop + rejoin). The observer reloads behind a WebSocket proxy, then its
+// socket is closed with 1012 and every reconnect refused for DROP_MS, then let through to the real server (seat held, so a rejoin).
+// Every layout shift from the drop until 2 s after the connection line is gone, summed. Rows: room.restartCls.<profile> (< 0.01).
+const DROP_MS = 5000;
+
+for (const profile of ["desktop", "portrait", "landscape"] as const) {
+  test(`room CLS on an observer through a server restart, ${profile}`, async ({ browser }) => {
+    const id = `room.restartCls.${profile}`;
+    const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
+    if (why !== null) {
+      recordMetric({ id, pending: why });
+      test.skip(true, why);
+      return;
+    }
+    test.setTimeout(120_000);
+    const room = testRoom("room-cls-perf", `rs-${profile}`);
+    const [observer] = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "restart", contextOptions: () => OBSERVER[profile] });
+    try {
+      if (observer === undefined) throw new Error("no client");
+      const page = observer.page;
+      let refuse = false;
+      let live: { close: (o: { code: number }) => void } | undefined;
+      await page.routeWebSocket(/./, (ws) => {
+        if (refuse) {
+          ws.close({ code: 1012 });
+          return;
+        }
+        ws.connectToServer();
+        live = ws;
+      });
+      await page.reload();
+      await expect(page.locator(site.room)).toBeVisible({ timeout: 60_000 });
+      await page.waitForTimeout(OBSERVER_SETTLE_MS);
+      await page.evaluate(() => {
+        const shifts: { value: number; nodes: string[] }[] = [];
+        Reflect.set(window, "__roomShifts", shifts);
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) {
+            const s = e as PerformanceEntry & { value: number; hadRecentInput: boolean; sources?: { node?: Node | null }[] };
+            if (s.hadRecentInput) continue;
+            const nodes = (s.sources ?? []).map(({ node }) => (node instanceof Element ? `${node.localName}${node.className === "" ? "" : `.${node.className.trim().split(/\s+/).join(".")}`}` : "?"));
+            shifts.push({ value: s.value, nodes });
+          }
+        }).observe({ type: "layout-shift" });
+      });
+      refuse = true;
+      live?.close({ code: 1012 });
+      await page.waitForTimeout(DROP_MS);
+      refuse = false;
+      await expect(page.locator(site.connectionStatus)).toHaveText("", { timeout: 60_000 });
+      await page.waitForTimeout(OBSERVER_SETTLE_MS);
+      const shifts = await page.evaluate(() => {
+        const seen: unknown = Reflect.get(window, "__roomShifts");
+        return Array.isArray(seen) ? (seen as { value: number; nodes: string[] }[]) : [];
+      });
+      const cls = shifts.reduce((sum, s) => sum + s.value, 0);
+      const moved = [...new Set(shifts.flatMap((s) => s.nodes))];
+      recordMetric({ id, value: cls, note: `${String(shifts.length)} shifts${moved.length > 0 ? ` (${moved.join(", ")})` : ""}; ${profile} observer, socket closed 1012 and reconnects refused ${String(DROP_MS / 1000)} s` });
+      expect(cls, moved.join(", ")).toBeLessThan(LIMIT);
+    } finally {
+      await leaveAll(observer ? [observer] : []);
+    }
+  });
+}
