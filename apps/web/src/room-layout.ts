@@ -7,7 +7,7 @@ import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, wideLayout, SHELF_SPEAKER, TV_BEZEL, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, ROOM_HEAD, ROOM_VIEW, STAGE_W, bandFit, bandHome, editFit, chromeZoom, fullscreenLayout, momentsBox, portraitLayout, roomLayout, roomScale, touchHome, touchSideLayout, wideLayout, SIDE_ROOM_FROM_H, SHELF_SPEAKER, TV_BEZEL, type FullscreenLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomPanel, type RoomPanel } from "./room-panel";
 import { createRoomWindow, windowH, windowMinH } from "./room-window";
@@ -565,7 +565,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const editing = document.body.classList.contains("room-editing");
       // Editing, the curtain gives way to the whole room again (OME-2283): the owner's own act, on no one else's screen.
       const shown = editing ? tvBox.provider() : laidOut();
-      const l = roomOut ? fullscreenLayout(w, h, laidOut(), "none") : wideLayout(w, h, shown, zoom, roomScale(window.innerWidth, window.innerHeight), on, editing && tvBox.empty(), editing);
+      const under = roomOut ? fullscreenLayout(w, h, laidOut(), "none") : wideLayout(w, h, shown, zoom, roomScale(window.innerWidth, window.innerHeight), on, editing && tvBox.empty(), editing);
+      // A phone held sideways whose room window under the shelf would be under SIDE_ROOM_FROM_H (915×412: 112 px, OME-2406):
+      // the room beside the TV, the column's height, where it has the width.
+      const besideTv = "stage" in under && o.coarse.matches && !on && !editing && shown !== null && h - under.stage.y < SIDE_ROOM_FROM_H ? touchSideLayout(w, h, shown) : null;
+      const l = besideTv ?? under;
       roomViewKey.hidden = roomOut || tvBox.provider() === null;
       boxTv(l, h, undefined, roomOut ? 1 : zoom);
       // Room view's TV sits in the room box's top corner, above the left wall (OME-2233): over the box, it takes the clicks.
@@ -587,7 +591,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         // the keys beside it in a row, OME-1841); where that's too little (Twitch's taller TV, QA OME-1330 R1) the keys'
         // column height, so every seat row shows whole beside the keys; the wrap grows to hold it and the column scrolls.
         if (o.coarse.matches && (l.stage.w < ROOM_VIEW.w * l.scale || l.stage.h < ROOM_VIEW.h * l.scale)) {
-          const rw = Math.min(w, STAGE_W);
+          const rw = besideTv === null ? Math.min(w, STAGE_W) : l.stage.w;
           // The phone's window keeps its own keys: the Room view key covered a seat there (QA OME-1330 R1).
           roomViewKey.hidden = true;
           // Where the wrap leaves too little (844×390, OME-1929), to the column's foot: what plays under the wrap (the
@@ -596,7 +600,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
           // under it (1024×768 t as owner, OME-1944).
           const foot = root.clientHeight - (wrap.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop);
           const bottom = h - l.stage.y >= windowMinH(rw) ? h : Math.max(h, foot);
-          const r = { x: 0, y: l.stage.y, w: rw, h: windowH(rw, Math.min(PHONE_ROOM_H, bottom - l.stage.y)) };
+          const r = { x: besideTv === null ? 0 : l.stage.x, y: l.stage.y, w: rw, h: besideTv === null ? windowH(rw, Math.min(PHONE_ROOM_H, bottom - l.stage.y)) : l.stage.h };
           wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
           avoidTv(r);
