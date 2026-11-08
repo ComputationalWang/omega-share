@@ -78,3 +78,16 @@ test("the lava lamp's bubbles is variant 1, a PLTE swap on the v8 sheet listed i
   expect(Object.keys(table.kinds)).not.toContain("lavalamp");
   expect(read("furniture/recolours.json")).toEqual(JSON.parse(JSON.stringify(table)));
 });
+
+test("the shell sheet has every frame the web's SKINS can ask for, named by value (OME-2439)", () => {
+  const frames = Object.keys((JSON.parse(readFileSync(join(ROOT, "furniture/furniture-v9-shell.json"), "utf8")) as { frames: Record<string, unknown> }).frames);
+  for (const [shell, split] of [["stage-door", "r"], ["reef", "l"]] as const) {
+    const want = [
+      ...["back", "split", "split/north", "front"].flatMap((s) => ["0", "1"].map((n) => `floor/${shell}/${s}/${n}`)),
+      ...["l", "r"].flatMap((w) => ["back", "front"].map((s) => `wall/${w}/${shell}/${s}`)),
+      `wall/${split}/${shell}/split`, `wall/${split}/${shell}/split/north`,
+      ...["corner", "l/end", "r/end"].flatMap((e) => ["back", "front"].map((s) => `wall/${e}/${shell}/${s}`)),
+    ];
+    for (const k of want) expect(frames).toContain(k);
+  }
+});

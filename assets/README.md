@@ -2115,12 +2115,18 @@ wall screen and lava lamp).
 
 ### Shell skin (`furniture-v9-shell`, the room atlas's rects and anchors)
 
-- Stage Door (column partition at col 4): `wall/r/brick/{0,1}` (`i % 2`), `wall/r/brick/split` (paper before u = 0, brick after),
-  `wall/r/brick/split/north`, `wall/l/brick/{0,1}` (north), `wall/corner/brick`, `wall/{l,r}/end/brick`. Floors: `floor/green/{0,1}`
-  (carpet | planks across the column), `floor/green/north/{0,1}`; the rest are v7's `floor/carpet/*` and the room's planks.
-- Reef Tunnel (row 4): `wall/{l,r}/deep/{0,1}`, `wall/l/deep/split`, `wall/l/deep/split/north`, `wall/corner/deep`,
-  `wall/{l,r}/end/deep`. Floors: `floor/sand/{0,1}`, `floor/reef/{0,1}` (sand | planks), `floor/reef/north/{0,1}`. The bar keeps
-  v7's `wall/l/smoke`. Per-cell keys for both views: `STAGE_DOOR` / `REEF` `south` and `north` in `src/wave26.ts`.
+Named by value, as the web's `SKINS` reads them (ADR 0058, `apps/web/src/furniture.ts`), for `<shell>` = `stage-door` and `reef`.
+`back` is the side of the partition line with the smaller index, `front` the other, the same in both views:
+
+- floors `floor/<shell>/<back|split|split/north|front>/<0|1>` (`(col + row) % 2`);
+- walls `wall/<l|r>/<shell>/<back|front>`, plus `split` and `split/north` on the wall the line meets (Stage Door's col 4: the
+  right wall; Reef's row 4: the left wall);
+- edges `wall/corner/<shell>/<back|front>`, `wall/<l|r>/end/<shell>/<back|front>` (no split frame: on the line they wear `front`).
+
+Stage Door: back = the green room (v7's carpet, the plain paper wall), front = the club (planks, rust brick). Reef: back = the deep
+(sand, deep water with a porthole per segment), front = the bar (planks, v7's smoked panel). One frame serves every segment of a
+side, so the brick (16 wide) and the deep's caustics repeat every 16 px. Copies of the carpet, planks, paper and smoke live here
+too: a frame name can only point at its own sheet. The previews use the same keys (`skinShell` in `src/wave26.ts`).
 
 ### Judge's polish notes (OME-2434)
 

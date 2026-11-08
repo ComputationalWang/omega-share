@@ -342,41 +342,42 @@ function brickPaint(s: number, z: number, lit: boolean): Paint {
   if (z < 4) return ["charcoal", 2];
   if (z >= WALL_H - 4) return ["charcoal", lit ? 0 : 1];
   if (z < 40) return z > 37 ? ["mustard", lit ? 1 : 2] : ["charcoal", lit ? 1 : 2];
-  const row = Math.floor((z - 40) / 6), off = row % 2 === 0 ? 0 : 6;
-  if ((z - 40) % 6 < 1 || (((s + off) % 12) + 12) % 12 < 1) return ["charcoal", 2];
-  const b = hash(Math.floor((s + off) / 12) + 50, row);
+  // 16-wide bricks: the web draws one frame for every segment of a side, so the bond has to tile at 16.
+  const row = Math.floor((z - 40) / 6), off = row % 2 === 0 ? 0 : 8;
+  if ((z - 40) % 6 < 1 || (((s + off) % 16) + 16) % 16 < 1) return ["charcoal", 2];
+  const b = hash(Math.floor((s + off) / 16) + 50, row);
   return ["rust", b % 5 === 0 ? 2 : b % 3 === 0 ? (lit ? 0 : 1) : lit ? 1 : 2];
 }
-/** The deep: navy water-light, caustic glints that drift with the wall, a rock skirting, a brass porthole every second segment. */
-function deepPaint(s: number, z: number, lit: boolean, hole: boolean): Paint {
+/** The deep: navy water-light, wavy water-light, a rock skirting, a small brass porthole per segment. Every term repeats at 16
+ *  (s in [-8, 8)), since the web draws one frame for every segment of a side. */
+function deepPaint(s: number, z: number, lit: boolean): Paint {
   if (z < 4) return ["charcoal", 2];
   if (z >= WALL_H - 4) return ["navy", lit ? 1 : 2];
-  const rock = 18 + 3 * Math.sin(s * 0.45) + 1.5 * Math.sin(s * 1.3);
-  if (z < rock) return hash(Math.floor(s / 3), Math.floor(z / 4)) % 3 === 0 ? ["charcoal", lit ? 0 : 1] : ["charcoal", 1];
-  if (hole) {
-    const r = Math.hypot((((s % 32) + 32) % 32) - 16, (z - 112) * 0.5);
-    if (r < 7.5 && r >= 6) return ["mustard", lit ? 0 : 1];
-    if (r < 6) {
-      const fx = ((((s % 32) + 32) % 32) - 16), fz = z - 112;
-      if (Math.hypot((fx + 1) * 0.6, fz * 1.4) < 1.5) return ["mustard", 0]; // a fish going past outside
-      return ["teal", fz > 4 ? 0 : 2];
-    }
-  }
-  const glint = Math.sin(s * 0.55 + z * 0.08) + Math.sin(s * 0.21 - z * 0.13 + 1.3);
-  if (z > 120 && glint > 1.55 && (Math.floor(s * 2) + Math.floor(z)) % 2 === 0) return ["teal", 1];
-  return ["navy", z > 150 ? 2 : glint > 1.2 ? 1 : 2];
+  const rock = 18 + 3 * Math.sin(s * TAU16) + 1.5 * Math.sin(s * 3 * TAU16);
+  if (z < rock) return hash(Math.floor(s / 4), Math.floor(z / 4)) % 3 === 0 ? ["charcoal", lit ? 0 : 1] : ["charcoal", 1];
+  const r = Math.hypot(s, (z - 112) * 0.5);
+  if (r < 5 && r >= 4) return ["mustard", lit ? 0 : 1];
+  if (r < 4) return ["teal", z - 112 > 3 ? 0 : 2];
+  // Water-light as wavy horizontal bands (a dot pattern would read as wallpaper once the frame repeats).
+  const band = Math.sin(z * 0.2 + 1.6 * Math.sin(s * TAU16));
+  if (z > 120 && band > 0.97 && (Math.floor(s) + Math.floor(z)) % 2 === 0) return ["teal", 1];
+  return ["navy", z > 40 && z < 150 && band > 0.8 ? 1 : 2];
 }
+const TAU16 = (2 * Math.PI) / 16;
 type Skin = "brick" | "deep" | "paper" | "smoke";
 const skinPaint = (skin: Skin, s: number, z: number, lit: boolean): Paint =>
-  skin === "brick" ? brickPaint(s, z, lit) : skin === "deep" ? deepPaint(s, z, lit, true) : skin === "smoke" ? panelPaint("smoke", s, z, lit) : wallPaint("plain", s, z, lit);
+  skin === "brick" ? brickPaint(s, z, lit) : skin === "deep" ? deepPaint(s, z, lit) : skin === "smoke" ? panelPaint("smoke", s, z, lit) : wallPaint("plain", s, z, lit);
 const topOf = (skin: Skin): Paint => (skin === "brick" ? ["charcoal", 1] : skin === "deep" ? ["navy", 1] : skin === "smoke" ? ["wood", 0] : ["wall", 0]);
-const leftWall = (key: string, i: number, skin: (v: number) => Skin): RoomFrame =>
-  solidsFrame(key, [box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? topOf(skin(p.v)) : f === "se" ? skinPaint(skin(p.v), p.v + 16 * i, p.z, false) : null) })], "top");
-const rightWall = (key: string, i: number, skin: (u: number) => Skin): RoomFrame =>
-  solidsFrame(key, [box(-8, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", { skip: ["se", "other"], paint: (p, f) => (f === "top" ? topOf(skin(p.u)) : f === "sw" ? skinPaint(skin(p.u), p.u + 16 * i, p.z, true) : null) })], "top");
-const corner = (key: string, skin: Skin): RoomFrame => solidsFrame(key, [box(-8 - WALL_T, -8, -8 - WALL_T, -8, 0, WALL_H, skin === "brick" ? "charcoal" : "navy", { tones: { top: 0, sw: 1, se: 2 } })], "top");
-const lEnd = (key: string, skin: Skin): RoomFrame => solidsFrame(key, [box(-8 - WALL_T, -8, 7, 8, 0, WALL_H, skin === "brick" ? "charcoal" : "navy", { skip: ["se", "other"], tones: { top: 0, sw: 1, se: 2 } })], "all", (x) => x < -32);
-const rEnd = (key: string, skin: Skin): RoomFrame => solidsFrame(key, [box(7, 8, -8 - WALL_T, -8, 0, WALL_H, skin === "brick" ? "charcoal" : "navy", { skip: ["sw", "other"], tones: { top: 0, sw: 1, se: 2 } })], "all", (x) => x >= 32);
+const leftWall = (key: string, skin: (v: number) => Skin): RoomFrame =>
+  solidsFrame(key, [box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? topOf(skin(p.v)) : f === "se" ? skinPaint(skin(p.v), p.v, p.z, false) : null) })], "top");
+const rightWall = (key: string, skin: (u: number) => Skin): RoomFrame =>
+  solidsFrame(key, [box(-8, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", { skip: ["se", "other"], paint: (p, f) => (f === "top" ? topOf(skin(p.u)) : f === "sw" ? skinPaint(skin(p.u), p.u, p.z, true) : null) })], "top");
+const capOf = (skin: Skin): RampName => (skin === "brick" ? "charcoal" : skin === "deep" ? "navy" : skin === "smoke" ? "wood" : "wall");
+const edgeOpts = (skin: Skin, skip: ("sw" | "se" | "other")[] = []) =>
+  ({ skip, tones: { top: 0, sw: 1, se: 2 } as const, paint: (p: { z: number }, f: string): Paint | null => (f !== "top" && skin !== "paper" && p.z < 4 ? ["charcoal", 2] : null) });
+const corner = (key: string, skin: Skin): RoomFrame => solidsFrame(key, [box(-8 - WALL_T, -8, -8 - WALL_T, -8, 0, WALL_H, capOf(skin), edgeOpts(skin))], "top");
+const lEnd = (key: string, skin: Skin): RoomFrame => solidsFrame(key, [box(-8 - WALL_T, -8, 7, 8, 0, WALL_H, capOf(skin), edgeOpts(skin, ["se", "other"]))], "all", (x) => x < -32);
+const rEnd = (key: string, skin: Skin): RoomFrame => solidsFrame(key, [box(7, 8, -8 - WALL_T, -8, 0, WALL_H, capOf(skin), edgeOpts(skin, ["sw", "other"]))], "all", (x) => x >= 32);
 
 /** Sand for the deep: pale ripples and a shell or two. */
 const sandTile = (n: number) => (u: number, v: number): Paint => {
@@ -386,26 +387,51 @@ const sandTile = (n: number) => (u: number, v: number): Paint => {
   if (ripple < 0.7) return ["floor", 1];
   return h % 5 === 0 ? ["cream", 2] : h % 7 === 0 ? ["floor", 2] : ["floor", 0];
 };
-const SKY = 2;
-function buildSkins(): RoomFrame[] {
-  const out: RoomFrame[] = [];
-  for (let i = 0; i < SKY; i++) {
-    out.push(rightWall(`wall/r/brick/${String(i)}`, i, () => "brick"), leftWall(`wall/l/brick/${String(i)}`, i, () => "brick"));
-    out.push(rightWall(`wall/r/deep/${String(i)}`, i, () => "deep"), leftWall(`wall/l/deep/${String(i)}`, i, () => "deep"));
-  }
-  // Stage Door's split segment: the column partition runs through the middle of right-wall segment 4 (u = 0).
-  out.push(rightWall("wall/r/brick/split", 0, (u) => (u < 0 ? "paper" : "brick")), rightWall("wall/r/brick/split/north", 1, (u) => (u < 0 ? "brick" : "paper")));
-  out.push(corner("wall/corner/brick", "brick"), lEnd("wall/l/end/brick", "brick"), rEnd("wall/r/end/brick", "brick"));
-  // Reef Tunnel's split segment: the row partition through left-wall segment 4 (v = 0), like the penthouse.
-  out.push(leftWall("wall/l/deep/split", 1, (v) => (v < 0 ? "deep" : "smoke")), leftWall("wall/l/deep/split/north", 0, (v) => (v < 0 ? "smoke" : "deep")));
-  out.push(corner("wall/corner/deep", "deep"), rEnd("wall/r/end/deep", "deep"), lEnd("wall/l/end/deep", "deep"));
+type Tile = (u: number, v: number) => Paint;
+/** One shell skin by value (the web's SKINS, ADR 0058): `floor/<shell>/<back|split|split/north|front>/<0|1>`,
+ *  `wall/<l|r>/<shell>/<back|front|split|split/north>`, `wall/corner|l/end|r/end/<shell>/<back|front>`. Back is the side of the
+ *  line with the smaller index. `axis` is the line's: col splits the right wall and the floor on u, row the left wall on v. */
+function skinFrames(shell: string, axis: "col" | "row", back: Skin, front: Skin, floor: (n: number) => [Tile, Tile]): RoomFrame[] {
+  const half = <T,>(b: T, f: T) => (x: number): T => (x < 0 ? b : f);
+  const wall = axis === "col" ? rightWall : leftWall;
+  const out: RoomFrame[] = [
+    leftWall(`wall/l/${shell}/back`, () => back), leftWall(`wall/l/${shell}/front`, () => front),
+    rightWall(`wall/r/${shell}/back`, () => back), rightWall(`wall/r/${shell}/front`, () => front),
+    wall(`wall/${axis === "col" ? "r" : "l"}/${shell}/split`, half(back, front)), wall(`wall/${axis === "col" ? "r" : "l"}/${shell}/split/north`, half(front, back)),
+  ];
+  for (const [side, skin] of [["back", back], ["front", front]] as const)
+    out.push(corner(`wall/corner/${shell}/${side}`, skin), lEnd(`wall/l/end/${shell}/${side}`, skin), rEnd(`wall/r/end/${shell}/${side}`, skin));
   for (const n of [0, 1]) {
-    const sand = sandTile(n), carpet = carpetTile(n), plank = planks(n);
-    out.push(floorTile(`floor/sand/${String(n)}`, sand));
-    out.push(floorTile(`floor/reef/${String(n)}`, (u, v) => (v < 0 ? sand(u, v) : plank(u, v))), floorTile(`floor/reef/north/${String(n)}`, (u, v) => (v < 0 ? plank(u, v) : sand(u, v))));
-    out.push(floorTile(`floor/green/${String(n)}`, (u, v) => (u < 0 ? carpet(u, v) : plank(u, v))), floorTile(`floor/green/north/${String(n)}`, (u, v) => (u < 0 ? plank(u, v) : carpet(u, v))));
+    const [b, f] = floor(n), split = (u: number, v: number) => ((axis === "col" ? u : v) < 0);
+    out.push(floorTile(`floor/${shell}/back/${String(n)}`, b), floorTile(`floor/${shell}/front/${String(n)}`, f));
+    out.push(floorTile(`floor/${shell}/split/${String(n)}`, (u, v) => (split(u, v) ? b(u, v) : f(u, v))), floorTile(`floor/${shell}/split/north/${String(n)}`, (u, v) => (split(u, v) ? f(u, v) : b(u, v))));
   }
   return out;
+}
+function buildSkins(): RoomFrame[] {
+  // Stage Door: the green room (carpet, paper) behind the col-4 line, the club (planks, brick) in front.
+  // Reef: the deep (sand, deep water) behind the row-4 line, the bar (planks, smoked panel) in front.
+  return [
+    ...skinFrames("stage-door", "col", "paper", "brick", (n) => [carpetTile(n), planks(n)]),
+    ...skinFrames("reef", "row", "deep", "smoke", (n) => [sandTile(n), planks(n)]),
+  ];
+}
+/** A preview shell drawn from the skin's frames as the web picks them: side 0 back, 1 the line, 2 front (south view). */
+function skinShell(shell: string, axis: "col" | "row", at: number, north: boolean): Shell {
+  const L = 9;
+  const side = (col: number, row: number): string => {
+    const [c, r] = north ? [L - col, L - row] : [col, row];
+    const i = axis === "col" ? c : r;
+    return i < at ? "back" : i > at ? "front" : north ? "split/north" : "split";
+  };
+  // The corner and ends have no split frame: on the line they wear the front's.
+  const edge = (col: number, row: number): string => (side(col, row) === "back" ? "back" : "front");
+  return {
+    floor: (c0, r) => `floor/${shell}/${side(c0, r)}/${String((c0 + r) % 2)}`,
+    l: (i) => `wall/l/${shell}/${side(0, i)}`,
+    r: (i) => `wall/r/${shell}/${side(i, 0)}`,
+    corner: `wall/corner/${shell}/${edge(0, 0)}`, lEnd: `wall/l/end/${shell}/${edge(0, L)}`, rEnd: `wall/r/end/${shell}/${edge(L, 0)}`,
+  };
 }
 
 // ------------------------------------------------------------------ the two rooms
@@ -421,8 +447,6 @@ export interface Room {
   standing: [string, number, number][];
 }
 const P = (id: string, colour: string, dir: FurnDir, col: number, row: number, sitters?: string[]): Placement => (sitters ? { id, colour, dir, col, row, sitters } : { id, colour, dir, col, row });
-const plankKey = (c0: number, r: number): string => `floor/${String((c0 * 3 + r) % 2)}`;
-const alt = (k: string) => (c0: number, r: number): string => `${k}/${String((c0 * 3 + r) % 2)}`;
 
 /** Stage Door. Partition on **column 4** facing se (ADR 0058 §3's col axis, unused so far): velvet at rows 0–1 and 8–9, open wings
  *  at rows 2–6, the stage door (the gap) at (4, 7). The stage (cols 5–9) is the front room; the green room (cols 0–3) is behind. */
@@ -444,19 +468,9 @@ const STAGE_DOOR: Room = {
     P("couch", "olive", "se", 1, 3, ["mo", ""]), P("wingback", "ginger", "se", 2, 5, ["kiki"]), P("pouf", "lilac", "se", 3, 2, [""]),
     P("minibar", "fridge", "sw", 1, 0), P("neonsign", "pink", "sw", 2, 0), P("lavalamp", "lilac", "se", 3, 0), P("monstera", "teal", "se", 1, 9),
   ],
-  south: {
-    floor: (c0, r) => (c0 < 4 ? alt("floor/carpet")(c0, r) : c0 === 4 ? alt("floor/green")(c0, r) : plankKey(c0, r)),
-    l: () => "wall/l/plain",
-    r: (i) => (i < 4 ? "wall/r/plain" : i === 4 ? "wall/r/brick/split" : `wall/r/brick/${String(i % SKY)}`),
-    corner: "wall/corner", lEnd: "wall/l/end", rEnd: "wall/r/end/brick",
-  },
-  north: {
-    // Turned: the stage is cols 0–4 now (behind), the green room cols 6–9 (in front), the partition at col 5.
-    floor: (c0, r) => (c0 < 5 ? plankKey(c0, r) : c0 === 5 ? alt("floor/green/north")(c0, r) : alt("floor/carpet")(c0, r)),
-    l: (i) => `wall/l/brick/${String(i % SKY)}`,
-    r: (i) => (i < 5 ? `wall/r/brick/${String(i % SKY)}` : i === 5 ? "wall/r/brick/split/north" : "wall/r/plain"),
-    corner: "wall/corner/brick", lEnd: "wall/l/end/brick", rEnd: "wall/r/end",
-  },
+  south: skinShell("stage-door", "col", 4, false),
+  // Turned: the stage is cols 0–4 now (behind), the green room cols 6–9 (in front), the partition at col 5.
+  north: skinShell("stage-door", "col", 4, true),
   standing: [],
 };
 
@@ -476,18 +490,8 @@ const REEF: Room = {
     P("hammock", "rust", "sw", 5, 1, ["", "juno"]), P("beanbag", "navy", "sw", 2, 2, ["pip"]), P("beanbag", "navy", "sw", 8, 2, [""]),
     P("lavalamp", "bubbles", "se", 0, 0), P("lavalamp", "bubbles", "se", 9, 0), P("monstera", "teal", "se", 0, 2),
   ],
-  south: {
-    floor: (c0, r) => (r < 4 ? alt("floor/sand")(c0, r) : r === 4 ? alt("floor/reef")(c0, r) : plankKey(c0, r)),
-    l: (i) => (i < 4 ? `wall/l/deep/${String(i % SKY)}` : i === 4 ? "wall/l/deep/split" : "wall/l/smoke"),
-    r: (i) => `wall/r/deep/${String(i % SKY)}`,
-    corner: "wall/corner/deep", lEnd: "wall/l/end/smoke", rEnd: "wall/r/end/deep",
-  },
-  north: {
-    floor: (c0, r) => (r < 5 ? plankKey(c0, r) : r === 5 ? alt("floor/reef/north")(c0, r) : alt("floor/sand")(c0, r)),
-    l: (i) => (i < 5 ? "wall/l/smoke" : i === 5 ? "wall/l/deep/split/north" : `wall/l/deep/${String(i % SKY)}`),
-    r: () => "wall/r/smoke",
-    corner: "wall/corner/smoke", lEnd: "wall/l/end/deep", rEnd: "wall/r/end/smoke",
-  },
+  south: skinShell("reef", "row", 4, false),
+  north: skinShell("reef", "row", 4, true),
   // The tunnel's near ribs, its `front` layer (the composer draws `back` only; the web draws `front` over avatars).
   standing: [["furniture/partition/tunnel/sw/front", 3, 4]],
 };
