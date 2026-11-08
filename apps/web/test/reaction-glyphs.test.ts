@@ -12,7 +12,9 @@ function setup(o: { allowed?: () => boolean } = {}) {
     renders: 0,
     show: (i: number, frame: string, x: number, y: number, alpha: number) => void shows.push({ i, frame, x, y, alpha }),
     hide: (i: number) => void hides.push(i),
-    render: () => void paint.renders++,
+    render: () => {
+      paint.renders++;
+    },
   };
   let now = 0;
   const timers = new Map<number, { fn: () => void; at: number }>();
@@ -56,7 +58,7 @@ describe("reaction glyphs", () => {
       expect(s.alpha).toBe(1);
     }
     expect(paint.renders).toBe(1);
-    expect(g.active().map((a) => a.kind)).toEqual(Array(GLYPHS_PER_BURST).fill("heart"));
+    expect(g.active().map((a) => a.kind)).toEqual(Array.from({ length: GLYPHS_PER_BURST }, () => "heart"));
   });
 
   test("each kind has its own frame and its own bar icon", () => {

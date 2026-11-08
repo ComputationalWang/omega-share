@@ -1,12 +1,12 @@
 // Reaction glyph bursts (OME-1631, Movie night): a received `reacted` bursts a few glyphs up from the sender's head.
-// DOM over the room like the chat floats, never the Pixi room: a burst costs no canvas render. A fixed pool of at most
-// 12 nodes, made on first need and reused; a burst into a full pool shows what fits, then nothing (the oldest finish
-// on their own within a life). ADR 0040: no CSS animation, so the rise and the fade are written on one step timer for
+// OME-2307: painted as pooled sprites on the room canvas (room-view.ts `reactions` layer), not DOM. This file owns the
+// timing and asks a paint sink to show/hide slots; each step that changed something asks for one render, an idle room
+// none. A fixed pool of at most 12 slots, reused; a burst into a full pool shows what fits, then nothing (the oldest
+// finish on their own within a life). ADR 0040: no CSS animation, so the rise and the fade are written on one step timer for
 // the whole layer, which stops when nothing is live. The caller's `allowed` gate turns it off (Basic tier, reduced
 // motion, a Smooth frame near budget). Placeholder art: the emote picker's stickers until the Designer's glyph sheet
 // passes the judge. The layer is decorative: who reacted is not announced.
 import type { ReactionKind } from "@omega/shared";
-import { el } from "../controls/dom";
 import type { Point } from "../layout";
 
 export const GLYPH_POOL = 12;
@@ -22,9 +22,20 @@ const LIFT = [0, 6, 2] as const;
 /** The fade starts at this share of the life. */
 const FADE_AT = 0.4;
 
-/** Placeholder icons (UI sprite classes); "wow" borrows the Surprise sticker. */
+/** The bar's placeholder icons (UI sprite classes); "wow" borrows the Surprise sticker. */
 const ICONS: Readonly<Record<ReactionKind, string>> = { heart: "ui-emote-pick-heart", laugh: "ui-emote-pick-laugh", wow: "ui-emote-pick-exclaim", clap: "ui-emote-pick-clap" };
+/** The motion atlas's sticker frames the glyphs paint (the same `emote/<kind>` art as the emote stickers). */
+const FRAMES: Readonly<Record<ReactionKind, string>> = { heart: "emote/heart", laugh: "emote/laugh", wow: "emote/exclaim", clap: "emote/clap" };
+export const glyphFrame = (kind: ReactionKind): string => FRAMES[kind];
 export const reactionIcon = (kind: ReactionKind): string => ICONS[kind];
+
+/** Where glyphs are painted (room-view.ts), and the render request. */
+export interface GlyphPaint {
+  show(i: number, frame: string, x: number, y: number, alpha: number): void;
+  hide(i: number): void;
+  /** Draw the room once. */
+  render(): void;
+}
 
 export interface GlyphOptions {
   /** Read once per burst: may glyphs play now? */
@@ -39,57 +50,41 @@ export interface ReactionGlyphs {
   burst(at: Point, kind: ReactionKind): number;
   /** Glyphs live now, for e2e and perf. */
   live(): number;
+  /** Which slots are live and their kinds, for the e2e hook (allocates: not for a frame). */
+  active(): { kind: ReactionKind; i: number }[];
   destroy(): void;
 }
 
-/** Where glyphs are painted (the room view's pooled sprites), and the render request. Type stub (red commit). */
-export interface GlyphPaint {
-  show(i: number, frame: string, x: number, y: number, alpha: number): void;
-  hide(i: number): void;
-  render(): void;
-}
-export const glyphFrame = (_kind: ReactionKind): string => "";
-export function createReactionGlyphs(_paint: GlyphPaint, _o: GlyphOptions): ReactionGlyphs & { active(): { kind: ReactionKind; i: number }[] } {
-  return { burst: () => 0, live: () => 0, active: () => [], destroy() {} };
-}
-
-export function createReactionGlyphsDom(layer: HTMLElement, o: GlyphOptions): ReactionGlyphs {
-  layer.setAttribute("aria-hidden", "true");
-  const nodes: HTMLElement[] = [];
+export function createReactionGlyphs(paint: GlyphPaint, o: GlyphOptions): ReactionGlyphs {
   const born = new Float64Array(GLYPH_POOL);
   const xs = new Float64Array(GLYPH_POOL);
   const ys = new Float64Array(GLYPH_POOL);
   const busy = new Uint8Array(GLYPH_POOL);
+  const kinds: ReactionKind[] = new Array<ReactionKind>(GLYPH_POOL).fill("heart");
   let live = 0;
   let timer: unknown = null;
   let destroyed = false;
 
-  const place = (i: number, node: HTMLElement, t: number): boolean => {
+  const place = (i: number, t: number): boolean => {
     const k = Math.min(STEPS, Math.floor((t - (born[i] ?? 0)) / STEP_MS));
     if (k >= STEPS) return false;
     const rise = Math.round((RISE * k) / STEPS);
-    node.style.transform = `translate(${String(xs[i] ?? 0)}px, ${String((ys[i] ?? 0) - rise)}px)`;
     const p = k / STEPS;
-    node.style.opacity = p <= FADE_AT ? "1" : String(Math.round((100 * (1 - p)) / (1 - FADE_AT)) / 100);
+    const alpha = p <= FADE_AT ? 1 : Math.round((100 * (1 - p)) / (1 - FADE_AT)) / 100;
+    paint.show(i, FRAMES[kinds[i] ?? "heart"], xs[i] ?? 0, (ys[i] ?? 0) - rise, alpha);
     return true;
   };
   const step = (): void => {
     timer = null;
     const t = o.now();
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      if (busy[i] !== 1 || node === undefined || place(i, node, t)) continue;
+    for (let i = 0; i < GLYPH_POOL; i++) {
+      if (busy[i] !== 1 || place(i, t)) continue;
       busy[i] = 0;
-      node.hidden = true;
+      paint.hide(i);
       live--;
     }
+    paint.render();
     if (live > 0) timer = o.setTimer(step, STEP_MS);
-  };
-  const free = (): number => {
-    for (let i = 0; i < nodes.length; i++) if (busy[i] !== 1) return i;
-    if (nodes.length === GLYPH_POOL) return -1;
-    nodes.push(layer.appendChild(el("span", { className: "reaction-glyph" })));
-    return nodes.length - 1;
   };
 
   return {
@@ -98,28 +93,33 @@ export function createReactionGlyphsDom(layer: HTMLElement, o: GlyphOptions): Re
       const t = o.now();
       let shown = 0;
       for (let j = 0; j < GLYPHS_PER_BURST; j++) {
-        const i = free();
-        const node = nodes[i];
-        if (node === undefined) break;
+        const i = busy.indexOf(0);
+        if (i < 0) break;
         busy[i] = 1;
         born[i] = t;
+        kinds[i] = kind;
         xs[i] = Math.round(at.x + (FAN[j] ?? 0));
         ys[i] = Math.round(at.y - (LIFT[j] ?? 0));
-        node.className = `reaction-glyph ui-sprite ${ICONS[kind]}`;
-        place(i, node, t);
-        node.hidden = false;
+        place(i, t);
         live++;
         shown++;
       }
-      if (shown > 0 && timer === null) timer = o.setTimer(step, STEP_MS);
+      if (shown > 0) {
+        paint.render();
+        if (timer === null) timer = o.setTimer(step, STEP_MS);
+      }
       return shown;
     },
     live: () => live,
+    active: () => kinds.flatMap((kind, i) => (busy[i] === 1 ? [{ kind, i }] : [])),
     destroy() {
       destroyed = true;
       if (timer !== null) o.clearTimer(timer);
       timer = null;
-      for (const n of nodes) n.hidden = true;
+      if (live > 0) {
+        for (let i = 0; i < GLYPH_POOL; i++) if (busy[i] === 1) paint.hide(i);
+        paint.render();
+      }
       busy.fill(0);
       live = 0;
     },

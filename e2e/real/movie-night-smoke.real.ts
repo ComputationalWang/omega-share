@@ -10,6 +10,7 @@
 import { EMOTE_BURST, EMOTE_REFILL_MS, ROOM_SECRETS_STORAGE_KEY, SHARE_TOKEN_STORAGE_KEY, parseServerMessage } from "@omega/shared";
 import type { Reaction } from "@omega/shared";
 import { chromium } from "@playwright/test";
+import { glyphsSeen, watchGlyphs } from "../support/glyphs";
 import type { Browser, BrowserContext, Frame, Page } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
 import { URLS } from "../support/apps";
@@ -160,24 +161,6 @@ async function seekTo(page: Page, seconds: number): Promise<void> {
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }, seconds);
 }
-
-/** Counts, from now on, every reaction glyph shown on the page (a glyph lives 0.9 s: a poll alone could miss it). */
-async function watchGlyphs(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    let seen = 0;
-    Reflect.set(window, "__glyphsSeen", () => seen);
-    new MutationObserver((records) => {
-      for (const r of records) if (r.target instanceof HTMLElement && r.target.classList.contains("reaction-glyph") && !r.target.hidden) seen++;
-      for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLElement && n.classList.contains("reaction-glyph") && !n.hidden) seen++;
-    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden"] });
-  });
-}
-
-const glyphsSeen = (page: Page): Promise<number> =>
-  page.evaluate(() => {
-    const f: unknown = Reflect.get(window, "__glyphsSeen");
-    return typeof f === "function" ? Number(Reflect.apply(f, window, [])) : 0;
-  });
 
 /** Every reacting member presses Shift+1..4 (heart, laugh, wow, clap) every 250 ms for BURST_MS: 4 a second, over the limit. */
 async function burst(reacting: readonly Member[]): Promise<Record<string, number>> {

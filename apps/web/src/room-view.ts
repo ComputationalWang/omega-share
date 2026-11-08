@@ -6,6 +6,7 @@ import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId, type RoomMo
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import { createSceneTags, type SceneTags } from "./scene-tags";
+import type { GlyphPaint } from "./reactions/glyphs";
 import tagPlainUrl from "../../../assets/ui/slices/tag-0.png?url";
 import tagSelfUrl from "../../../assets/ui/slices/tag-self.png?url";
 import { standDepth, type CatWalker, type FurnitureSprite, type Scene } from "./furniture";
@@ -147,6 +148,8 @@ export interface RoomView {
   reactionsAllowed(): boolean;
   /** The name tags painted over everyone (OME-2307); the stage places them. */
   readonly tags: SceneTags;
+  /** Where the reaction glyphs are painted (OME-2307): pooled sprites over the emote stickers; `rect` is a live glyph's box (stage px). */
+  readonly glyphs: GlyphPaint & { rect(i: number): { x: number; y: number; w: number; h: number } | undefined };
   /** The cinema dim over the room (OME-1406), under the tags (OME-2307): fades to `alpha` over DIM_MS in DIM_STEPS renders. */
   dim(alpha: number): void;
   destroy(): void;
@@ -323,9 +326,48 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const tagLayer = new Container({ label: "tags" });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, dimLayer, tagLayer, emoteLayer);
+  // Reaction glyphs (OME-2307) over the stickers, where the DOM layer stacked.
+  const reactionLayer = new Container({ label: "reactions" });
+  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, dimLayer, tagLayer, emoteLayer, reactionLayer);
   const [tagPlain, tagSelf] = await Promise.all([sliceImage(tagPlainUrl), sliceImage(tagSelfUrl)]);
   const tags = createSceneTags(tagLayer, { plain: tagPlain, self: tagSelf });
+  /** At most 12 sprites, made on a glyph's first use (reactions/glyphs.ts owns the pool size). */
+  const glyphSprites: Sprite[] = [];
+  const glyphs: RoomView["glyphs"] = {
+    show(i, frame, x, y, alpha) {
+      // `frame` names the sticker's anim (`emote/<kind>`); its last frame is the settled sticker.
+      const e = motion?.frames.emote;
+      const cycle = frame === "emote/heart" ? e?.heart : frame === "emote/laugh" ? e?.laugh : frame === "emote/exclaim" ? e?.exclaim : frame === "emote/clap" ? e?.clap : undefined;
+      const key = cycle?.frames.at(-1);
+      const texture = key === undefined ? undefined : motion?.texture(key);
+      if (texture === undefined) {
+        const hidden = glyphSprites[i];
+        if (hidden !== undefined) hidden.visible = false;
+        return;
+      }
+      let s = glyphSprites[i];
+      if (s === undefined) {
+        s = new Sprite({ texture, label: `reaction:${String(i)}`, anchor: { x: 0.5, y: 1 } });
+        glyphSprites[i] = s;
+        reactionLayer.addChild(s);
+      } else if (s.texture !== texture) s.texture = texture;
+      s.position.set(x, y);
+      s.alpha = alpha;
+      s.visible = true;
+    },
+    hide(i) {
+      const s = glyphSprites[i];
+      if (s !== undefined) s.visible = false;
+    },
+    render: () => {
+      render();
+    },
+    rect(i) {
+      const s = glyphSprites[i];
+      if (s?.visible !== true) return undefined;
+      return { x: s.x - s.width / 2, y: s.y - s.height, w: s.width, h: s.height };
+    },
+  };
   let dimTo = 0;
   let dimTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1485,6 +1527,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (effectRunning) fxCanvas.style.visibility = "visible";
       else startEffect();
     },
+    glyphs,
     reactionsAllowed: () => !reduced.matches && tier.smooth() && lastWorkMs < REACTION_NEAR_BUDGET_MS,
     destroy() {
       destroyed = true;
