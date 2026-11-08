@@ -35,6 +35,7 @@ export const site = {
   recapCard: id("recap"),
   // Full screen (OME-597): our wrapper (the full-screen element), its enter/exit key, the chat strip and its collapse key.
   fsRoot: id("fs-root"),
+  reactionBar: id("reaction-bar"),
   fullscreenToggle: id("fullscreen-toggle"),
   fsStrip: id("fs-strip"),
   fsStripToggle: id("fs-strip-toggle"),
