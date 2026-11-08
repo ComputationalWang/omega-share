@@ -75,11 +75,19 @@ function spot(anchor: HTMLElement | null, side: Side, w: number, h: number): Spo
 const KEYS_BAND = 52;
 const BUBBLES = 40;
 
-/** A `w`×`h` chip at the foot of `room`, above its zoom keys; null when it would reach the window's top 40 px. */
+/** Where the bubbles rise: the room window from its top down to its lowest name tag (at least its top 40 px; OME-2413). */
+function bubbleZone(room: HTMLElement): DOMRect {
+  const r = room.getBoundingClientRect();
+  let floor = r.top + BUBBLES;
+  for (const t of room.querySelectorAll(".ui-tag")) floor = Math.max(floor, t.getBoundingClientRect().bottom);
+  return new DOMRect(r.left, r.top, r.width, floor - r.top);
+}
+
+/** A `w`×`h` chip at the foot of `room`, 4 px over its zoom keys; null when there's no window. */
 function foot(room: HTMLElement, w: number, h: number): Spot | null {
   const r = room.getBoundingClientRect();
-  const top = r.bottom - KEYS_BAND - GAP - h;
-  if (r.width === 0 || top < r.top + BUBBLES) return null;
+  if (r.width === 0) return null;
+  const top = r.bottom - KEYS_BAND - h;
   return { left: Math.max(GAP, Math.min(r.left + (r.width - w) / 2, window.innerWidth - w - GAP)), top };
 }
 
@@ -117,18 +125,31 @@ export function createHints(o: HintsOptions): Hints {
     // An empty TV may be covered, but not its message (OME-2104); a playing one's bar neither (OME-2407).
     const tv = (empty ? o.tv.message : o.tv.box).getBoundingClientRect();
     const bar = empty ? undefined : o.anchor(0)?.getBoundingClientRect();
-    const obstacles = [tv, bar, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
+    // shortcut: tags are read when the chip is placed, not as walkers move; follow them if a walker's tag lands on it.
+    const bubbles = empty ? undefined : bubbleZone(o.room);
+    const obstacles = [tv, bar, bubbles, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
     const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone. Off a video,
-    // under the picture, else on the floor under the TV: the reaction row takes the spot under the picture (OME-2398).
-    for (const f of empty ? [o.tv.message] : [o.tv.picture, o.tv.box]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
+    // under the picture, else on the floor under the TV: the reaction row takes the spot under the picture (OME-2398); else
+    // under the TV's bar (a landscape phone's free band beside the room, OME-2413).
+    for (const f of empty ? [o.tv.message] : [o.tv.picture, o.tv.box, o.anchor(0)]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
     // Else, on a phone, the room window's foot above its keys, the chip as narrow as the window (its keys wrap under the words).
-    if (!empty && (at === null || blocked(at))) {
-      root.style.maxWidth = `${String(Math.max(0, Math.min(320, o.room.getBoundingClientRect().width - 2 * GAP)))}px`;
+    const fit = (max: number): void => {
+      root.style.maxWidth = `${String(Math.max(0, Math.min(320, max)))}px`;
       w = root.offsetWidth;
       h = root.offsetHeight;
+    };
+    if (!empty && (at === null || blocked(at))) {
+      const win = o.room.getBoundingClientRect();
+      fit(win.width - 2 * GAP);
       at = foot(o.room, w, h);
+      // Else beside the zoom keys down to the window's foot: narrower and taller, it clears a low tag (OME-2413).
+      const keys = o.room.querySelector(".room-zoom")?.getBoundingClientRect();
+      if ((at === null || blocked(at)) && keys !== undefined && keys.width > 0) {
+        fit(keys.left - win.left - 2 * GAP);
+        at = { left: win.left + GAP, top: win.bottom - 4 - h };
+      }
     }
     // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
