@@ -1,10 +1,13 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
-import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
+import { Application, Container, Graphics, ImageSource, Sprite, Texture, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
+import { createSceneTags, type SceneTags } from "./scene-tags";
+import tagPlainUrl from "../../../assets/ui/slices/tag-0.png?url";
+import tagSelfUrl from "../../../assets/ui/slices/tag-self.png?url";
 import { standDepth, type CatWalker, type FurnitureSprite, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
@@ -142,7 +145,17 @@ export interface RoomView {
    * REACTION_NEAR_BUDGET_MS. Read once per burst.
    */
   reactionsAllowed(): boolean;
+  /** The name tags painted over everyone (OME-2307); the stage places them. */
+  readonly tags: SceneTags;
   destroy(): void;
+}
+
+/** A slice PNG as a nearest-sampled texture (the tag frames are inlined by Vite: no request). */
+async function sliceTexture(url: string): Promise<Texture> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  return new Texture({ source: new ImageSource({ resource: img, scaleMode: "nearest" }) });
 }
 
 /** A hidden member's avatar (OME-769): still there, plainly set apart. */
@@ -297,9 +310,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Free walking's hover diamond (OME-1350): on the floor, under seats and avatars; not in `drawOrder`.
   const hover = new Graphics({ label: "walk-marker", visible: false });
   const objectLayer = new Container({ sortableChildren: true });
+  // Name tags over everyone (OME-2307), under the emote stickers, which float over the head and the tag on it.
+  const tagLayer = new Container({ label: "tags" });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, emoteLayer);
+  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, tagLayer, emoteLayer);
+  const [tagPlain, tagSelf] = await Promise.all([sliceTexture(tagPlainUrl), sliceTexture(tagSelfUrl)]);
+  const tags = createSceneTags(tagLayer, { plain: tagPlain, self: tagSelf });
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
@@ -1331,6 +1348,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     paused: () => paused,
     renders: () => renders,
+    tags,
     loadPairPoses() {
       if (pairLoad) return;
       pairLoad = true;

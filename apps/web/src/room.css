@@ -82,10 +82,15 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
 .seat[data-occupied="true"]:not(.mine):hover, .seat[data-occupied="true"]:not(.mine):focus-visible { background: transparent; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
-/* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --label-scale (below) grows
+/* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --tag-scale (below) grows
  * them around their anchor. */
 .tag { position: absolute; left: 0; top: 0; transform: translateX(-50%); transform-origin: 0 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The tag is painted on the room canvas (scene-tags.ts, OME-2307): its frame, name, tint edge and leader pip. The DOM tag
+ * keeps its box (the painted one takes its width from it) as a bare target for clicks, focus and the people it names;
+ * the glyphs on it (hourglass, mute) stay DOM and sit out a walk, while the target waits for the walker (stage.ts). */
+.tags .tag { border-image: none; color: transparent; }
+.tags .tag.walking > .ui-sprite { visibility: hidden; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
  * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
  * frame, even a composited one, so floats.ts writes the 24-step rise (translate), the fades (opacity) and the push
@@ -106,13 +111,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .ui-float.is-shout .say, .float-twin.is-shout > span::after { font-weight: 800; letter-spacing: 0.04em; }
 /* Shirt-colour accents (OME-1375): stage.ts sets --tint (the member's tint ramp, tints.json) on each tag and bubble. A
  * decorative 2 px edge in the frame, under the text, never behind it: text colours are untouched, so contrast holds. */
-.tag::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: -1px; height: 2px; background: var(--tint, transparent); pointer-events: none; }
-/* A tag stacked off its owner's head (OME-2149, OME-2172, tag-stack.ts `led`) wears a leader pip pointing at its owner:
- * under the feet, on its top edge pointing up; stacked over the head (`.is-above`), on its bottom edge pointing down.
- * On `.tag-name`, not `.tag`: the tag's ::before is its touch hit area (QA OME-2162). `.tag-name` isn't positioned, so
- * the pip sits on the tag and its overflow doesn't clip it. */
-.tag.is-led .tag-name::before { content: ""; position: absolute; left: 50%; bottom: calc(100% + 4 * var(--ui-px)); translate: -50% 0; border: 4px solid transparent; border-top-width: 0; border-bottom-color: var(--tint, var(--ui-text)); pointer-events: none; }
-.tag.is-led.is-above .tag-name::before { bottom: auto; top: calc(100% + 4 * var(--ui-px)); border-top-width: 4px; border-bottom-width: 0; border-top-color: var(--tint, var(--ui-text)); border-bottom-color: transparent; }
+/* The tag's edge and its leader pip (OME-2149, OME-2172) are painted with it (scene-tags.ts, OME-2307). */
 .bubbles .ui-float::before { content: ""; position: absolute; left: -3px; top: 1px; bottom: 1px; width: 2px; background: var(--tint, transparent); }
 /* A /me action (OME-1375): italic in the log, the bubble and its twin (so the measured size holds). */
 .chat-log-line.is-action, .ui-float.is-action .say, .float-twin.is-action > span { font-style: italic; }
@@ -345,8 +344,9 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * OME-1184): a tag grows around its anchor, a bubble around its speaker's head (the motion wrapper sits on the slot's
  * anchor; floats.ts `scale` places it). */
 .stage-clip:is(.is-phone, .is-fit) :is(.tag, .tag-pad, .float-motion) { transform-origin: 0 0; scale: var(--label-scale, 1); }
-/* …but a tag never shows taller than a seated avatar (OME-2149, layout.ts TAG_MAX_SCALE); its hit pad keeps 24 px. */
-.stage-clip:is(.is-phone, .is-fit) .tag { scale: min(var(--label-scale, 1), 2.5); }
+/* …but a tag grows by whole steps, as its painted twin (stage.ts `labelScale`, OME-2307), and never taller than a seated
+ * avatar (OME-2149, layout.ts TAG_MAX_SCALE); its hit pad keeps 24 px. */
+.stage-clip:is(.is-phone, .is-fit) .tag { scale: var(--tag-scale, 1); }
 /* Its seats keep a 24 px target (WCAG 2.5.8, OME-2148): the 26 px tall diamond grows back as the band shrinks. */
 .stage-clip.is-fit .seat { scale: max(1, calc(0.94 / var(--stage-scale))); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
