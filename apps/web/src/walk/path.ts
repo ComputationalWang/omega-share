@@ -1,7 +1,7 @@
 // Walk paths on the room's floor grid (OME-408). A cell is `col * FLOOR_CELLS + row`. Solid pieces block their cells;
 // the ends of a walk may be solid (a seat is its chair's cell). BFS over 4 neighbours, i.e. the four iso directions.
 // Runs once per seat change, never per frame.
-import { FLOOR_CELLS, FURNITURE, footprintCells, type RoomLayout } from "@omega/shared";
+import { FLOOR_CELLS, footprintCells, isSolid, type RoomLayout } from "@omega/shared";
 import { TILE_H, TILE_W, cellCenter, isNorth, rawCenter, type Point } from "../layout";
 
 const N = FLOOR_CELLS * FLOOR_CELLS;
@@ -30,7 +30,7 @@ export function cellAt(p: Point): number {
 export function walkGrid(layout: RoomLayout): Uint8Array {
   const g = new Uint8Array(N);
   for (const f of layout.furniture) {
-    if (FURNITURE[f.kind].layer !== "object") continue;
+    if (!isSolid(f)) continue;
     for (const [c, r] of footprintCells(f)) if (c < FLOOR_CELLS && r < FLOOR_CELLS) g[cellOf(c, r)] = 1;
   }
   return g;
