@@ -49,6 +49,7 @@ export interface ConnectionOptions<Timer = unknown> {
   readonly resumeToken?: ResumeToken;
   /** [0, 1); defaults to Math.random. Spreads reconnects so clients don't stampede a restarted server. */
   readonly random?: () => number;
+  readonly keepalive?: boolean;
 }
 
 export interface Connection {
@@ -74,6 +75,7 @@ export const BACKOFF_MAX_MS = 5000;
 const PROBE_TIMEOUT_MS = 3000;
 /** A socket with no snapshot by then is dropped and retried. */
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
+export const KEEPALIVE_MS = 2500;
 /**
  * How long a client that was in the room keeps retrying refused rejoins. The server holds a dead member's
  * name (and per-IP member slot) until it sees the old socket close, up to its 60 s idle timeout after a

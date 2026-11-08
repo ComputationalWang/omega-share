@@ -6,6 +6,7 @@ import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { PAUSED, fakeState, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -79,4 +80,62 @@ test("a drop: Say is held, one gap line after the rejoin, and `online` reconnect
   expect(lines.filter((l) => l.includes(GAP))).toHaveLength(1);
   expect(lines.filter((l) => l.includes("before"))).toHaveLength(1);
   expect(lines.some((l) => l.includes("during the drop"))).toBe(false);
+});
+
+// OME-2425 (audit OME-2420 #2): a socket that dies without a close. Every frame is dropped both ways, no close, no
+// `offline`: the page notices the silence, keeps the line sent meanwhile, and catches up with the room on the rejoin.
+test("a blackholed socket: reconnecting within 10 s, the unanswered line is resent, playback matches within 1 s", async ({ browser, request }) => {
+  test.setTimeout(60_000);
+  const room = testRoom("reconnect", "dark");
+  await shareVideo(request, room.id);
+  let dark: WebSocketRoute | null = null;
+  const routes: WebSocketRoute[] = [];
+  clients = await joinRoom(browser, {
+    roomUrl: room.url,
+    count: 2,
+    nicknamePrefix: "bh",
+    setup: async (context, i) => {
+      if (i !== 0) return;
+      await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
+        routes.push(ws);
+        const server = ws.connectToServer();
+        // Proxied by hand so a blackholed route can swallow frames; closes still pass both ways (nobody sends one).
+        ws.onMessage((m) => {
+          if (dark !== ws) server.send(m);
+        });
+        server.onMessage((m) => {
+          if (dark !== ws) ws.send(m);
+        });
+      });
+    },
+  });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  await waitPlaying(clients);
+
+  dark = routes.at(-1) ?? null;
+  const darkAt = Date.now();
+  const before = routes.length;
+  // A speaks into the void before anything notices; B pauses the room meanwhile.
+  await a.page.locator(site.chatInput).fill("into the void");
+  await a.page.locator(site.chatInput).press("Enter");
+  await b.page.locator(site.playToggle).click();
+  await expect.poll(() => fakeState(b.page)).toBe(PAUSED);
+
+  // 1. Reconnecting shows within 10 s of the silence.
+  await expect(a.page.locator(site.connectionStatus)).not.toHaveText("", { timeout: 10_000 });
+  expect(Date.now() - darkAt).toBeLessThan(10_000);
+
+  // 3. Within 1 s of the rejoin, A's player is paused where the room is.
+  await expect.poll(() => routes.length, { timeout: 10_000, intervals: [50] }).toBeGreaterThan(before);
+  await expect.poll(() => fakeState(a.page), { timeout: 1500, intervals: [50] }).toBe(PAUSED);
+  const p = await roomPlayback(browser, room.id);
+  expect(p.playing).toBe(false);
+  const actual = await a.page.evaluate(() => window.__fakeYt?.currentTime ?? null);
+  expect(Math.abs((actual ?? Infinity) - p.position)).toBeLessThanOrEqual(1);
+  await expect(a.page.locator(site.connectionStatus)).toHaveText("");
+
+  // 2. The line the room never got arrives after the rejoin, once.
+  await expect(b.page.locator(site.chatLog)).toContainText("into the void");
+  await expect(a.page.locator(site.chatLogLine).filter({ hasText: "into the void" })).toHaveCount(1);
 });
