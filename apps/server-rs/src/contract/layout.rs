@@ -725,10 +725,7 @@ impl RoomLayout {
     /// `isStandable`: no solid piece covers `cell`. Seats are solid, so they need `sit` (ADR 0053).
     pub fn standable(&self, cell: FloorCell) -> bool {
         let at = (u32::from(cell.x.get()), u32::from(cell.y.get()));
-        !self
-            .furniture
-            .iter()
-            .any(|f| f.is_solid() && footprint_cells(f).contains(&at))
+        !self.furniture.iter().any(|f| f.is_solid() && footprint_cells(f).contains(&at))
     }
 
     /// `canTeleport`: `from` is one pad's cell, `cell` the other's, and nothing solid covers it (OME-1545).
@@ -1698,7 +1695,10 @@ mod tests {
             let l = parse(&base(vec![pv("partition", 5, 9, "sw", variant)]));
             assert_eq!(l.standable(cell(5, 9)), variant == 7, "variant {variant}");
         }
-        assert!(!accepts(&base(vec![pv("partition", 9, 9, "sw", 7), p("plant", 9, 9, "se")])), "nothing solid shares it");
+        assert!(
+            !accepts(&base(vec![pv("partition", 9, 9, "sw", 7), p("plant", 9, 9, "se")])),
+            "nothing solid shares it"
+        );
     }
 
     fn parse_json_preset(s: &str) -> Option<RoomPresetId> {
