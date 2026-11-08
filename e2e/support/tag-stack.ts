@@ -4,7 +4,8 @@ import type { Page } from "@playwright/test";
 import * as v from "valibot";
 
 const RectSchema = v.object({ x: v.number(), y: v.number(), width: v.number(), height: v.number() });
-const TagSchema = v.object({ member: v.string(), text: v.string(), rect: RectSchema });
+/** `led`: stacked off its owner's head, it wears a leader pip (OME-2172). */
+const TagSchema = v.object({ member: v.string(), text: v.string(), rect: RectSchema, led: v.boolean() });
 /** A painted tag's box, in CSS px from the viewport's top left (Playwright `boundingBox` shape). */
 export type TagRect = v.InferOutput<typeof RectSchema>;
 export type RoomTag = v.InferOutput<typeof TagSchema>;
@@ -23,4 +24,15 @@ export async function roomTags(page: Page): Promise<RoomTag[]> {
 export async function tagBox(page: Page, text?: string | RegExp): Promise<TagRect | null> {
   const hit = (t: RoomTag): boolean => text === undefined || (typeof text === "string" ? t.text.includes(text) : text.test(t.text));
   return (await roomTags(page)).find(hit)?.rect ?? null;
+}
+
+/** Hide (or show again) the painted tags, for a shot of the room without them; resolves once the canvas has redrawn. */
+export async function hideTags(page: Page, hidden: boolean): Promise<void> {
+  await page.evaluate(async (hidden) => {
+    const room: unknown = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room");
+    const hide: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "hideTags") : null;
+    if (typeof hide !== "function") throw new Error("no hideTags");
+    Reflect.apply(hide, room, [hidden]);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }, hidden);
 }
