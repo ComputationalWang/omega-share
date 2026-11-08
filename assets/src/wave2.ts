@@ -548,7 +548,7 @@ function beam(img: Uint8Array, bare: Uint8Array, W: number, H: number, pj: Place
     img[y * W + x] = c("glow", 0);
   }
 }
-function beamFor(d: Wave2Deps, pieces: readonly PieceMeta[], plan: RoomPlan): ((img: Uint8Array, W: number, H: number) => void) | undefined {
+export function beamFor(d: Wave2Deps, pieces: readonly PieceMeta[], plan: RoomPlan): ((img: Uint8Array, W: number, H: number) => void) | undefined {
   const pj = plan.placements.find((p) => p.id === "tripod"), sc = plan.placements.find((p) => p.id === "projector");
   if (!pj || !sc) return undefined;
   const flat = (p: Placement): boolean => pieces.find((m) => m.id === p.id)?.layer !== "object"; // rugs and wall pieces take the light
