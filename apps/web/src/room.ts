@@ -1035,6 +1035,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     // Until the first snapshot the wrap keeps its place, invisible (room.css), so nothing moves when it lands (OME-2262).
+    const wrapShows = wrap.hidden && (shown.stage || shown.reserve);
     wrap.hidden = !shown.stage && !shown.reserve;
     wrap.classList.toggle("is-reserved", shown.reserve);
     // Nothing playing, the bar is idle (room.css): upright it keeps its row, invisible (OME-2347), or the chat moved for everyone.
@@ -1060,7 +1061,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     renderChatRow(s);
     invite.hidden = !shown.stage && !shown.reserve;
     invite.classList.toggle("is-reserved", shown.reserve);
-    if (layout.syncPortrait()) layout.fit();
+    // Hidden, every fit measured 0×0: fitted now, once what sizes it shows, not by the ResizeObserver a painted frame later (OME-2394).
+    if (layout.syncPortrait() || wrapShows) layout.fit();
     queuePanel.root.hidden = !shown.stage;
     const queueClaimed = queuePanel.update(s);
     cards.render(s);
