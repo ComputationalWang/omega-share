@@ -95,10 +95,13 @@ test("320×640 touch, Theatre with a video and 4 people: every name tag whole to
     await c.page.locator(site.chatInput).fill(`hi from guest ${String(i)}, the row is full`);
     await c.page.locator(site.chatInput).press("Enter");
   }
-  await expect(page.locator(".ui-float.is-live")).toHaveCount(4);
+  // The window is too short for four lines: one that would rise past its top goes (OME-2418); the chat log keeps it.
+  await expect(page.locator(`${site.chatLog} ${site.chatLogLine}`, { hasText: "the row is full" })).toHaveCount(4);
+  await expect(page.locator(".ui-float.is-live").first()).toBeVisible();
   await expect(async () => {
     const w = await box(window);
     for (const b of await page.locator(".ui-float.is-live").all()) {
+      if (!(await b.isVisible())) continue;
       const r = await box(b);
       expect(r.x).toBeGreaterThanOrEqual(w.x);
       expect(r.x + r.width).toBeLessThanOrEqual(w.x + w.width);
