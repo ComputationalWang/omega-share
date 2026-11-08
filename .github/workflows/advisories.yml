@@ -21,9 +21,16 @@ jobs:
           persist-credentials: false
       - name: Install cargo-deny
         run: |
-          curl -sSfLO https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz
-          echo "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f  cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz" | sha256sum -c -
-          tar xzf cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz --strip-components=1 -C "$HOME/.cargo/bin" cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
+          if [ ! -x "$HOME/.cargo/bin/cargo-deny" ]; then
+            if curl -sSfLO --retry 3 --retry-all-errors --retry-delay 10 --max-time 120 https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz
+            then
+              echo "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f  cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz" | sha256sum -c -
+              tar xzf cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz --strip-components=1 -C "$HOME/.cargo/bin" cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
+            else
+              # Releases down (OME-2404): the same version from crates.io, its deps locked.
+              cargo install --locked cargo-deny --version 0.20.2
+            fi
+          fi
       - run: cargo deny --locked check advisories 2>&1 | tee advisories.txt; exit "${PIPESTATUS[0]}"
         shell: bash
       - name: Open or update the issue
