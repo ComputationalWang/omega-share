@@ -743,6 +743,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // there it goes under the picture instead (hints.ts, OME-1778).
     anchor: (step) => (step === 0 ? controls : step === 1 ? chatForm : people.key),
     tv: { box: tv, empty: tvBox.empty, picture: wrap, message: tvBox.message },
+    room: clip,
     next: () => (help.key.hidden ? null : help.key),
     // `phone`/`coarse` are made further down; the tour starts only once the room is up.
     touch: () => touchOnly(),

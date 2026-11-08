@@ -37,6 +37,8 @@ export interface HintsOptions {
   /** While the TV shows anything (a player, a Load card), no chip covers it; while it's empty, none covers `message`: Twitch's player doesn't start covered
    * (OME-1778). One that would goes under the picture (the TV and the stage), else under the TV, or out of sight if that's blocked too. */
   readonly tv: { readonly box: HTMLElement; readonly empty: () => boolean; readonly picture: HTMLElement; readonly message: HTMLElement };
+  /** The room window: with a video on and nowhere clear by the TV, the floor chip sits at its foot, above the zoom keys (OME-2407). */
+  readonly room: HTMLElement;
   /** Where focus goes when the chip had it and the tour ends: the next key on the page. */
   readonly next: () => HTMLElement | null;
   /** A touch screen: the floor chip says tap (OME-2263). */
@@ -69,6 +71,18 @@ function spot(anchor: HTMLElement | null, side: Side, w: number, h: number): Spo
   return { left: Math.max(GAP, Math.min(r.left + (r.width - w) / 2, window.innerWidth - w - GAP)), top: Math.max(GAP, Math.min(top, window.innerHeight - h - GAP)) };
 }
 
+/** The room window's floating keys' band (room-window.ts: 44 px keys, 4 px off the edge, 4 px gap) and the top it leaves to the bubbles. */
+const KEYS_BAND = 52;
+const BUBBLES = 40;
+
+/** A `w`×`h` chip at the foot of `room`, above its zoom keys; null when it would reach the window's top 40 px. */
+function foot(room: HTMLElement, w: number, h: number): Spot | null {
+  const r = room.getBoundingClientRect();
+  const top = r.bottom - KEYS_BAND - GAP - h;
+  if (r.width === 0 || top < r.top + BUBBLES) return null;
+  return { left: Math.max(GAP, Math.min(r.left + (r.width - w) / 2, window.innerWidth - w - GAP)), top };
+}
+
 export function createHints(o: HintsOptions): Hints {
   // The status exists (empty, hidden) before the words go in, so a screen reader announces them.
   const root = el("div", { className: "ui-panel hint-chip", hidden: true }, "first-hint");
@@ -96,16 +110,26 @@ export function createHints(o: HintsOptions): Hints {
   const place = (): void => {
     const side = STEPS[step]?.side;
     if (side === undefined) return;
-    const w = root.offsetWidth;
-    const h = root.offsetHeight;
-    // An empty TV may be covered, but not its message (OME-2104).
-    const tv = (o.tv.empty() ? o.tv.message : o.tv.box).getBoundingClientRect();
-    const obstacles = [tv, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
+    root.style.maxWidth = "";
+    let w = root.offsetWidth;
+    let h = root.offsetHeight;
+    const empty = o.tv.empty();
+    // An empty TV may be covered, but not its message (OME-2104); a playing one's bar neither (OME-2407).
+    const tv = (empty ? o.tv.message : o.tv.box).getBoundingClientRect();
+    const bar = empty ? undefined : o.anchor(0)?.getBoundingClientRect();
+    const obstacles = [tv, bar, o.anchor(1)?.getBoundingClientRect(), ...live().map((e) => e.getBoundingClientRect())];
     const blocked = (p: Spot): boolean => obstacles.some((r) => r !== undefined && r.width > 0 && r.height > 0 && p.left < r.right && r.left < p.left + w && p.top < r.bottom && r.top < p.top + h);
     let at = spot(o.anchor(step), side, w, h);
     // Off an empty TV's message it stays on the curtain: under the picture is the chat bar on a small phone. Off a video,
     // under the picture, else on the floor under the TV: the reaction row takes the spot under the picture (OME-2398).
-    for (const f of o.tv.empty() ? [o.tv.message] : [o.tv.picture, o.tv.box]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
+    for (const f of empty ? [o.tv.message] : [o.tv.picture, o.tv.box]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
+    // Else, on a phone, the room window's foot above its keys, the chip as narrow as the window (its keys wrap under the words).
+    if (!empty && (at === null || blocked(at))) {
+      root.style.maxWidth = `${String(Math.max(0, Math.min(320, o.room.getBoundingClientRect().width - 2 * GAP)))}px`;
+      w = root.offsetWidth;
+      h = root.offsetHeight;
+      at = foot(o.room, w, h);
+    }
     // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
     if (away && root.contains(document.activeElement)) o.next()?.focus({ preventScroll: true });
@@ -129,6 +153,7 @@ export function createHints(o: HintsOptions): Hints {
     if (a !== null) sized.observe(a);
     // Room view re-boxes the TV after a video's screen swap (OME-2195): its new box moves the chip too.
     sized.observe(o.tv.box);
+    sized.observe(o.room);
     // A chat line arriving grows the log: the chip moves off it.
     for (const e of live()) sized.observe(e);
     root.hidden = false;
