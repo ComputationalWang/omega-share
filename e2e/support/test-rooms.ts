@@ -74,7 +74,7 @@ export const SPEC_ROOMS = {
   theme: ["desk", "phone", "reduced", "off", "ambience", "ambience-rm"],
   targets: ["desk", "touch"],
   "a11y-presence": ["join", "tv"],
-  reconnect: ["main"],
+  reconnect: ["main", "dark"],
   tint: ["pick"],
   hair: ["pick"],
   snap: ["key", "slash"],

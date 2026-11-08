@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, type ServerMessage } from "@omega/shared";
+import { CLOSE_CODES, PING_ID_MAX, RATE_LIMITED_RECONNECT_MS, type ServerMessage } from "@omega/shared";
 import { initialState, reduce, type ViewState } from "../src/state";
-import { HANDSHAKE_TIMEOUT_MS, REFUSED_RETRY_BUDGET_MS, createConnection, type ConnectionEvent, type SingleMessage, type SocketLike } from "../src/connection";
+import { HANDSHAKE_TIMEOUT_MS, KEEPALIVE_MS, REFUSED_RETRY_BUDGET_MS, createConnection, type ConnectionEvent, type SingleMessage, type SocketLike } from "../src/connection";
 
 class FakeSocket implements SocketLike {
   sent: string[] = [];
@@ -44,7 +44,7 @@ let events: ConnectionEvent[];
 let timers: { id: number; fn: () => void; ms: number }[];
 let nextId = 0;
 
-function connect(random: () => number = () => 1, onOpen?: () => void) {
+function connect(random: () => number = () => 1, onOpen?: () => void, keepalive = false) {
   return createConnection({
     url: "ws://x/rooms/lobby/ws",
     join: { type: "join", nickname: "zoe", avatar: 1 },
@@ -63,6 +63,7 @@ function connect(random: () => number = () => 1, onOpen?: () => void) {
       timers = timers.filter((t) => t.id !== id);
     },
     random,
+    keepalive,
     ...(onOpen === undefined ? {} : { onOpen }),
   });
 }
@@ -793,6 +794,74 @@ describe("durable sessions (ADR 0043)", () => {
     expect(timers.filter((t) => t.ms === 3000)).toHaveLength(1);
     last().receive({ type: "error", code: "rate_limited", message: "x" });
     expect(timers.some((t) => t.ms === 3000)).toBe(false);
+  });
+});
+
+// OME-2425: a socket blackholed without a close (frames dropped both ways) is noticed by its silence.
+describe("keepalive", () => {
+  const PROBE_MS = 3000;
+  const pings = (s: FakeSocket): unknown[] => s.sent.map((x) => JSON.parse(x) as { type: string }).filter((m) => m.type === "ping");
+  const tick = (): void => {
+    const t = timers.find((x) => x.ms === KEEPALIVE_MS);
+    if (t === undefined) throw new Error("no keepalive check");
+    timers = timers.filter((x) => x !== t);
+    t.fn();
+  };
+  const probe = (): void => {
+    const t = timers.find((x) => x.ms === PROBE_MS);
+    if (t === undefined) throw new Error("no probe");
+    timers = timers.filter((x) => x !== t);
+    t.fn();
+  };
+
+  test("a silent window sends a ping; no answer drops the socket within 10 s of the last frame", () => {
+    connect(undefined, undefined, true);
+    const s = last();
+    s.open();
+    s.receive(snapshot);
+    tick();
+    expect(pings(s)).toEqual([]);
+    tick();
+    expect(pings(s)).toEqual([{ type: "ping", id: PING_ID_MAX }]);
+    probe();
+    expect(s.closed).toBe(true);
+    expect(events.at(-1)).toEqual({ type: "disconnected" });
+    // Worst case: the silence starts just after a check, then a full window, then the probe.
+    expect(2 * KEEPALIVE_MS + PROBE_MS).toBeLessThanOrEqual(10_000);
+  });
+
+  test("any frame keeps the socket: frames in the window send nothing, a pong cancels the probe", () => {
+    connect(undefined, undefined, true);
+    const s = last();
+    s.open();
+    s.receive(snapshot);
+    tick();
+    s.receive({ type: "member-left", memberId: "m2" });
+    tick();
+    expect(pings(s)).toEqual([]);
+    tick();
+    expect(pings(s)).toHaveLength(1);
+    s.receive({ type: "pong", id: PING_ID_MAX, at: 1 });
+    expect(timers.some((t) => t.ms === PROBE_MS)).toBe(false);
+    tick();
+    expect(s.closed).toBe(false);
+    expect(timers.filter((t) => t.ms === KEEPALIVE_MS)).toHaveLength(1);
+  });
+
+  test("the check stops with the socket and starts again on the next open; off by default", () => {
+    connect(undefined, undefined, true);
+    last().open();
+    last().drop();
+    expect(timers.some((t) => t.ms === KEEPALIVE_MS)).toBe(false);
+    runRetry();
+    last().open();
+    expect(timers.filter((t) => t.ms === KEEPALIVE_MS)).toHaveLength(1);
+
+    sockets = [];
+    timers = [];
+    connect();
+    last().open();
+    expect(timers.some((t) => t.ms === KEEPALIVE_MS)).toBe(false);
   });
 });
 
