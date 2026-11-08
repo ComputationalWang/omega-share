@@ -48,6 +48,11 @@ describe("walkGrid", () => {
       expect([g[at(5, 4)], g[at(5, 3)], g[at(5, 5)], g[at(4, 4)]]).toEqual([1, 0, 0, 0]);
     }
   });
+
+  test("a tunnel partition is floor, the other wave 26 colours block (OME-2439)", () => {
+    const g = (variant: number) => walkGrid({ ...DEFAULT_LAYOUT, furniture: [...DEFAULT_LAYOUT.furniture, { kind: "partition", col: 5, row: 4, facing: "sw", variant }] })[at(5, 4)];
+    expect([4, 5, 6, 7].map(g)).toEqual([1, 1, 1, 0]);
+  });
 });
 
 describe("findPath", () => {

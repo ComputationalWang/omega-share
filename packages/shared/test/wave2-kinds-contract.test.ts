@@ -17,7 +17,7 @@ describe("the four wave 2 kinds", () => {
     expect(spec("tripod")).toMatchObject({ layer: "object", facings: ["ne", "nw", "se", "sw"], cols: 1, rows: 1, seats: false, variants: 1, wallBacked: false });
     expect(spec("window")).toMatchObject({ layer: "wall", facings: ["se", "sw"], cols: 0, rows: 0, seats: false, variants: 2, wallBacked: false });
     expect(spec("longclock")).toMatchObject({ layer: "object", facings: ["se", "sw"], cols: 1, rows: 1, seats: false, variants: 1, wallBacked: true });
-    expect(spec("lavalamp")).toMatchObject({ layer: "object", facings: ["se"], cols: 1, rows: 1, seats: false, variants: 1, wallBacked: false });
+    expect(spec("lavalamp")).toMatchObject({ layer: "object", facings: ["se"], cols: 1, rows: 1, seats: false, wallBacked: false });
   });
 
   test("none of them is a screen", () => {
@@ -74,11 +74,13 @@ test("the v8 atlas pins the wave 2 kinds and colourways", () => {
     meta: { omega: { pieces: { id: string; dirs: string[]; colours: string[]; wallSpan?: number }[] } };
   };
   const extra: Record<string, number> = { sidetable: 1, barcounter: 2, speaker: 1 };
+  /** Runtime recolours on top of the atlas colours (`recolours.json`): lavalamp bubbles (OME-2439). */
+  const recoloured: Record<string, number> = { lavalamp: 1 };
   for (const p of atlas.meta.omega.pieces) {
     const s = spec(p.id) as { facings: string[]; variants: number; wallSpan?: number };
     const more = extra[p.id];
     if (more === undefined) {
-      expect(s.variants, p.id).toBe(p.colours.length);
+      expect(s.variants, p.id).toBe(p.colours.length + (recoloured[p.id] ?? 0));
       expect(s.facings, p.id).toEqual(p.dirs);
     } else expect(p.colours.length, p.id).toBe(more);
     expect(s.wallSpan, p.id).toBe(p.wallSpan);

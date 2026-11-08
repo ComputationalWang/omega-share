@@ -82,6 +82,8 @@ QA measures these on every merge that touches a perf-relevant path, daily and at
 
 **The walk25.react rows (OME-1723).** First measured after OME-1632 put the `reacted` relay on main, with relay batching on (OME-1627). Flocked A/B on the perf runner, `738e8c6` (main before #595) against `b304d32` (with it), Pixel 7 Smooth: the react rows go from PENDING to 16.7 ms frame p95, **7.0 ms work p95** (max 25.6 ms), 0.0 % missed vsyncs, 84 of 84 reactions relayed. On the same runs `walk25` Smooth stays at 6.8 ms on both sides and `walk25.conga` Pixel 7 Smooth is 7.8 → 7.2 ms, so the 8.2–8.8 ms conga gap OME-1714 saw before batching is closed. Reactions add about +0.2 ms over `walk25` Smooth (7.0 against 6.8 ms).
 
+**Preset thumbnails (OME-906, OME-2439).** A build-time cap, not a measured row: the PNG bytes `assets/src/build.ts` writes to `assets/presets/thumbs/` (after `compactPalette`), summed over all presets, stay ≤ 48 KB (49 152 B), and the asset build fails over it (`PRESET_THUMBS_MAX`). The ten shipped presets use 37 363 B. Raised from 40 KB (40 960 B) to make room for Stage Door and Reef, about 8.8 KB before compaction (OME-2434).
+
 ## Sampling and verdicts
 
 ADR 0036, amendment of 2026-10-10 ([OME-818](/OME/issues/OME-818)).
