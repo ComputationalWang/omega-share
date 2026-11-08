@@ -161,6 +161,8 @@ for (const [name, options] of [
 for (const [name, options] of [
   ["chatw", { viewport: { width: 1280, height: 800 } }],
   ["chatp", { ...devices["Pixel 7"], viewport: { width: 412, height: 915 } }],
+  // The landscape phone too (OME-2384).
+  ["chatl", { ...devices["Pixel 7"], viewport: { width: 915, height: 412 } }],
 ] as const) {
   const { width, height } = options.viewport;
   test(`${String(width)}×${String(height)}: with a video on and a chat burst, the walk chip covers no chat line, the field or a top-bar key; my first line ends it`, async ({ browser, request }) => {
@@ -178,8 +180,8 @@ for (const [name, options] of [
       await expect(lines).toHaveCount(5);
       await page.waitForTimeout(300);
       if (await hint.isVisible()) {
-        // The reaction row and the Invite field too (OME-2381).
-        const keys = page.locator(`.room-top .ui-button, ${site.chatInput}, .reaction-key, ${site.inviteLink}`);
+        // The reaction row and the Invite field too (OME-2381), and its Copy key (OME-2384).
+        const keys = page.locator(`.room-top .ui-button, ${site.chatInput}, .reaction-key, ${site.inviteLink}, ${site.inviteCopy}`);
         for (const covered of [...(await lines.all()), ...(await keys.all())]) {
           if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
         }

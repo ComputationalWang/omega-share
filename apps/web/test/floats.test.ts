@@ -1009,3 +1009,28 @@ test("windowToStage: the room window's boxes (CSS px from its top-left) in stage
   expect(windowToStage([{ x0: 100, x1: 300, y0: 20, y1: 40 }], 960, 0, 480, 60)).toEqual([{ x0: 50, x1: 150, y0: 70, y1: 80 }]);
   expect(windowToStage([{ x0: 0, x1: 1, y0: 0, y1: 1 }], 0, 0, 960, 60)).toEqual([]);
 });
+
+// OME-2384: the newest bubble over a head near the room window's top was cut at its edge (the stack only sent older ones
+// away). It's nudged down so its whole rise stays inside, by its push (a transform: no layout shift).
+describe("the room window's top (OME-2384)", () => {
+  test("the newest bubble whose rise would cross the room's view is nudged down to its top", async () => {
+    const { floats, frame, push } = await setup();
+    // Head at 80: the box's top is 46, 22 at the top of its rise; the view starts at 60.
+    floats.say(say("a", "hi", 480, 80));
+    frame();
+    expect(push("hi")).toBe("38px");
+  });
+
+  test("the phone window's top counts: the newest is nudged under it, an older one climbing past it goes", async () => {
+    const { floats, frame, push, texts } = await setup();
+    floats.sides(420, 540, 250);
+    // Head at 300: the newest's top is 266, 242 at the top of its rise: 8 px over the window's top.
+    for (const t of lines(2)) floats.say(say("a", t, 480, 300));
+    frame();
+    expect(push("l1")).toBe("8px");
+    expect(texts()).toEqual(["l1"]);
+    // The window lets go of its top: nothing to nudge under.
+    floats.sides(420, 540, Number.NEGATIVE_INFINITY);
+    expect(push("l1")).toBe("0px");
+  });
+});

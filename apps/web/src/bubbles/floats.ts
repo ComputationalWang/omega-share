@@ -93,8 +93,11 @@ export interface Floats {
    * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
    */
   scale(k: number): void;
-  /** The phone's room window settled on stage x `x0`–`x1` (OME-1945): the boxes keep inside those sides, not the stage's. */
-  sides(x0: number, x1: number): void;
+  /**
+   * The phone's room window settled on stage x `x0`–`x1` (OME-1945): the boxes keep inside those sides, not the stage's;
+   * and under its top `y0` (OME-2384), when it has one.
+   */
+  sides(x0: number, x1: number, y0?: number): void;
   /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
   typing(id: MemberId, on: boolean, at: Point): void;
   /** What hangs over the room (stage px): Room view's corner TV and its shelf (OME-2349). Bubbles keep clear of it. */
