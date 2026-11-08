@@ -98,7 +98,11 @@ export interface Stage {
   /** Where a member's name tag shows (stage px, its top centre): over their head, or where it stacked (OME-2172). */
   tag(id: MemberId): Point | undefined;
   /** Every name tag as painted, its text and box in CSS px from the viewport (the e2e test contract, OME-2307). */
-  tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number } }[];
+  tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
+  /** Hide the painted tags (or show them again), for e2e shots of the room without them. */
+  hideTags(hidden: boolean): void;
+  /** Where a member's painted tag hangs from now (stage px), for e2e walk paths: the DOM target no longer rides the walk. */
+  tagAnchor(id: MemberId): Point | undefined;
   /** Where the last render put a member: where their walk in ends. */
   spot(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
@@ -120,6 +124,9 @@ export interface Stage {
 
 /** What a lie key's name calls each piece. */
 const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
+/** room.css `.cinema-dim.is-on`: the dim's strength, and under the night mood, which is dark already. */
+const DIM_ON = 0.45;
+const DIM_NIGHT = 0.2;
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
@@ -187,25 +194,51 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const avoidOver = (): void => {
     floats.avoid(windowToStage(over.boxes, over.w, win.x0, win.x1, win.y0));
   };
-  /** `pad`: place the hit pad too; on a walk frame only a shown one (OME-2135: elsewhere it's `display: none` and the render places it). */
+  /** `dom`: place the DOM target and hit pad too; on a walk frame only the host's pickable ones (OME-2135, OME-2307: elsewhere
+   * the painted tag rides the walk and the render places the targets). True when the painted tag moved. */
   // The stack's move is a margin, so `translate` stays the avatar's anchor (the walk e2e reads a tag's cell from it).
-  const placeTag = (id: MemberId, x: number, y: number, pad: boolean): void => {
+  const placeTag = (id: MemberId, x: number, y: number, dom: boolean): boolean => {
     const at = { x, y: y + TAG_OFFSET_Y };
+    anchors.set(id, at);
     const moved = tagAt.get(id) ?? aboveHead(id);
     const tag = tagEls.get(id);
-    if (tag !== undefined) {
+    if (tag === undefined) return false;
+    const targets = dom || tags.classList.contains("pickable");
+    if (targets) {
       placeAt(tag, at.x, at.y);
-      wearPlace(tag, moved, worn, true);
+      wearPlace(tag, moved, worn, false);
     }
-    const padEl = pad || tags.classList.contains("pickable") ? padEls.get(id) : undefined;
+    const padEl = targets ? padEls.get(id) : undefined;
     if (padEl !== undefined) {
       placeAt(padEl, at.x, at.y);
       wearPlace(padEl, moved, worn, false);
     }
+    return view.tags.place(id, at.x + moved.dx - (labelK * (tagW.get(tag) ?? 0)) / 2, at.y + moved.dy, labelK, moved.led, moved.dy < 0);
   };
+  /** Paint each tag as its DOM target looks (OME-2307): name, self, tint, hidden/away, catching, and its measured width. */
+  const paintTags = (): boolean => {
+    let changed = false;
+    for (const [id, e] of tagEls) {
+      const w = tagW.get(e) ?? 0;
+      const look = {
+        text: e.querySelector(".tag-name")?.textContent ?? "",
+        self: e.classList.contains("self"),
+        tint: e.style.getPropertyValue("--tint"),
+        alpha: e.classList.contains("is-hidden") ? 0.5 : e.classList.contains("is-away") ? 0.6 : 1,
+        catching: e.classList.contains("catching"),
+        w,
+        nameW: nameW.get(e) ?? w,
+      };
+      if (view.tags.look(id, look)) changed = true;
+    }
+    return changed;
+  };
+  /** Where each painted tag hangs from (stage px: its owner's point, TAG_OFFSET_Y down), for e2e walk paths. */
+  const anchors = new Map<MemberId, Point>();
   const stack = createTagStacker();
   /** Stack the tags of everyone standing still and place every tag. */
   const restack = (): void => {
+    let moved = paintTags();
     const ids: MemberId[] = [];
     const at: Point[] = [];
     const boxes: TagBox[] = [];
@@ -216,34 +249,41 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       // still tags don't stack around a walker's head either: a render where only walkers changed restacks nothing (OME-2317).
       if (walkers.has(id)) {
         tagAt.set(id, aboveHead(id));
-        placeTag(id, p.x, p.y, true);
+        if (placeTag(id, p.x, p.y, true)) moved = true;
         continue;
       }
       ids.push(id);
       at.push(p);
       boxes.push({ x: p.x, y: p.y + TAG_OFFSET_Y, w: (tagW.get(tag) ?? 0) * labelK, top: p.y - headOf(id) });
     }
-    const moved = stack(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
+    const places = stack(boxes, TAG_H * labelK, Math.min(ROOM_VIEW.y + ROOM_VIEW.h, shownBottom), shownTop, screens);
     // The still tags as placed: bubbles rise past them (OME-2349).
     const placed = new Map<MemberId, Box>();
     ids.forEach((id, i) => {
       const p = at[i];
-      const m = moved[i];
+      const m = places[i];
       if (m === undefined) tagAt.delete(id);
       else tagAt.set(id, m);
       if (p === undefined) return;
-      placeTag(id, p.x, p.y, true);
+      if (placeTag(id, p.x, p.y, true)) moved = true;
       const b = boxes[i];
       const place = m ?? aboveHead(id);
       if (b !== undefined) placed.set(id, { x0: b.x + place.dx - b.w / 2, x1: b.x + place.dx + b.w / 2, y0: b.y + place.dy, y1: b.y + place.dy + TAG_H * labelK });
     });
     floats.tags(placed);
+    // Off a walk frame the canvas has to draw the tags' new places itself (a restack that changed nothing draws nothing).
+    if (moved) view.redraw();
   };
+  /** Each tag's name box width (layout px) when the DOM cut its name, else Infinity: the painted name ellipsizes to it. */
+  const nameW = new Map<Element, number>();
   // A tag's text is set once, so this fires when it's added, and when an hourglass or "Away" changes its width.
   const tagSizes = new ResizeObserver((entries) => {
     for (const e of entries) {
       const w = e.borderBoxSize[0]?.inlineSize;
       if (w !== undefined) tagW.set(e.target, w);
+      // Layout is clean in a ResizeObserver callback: these reads cost no reflow. Only a name the DOM cut is cut.
+      const name = e.target.querySelector<HTMLElement>(".tag-name");
+      if (name !== null) nameW.set(e.target, name.scrollWidth > name.clientWidth ? name.clientWidth : Infinity);
     }
     restack();
   });
@@ -296,6 +336,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (!walkers.has(id)) {
         walkers.add(id);
         tagAt.set(id, aboveHead(id));
+        // Its DOM target stays put while the painted tag walks: the glyphs on it (hourglass, mute) wait for it (room.css).
+        tagEls.get(id)?.classList.add("walking");
       }
       placeTag(id, x, y, false);
       // My drawn avatar stepped onto another cell: the next render re-judges the view (a few per walk, not per frame).
@@ -317,6 +359,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
           settling.delete(id);
           walkers.delete(id);
           restack();
+          tagEls.get(id)?.classList.remove("walking");
         }, TAG_SETTLE_MS),
       );
       o.onStop?.(id);
@@ -326,6 +369,16 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
   root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
+  // The cinema dim's layer (cinema.ts) keeps its spread past the stage; over the stage the scene paints it, under the tags
+  // (OME-2307). Its class and mood flip on play, pause, the editor and a mood change: never per frame.
+  const dimEl = o.dim;
+  if (dimEl !== undefined) {
+    const sync = (): void => {
+      view.dim(dimEl.classList.contains("is-on") ? (dimEl.dataset["mood"] === "night" ? DIM_NIGHT : DIM_ON) : 0);
+    };
+    new MutationObserver(sync).observe(dimEl, { attributes: true, attributeFilter: ["class", "data-mood"] });
+    sync();
+  }
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
@@ -724,6 +777,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       clearTimeout(settling.get(id));
       settling.delete(id);
       tagEls.delete(id);
+      nameW.delete(e);
+      anchors.delete(id);
+      view.tags.drop(id);
       padEls.get(id)?.remove();
       padEls.delete(id);
       hourglasses.delete(e);
@@ -777,6 +833,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
 
     renderSyslines(rail, s.syslines, syslineEls);
     applyCatching(s, selfCatching);
+    // A look that changed (self, tint, away, catching) since the restack above: the canvas draws it.
+    if (paintTags()) view.redraw();
   };
 
   return {
@@ -817,6 +875,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       else hiddenIds.delete(id);
       tagEls.get(id)?.classList.toggle("is-hidden", hidden);
       view.setDimmed(id, hidden);
+      paintTags();
+      view.redraw();
     },
     labelScale: (k) => {
       floats.scale(k);
@@ -847,11 +907,21 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const m = tagAt.get(id) ?? aboveHead(id);
       return p === undefined ? undefined : { x: p.x + m.dx, y: p.y + TAG_OFFSET_Y + m.dy };
     },
-    tagRects: () =>
-      [...tagEls].map(([member, e]) => {
-        const { x, y, width, height } = e.getBoundingClientRect();
-        return { member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x, y, width, height } };
-      }),
+    tagRects: () => {
+      // Stage px to the viewport's CSS px: the canvas is the stage, CSS-scaled (and zoomed on a phone).
+      const c = view.canvas.getBoundingClientRect();
+      const k = c.width / STAGE_W;
+      return [...tagEls].flatMap(([member, e]) => {
+        const r = view.tags.rect(member);
+        const led = (tagAt.get(member) ?? aboveHead(member)).led;
+        return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led }];
+      });
+    },
+    tagAnchor: (id) => anchors.get(id),
+    hideTags: (hidden) => {
+      view.tags.hide(hidden);
+      view.redraw();
+    },
     spot: (id) => placedAt.get(id),
     catCells: () => view.catCells(),
     petCat: (cell) => {

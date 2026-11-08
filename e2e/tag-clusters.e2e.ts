@@ -6,7 +6,7 @@ import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
-import { roomTags } from "./support/tag-stack";
+import { hideTags, roomTags } from "./support/tag-stack";
 import { presetFile, showLayout } from "../perf/show-layout";
 import { TAG_H, cellCenter } from "../apps/web/src/layout";
 import { HEAD_H, HEAD_W, TAG_GAP } from "../apps/web/src/tag-stack";
@@ -165,16 +165,12 @@ test("six seated in classic at 1280×800: each tag 2–6 px over its drawn head,
   const tagBoxes = async (): Promise<Record<string, B>> =>
     Object.fromEntries((await roomTags(watcher.page)).map(({ text, rect: r }) => [text, { l: r.x, r: r.x + r.width, t: r.y, b: r.y + r.height }]));
   const tags = await tagBoxes();
-  // The room without its tags (DOM over the canvas), as pixels.
+  // The room without its tags (painted on the canvas, OME-2307), as pixels.
   const shot = async (): Promise<Buffer> => {
-    const hide = (on: boolean): Promise<void> =>
-      watcher.page.evaluate((on) => {
-        for (const e of document.querySelectorAll<HTMLElement>(".tag")) e.style.visibility = on ? "hidden" : "";
-      }, on);
-    await hide(true);
+    await hideTags(watcher.page, true);
     await watcher.page.waitForTimeout(300);
     const png = await watcher.page.screenshot();
-    await hide(false);
+    await hideTags(watcher.page, false);
     return png;
   };
   const seated = await shot();
@@ -239,4 +235,59 @@ test("six seated in classic at 1280×800: each tag 2–6 px over its drawn head,
     }
   }
   expect(out, JSON.stringify({ tags, tops, at })).toEqual([]);
+});
+
+// OME-2307 (Doorstep desk 3): the tags are painted on the room canvas (the `tag/0` / `tag/self` frames), so walking moves
+// one scene, not a DOM box per walker per frame. The DOM keeps a transparent target per tag (moderation, focus) that
+// paints nothing; hiding the painted tags changes the canvas inside every tag's box.
+test("tags are painted on the canvas: the DOM tag paints nothing, hiding the painted ones changes their pixels", async ({ browser, request }) => {
+  test.setTimeout(60_000);
+  const room = testRoom("tag-clusters", "painted");
+  await shareVideo(request, room.id);
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "p", contextOptions: () => ({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" }) });
+  const [watcher, other] = clients;
+  if (watcher === undefined || other === undefined) throw new Error("no client");
+  await waitPlaying([watcher]);
+  await clickCell(other.page, 6, 6);
+  // Every tag, mine included.
+  await expect.poll(async () => (await roomTags(watcher.page)).map((t) => t.text).sort(), { timeout: 15_000 }).toEqual([other.nickname, watcher.nickname].sort());
+  const dom = await watcher.page.locator(site.nicknameTag).first().evaluate((e) => {
+    const s = getComputedStyle(e);
+    return { border: s.borderImageSource, color: s.color, underline: getComputedStyle(e, "::after").content };
+  });
+  expect(dom, "the DOM tag is a bare target").toEqual({ border: "none", color: "rgba(0, 0, 0, 0)", underline: "none" });
+  // The video plays, so the room is dimmed: in the scene, under the painted tags, not by a DOM layer over them.
+  await expect(watcher.page.locator(".cinema-dim.is-on")).toHaveCSS("box-shadow", /rgba\(8, 6, 18, 0\.45\)/);
+  await expect(watcher.page.locator(".cinema-dim.is-on")).toHaveCSS("background-color", "rgba(8, 6, 18, 0)");
+  await watcher.page.waitForTimeout(1500);
+  const shown = await watcher.page.screenshot();
+  await hideTags(watcher.page, true);
+  const hidden = await watcher.page.screenshot();
+  await hideTags(watcher.page, false);
+  const rects = (await roomTags(watcher.page)).map((t) => t.rect);
+  // How many pixels inside each tag's box differ between the two shots.
+  const changed = await watcher.page.evaluate(
+    async ({ a, b, rects }) => {
+      const px = async (b64: string): Promise<{ d: Uint8ClampedArray; w: number }> => {
+        const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))], { type: "image/png" }));
+        const c = new OffscreenCanvas(bmp.width, bmp.height);
+        const g = c.getContext("2d");
+        if (g === null) throw new Error("no 2d");
+        g.drawImage(bmp, 0, 0);
+        return { d: g.getImageData(0, 0, bmp.width, bmp.height).data, w: bmp.width };
+      };
+      const [s, h] = [await px(a), await px(b)];
+      return rects.map((r) => {
+        let n = 0;
+        for (let y = Math.ceil(r.y); y < Math.floor(r.y + r.height); y++)
+          for (let x = Math.ceil(r.x); x < Math.floor(r.x + r.width); x++) {
+            const i = (y * s.w + x) * 4;
+            if (s.d[i] !== h.d[i] || s.d[i + 1] !== h.d[i + 1] || s.d[i + 2] !== h.d[i + 2]) n++;
+          }
+        return n;
+      });
+    },
+    { a: shown.toString("base64"), b: hidden.toString("base64"), rects },
+  );
+  for (const n of changed) expect(n, "painted pixels in a tag's box").toBeGreaterThan(50);
 });

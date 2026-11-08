@@ -237,7 +237,9 @@ test("a playing night room dims softly over its tint, not with the full dim", as
   await waitPlaying(clients);
   const dim = page.locator(".cinema-dim.is-on");
   await expect(dim).toHaveAttribute("data-mood", "night");
-  await expect(dim).toHaveCSS("background-color", "rgba(8, 6, 18, 0.2)");
+  // Over the stage the dim is painted in the scene, under the tags (OME-2307); the layer keeps only its spread past the stage.
+  await expect(dim).toHaveCSS("box-shadow", /rgba\(8, 6, 18, 0\.2\)/);
+  await expect(dim).toHaveCSS("background-color", "rgba(8, 6, 18, 0)");
 });
 
 for (const [name, w, h, options] of [["f1024", 1024, 768, TOUCH(1024, 768)], ["f1366", 1024, 1366, TOUCH(1024, 1366)], ["f1280", 1280, 800, DESKTOP(1280, 800)]] as const) {

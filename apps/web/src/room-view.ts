@@ -5,6 +5,9 @@ import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "
 import { AVATAR_COUNT, type FloorCell, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
+import { createSceneTags, type SceneTags } from "./scene-tags";
+import tagPlainUrl from "../../../assets/ui/slices/tag-0.png?url";
+import tagSelfUrl from "../../../assets/ui/slices/tag-self.png?url";
 import { standDepth, type CatWalker, type FurnitureSprite, type Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { EMOTE_LIFT, createAnimator, type FurnitureLoop } from "./walk/animator";
@@ -142,7 +145,24 @@ export interface RoomView {
    * REACTION_NEAR_BUDGET_MS. Read once per burst.
    */
   reactionsAllowed(): boolean;
+  /** The name tags painted over everyone (OME-2307); the stage places them. */
+  readonly tags: SceneTags;
+  /** The cinema dim over the room (OME-1406), under the tags (OME-2307): fades to `alpha` over DIM_MS in DIM_STEPS renders. */
+  dim(alpha: number): void;
   destroy(): void;
+}
+
+/** room.css `.cinema-dim`'s colour; its 400 ms fade, stepped: a render per step, on a play/pause change only. */
+const DIM_COLOR = 0x080612;
+const DIM_MS = 400;
+const DIM_STEPS = 8;
+
+/** A slice PNG, decoded (the tag frames are inlined by Vite: no request). */
+async function sliceImage(url: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  return img;
 }
 
 /** A hidden member's avatar (OME-769): still there, plainly set apart. */
@@ -297,9 +317,17 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Free walking's hover diamond (OME-1350): on the floor, under seats and avatars; not in `drawOrder`.
   const hover = new Graphics({ label: "walk-marker", visible: false });
   const objectLayer = new Container({ sortableChildren: true });
+  // The cinema dim (OME-1406) is part of the scene (OME-2307): over the room and the avatars, under the painted tags.
+  const dimLayer = new Graphics({ label: "dim", alpha: 0, visible: false }).rect(0, 0, STAGE_W, STAGE_H).fill(DIM_COLOR);
+  // Name tags over everyone (OME-2307), under the emote stickers, which float over the head and the tag on it.
+  const tagLayer = new Container({ label: "tags" });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, emoteLayer);
+  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, dimLayer, tagLayer, emoteLayer);
+  const [tagPlain, tagSelf] = await Promise.all([sliceImage(tagPlainUrl), sliceImage(tagSelfUrl)]);
+  const tags = createSceneTags(tagLayer, { plain: tagPlain, self: tagSelf });
+  let dimTo = 0;
+  let dimTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
@@ -1331,6 +1359,23 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     paused: () => paused,
     renders: () => renders,
+    tags,
+    dim(alpha) {
+      if (alpha === dimTo) return;
+      dimTo = alpha;
+      clearTimeout(dimTimer);
+      const from = dimLayer.alpha;
+      let step = reduced.matches ? DIM_STEPS : 0;
+      const next = (): void => {
+        step++;
+        const a = step >= DIM_STEPS ? alpha : from + ((alpha - from) * step) / DIM_STEPS;
+        dimLayer.alpha = a;
+        dimLayer.visible = a > 0;
+        render();
+        if (step < DIM_STEPS) dimTimer = setTimeout(next, DIM_MS / DIM_STEPS);
+      };
+      next();
+    },
     loadPairPoses() {
       if (pairLoad) return;
       pairLoad = true;
@@ -1444,6 +1489,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     destroy() {
       destroyed = true;
       clearTimeout(catTimer);
+      clearTimeout(dimTimer);
       stopClocks?.();
       fxObserver.disconnect();
       stageObserver.disconnect();

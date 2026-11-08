@@ -155,15 +155,13 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
   const tag = await hitBox(kitTag);
   expect(tag.w, "tag opener width").toBeGreaterThanOrEqual(44);
   expect(tag.h, "tag opener height").toBeGreaterThanOrEqual(44);
-  // A stacked tag's leader pip (OME-2149) must not take over the `::before` hit area (QA OME-2162).
+  // A stacked tag's leader pip (OME-2149) is painted on the canvas (OME-2307): the DOM target's `::before` stays its hit area (QA OME-2162).
   const led = await kitTag.evaluate((e) => {
     e.classList.add("is-led");
     const hit = getComputedStyle(e, "::before");
-    const pip = getComputedStyle(e.querySelector(".tag-name") ?? e, "::before");
-    // The pip points up (under the feet) or down (`.is-above`, OME-2172): its 4 px edge is on the bottom or the top.
-    return { hitEvents: hit.pointerEvents, hitBorder: hit.borderBottomWidth, pip: pip.content === "none" ? "none" : `${String(Math.max(parseFloat(pip.borderBottomWidth), parseFloat(pip.borderTopWidth)))}px` };
+    return { hitEvents: hit.pointerEvents, hitBorder: hit.borderBottomWidth };
   });
-  expect(led, "led tag: hit area intact, pip drawn apart").toEqual({ hitEvents: "auto", hitBorder: "0px", pip: "4px" });
+  expect(led, "led tag: hit area intact").toEqual({ hitEvents: "auto", hitBorder: "0px" });
   expect(Math.min(...Object.values(await hitBox(kitTag))), "led tag opener").toBeGreaterThanOrEqual(44);
   await kitTag.evaluate((e) => { e.classList.remove("is-led"); });
 

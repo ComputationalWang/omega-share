@@ -284,16 +284,24 @@ test("both tiers reach the seat at the same time and the same pixel: a Smooth an
 
   // In each observer page: when the walker's tag last changed, and where it came to rest (Date.now: one clock for both).
   const watch = async (p: Page): Promise<void> => {
-    const tag = p.locator(site.nicknameTag).filter({ hasText: "arrw-1" });
-    await expect(tag).toHaveCount(1);
-    await tag.evaluate((el) => {
+    await expect(p.locator(site.nicknameTag).filter({ hasText: "arrw-1" })).toHaveCount(1);
+    // The painted tag's anchor each frame (room.tagAnchor, OME-2307: the DOM target no longer rides the walk).
+    await p.evaluate(() => {
       const rec = { last: 0, final: "", changes: 0 };
       Object.assign(window, { __arrival: rec });
-      new MutationObserver(() => {
-        rec.last = Date.now();
-        rec.final = (el as HTMLElement).style.transform;
-        rec.changes++;
-      }).observe(el, { attributes: true, attributeFilter: ["style"] });
+      const room = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { members: { id: string; nickname: string }[] } | null }; tagAnchor: (id: string) => { x: number; y: number } | undefined };
+      const tick = (): void => {
+        const id = room.state().room?.members.find((m) => m.nickname === "arrw-1")?.id;
+        const a = id === undefined ? undefined : room.tagAnchor(id);
+        const t = a === undefined ? "" : `${String(a.x)},${String(a.y)}`;
+        if (t !== rec.final) {
+          rec.last = Date.now();
+          rec.final = t;
+          rec.changes++;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
     });
   };
   await Promise.all([watch(s.page), watch(bs.page)]);

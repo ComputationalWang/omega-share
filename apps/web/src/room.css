@@ -51,19 +51,19 @@
 .generic-strip-unlock { min-width: 0; min-height: 24px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent); color: #1d1a2b; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .generic-strip-unlock:disabled { opacity: 0.6; }
 .overlay, .tags, .bubbles, .reactions { position: absolute; inset: 0; pointer-events: none; }
-/* Cinema dim (OME-1406, cinema.ts): one fixed rgba layer over the canvas, under the floor, seats, tags and bubbles. A class
- * flips on play/pause/editor; the 400 ms fade is a one-off background-colour transition of one flat layer, not a running
- * animation. The room mood (OME-1502) is a fixed tint on the same layer, multiplied into the canvas; multiply commutes, so
- * the dim (the background colour, under the tint image) stacks on it and looks as it does with no mood (night: softer). */
+/* Cinema dim (OME-1406, cinema.ts): one fixed layer over the canvas, under the floor, seats, tags and bubbles. A class
+ * flips on play/pause/editor. Over the stage the dim itself is painted in the scene, under the painted name tags
+ * (room-view.ts `dim`, OME-2307), so this layer only carries its spread past the stage, a one-off 400 ms box-shadow
+ * transition. The room mood (OME-1502) is a fixed tint on this layer, multiplied into the canvas and the tags. */
 /* Its spread reaches the band's void past the stage's box (OME-1843: the band spans the column), clipped by .stage-clip. */
-.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0); transition: background-color 400ms ease, box-shadow 400ms ease; }
-.cinema-dim.is-on { background-color: rgb(8 6 18 / 0.45); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0.45); }
+.cinema-dim { position: absolute; inset: 0; pointer-events: none; background-color: rgb(8 6 18 / 0); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0); transition: box-shadow 400ms ease; }
+.cinema-dim.is-on { box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0.45); }
 .cinema-dim[data-mood] { mix-blend-mode: multiply; }
 .cinema-dim[data-mood="warm"] { background-image: linear-gradient(rgb(255 176 96 / 0.25) 0 0); }
 .cinema-dim[data-mood="cool"] { background-image: linear-gradient(rgb(120 170 255 / 0.25) 0 0); }
 .cinema-dim[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5) 0 0); }
 /* Night already lowers the lights: the full dim on its tint left the room at about ×0.33 (OME-2199), so night dims softly. */
-.cinema-dim.is-on[data-mood="night"] { background-color: rgb(8 6 18 / 0.2); box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0.2); }
+.cinema-dim.is-on[data-mood="night"] { box-shadow: 0 0 0 100vmax rgb(8 6 18 / 0.2); }
 @media (prefers-reduced-motion: reduce) { .cinema-dim { transition: none; } }
 /* The mood reaches the room area's edges (OME-1810, design OME-1809 item 5): under the tint the stage's empty pixels are
  * the page colour, multiplied, and the page is the same multiply of the same tint, so the stage's box doesn't show. */
@@ -86,6 +86,11 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
  * them around their anchor. */
 .tag { position: absolute; left: 0; top: 0; transform: translateX(-50%); transform-origin: 0 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The tag is painted on the room canvas (scene-tags.ts, OME-2307): its frame, name, tint edge and leader pip. The DOM tag
+ * keeps its box (the painted one takes its width from it) as a bare target for clicks, focus and the people it names;
+ * the glyphs on it (hourglass, mute) stay DOM and sit out a walk, while the target waits for the walker (stage.ts). */
+.tags .tag { border-image: none; color: transparent; }
+.tags .tag.walking > .ui-sprite { visibility: hidden; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
  * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
  * frame, even a composited one, so floats.ts writes the 24-step rise (translate), the fades (opacity) and the push
@@ -106,13 +111,7 @@ body[data-mood="night"] { background-image: linear-gradient(rgb(36 48 110 / 0.5)
 .ui-float.is-shout .say, .float-twin.is-shout > span::after { font-weight: 800; letter-spacing: 0.04em; }
 /* Shirt-colour accents (OME-1375): stage.ts sets --tint (the member's tint ramp, tints.json) on each tag and bubble. A
  * decorative 2 px edge in the frame, under the text, never behind it: text colours are untouched, so contrast holds. */
-.tag::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: -1px; height: 2px; background: var(--tint, transparent); pointer-events: none; }
-/* A tag stacked off its owner's head (OME-2149, OME-2172, tag-stack.ts `led`) wears a leader pip pointing at its owner:
- * under the feet, on its top edge pointing up; stacked over the head (`.is-above`), on its bottom edge pointing down.
- * On `.tag-name`, not `.tag`: the tag's ::before is its touch hit area (QA OME-2162). `.tag-name` isn't positioned, so
- * the pip sits on the tag and its overflow doesn't clip it. */
-.tag.is-led .tag-name::before { content: ""; position: absolute; left: 50%; bottom: calc(100% + 4 * var(--ui-px)); translate: -50% 0; border: 4px solid transparent; border-top-width: 0; border-bottom-color: var(--tint, var(--ui-text)); pointer-events: none; }
-.tag.is-led.is-above .tag-name::before { bottom: auto; top: calc(100% + 4 * var(--ui-px)); border-top-width: 4px; border-bottom-width: 0; border-top-color: var(--tint, var(--ui-text)); border-bottom-color: transparent; }
+/* The tag's edge and its leader pip (OME-2149, OME-2172) are painted with it (scene-tags.ts, OME-2307). */
 .bubbles .ui-float::before { content: ""; position: absolute; left: -3px; top: 1px; bottom: 1px; width: 2px; background: var(--tint, transparent); }
 /* A /me action (OME-1375): italic in the log, the bubble and its twin (so the measured size holds). */
 .chat-log-line.is-action, .ui-float.is-action .say, .float-twin.is-action > span { font-style: italic; }

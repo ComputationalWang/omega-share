@@ -7,6 +7,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { roomTags } from "./support/tag-stack";
 import { ownedRoom } from "./support/owned-rooms";
 import { GENERIC_HOST, GENERIC_PAGE, shareProvider } from "../perf/providers";
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
@@ -193,7 +194,8 @@ const styleWrites = (page: Page): Promise<{ tag: number; pad: number }> => page.
 
 // OME-2135: a hit pad shows only on the host's pickable tags. Elsewhere it is `display: none`, so moving it with its tag
 // on every frame of a walk was a style recalc per walker per frame for nothing; the host's pads still follow their tags.
-test("a walking member's tag moves every frame, its hidden hit pad doesn't; on the host's page the pad follows the tag", async ({ browser }) => {
+// OME-2307: the tag itself is painted on the canvas and rides the walk there; its DOM target is placed per render, as the pad.
+test("a walking member's painted tag moves every frame, its DOM target and hidden hit pad don't; on the host's page the pad follows the tag", async ({ browser }) => {
   const { id, ownerToken, inviteKey } = ownedRoom("tagpads");
   const secrets = JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } });
   const guest = `${URLS.web}/r/${id}#k=${inviteKey}`;
@@ -209,13 +211,19 @@ test("a walking member's tag moves every frame, its hidden hit pad doesn't; on t
   // Below 1024 px the short strip is framed on me and crops the far cells: Fit shows the whole floor.
   await kit.getByTestId("room-zoom-fit").click();
   await kit.locator(site.walkFloor).scrollIntoViewIfNeeded();
+  const painted = new Set<string>();
   for (const [x, y] of [[1, 8], [8, 1]] as const) {
     const p = await cellOnPage(kit, x, y);
     await kit.mouse.click(p.x, p.y);
-    await kit.waitForTimeout(3000);
+    for (const until = Date.now() + 3000; Date.now() < until; ) {
+      const t = (await roomTags(watcher)).find((r) => r.member === member);
+      if (t !== undefined) painted.add(`${String(Math.round(t.rect.x))},${String(Math.round(t.rect.y))}`);
+      await kit.waitForTimeout(100);
+    }
   }
   const writes = await styleWrites(watcher);
-  expect(writes.tag, "the tag rode along with the walk").toBeGreaterThan(20);
+  expect(painted.size, "the painted tag rode along with the walk").toBeGreaterThan(10);
+  expect(writes.tag, "the DOM target stayed put while the painted tag moved").toBeLessThanOrEqual(4);
   // A render (a state change: each `walked`) may still place it; frames don't.
   expect(writes.pad, "the hidden pad stayed put while the tag moved").toBeLessThanOrEqual(4);
   // The host's pickable pad sits where its tag does once the walk is over.
