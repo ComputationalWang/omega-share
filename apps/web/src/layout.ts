@@ -247,6 +247,28 @@ export function wideLayout(width: number, height: number, provider: Provider | n
 }
 
 
+/** The narrowest room window worth putting beside the TV (OME-2406). */
+const SIDE_ROOM_MIN_W = 200;
+/** A touch column's room window under the TV's shelf shorter than this goes beside the TV (touchSideLayout, OME-2406). */
+export const SIDE_ROOM_FROM_H = 200;
+
+/**
+ * A touch column too short for the room under the TV's floor and its shelf (a phone held sideways, 915×412: a 112 px
+ * window, OME-2406): the TV at its floor top-left, its shelf under it, and the room window beside them the column's
+ * height. `null` where that window would be under SIDE_ROOM_MIN_W wide, or the TV and shelf don't fit the height.
+ */
+export function touchSideLayout(width: number, height: number, provider: Provider): RoomLayout | null {
+  const w = Math.floor(width);
+  const h = Math.floor(height);
+  const tvW = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const tv = { x: TV_BEZEL, y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tvW, h: CONTROL_BAR_H };
+  const x = tv.x + tv.w + TV_BEZEL + GAP;
+  const stage = { x, y: 0, w: Math.min(w - x, STAGE_W), h };
+  if (stage.w < SIDE_ROOM_MIN_W || controls.y + controls.h > h) return null;
+  return { tv, controls, stage, scale: 1, height: h, compact: { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) } };
+}
+
 /**
  * Room view where the column holds the whole room (OME-2233, judge round 5): the shelf tops the TV's side, and the room's
  * box, walls' tops (with ROOM_HEAD's sky over them, less where the column is short) to the lowest name tag, sits under the
