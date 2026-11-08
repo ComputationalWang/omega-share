@@ -177,6 +177,9 @@ const THEATRE_JOIN: readonly Budget[] = [
 const OBSERVER_CLS_PROFILES = { desktop: "desktop 1280×800", portrait: "Pixel 7 portrait (412×915)", landscape: "Pixel 7 landscape (915×412)" } as const;
 const OBSERVER_CLS: readonly Budget[] = Object.entries(OBSERVER_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.observerCls.${p}`, area: "Site", metric: `Cumulative Layout Shift on an observer while another member starts a video and skips, ${pl}`, docMetric: "Cumulative Layout Shift on an observer while another member starts a video and skips", unit: "score", limit: 0.01, comparator: "<" }));
 
+// OME-2382: layout shift on a member who never types over a 15-line chat burst (perf/room-cls.perf.ts).
+const CHAT_CLS: readonly Budget[] = Object.entries(OBSERVER_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.chatCls.${p}`, area: "Site", metric: `Cumulative Layout Shift on a member who never types during a chat burst, ${pl}`, docMetric: "Cumulative Layout Shift on a member who never types during a chat burst", unit: "score", limit: 0.01, comparator: "<" }));
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -194,6 +197,7 @@ export const BUDGETS: readonly Budget[] = [
   ...ROOM_CLS,
   ...OBSERVER_CLS,
   ...COLD_CLS,
+  ...CHAT_CLS,
   ...THEATRE_JOIN,
   ...VIEW_SWAP,
   ...JOIN,

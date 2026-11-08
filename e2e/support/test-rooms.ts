@@ -43,7 +43,7 @@ export const SPEC_ROOMS = {
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab", "hidechat", "hidepseudo", "portraitkey", "handle", "peek"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
-  "room-cls-perf": ["desktop", "landscape", "portrait", "cold-desktop", "cold-phone", "obs-desktop", "obs-portrait", "obs-landscape"],
+  "room-cls-perf": ["desktop", "landscape", "portrait", "cold-desktop", "cold-phone", "obs-desktop", "obs-portrait", "obs-landscape", "chat-desktop", "chat-portrait", "chat-landscape"],
   "join-perf": ["desktop", "phone"],
   "join-open": ["phone", "theatre"],
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],

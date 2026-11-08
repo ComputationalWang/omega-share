@@ -224,3 +224,57 @@ for (const profile of ["desktop", "portrait", "landscape"] as const) {
     }
   });
 }
+
+// OME-2382: CLS on a member who never types during a chat burst. Five members send 3 lines each, 300 ms apart (rounds of five,
+// each sender under the chat bucket's 5); the sixth, who never types, measures every layout shift from the first line until 2 s after the last.
+// Rows: room.chatCls.<profile> (< 0.01).
+for (const profile of ["desktop", "portrait", "landscape"] as const) {
+  test(`room CLS on a member who never types during a chat burst, ${profile}`, async ({ browser }) => {
+    const id = `room.chatCls.${profile}`;
+    const why = !available.web ? PENDING.web : !available.server ? PENDING.server : null;
+    if (why !== null) {
+      recordMetric({ id, pending: why });
+      test.skip(true, why);
+      return;
+    }
+    test.setTimeout(120_000);
+    const room = testRoom("room-cls-perf", `chat-${profile}`);
+    const [observer, ...senders] = await joinRoom(browser, { roomUrl: room.url, count: 6, nicknamePrefix: "chatcls", contextOptions: (i) => (i === 0 ? OBSERVER[profile] : OBSERVER.desktop) });
+    try {
+      if (observer === undefined || senders.length !== 5) throw new Error("no clients");
+      await observer.page.waitForTimeout(OBSERVER_SETTLE_MS);
+      await observer.page.evaluate(() => {
+        const shifts: { value: number; nodes: string[] }[] = [];
+        Reflect.set(window, "__roomShifts", shifts);
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) {
+            const s = e as PerformanceEntry & { value: number; hadRecentInput: boolean; sources?: { node?: Node | null }[] };
+            if (s.hadRecentInput) continue;
+            const nodes = (s.sources ?? []).map(({ node }) => (node instanceof Element ? `${node.localName}${node.className === "" ? "" : `.${node.className.trim().split(/\s+/).join(".")}`}` : "?"));
+            shifts.push({ value: s.value, nodes });
+          }
+        }).observe({ type: "layout-shift" });
+      });
+      for (let line = 0; line < 3; line++) {
+        for (const s of senders) {
+          const input = s.page.locator(site.chatInput);
+          await input.fill(`burst ${s.nickname} ${String(line)}`);
+          await input.press("Enter");
+          await observer.page.waitForTimeout(300);
+        }
+      }
+      await observer.page.waitForTimeout(OBSERVER_SETTLE_MS);
+      await expect(observer.page.locator(site.chatLogLine).filter({ hasText: "burst" })).toHaveCount(15);
+      const shifts = await observer.page.evaluate(() => {
+        const seen: unknown = Reflect.get(window, "__roomShifts");
+        return Array.isArray(seen) ? (seen as { value: number; nodes: string[] }[]) : [];
+      });
+      const cls = shifts.reduce((sum, s) => sum + s.value, 0);
+      const moved = [...new Set(shifts.flatMap((s) => s.nodes))];
+      recordMetric({ id, value: cls, note: `${String(shifts.length)} shifts${moved.length > 0 ? ` (${moved.join(", ")})` : ""}; ${profile} member who never types, 5 members × 3 lines 300 ms apart` });
+      expect(cls, moved.join(", ")).toBeLessThan(LIMIT);
+    } finally {
+      await leaveAll([...(observer ? [observer, ...senders] : [])]);
+    }
+  });
+}
