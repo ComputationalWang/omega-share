@@ -345,6 +345,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.told = l;
       if (paint.look(s.idx, l)) dirty = true;
     }
+    syncPlace(s);
+  };
+
+  /** Tell the painter `s`'s top-left and opacity if they changed: all a walk frame needs (no look, no allocation). */
+  const syncPlace = (s: Slot): void => {
+    const paint = o.paint;
+    if (paint === undefined || s.state === FREE || !s.measured || s.speaker === null) return;
     const x = s.ax + s.dx;
     const y = s.ay - (s.h + TAIL_BELOW) * k - s.lift - s.rise;
     if (s.placed && x === s.px && y === s.py && s.alpha === s.pa) return;
@@ -810,7 +817,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       for (const s of slots) {
         if (s.state === FREE || s.speaker !== id) continue;
         anchor(s, x, y);
-        sync(s);
+        syncPlace(s);
       }
       dirty = was;
     },
