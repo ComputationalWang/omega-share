@@ -29,7 +29,7 @@ export const SPEC_ROOMS = {
   "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed", "reorder", "reorderphone"],
   "queue-perf": ["frames", "spread"],
   "ext-firefox": ["share"],
-  "chat-log": ["lines", "keys", "reduced"],
+  "chat-log": ["lines", "keys", "reduced", "still"],
   "chat-perf": ["frames"],
   "room-chrome": ["v360", "v412", "v768", "v900", "v1024", "v1280", "v1920", "keys", "v360tabs", "v412tabs", "v768tabs", "v900tabs"],
   "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag", "pinch", "overscroll", "small", "smallfs", "people390", "people320", "small360", "full412", "upnext412", "upnextdesk"],
