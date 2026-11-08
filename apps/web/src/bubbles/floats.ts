@@ -458,8 +458,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       }
       return push;
     };
-    // Pushed up past the room's top or into the TV, it goes, into the TV the newest too (placeBox keeps one unpushed beside it).
-    const out = (s: Slot, i: number, push: number): boolean => (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < ROOM_VIEW.y) || over.some((b) => sweeps(s, push, b));
+    // Pushed up past the room's top (the phone window's, OME-2418) or into the TV, it goes, into the TV the newest too
+    // (placeBox keeps one unpushed beside it).
+    const out = (s: Slot, i: number, push: number): boolean => (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < sideT) || over.some((b) => sweeps(s, push, b));
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       if (s === undefined) continue;
@@ -495,7 +496,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
    * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
    * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: the stack never
-   * slides a bubble down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
+   * slides a bubble down. One pushed so high that its rise would leave the top (ROOM_VIEW's or the phone window's: it's clipped there) goes instead.
    * They also lift past other members' tags (OME-2349) unless that sends one more away (in a crowd a line beats a clear
    * tag); a lift is planned afresh each time, so a bubble can drop back to where the stack alone puts it.
    */
