@@ -1,6 +1,7 @@
 // OME-2196 (design judge round 4): in the busy room a front avatar's tag stacked over the tags behind it, nearer someone
 // else's head than its own. Six members on a 2×3 block at 1280×800, Room view (the default) and the band: no two tags
 // overlap, and each tag is nearest its own owner's head.
+import { devices, type BrowserContextOptions } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { shareVideo, waitPlaying } from "../perf/sync";
 import { PENDING, available } from "./support/apps";
@@ -291,3 +292,49 @@ test("tags are painted on the canvas: the DOM tag paints nothing, hiding the pai
   );
   for (const n of changed) expect(n, "painted pixels in a tag's box").toBeGreaterThan(50);
 });
+
+// OME-2424: the transparent DOM target kept `.ui-tag`'s slice in the build (lightningcss minified `border-image: none` into
+// an invalid `border-image:`) and covered every painted name with a blank plate. Run against the preview build to see it.
+for (const [label, options] of [
+  ["1280×800", { viewport: { width: 1280, height: 800 } }],
+  ["Pixel 7", devices["Pixel 7"]],
+] as const satisfies readonly (readonly [string, BrowserContextOptions])[]) {
+  test(`${label}: every tag's name shows in its painted box, no DOM plate over it`, async ({ browser }) => {
+    test.setTimeout(60_000);
+    const room = testRoom("tag-clusters", `names-${label === "Pixel 7" ? "phone" : "desk"}`);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "nm", contextOptions: () => ({ ...options, reducedMotion: "reduce" }) });
+    const [watcher, other] = clients;
+    if (watcher === undefined || other === undefined) throw new Error("no client");
+    await expect.poll(async () => (await roomTags(watcher.page)).map((t) => t.text).sort(), { timeout: 15_000 }).toEqual([other.nickname, watcher.nickname].sort());
+    const plates = await watcher.page.locator(site.nicknameTag).evaluateAll((es) => es.map((e) => ({ self: e.classList.contains("self"), source: getComputedStyle(e).borderImageSource })));
+    expect(plates.some((p) => p.self) && plates.some((p) => !p.self), "a self tag and a plain one").toBe(true);
+    for (const p of plates) expect.soft(p.source, `${p.self ? "self" : "plain"} tag's DOM target`).toBe("none");
+    await watcher.page.waitForTimeout(1000);
+    const shot = await watcher.page.screenshot();
+    const painted = await roomTags(watcher.page);
+    // Pixels in each painted tag's box in the tag text's colour: #e8b33c for mine, #fff7ea for the others.
+    const counts = await watcher.page.evaluate(
+      async ({ b64, tags }) => {
+        const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))], { type: "image/png" }));
+        const c = new OffscreenCanvas(bmp.width, bmp.height);
+        const g = c.getContext("2d");
+        if (g === null) throw new Error("no 2d");
+        g.drawImage(bmp, 0, 0);
+        const d = g.getImageData(0, 0, bmp.width, bmp.height).data;
+        const k = bmp.width / innerWidth;
+        return tags.map(({ text, self, r }) => {
+          const want = self ? [0xe8, 0xb3, 0x3c] : [0xff, 0xf7, 0xea];
+          let n = 0;
+          for (let y = Math.ceil(r.y * k); y < Math.floor((r.y + r.height) * k); y++)
+            for (let x = Math.ceil(r.x * k); x < Math.floor((r.x + r.width) * k); x++) {
+              const i = (y * bmp.width + x) * 4;
+              if (want.every((w, j) => Math.abs((d[i + j] ?? 0) - w) <= 8)) n++;
+            }
+          return { text, n };
+        });
+      },
+      { b64: shot.toString("base64"), tags: painted.map((t) => ({ text: t.text, self: t.text === watcher.nickname, r: t.rect })) },
+    );
+    for (const { text, n } of counts) expect(n, `name-coloured pixels in ${text}'s tag`).toBeGreaterThanOrEqual(20);
+  });
+}
