@@ -135,11 +135,21 @@ export function createHints(o: HintsOptions): Hints {
     // under the TV's bar (a landscape phone's free band beside the room, OME-2413).
     for (const f of empty ? [o.tv.message] : [o.tv.picture, o.tv.box, o.anchor(0)]) if (at !== null && blocked(at)) at = spot(f, "below", w, h);
     // Else, on a phone, the room window's foot above its keys, the chip as narrow as the window (its keys wrap under the words).
-    if (!empty && (at === null || blocked(at))) {
-      root.style.maxWidth = `${String(Math.max(0, Math.min(320, o.room.getBoundingClientRect().width - 2 * GAP)))}px`;
+    const fit = (max: number): void => {
+      root.style.maxWidth = `${String(Math.max(0, Math.min(320, max)))}px`;
       w = root.offsetWidth;
       h = root.offsetHeight;
+    };
+    if (!empty && (at === null || blocked(at))) {
+      const win = o.room.getBoundingClientRect();
+      fit(win.width - 2 * GAP);
       at = foot(o.room, w, h);
+      // Else beside the zoom keys down to the window's foot: narrower and taller, it clears a low tag (OME-2413).
+      const keys = o.room.querySelector(".room-zoom")?.getBoundingClientRect();
+      if ((at === null || blocked(at)) && keys !== undefined && keys.width > 0) {
+        fit(keys.left - win.left - 2 * GAP);
+        at = { left: win.left + GAP, top: win.bottom - 4 - h };
+      }
     }
     // Nothing to sit beside, or nowhere clear of the TV, composer, tabs, chat and top bar: out of sight until there is.
     const away = at === null || blocked(at);
