@@ -891,7 +891,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       avoidOver();
     },
     bubbleSides: (x0, x1, y1, y0) => {
-      floats.sides(x0, x1);
+      floats.sides(x0, x1, y0);
       if (Number.isFinite(y0)) win = { x0, x1, y0 };
       avoidOver();
       if (y1 !== shownBottom || y0 !== shownTop) {
