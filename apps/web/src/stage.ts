@@ -122,6 +122,9 @@ export interface Stage {
 
 /** What a lie key's name calls each piece. */
 const LIE_NAMES: Readonly<Record<string, string>> = { sofa: "sofa", couch: "couch", cat: "cat bed", bed: "bed" };
+/** room.css `.cinema-dim.is-on`: the dim's strength, and under the night mood, which is dark already. */
+const DIM_ON = 0.45;
+const DIM_NIGHT = 0.2;
 /** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
 /** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
@@ -361,6 +364,16 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
   root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, reactionLayer, rail);
+  // The cinema dim's layer (cinema.ts) keeps its spread past the stage; over the stage the scene paints it, under the tags
+  // (OME-2307). Its class and mood flip on play, pause, the editor and a mood change: never per frame.
+  const dimEl = o.dim;
+  if (dimEl !== undefined) {
+    const sync = (): void => {
+      view.dim(dimEl.classList.contains("is-on") ? (dimEl.dataset["mood"] === "night" ? DIM_NIGHT : DIM_ON) : 0);
+    };
+    new MutationObserver(sync).observe(dimEl, { attributes: true, attributeFilter: ["class", "data-mood"] });
+    sync();
+  }
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
