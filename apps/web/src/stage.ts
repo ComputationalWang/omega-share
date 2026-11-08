@@ -97,6 +97,8 @@ export interface Stage {
   anchor(id: MemberId): Point | undefined;
   /** Where a member's name tag shows (stage px, its top centre): over their head, or where it stacked (OME-2172). */
   tag(id: MemberId): Point | undefined;
+  /** Every name tag as painted, its text and box in CSS px from the viewport (the e2e test contract, OME-2307). */
+  tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number } }[];
   /** Where the last render put a member: where their walk in ends. */
   spot(id: MemberId): Point | undefined;
   /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
@@ -845,6 +847,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const m = tagAt.get(id) ?? aboveHead(id);
       return p === undefined ? undefined : { x: p.x + m.dx, y: p.y + TAG_OFFSET_Y + m.dy };
     },
+    tagRects: () =>
+      [...tagEls].map(([member, e]) => {
+        const { x, y, width, height } = e.getBoundingClientRect();
+        return { member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x, y, width, height } };
+      }),
     spot: (id) => placedAt.get(id),
     catCells: () => view.catCells(),
     petCat: (cell) => {

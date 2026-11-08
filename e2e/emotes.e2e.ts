@@ -6,6 +6,7 @@ import type { Page } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { tagBox } from "./support/tag-stack";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -228,7 +229,7 @@ test.describe("emotes", () => {
       await expect(wheel.locator(".ui-wheel-label .ui-kbd")).toBeVisible();
       // Over my head: centred on my name tag (which hangs under my feet), wholly above it, with its tail.
       const box = await wheel.boundingBox();
-      const tag = await a.page.getByTestId("nickname-tag").filter({ hasText: "wheel-1" }).boundingBox();
+      const tag = await tagBox(a.page, "wheel-1");
       if (box === null || tag === null) throw new Error("no wheel or tag box");
       expect(Math.abs(box.x + box.width / 2 - (tag.x + tag.width / 2))).toBeLessThanOrEqual(4);
       expect(box.y + box.height).toBeLessThan(tag.y);

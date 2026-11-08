@@ -10,6 +10,7 @@ import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { roomTags, tagBox } from "./support/tag-stack";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -52,9 +53,7 @@ async function atRest(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        const now = await page.evaluate(() =>
-          [...document.querySelectorAll("[data-testid=room] .tag")].map((t) => `${t.textContent}@${String(Math.round(t.getBoundingClientRect().x))},${String(Math.round(t.getBoundingClientRect().y))}`).join(" "),
-        );
+        const now = (await roomTags(page)).map((t) => `${t.text}@${String(Math.round(t.rect.x))},${String(Math.round(t.rect.y))}`).join(" ");
         const still = now === last;
         last = now;
         await page.waitForTimeout(500);
@@ -77,9 +76,9 @@ test("a bubble hangs over its speaker's name tag, moves and fades while it lives
   const born = Date.now();
 
   // Over the head: the box shares the speaker's horizontal span (tags are centred on the head) and sits above the tag.
-  const tag = a.page.locator(`${site.room} .tag`).filter({ hasText: b.nickname });
-  await expect(tag).toBeVisible();
-  const t = await rectOf(tag);
+  const box = await tagBox(a.page, b.nickname);
+  if (box === null) throw new Error("no tag");
+  const t = { x: box.x, y: box.y, w: box.width, h: box.height };
   await expect.poll(async () => (await rectOf(bubble)).h).toBeGreaterThan(0);
   const r = await rectOf(bubble);
   expect(r.x).toBeLessThan(t.x + t.w);

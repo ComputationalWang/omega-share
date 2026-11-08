@@ -14,6 +14,7 @@ import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { joinForToken, postShare } from "./support/share";
 import { site } from "./support/selectors";
+import { tagBox } from "./support/tag-stack";
 import { ROOM_WALLS } from "../apps/web/src/layout";
 
 test.fixme(!available.web, PENDING.web);
@@ -454,7 +455,7 @@ test("360×640 touch: the room strip keeps its 96 px floor with me in it and a t
   // I walk in from the door: once I stand, my tag is in the picture.
   await expect.poll(async () => {
     const pane = await page.locator(".stage-pane").boundingBox();
-    const mine = await page.locator(site.nicknameTag).filter({ hasText: /^ph/ }).boundingBox();
+    const mine = await tagBox(page, /^ph/);
     if (mine === null || pane === null) return "not laid out";
     return mine.y >= pane.y && mine.y + mine.height <= pane.y + pane.height ? "in" : `my tag ${String(mine.y)}+${String(mine.height)}, picture ${String(pane.y)}+${String(pane.height)}`;
   }, { message: "my tag in the room picture" }).toBe("in");

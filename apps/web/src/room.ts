@@ -116,6 +116,8 @@ export interface RoomHandle {
   readonly layoutBuilds: () => number;
   /** A member's motion frame and emote sticker now (room-view.ts `frames`), for e2e emote checks. */
   readonly avatarFrames: (id: MemberId) => { avatar: string | null; sticker: string | null } | undefined;
+  /** The name tags as painted (stage.ts `tagRects`): `[{member, text, rect}]` in CSS px, for e2e tag geometry (OME-2307). */
+  readonly tags: () => ReturnType<Stage["tagRects"]>;
   /** Where a member's bubbles and sticker hang now (stage.ts `head`), for e2e seated-height checks. */
   readonly head: (id: MemberId) => Point | undefined;
   /** How many times the "Up next" rows were rebuilt, for e2e "once per queue change" checks. */
@@ -1640,5 +1642,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     .catch((e: unknown) => {
       console.warn("sound: not loaded", e);
     });
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), tags: () => roomStage.tagRects(), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops(), cats: () => view.cats() };
 }

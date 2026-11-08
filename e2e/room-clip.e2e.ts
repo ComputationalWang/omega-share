@@ -8,6 +8,7 @@ import { shareProvider } from "../perf/providers";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { tagBox } from "./support/tag-stack";
 import type { RoomName } from "./support/test-rooms";
 
 test.fixme(!available.web, PENDING.web);
@@ -112,7 +113,7 @@ async function meWhole(page: Page): Promise<void> {
   const g = await geometry(page);
   const shelf = await page.locator(".controls.ui-tv-shelf").boundingBox();
   const keys = await page.locator(".room-zoom").boundingBox();
-  const tag = await page.locator(site.nicknameTag).boundingBox();
+  const tag = await tagBox(page);
   if (shelf === null || keys === null || tag === null) throw new Error("no shelf, keys or tag");
   expect(shelf.y + shelf.height, "the shelf ends over the window").toBeLessThanOrEqual(g.clip.y + 1);
   // Whole under the shelf: the camera centres me from my head to my tag's foot (layout.ts touchHome), and a tag on my hair (OME-2252) can sit a few px over that.
@@ -215,7 +216,7 @@ for (const [name, playing] of [["hint7", false], ["hintplay7", true]] as const) 
     const hint = page.getByTestId("room-pan-hint");
     await expect(hint).toBeVisible();
     const g = await geometry(page);
-    const [box, tag, keys] = await Promise.all([hint.boundingBox(), page.locator(site.nicknameTag).boundingBox(), page.locator(".room-zoom").boundingBox()]);
+    const [box, tag, keys] = await Promise.all([hint.boundingBox(), tagBox(page), page.locator(".room-zoom").boundingBox()]);
     if (box === null || tag === null || keys === null) throw new Error("no hint, tag or keys");
     expect(box.y, "the hint in the window").toBeGreaterThanOrEqual(g.clip.y);
     expect(box.y + box.height, "the hint in the window").toBeLessThanOrEqual(g.clip.y + g.clip.h);
