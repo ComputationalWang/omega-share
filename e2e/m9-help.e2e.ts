@@ -179,6 +179,11 @@ for (const [name, options] of [
       const lines = page.locator(`${site.chatLog} ${site.chatLogLine}`);
       await expect(lines).toHaveCount(5);
       await page.waitForTimeout(300);
+      // The burst's bubbles, read once now: each lives 5 s, and the checks below take seconds on a loaded machine (OME-2472).
+      const bubbles = await page.locator(`${site.room} .ui-float.is-live`).evaluateAll((els) => els.flatMap((e) => {
+        const r = e.getBoundingClientRect();
+        return e.checkVisibility() && r.width > 0 ? [{ x: r.x, y: r.y, width: r.width, height: r.height, html: e.outerHTML.slice(0, 80) }] : [];
+      }));
       // Shown, not just clear: a chip that's always out of sight covers nothing (OME-2398).
       await expect(hint).toBeVisible();
       // The reaction row and the Invite field too (OME-2381), and its Copy key (OME-2384).
@@ -196,20 +201,17 @@ for (const [name, options] of [
         const top40 = chip.x < win.x + win.width && win.x < chip.x + chip.width && chip.y < win.y + 40 && win.y < chip.y + chip.height;
         expect(top40, "the room window's top 40 px").toBe(false);
         // OME-2413: and 0 px² with the burst's bubbles, the name tags and the Room view key.
-        const floats = page.locator(`${site.room} .ui-float.is-live`);
-        expect(await floats.count(), "live bubbles").toBeGreaterThanOrEqual(1);
+        expect(bubbles.length, "live bubbles").toBeGreaterThanOrEqual(1);
         // OME-2418 (judge round 16): portrait, lines 0–2 rose past the window's top (clippedTop 69 / 40 / 11 px), under the
         // TV's bar. A bubble shown is whole under the window's top; one that would cross it goes.
         const bar = await page.getByRole("group", { name: "Playback controls" }).boundingBox();
         if (bar === null) throw new Error("no TV bar");
-        for (const [i, f] of (await floats.all()).entries()) {
-          if (!(await f.isVisible())) continue;
-          const b = await f.boundingBox();
-          if (b === null) continue;
+        for (const [i, b] of bubbles.entries()) {
           expect(win.y - b.y, `bubble ${String(i)} clippedTop`).toBeLessThanOrEqual(0);
           expect(b.x >= bar.x + bar.width || b.x + b.width <= bar.x || b.y >= bar.y + bar.height || b.y + b.height <= bar.y, `bubble ${String(i)} clear of the TV's bar`).toBe(true);
         }
-        for (const covered of [...(await floats.all()), ...(await page.locator(`${site.nicknameTag}, ${site.roomViewKey}`).all())]) {
+        for (const b of bubbles) expect(chip.x < b.x + b.width && b.x < chip.x + chip.width && chip.y < b.y + b.height && b.y < chip.y + chip.height, b.html).toBe(false);
+        for (const covered of await page.locator(`${site.nicknameTag}, ${site.roomViewKey}`).all()) {
           if (await covered.isVisible()) expect(await overlaps(hint, covered), await covered.evaluate((e) => e.outerHTML.slice(0, 80))).toBe(false);
         }
       }
