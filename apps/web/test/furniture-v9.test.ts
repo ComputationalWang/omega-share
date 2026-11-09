@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, type Furniture, type RoomLayout } from "@omega/shared";
+import { DEFAULT_LAYOUT, RoomLayoutSchema, type Furniture, type RoomLayout } from "@omega/shared";
 import { FurnitureManifestSchema, RoomManifestSchema, V9_COLOURS, sceneOf, standDepth, usesSetG, usesV6, usesV7, usesV9, usesV9Shell, type FurnitureSprite, type Scene } from "../src/furniture";
 import { TURN, cellCenter, rawCenter, setNorth } from "../src/layout";
 
@@ -99,6 +99,19 @@ describe("sceneOf: partition loops in the ambient set", () => {
     const s = sceneOf(STAGE_DOOR, [v9]);
     expect(sprite(s, "furniture/stage/boards/sw/back").use).toMatchObject({ ms: 300, ambient: true });
     expect(sprite(s, "furniture/rack/costumes/sw/back").use).toBeUndefined();
+  });
+
+  test("Stage Door's velvet and wings don't loop at rest (their use frames are one still frame)", () => {
+    const s = sceneOf(STAGE_DOOR, [v9]);
+    expect(s.sprites.filter((x) => x.key.startsWith("furniture/partition/") && x.use?.ambient === true)).toHaveLength(0);
+  });
+
+  test("the bar preset's ambient set stays the neon sign and the fireplace (v8's flags don't switch on, QA OME-2457)", async () => {
+    const sheets = ["furniture", "furniture-v2", "furniture-v4", "furniture-v5", "furniture-v6", "furniture-v7", "furniture-v8", "furniture-v9"];
+    const all = await Promise.all(sheets.map(async (name) => v.parse(FurnitureManifestSchema, await load(`furniture/${name}.json`))));
+    const bar = v.parse(RoomLayoutSchema, await load("presets/bar.json"));
+    const kinds = sceneOf(bar, all).sprites.filter((x) => x.use?.ambient === true).map((x) => x.key.split("/")[1]);
+    expect(new Set(kinds)).toEqual(new Set(["neonsign", "fireplace"]));
   });
 });
 
