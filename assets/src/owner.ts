@@ -241,12 +241,14 @@ function tray(): UiFrame {
   return nine("tray/0", W, W, img, all(10));
 }
 
-/** Tray tab. `on` is the lit wood face whose bottom row runs into the tray rim (it overlaps the rim's outline by 1 art px). */
-function tab(state: "idle" | "hover" | "on"): UiFrame {
+/** Tray tab. `on` is the lit wood face whose bottom row runs into the tray rim (it overlaps the rim's outline by 1 art px).
+ *  `press` is the tab held down: it loses its lip like a pressed button, a shadow under the top edge over the `on` face it is about to become. */
+function tab(state: "idle" | "hover" | "on" | "press"): UiFrame {
   const W = 16, H = 14;
   const img = slab(W, H, 2, (d, e) => {
     if (state === "on" && e === "b" && d <= 1) return d === 0 ? c("wood", 1) : c("wood", 1);
     if (d === 0) return O;
+    if (state === "press") return d === 1 && e === "t" ? O : (d === 1 && e === "l") || (d === 2 && e === "t") ? c("wood", 2) : c("wood", 1);
     if (state === "on") return d === 1 && lit(e) ? c("wood", 0) : d === 1 && e === "r" ? c("wood", 2) : c("wood", 1);
     if (d === 1) return lit(e) ? (state === "hover" ? c("cream", 0) : c("wood", 1)) : c("wood", 2);
     return c("wood", 2);
@@ -625,7 +627,7 @@ export function buildOwnerFrames(printSe: RoomFrame, printSw: RoomFrame, thumbs:
   for (const st of ["ok", "no", "sel"] as const) for (const [w, h] of FOOTPRINT_SIZES) out.push(footprint(st, w, h));
   for (const st of ["ok", "no"] as const) out.push(wallMark(st, "se", printSe), wallMark(st, "sw", printSw));
   for (const n of Object.keys(HANDLE_ICONS)) for (const s of ["idle", "hover"] as const) out.push(handle(n, s));
-  out.push(selfOn(), tray(), tab("idle"), tab("hover"), tab("on"));
+  out.push(selfOn(), tray(), tab("idle"), tab("hover"), tab("on"), tab("press"));
   for (const s of ["idle", "hover", "held", "off"] as const) out.push(slot(s));
   out.push(privatePill(), ticket("idle"), ticket("copied"), ticket("expired"));
   for (const [n, rows] of Object.entries(ICONS)) out.push(art(`icon/${n}`, rows, 8, 8));
@@ -674,6 +676,7 @@ ${lazyRules}
 .ui-tab { border-style: solid; border-color: transparent; border-width: ${u(5)} ${u(5)} ${u(4)}; border-image: ${slice("tab/idle")} 5 5 4 fill / 1 stretch; display: inline-flex; align-items: center; gap: ${u(2)}; padding: 0 ${u(1)}; min-height: ${u(14)}; background: none; color: var(--ui-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .ui-tab:hover, .ui-tab.is-hover { ${src("tab/hover")} color: var(--ui-text); }
 .ui-tab[aria-selected="true"] { ${src("tab/on")} color: var(--ui-text); }
+.ui-tab:active, .ui-tab.is-press { ${src("tab/press")} color: var(--ui-text); }
 .ui-tab:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
 
 /* Cubby: one catalogue piece. Centre its thumb/<id>/<colour> (≤ ${String(thumbBox.w)}×${String(thumbBox.h)} art px) inside; footprint glyph bottom-left.
