@@ -31,9 +31,10 @@ async function setup(owns = false) {
   const secrets = new MemoryStore();
   rememberRoom(secrets, ROOM, { ownerToken: OWNER });
   let reclaimed = 0;
-  const cards = createRoomCards({ roomId: ROOM, serverUrl: "http://srv.test", secrets, owns, leave: () => undefined, reclaim: () => { reclaimed++; }, fetch: () => Promise.reject(new Error("offline")) });
+  let took = 0;
+  const cards = createRoomCards({ roomId: ROOM, serverUrl: "http://srv.test", secrets, owns, leave: () => undefined, reclaim: () => { reclaimed++; }, useThisTab: () => { took++; }, fetch: () => Promise.reject(new Error("offline")) });
   document.body.replaceChildren(...cards.cards, cards.foot);
-  return { cards, secrets, reclaimed: () => reclaimed };
+  return { cards, secrets, reclaimed: () => reclaimed, took: () => took };
 }
 
 const card = (id: string): HTMLElement | null => document.querySelector(`[data-testid="${id}"]`);
@@ -84,5 +85,55 @@ describe("room cards", () => {
     cards.render({ ...initialState, status: "refused", refusal: "nickname_taken" });
     expect(card("room-refused")?.hidden).toBe(false);
     expect(card("room-refused")?.dataset["code"]).toBe("nickname_taken");
+  });
+
+  // OME-2429: no stop is a dead end, and focus never drops to <body> when a card takes the room's place.
+  test("room full offers Try again, focused, and Find a room", async () => {
+    const { cards } = await setup();
+    cards.render({ ...initialState, status: "full" });
+    const full = card("room-full");
+    expect(full?.hidden).toBe(false);
+    const retry = card("room-full-retry");
+    expect(retry?.textContent).toBe("Try again");
+    expect(retry?.getAttribute("href")).toBe(location.pathname);
+    expect(document.activeElement).toBe(retry);
+    const find = full?.querySelector<HTMLAnchorElement>('a[href="/"]');
+    expect(find?.textContent).toBe("Find a room");
+  });
+
+  test("a removal puts focus on Find a room", async () => {
+    const { cards } = await setup();
+    cards.render({ ...initialState, status: "kicked", kickedUntil: Date.now() + 120_000 });
+    const find = card("room-kicked")?.querySelector<HTMLAnchorElement>('a[href="/"]');
+    expect(find?.textContent).toBe("Find a room");
+    expect(document.activeElement).toBe(find);
+  });
+
+  test("a refused join puts focus on its way out", async () => {
+    const { cards } = await setup();
+    cards.render({ ...initialState, status: "refused", refusal: "too_many_members" });
+    expect(document.activeElement).toBe(card("room-refused-action"));
+  });
+
+  test("open in another tab of this browser: Use this tab takes the session over instead of navigating", async () => {
+    const { cards, took } = await setup();
+    cards.render({ ...initialState, status: "refused", refusal: "open_elsewhere" });
+    expect(card("room-refused")?.textContent).toContain("open in another tab");
+    const use = card("room-refused-action");
+    expect(use?.textContent).toBe("Use this tab");
+    expect(document.activeElement).toBe(use);
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    use?.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(took()).toBe(1);
+  });
+
+  test("an ordinary refusal's link is left to navigate", async () => {
+    const { cards, took } = await setup();
+    cards.render({ ...initialState, status: "refused", refusal: "nickname_taken" });
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    card("room-refused-action")?.addEventListener("click", (e) => { e.preventDefault(); }, { once: true });
+    card("room-refused-action")?.dispatchEvent(click);
+    expect(took()).toBe(0);
   });
 });
