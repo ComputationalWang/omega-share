@@ -1,11 +1,11 @@
 // OME-1248 (QA research OME-1243 R1–R3): what a dropped socket looks like from the chat. Say is held while
 // reconnecting and the text waits in the field; the log says once that chat sent meanwhile isn't shown; the window's
 // `online` event reconnects at once instead of waiting out the backoff.
-import type { WebSocketRoute } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { devices, type WebSocketRoute } from "@playwright/test";
 import { PAUSED, fakeState, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
 test.fixme(!available.web, PENDING.web);
@@ -154,3 +154,44 @@ test("a blackholed socket: reconnecting within 10 s, the unanswered line is rese
   await expect(b.page.locator(site.chatLog)).toContainText("into the void");
   await expect(a.page.locator(site.chatLogLine).filter({ hasText: "into the void" })).toHaveCount(1);
 });
+
+// OME-2427 (audit OME-2420 #3): on a phone the reconnecting line pushed the TV and the room down, and the reaction bar
+// left the flow until the rejoin. Through a drop and a rejoin the stage, the bar and the chat keep their boxes.
+for (const [profile, viewport] of [["portrait", { width: 412, height: 915 }], ["landscape", { width: 915, height: 412 }]] as const) {
+  test(`a drop on a phone, ${profile}: the stage, the reaction bar and the chat don't move`, async ({ browser, request }) => {
+    test.setTimeout(60_000);
+    const room = testRoom("reconnect", `still-${profile}`);
+    await shareVideo(request, room.id);
+    let up = true;
+    const routes: WebSocketRoute[] = [];
+    clients = await joinRoom(browser, {
+      roomUrl: room.url,
+      count: 1,
+      nicknamePrefix: "st",
+      contextOptions: () => ({ ...devices["Pixel 7"], viewport }),
+      setup: async (context) => {
+        await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
+          routes.push(ws);
+          if (up) ws.connectToServer();
+          else void ws.close({ code: 1012 });
+        });
+      },
+    });
+    const [a] = clients;
+    if (a === undefined) throw new Error("no client");
+    await waitPlaying(clients);
+    const boxes = () => Promise.all([site.fsRoot, site.reactionBar, site.chatInput].map((s) => a.page.locator(s).boundingBox()));
+    const settled = await boxes();
+    expect(settled.every((b) => b !== null && b.height > 0)).toBe(true);
+
+    up = false;
+    await routes.at(-1)?.close({ code: 1012 });
+    await expect(a.page.locator(site.connectionStatus)).not.toHaveText("");
+    expect(await boxes()).toEqual(settled);
+
+    up = true;
+    await a.page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(a.page.locator(site.connectionStatus)).toHaveText("");
+    expect(await boxes()).toEqual(settled);
+  });
+}
