@@ -89,8 +89,6 @@ export const FurnitureManifestSchema = v.object({
           /** An interior wall (OME-1959): its cut-down stub, `furniture/<id>/<colour>/cut/<dir>`, with its own rect and anchor. */
           cut: v.optional(v.boolean()),
           walk: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
-          /** Its `use` loop runs at rest too (ADR 0058 §2; v9, OME-2442). */
-          ambient: v.optional(v.boolean()),
           /** The colours with a `front` layer over avatars at their sort point, `furniture/<id>/<colour>/<dir>/front` (the tunnel, OME-2442). */
           frontColours: v.optional(v.array(v.string())),
         }),
@@ -241,6 +239,9 @@ const SEATED_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock"]);
 const PLAYING_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
 /** Their loop also runs at rest (ADR 0058 §2, OME-2068), gated by the room (room-view.ts `runningLoops`). */
 const AMBIENT_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
+/** Wave 26's at-rest loops by piece/colour (OME-2442). Not the manifests' `ambient` flag: v8 sets it on the bar counter and
+ * jukebox, which would push the bar over the idle renders budget (QA OME-2457); v9's velvet and wings loop one still frame. */
+const AMBIENT_COLOURS: ReadonlySet<string> = new Set(["partition/tank", "partition/tunnel", "stage/boards", "vanity/bulbs"]);
 /** A one-frame "loop" never steps; the frame time only has to be a valid one. */
 const OPEN_MS = 3_600_000;
 /** From a piece's cell to the one at its front: +col is se, +row is sw on screen (cellCenter). */
@@ -495,7 +496,7 @@ function pushSprites(
       ...(isScreen(f.kind) ? { screen: true as const } : {}),
       // The loop swaps the back frame in place. An open piece (a door) or a cut one (a partition, OME-1960) has one frame: a state.
       ...(part === "back" && piece.use !== undefined
-        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms, ...(AMBIENT_KINDS.has(f.kind) || piece.ambient === true ? { ambient: true as const } : {}) } }
+        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms, ...(AMBIENT_KINDS.has(f.kind) || AMBIENT_COLOURS.has(`${piece.id}/${colour}`) ? { ambient: true as const } : {}) } }
         : part === "back" && states && (piece.open === true || piece.cut === true)
           ? { use: { piece: index, frames: [frame(`${piece.open === true ? "open" : "cut"}/${f.facing}`)], ms: OPEN_MS } }
           : part === "back" && piece.walk !== undefined
