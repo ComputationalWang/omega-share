@@ -2556,15 +2556,9 @@ function buildWave26(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   if (!WAVE26) throw new Error("wave 26: sheets not built");
   const pieces = [...set.pieces, ...WAVE2_PIECES.filter((m) => !set.pieces.some((p) => p.id === m.id))];
   WAVE26_THUMBS = buildWave26Previews({ pieces, all: set.all, compose: composeFurnitureRoom, northView, presetPlan }, WAVE26);
-  // They ship as presets/thumbs/<id>.png from buildPresets once OME-2439 adds the two presets (no stray thumb before that).
-  WAVE26_THUMB_BYTES = Object.entries(WAVE26_THUMBS).filter(([id]) => !PRESETS.some((p) => p.id === id)).reduce((a, [id, img]) => {
-    const small = compactPalette(img);
-    const n = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette).length;
-    console.log(`wave 26: thumb ${id} ${String(n)} B (ships with its preset)`);
-    return a + n;
-  }, 0);
 }
-let WAVE26_THUMB_BYTES = 0;
+/** OME-2440: wave 26's thumbs ship ahead of their presets (OME-2441 adds those); drop once PRESETS has them. */
+const pendingThumbs = (): string[] => Object.keys(WAVE26_THUMBS).filter((id) => !PRESETS.some((p) => p.id === id));
 
 /** OME-2066: wave 2's previews and proposed layouts, on the shipped set plus the v8 pieces (new ids only: v8's colours of older
  *  kinds are drawn by key with the older kind's meta). */
@@ -2594,10 +2588,17 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
     bytes += png.length;
     return { id: pr.id, name: pr.name, blurb: pr.blurb, layout: `${pr.id}.json`, thumb: `thumbs/${pr.id}.png` };
   });
+  for (const [id, img] of Object.entries(WAVE26_THUMBS)) {
+    if (PRESETS.some((p) => p.id === id)) continue; // drawn above, as its preset's thumb
+    const small = compactPalette(img);
+    const png = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette);
+    writeFileSync(join(dir, "thumbs", `${id}.png`), png);
+    bytes += png.length;
+  }
   if (bytes > PRESET_THUMBS_MAX) throw new Error(`preset thumbnails are ${String(bytes)} B, over ${String(PRESET_THUMBS_MAX)}`);
   const manifest = { version: 1, license: "CC-BY-SA-4.0", default: "classic", thumb: { ...THUMB, scale: THUMB_SCALE }, presets: index };
   writeFileSync(join(dir, "presets.json"), JSON.stringify(manifest) + "\n");
-  console.log(`presets (set n): ${String(PRESETS.length)} thumbnails ${String(bytes)} B of ${String(PRESET_THUMBS_MAX)}`);
+  console.log(`presets (set n): ${String(PRESETS.length + pendingThumbs().length)} thumbnails ${String(bytes)} B of ${String(PRESET_THUMBS_MAX)}`);
   // Previews: thumbnails 3 across at 3× on the night page, then the same rooms at full size.
   const G = 4, cols = 3, rows = Math.ceil(PRESETS.length / cols);
   const tw = cols * THUMB.w + (cols + 1) * G, th = rows * THUMB.h + (rows + 1) * G;
@@ -2915,7 +2916,7 @@ function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
   const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...WAVE26_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
-  files.push("presets/presets.json", ...PRESETS.map((p) => `presets/thumbs/${p.id}.png`));
+  files.push("presets/presets.json", ...[...PRESETS.map((p) => p.id), ...pendingThumbs()].map((id) => `presets/thumbs/${id}.png`));
   let total = 0, lazy = 0;
   for (const f of files) {
     const buf = readFileSync(join(ROOT, f));
@@ -2927,7 +2928,6 @@ function report(): void {
   }
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
   console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 460800 (ADR 0056, amended 2026-10-29)`);
-  if (WAVE26_THUMB_BYTES > 0) console.log(`  + wave 26 thumbs still waiting for their presets (OME-2439): ${String(WAVE26_THUMB_BYTES)} B → ${String(total + WAVE26_THUMB_BYTES)} B of 460800`);
   // OME-2094: only the server reads presets/<id>.json (apps/web loads presets.json and the thumbs), so they're reported apart.
   const layouts = PRESETS.map((p) => gzipSync(readFileSync(join(ROOT, "presets", `${p.id}.json`)), { level: 9 }).length);
   console.log(`preset layouts (server only, not in the art budget): ${String(layouts.reduce((a, b) => a + b, 0))} B gz`);

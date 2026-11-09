@@ -7,7 +7,7 @@
 //   furniture/furniture-v9.{png,json}       stage/boards, vanity/bulbs, rack/costumes, partition velvet|wings|tank|tunnel, their
 //                                           loops, the tunnel's front ribs and the turned (swap) views of the stage and the vanity
 //   furniture/furniture-v9-shell.{png,json} club brick and deep-water walls, the split segments, sand and the split floors
-// plus presets/thumbs/stage-door.png, reef.png (the lava lamp's `bubbles` is a recolours.json PLTE swap: 0 sheet bytes).
+// plus presets/thumbs/stage-door.png, reef.png, shipped ahead of their presets (OME-2441). The lava lamp's `bubbles` is a PLTE swap in v9's meta.
 // Previews: preview/w26-*.
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -72,7 +72,8 @@ function velvetWall(k: Kit): void {
   pelmet(k);
 }
 /** The wings: open between a black stage plinth (a brass edge) and the pelmet, so a run of them is a row of openings onto the other
- *  room. A narrow velvet leg, tied back with a gold cord, at each cell's leading end (+x, toward the stage door) carries the pelmet
+ *  room. A narrow black masking leg (darker than the velvet drape, so wings and velvet read as two partitions), tied back with a
+ *  gold cord, at each cell's leading end (+x, toward the stage door) carries the pelmet
  *  down to the plinth, so the run's last cell by the door doesn't leave the pelmet hanging in the air (judge's note). */
 function velvetWings(k: Kit): void {
   k.box(-8, 8, -T, T, 0, 7, "charcoal", { paint: (p, f) => (f === "top" ? ["charcoal", 0] : p.z > 4.5 ? ["mustard", 2] : ["charcoal", 2]) });
@@ -80,7 +81,7 @@ function velvetWings(k: Kit): void {
   for (let z = 7; z < PELMET; z += 2) {
     const w = z < 70 ? 2.6 - (0.9 * (z - 7)) / 63 : z < 73 ? 1.6 : 1.7 + (0.9 * (z - 73)) / (PELMET - 73);
     const tie = z >= 70 && z < 73;
-    k.box(8 - w, 8, -T + 0.6, T - 0.6, z, z + 2, tie ? "mustard" : "velvet", { paint: (p, f) => (tie ? ["mustard", f === "top" ? 0 : 1] : f === "top" ? ["velvet", 1] : (((p.x * 2) % 2) + 2) % 2 < 1 ? ["velvet", 1] : ["velvet", 2]) });
+    k.box(8 - w, 8, -T + 0.6, T - 0.6, z, z + 2, tie ? "mustard" : "charcoal", { tones: tie ? { top: 0, sw: 1, se: 1 } : { top: 0, sw: 0, se: 1 } });
   }
   pelmet(k);
 }
@@ -140,7 +141,7 @@ function tankShell(k: Kit, n: number, hole?: (x: number, z: number) => boolean):
     if (hole?.(x + 0.5, base + 1)) continue;
     k.box(x, x + 1, -T + 0.4, T - 0.4, base, sandTop(x + 0.5), "floor", { paint: (p, f) => (f === "top" ? ["floor", 0] : hash(Math.floor(p.x * 2), Math.floor(p.z)) % 5 === 0 ? ["cream", 1] : ["floor", 1]) });
   }
-  kelp(k, n, 5.2, 48, "olive", hole);
+  kelp(k, n, 3.6, 48, "olive", hole); // clear of the cell's end, which a run's end pillar overlaps (judge's note)
   kelp(k, n + 1, 1.6, 24, "olive", hole);
   if (!hole) k.ell({ x: -2, y: 0, z: sand }, { x: 3, y: 1.5, z: 4 }, [-8, 8, -1.6, 1.6, sand - 1, sand + 4], "charcoal", { tones: { top: 0, sw: 1, se: 2 } });
   // Bubbles up the left of the cell.
@@ -350,12 +351,12 @@ function brickPaint(s: number, z: number, lit: boolean): Paint {
 }
 /** The deep: navy water-light, wavy water-light, a rock skirting, a small brass porthole per segment. Every term repeats at 16
  *  (s in [-8, 8)), since the web draws one frame for every segment of a side. */
-function deepPaint(s: number, z: number, lit: boolean): Paint {
+function deepPaint(s: number, z: number, lit: boolean, port = true): Paint {
   if (z < 4) return ["charcoal", 2];
   if (z >= WALL_H - 4) return ["navy", lit ? 1 : 2];
   const rock = 18 + 3 * Math.sin(s * TAU16) + 1.5 * Math.sin(s * 3 * TAU16);
   if (z < rock) return hash(Math.floor(s / 4), Math.floor(z / 4)) % 3 === 0 ? ["charcoal", lit ? 0 : 1] : ["charcoal", 1];
-  const r = Math.hypot(s, (z - 112) * 0.5);
+  const r = port ? Math.hypot(s, (z - 112) * 0.5) : Infinity;
   if (r < 5 && r >= 4) return ["mustard", lit ? 0 : 1];
   if (r < 4) return ["teal", z - 112 > 3 ? 0 : 2];
   // Water-light as wavy horizontal bands (a dot pattern would read as wallpaper once the frame repeats).
@@ -364,10 +365,11 @@ function deepPaint(s: number, z: number, lit: boolean): Paint {
   return ["navy", z > 40 && z < 150 && band > 0.8 ? 1 : 2];
 }
 const TAU16 = (2 * Math.PI) / 16;
-type Skin = "brick" | "deep" | "paper" | "smoke";
+/** `deepbare`: the deep with no porthole, for the split segment, where the line's end pillar would cut the porthole in half. */
+type Skin = "brick" | "deep" | "deepbare" | "paper" | "smoke";
 const skinPaint = (skin: Skin, s: number, z: number, lit: boolean): Paint =>
-  skin === "brick" ? brickPaint(s, z, lit) : skin === "deep" ? deepPaint(s, z, lit) : skin === "smoke" ? panelPaint("smoke", s, z, lit) : wallPaint("plain", s, z, lit);
-const topOf = (skin: Skin): Paint => (skin === "brick" ? ["charcoal", 1] : skin === "deep" ? ["navy", 1] : skin === "smoke" ? ["wood", 0] : ["wall", 0]);
+  skin === "brick" ? brickPaint(s, z, lit) : skin === "deep" || skin === "deepbare" ? deepPaint(s, z, lit, skin === "deep") : skin === "smoke" ? panelPaint("smoke", s, z, lit) : wallPaint("plain", s, z, lit);
+const topOf = (skin: Skin): Paint => (skin === "brick" ? ["charcoal", 1] : skin === "deep" || skin === "deepbare" ? ["navy", 1] : skin === "smoke" ? ["wood", 0] : ["wall", 0]);
 const leftWall = (key: string, skin: (v: number) => Skin): RoomFrame =>
   solidsFrame(key, [box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (p, f) => (f === "top" ? topOf(skin(p.v)) : f === "se" ? skinPaint(skin(p.v), p.v, p.z, false) : null) })], "top");
 const rightWall = (key: string, skin: (u: number) => Skin): RoomFrame =>
@@ -392,7 +394,8 @@ type Tile = (u: number, v: number) => Paint;
  *  `wall/<l|r>/<shell>/<back|front|split|split/north>`, `wall/corner|l/end|r/end/<shell>/<back|front>`. Back is the side of the
  *  line with the smaller index. `axis` is the line's: col splits the right wall and the floor on u, row the left wall on v. */
 function skinFrames(shell: string, axis: "col" | "row", back: Skin, front: Skin, floor: (n: number) => [Tile, Tile]): RoomFrame[] {
-  const half = <T,>(b: T, f: T) => (x: number): T => (x < 0 ? b : f);
+  const bare = (k: Skin): Skin => (k === "deep" ? "deepbare" : k);
+  const half = (b: Skin, f: Skin) => (x: number): Skin => (x < 0 ? bare(b) : bare(f));
   const wall = axis === "col" ? rightWall : leftWall;
   const out: RoomFrame[] = [
     leftWall(`wall/l/${shell}/back`, () => back), leftWall(`wall/l/${shell}/front`, () => front),
@@ -585,7 +588,7 @@ export function buildWave26Previews(d: Wave2Deps, set: { frames: readonly RoomFr
   const thumbs: Record<string, Uint8Array> = {};
   for (const room of ROOMS) {
     const plan: RoomPlan = { placements: room.placements, standing: room.standing, rug: false, tv: false, shell: room.south };
-    const after = beamFor(d, pieces, plan);
+    const after = beamFor(d, pieces, plan, 8); // a sparser beam than wave 2's (judge's note: 1 in 4 read as noise at 1×)
     const south = d.compose(pieces, d.all, plan);
     after?.(south.img, south.W, south.H);
     write(`w26-${room.id}-south`, south);
