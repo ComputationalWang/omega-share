@@ -223,6 +223,49 @@ export const PRESETS: readonly Preset[] = [
       ],
     },
   },
+  {
+    id: "stage-door",
+    name: "Stage Door",
+    blurb: "A club stage in front, the green room behind the wings.",
+    // Wave 26 (OME-2441, the judged set OME-2440, assets/src/wave26.ts): the partition on column 4 facing se, velvet at rows
+    // 0–1 and 8–9, open wings at 2–6, the stage door (the gap) at (4, 7). The green room's seats face the wings.
+    layout: {
+      shell: "stage-door",
+      furniture: [
+        ...[0, 1, 8, 9].map((r) => p("partition", 4, r, "se", 4)),
+        ...[2, 3, 4, 5, 6].map((r) => p("partition", 4, r, "se", 5)),
+        // The stage, cols 5–9.
+        p("stage", 6, 0, "sw"), p("projector", 6, 0, "sw"), p("curtain", 5, 0, "sw"), p("curtain", 9, 0, "sw"), p("tripod", 7, 8, "ne"),
+        p("beanbag", 6, 4, "ne"), p("beanbag", 8, 4, "ne", 1), p("sidetable", 7, 5, "se"), p("stool", 6, 6, "ne", 1), p("stool", 8, 6, "ne", 1),
+        p("arclamp", 9, 6, "se"), p("monstera", 5, 9, "se"),
+        // The green room, cols 0–3.
+        p("vanity", 0, 8, "se"), p("vanity", 0, 9, "se"), p("rack", 1, 6, "sw"), p("couch", 1, 3, "se", 1), p("wingback", 2, 5, "se"),
+        p("pouf", 3, 2, "se", 1), p("minibar", 1, 0, "sw", 1), p("neonsign", 2, 0, "sw"), p("lavalamp", 3, 0, "se"), p("monstera", 1, 9, "se", 1),
+      ],
+    },
+  },
+  {
+    id: "reef",
+    name: "Reef Tunnel",
+    blurb: "A reef bar, and a tunnel through the tanks to the deep.",
+    // Wave 26 (OME-2441): the partition on row 4, smoked panel at cols 0 and 9, tanks between, the walkable tunnel at (3, 4) the
+    // only way through. The deep's seats face the tanks.
+    layout: {
+      shell: "reef",
+      furniture: [
+        p("partition", 0, 4, "sw", 2),
+        ...[1, 2, 4, 5, 6, 7, 8].map((c) => p("partition", c, 4, "sw", 6)),
+        p("partition", 3, 4, "sw", 7),
+        p("partition", 9, 4, "sw", 2),
+        // The reef bar, rows 5–9.
+        p("barcounter", 0, 5, "se"), p("stool", 1, 5, "nw", 1), p("stool", 1, 6, "nw", 1), p("wallscreen", 0, 7, "se"), p("couch", 4, 7, "nw"),
+        p("coffeetable", 2, 8, "se"), p("neonsign", 0, 9, "se", 1), p("lavalamp", 8, 6, "se", 1), p("monstera", 9, 8, "se", 1),
+        // The deep, rows 0–3.
+        p("hammock", 5, 1, "sw"), p("beanbag", 2, 2, "sw", 1), p("beanbag", 8, 2, "sw", 1),
+        p("lavalamp", 0, 0, "se", 1), p("lavalamp", 9, 0, "se", 1), p("monstera", 0, 2, "se", 1),
+      ],
+    },
+  },
 ];
 
 // ------------------------------------------------------------------ thumbnails

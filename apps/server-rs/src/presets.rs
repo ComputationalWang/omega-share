@@ -32,6 +32,8 @@ pub struct Presets {
     dank_dungeon: RoomLayout,
     penthouse: RoomLayout,
     studio: RoomLayout,
+    stage_door: RoomLayout,
+    reef: RoomLayout,
 }
 
 impl Presets {
@@ -47,6 +49,8 @@ impl Presets {
             RoomPresetId::DankDungeon => include_str!("../../../assets/presets/dank-dungeon.json"),
             RoomPresetId::Penthouse => include_str!("../../../assets/presets/penthouse.json"),
             RoomPresetId::Studio => include_str!("../../../assets/presets/studio.json"),
+            RoomPresetId::StageDoor => include_str!("../../../assets/presets/stage-door.json"),
+            RoomPresetId::Reef => include_str!("../../../assets/presets/reef.json"),
         })
     }
 
@@ -64,6 +68,8 @@ impl Presets {
             dank_dungeon: parse(RoomPresetId::DankDungeon)?,
             penthouse: parse(RoomPresetId::Penthouse)?,
             studio: parse(RoomPresetId::Studio)?,
+            stage_door: parse(RoomPresetId::StageDoor)?,
+            reef: parse(RoomPresetId::Reef)?,
         })
     }
 
@@ -79,6 +85,8 @@ impl Presets {
             RoomPresetId::DankDungeon => &self.dank_dungeon,
             RoomPresetId::Penthouse => &self.penthouse,
             RoomPresetId::Studio => &self.studio,
+            RoomPresetId::StageDoor => &self.stage_door,
+            RoomPresetId::Reef => &self.reef,
         }
     }
 }
