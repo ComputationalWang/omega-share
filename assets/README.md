@@ -2071,12 +2071,19 @@ Up, identical frames deduped to one rect). Everything else that ships is byte-id
 
 | file | what | bytes |
 |---|---|---|
-| `furniture/furniture-v9.png` + `.json` (512×755) | `stage/boards`, `vanity/bulbs`, `rack/costumes`, `partition/{velvet,wings,tank,tunnel}`, their loops, the tunnel's front layer, the stage's and vanity's turned views, `meta.omega.recolours` (the bubble column) | 23 645 + 1 852 gz |
+| `furniture/furniture-v9.png` + `.json` (512×755) | `stage/boards`, `vanity/bulbs`, `rack/costumes`, `partition/{velvet,wings,tank,tunnel}`, their loops, the tunnel's front layer, the stage's and vanity's turned views, `meta.omega.recolours` (the bubble column) | 22 496 + 1 872 gz |
 | `furniture/furniture-v9-shell.png` + `.json` (512×453) | club brick and deep-water walls, the split segments, sand and the split floors | 10 032 + 754 gz |
-| `presets/thumbs/stage-door.png`, `reef.png` | the preset thumbs with the rooms' own skins, `compactPalette`d. Shipped ahead of their presets (OME-2441 adds those to `PRESETS`; `presets.test.ts` allows exactly these two until then) | 4 242 + 3 696 |
+| `presets/thumbs/stage-door.png`, `reef.png` | the preset thumbs with the rooms' own skins, `compactPalette`d. Shipped ahead of their presets (OME-2441 adds those to `PRESETS`; `presets.test.ts` allows exactly these two until then) | 4 241 + 3 672 |
 | **total** | the build's `art total`: `main` 405 384 → **449 605 B of 460 800** (+44 221; the thumbs 7 938 eager, the rest lazy) | |
 
-**Thumb cap:** all twelve thumbs are 43 488 B of `PRESET_THUMBS_MAX` 49 152 (48 KiB, OME-2439; `src/build.ts` and `src/presets.test.ts`).
+**Polish (OME-2470):** the vanity's board and bulbs sit inside the cell (they clipped at the wall end in the turned view). The
+wings' black legs are slim posts on the cell edge (the wide flats cut members in the gaps). The tank's teal band uses the pane's
+sparse dither, the high fish swims at z 42 (under face height), and the lid is a thin rail (`head` 124 → 120.5) instead of a slab.
+The water line itself stays at 118: lowering it to 100–106 ran across seated members' faces in the south view, and a partition
+ships no turned frame, so a north-only lid would need a new frame and runtime support. Eager −25 B (108 243 → 108 218), art total
+449 730 → 448 576 B. No new loop.
+
+**Thumb cap:** all twelve thumbs are 43 463 B of `PRESET_THUMBS_MAX` 49 152 (48 KiB, OME-2439; `src/build.ts` and `src/presets.test.ts`).
 
 **Load:** `furniture-v9` when a layout uses `stage`, `vanity`, `rack` or a partition variant from v9; `furniture-v9-shell` with
 `shell: "stage-door"` or `"reef"` (with v7, v8 and furniture-back: the rooms reuse v7's smoked panel and carpet, v8's projector, tripod,
