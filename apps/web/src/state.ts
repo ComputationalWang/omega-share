@@ -402,7 +402,8 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
     case "reclaim":
       return state.status === "replaced" ? { ...state, status: "connecting" } : state;
     case "open-elsewhere":
-      return state.status === "refused" && state.refusal === "nickname_taken" ? { ...state, refusal: "open_elsewhere" } : state;
+      // The name isn't someone else's: its notice goes too (OME-2459).
+      return state.status === "refused" && state.refusal === "nickname_taken" ? { ...state, refusal: "open_elsewhere", lastError: null } : state;
     case "hide": {
       const kept = state.bubbles.filter((b) => b.memberId !== event.memberId);
       return kept.length === state.bubbles.length ? state : { ...state, bubbles: kept };
