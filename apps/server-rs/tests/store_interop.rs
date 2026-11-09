@@ -284,7 +284,7 @@ fn install(src: &Path, dest: &Path) {
 /// Every row of `sql`, columns by name, blobs as lowercase hex.
 fn raw(conn: &rusqlite::Connection, sql: &str) -> Value {
     let mut stmt = conn.prepare(sql).unwrap();
-    let names: Vec<String> = stmt.column_names().iter().map(|n| (*n).to_owned()).collect();
+    let names: Vec<String> = stmt.column_names().map(str::to_owned).collect();
     let rows = stmt
         .query_map([], |row| {
             let mut obj = serde_json::Map::new();
