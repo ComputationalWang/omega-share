@@ -8,7 +8,7 @@ import json from "../../../assets/furniture/recolours.json" with { type: "json" 
 
 const HexSchema = v.pipe(v.string(), v.regex(/^#[0-9a-f]{6}$/));
 const SlotSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255));
-const SheetSchema = v.picklist(["furniture/furniture.png", "furniture/furniture-v2.png", "furniture/furniture-v4.png", "room/room.png"]);
+const SheetSchema = v.picklist(["furniture/furniture.png", "furniture/furniture-v2.png", "furniture/furniture-v4.png", "furniture/furniture-v8.png", "room/room.png"]);
 const RecoloursSchema = v.object({
   kinds: v.record(
     v.picklist(FURNITURE_KINDS),

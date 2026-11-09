@@ -293,7 +293,7 @@ describe("the catalogue matches the art", () => {
 
   test("the recolours extend the shipped colours: variant numbers follow on, and the room's rug, lamp and plant (one shipped look) take their own (OME-1463, OME-1688)", () => {
     for (const [kind, r] of Object.entries(recolours)) {
-      const shipped = kind === "rug" || kind === "lamp" || kind === "plant" ? 1 : (pieces.find((p) => p.id === atlasId(kind))?.colours.length ?? NaN);
+      const shipped = kind === "rug" || kind === "lamp" || kind === "plant" ? 1 : (pieces.find((p) => p.id === atlasId(kind))?.colours.length ?? v8.get(kind) ?? NaN);
       expect(r.variants.map((x) => x.variant)).toEqual(r.variants.map((_, i) => shipped + i));
     }
     expect(FURNITURE.rug.variants).toBe(1 + extra("rug"));

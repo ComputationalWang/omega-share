@@ -26,6 +26,11 @@ COLOURS.set("bed", ["velvet"]);
 // The wall screens (OME-2069), v8's two kinds in the tray: colours inline rather than v8's whole JSON in the editor chunk (pinned by wall-screens.test.ts).
 COLOURS.set("wallscreen", ["panel"]);
 COLOURS.set("projector", ["cloth"]);
+// The rest of wave 2's kinds (OME-2455), likewise; the lava lamp's bubble column is a recolour (recolours.json).
+COLOURS.set("tripod", ["charcoal"]);
+COLOURS.set("window", ["sky", "rain"]);
+COLOURS.set("longclock", ["wood"]);
+COLOURS.set("lavalamp", ["lilac"]);
 export const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;
   return kind === "runner" ? "rug" : kind;

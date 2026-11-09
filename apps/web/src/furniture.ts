@@ -32,8 +32,8 @@ const RISER_LIFT: readonly number[] = [0, 10, 20];
 const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirror", "minibar", "desk", "washbasin", "partition"]);
 /** The reworked room's own pieces (assets/furniture/furniture-v7.json, its own lazy sheet, OME-1991); it also holds single colours of older kinds (`V7_COLOURS`). */
 const V7_KINDS: ReadonlySet<FurnitureKind> = new Set(["sauna", "soaktub", "lounger"]);
-/** Wave 2's pieces (assets/furniture/furniture-v8.json, its own lazy sheet, OME-2069): the wall screens, which also show as a ghosted back from the north. */
-const V8_KINDS: ReadonlySet<FurnitureKind> = new Set(["wallscreen", "projector"]);
+/** Wave 2's pieces (assets/furniture/furniture-v8.json, its own lazy sheet, OME-2069, OME-2455); it also holds colours of older kinds (`V8_COLOURS`). */
+const V8_KINDS: ReadonlySet<FurnitureKind> = new Set(["wallscreen", "projector", "tripod", "window", "longclock", "lavalamp"]);
 /** Wave 26's pieces (assets/furniture/furniture-v9.json, its own lazy sheet, OME-2442); it also holds the partition's colours 4–7 (`V9_COLOURS`). */
 const V9_KINDS: ReadonlySet<FurnitureKind> = new Set(["stage", "vanity", "rack"]);
 /** The shells skinned from the v9 shell sheet (assets/furniture/furniture-v9-shell.json, OME-2442). */
@@ -47,14 +47,21 @@ const glassAtNight = (l: RoomLayout, f: Furniture): boolean => l.mood === "night
 /**
  * A shell skin's frame names behind the partition line, on it and in front of it, floor and wall (ADR 0058):
  * `floor/<name>/<0|1>`, `wall/<l|r>/<name>`, `wall/corner/<name>`, `wall/<l|r>/end/<name>`, the split's name + `/north`
- * from the north. The dungeon keeps its first names (assets/README.md "Shell skin"); a new shell is named by its value.
+ * from the north. The dungeon and wave 2's shells keep their art's names (assets/README.md "Shell skin"); a new shell is named by its value.
+ * A null name is the room's own (its planks, its walls); `alternate`: the back wall's segments end in `/<i % 2>` (the penthouse sky).
  */
-type Skin = Readonly<Record<"floor" | "wall", readonly [string, string, string]>>;
-const byValue = (shell: string): Skin["floor"] => [`${shell}/back`, `${shell}/split`, `${shell}/front`];
+type Names = readonly [string | null, string, string | null];
+interface Skin {
+  readonly floor: Names;
+  readonly wall: Names | null;
+  readonly alternate?: true;
+}
+const byValue = (shell: string): Names => [`${shell}/back`, `${shell}/split`, `${shell}/front`];
 const SKINS: Readonly<Record<RoomShell, Skin>> = {
   dungeon: { floor: ["carpet", "split", "deck"], wall: ["oak", "split", "smoke"] },
-  penthouse: { floor: byValue("penthouse"), wall: byValue("penthouse") },
-  studio: { floor: byValue("studio"), wall: byValue("studio") },
+  // furniture-v8-shell's split tiles and sky, v7's deck, carpet and smoke (assets/README.md "Wave 2").
+  penthouse: { floor: ["deck", "pent", null], wall: ["sky", "sky/split", "smoke"], alternate: true },
+  studio: { floor: ["carpet", "nook", null], wall: null },
   "stage-door": { floor: byValue("stage-door"), wall: byValue("stage-door") },
   reef: { floor: byValue("reef"), wall: byValue("reef") },
 };
@@ -147,13 +154,22 @@ export function usesV4(layout: RoomLayout): boolean {
 
 /** True if the layout holds a wave 2 piece (the wall screens), i.e. the v8 sheet must load (OME-2069). */
 export function usesV8(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => V8_KINDS.has(f.kind));
+  return layout.furniture.some((f) => V8_KINDS.has(f.kind) || V8_VARIANTS.has(`${f.kind}/${String(f.variant ?? 0)}`));
 }
 
 /** True if the layout holds a Dank Dungeon piece, i.e. the v6 sheet must load; v6 has the partition's first two colours only. */
 export function usesV6(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V6_KINDS.has(f.kind) && (f.kind !== "partition" || (f.variant ?? 0) < 2));
 }
+
+/** True if the layout's shell skin is drawn from furniture-v8-shell (OME-2455). */
+export function usesV8Shell(layout: RoomLayout): boolean {
+  return layout.shell === "penthouse" || layout.shell === "studio";
+}
+
+/** v8's colours of older kinds, `"<id>/<colour>"` → variant (assets/README.md "Wave 2", pinned by wave2-v8-set.test.ts). */
+const V8_COLOURS: Readonly<Record<string, number>> = { "sidetable/mug": 1, "barcounter/espresso": 1, "barcounter/kitchen": 2, "speaker/jukebox": 2 };
+const V8_VARIANTS: ReadonlySet<string> = new Set(Object.entries(V8_COLOURS).map(([k, n]) => `${k.split("/")[0] ?? ""}/${String(n)}`));
 
 /** v7's colours of older kinds (and the tv), `"<id>/<colour>"` → variant; the older sheets keep the lower variants (pinned to furniture-v7.json by a test). */
 export const V7_COLOURS: Readonly<Record<string, number>> = { "mirror/silver": 1, "minibar/fridge": 1, "carpet/oval": 1, "tv/flat": 1, "partition/panel": 2, "partition/panelglass": 3 };
@@ -167,7 +183,7 @@ const variantKey = (f: Furniture): string => `${f.kind}/${String(f.variant ?? 0)
 
 /** True if the layout needs the v7 sheet: a v7 kind, an older kind at a v7 variant, the dungeon shell skin, or a glass partition at night (its pane). */
 export function usesV7(layout: RoomLayout): boolean {
-  return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || V7_VARIANTS.has(variantKey(f)) || glassAtNight(layout, f));
+  return layout.shell === "dungeon" || usesV8Shell(layout) || layout.furniture.some((f) => V7_KINDS.has(f.kind) || V7_VARIANTS.has(variantKey(f)) || glassAtNight(layout, f));
 }
 
 /** True if the layout holds a wave 26 piece or a v9 colour, i.e. the v9 sheet must load (OME-2442). */
@@ -239,9 +255,9 @@ const SEATED_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock"]);
 const PLAYING_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
 /** Their loop also runs at rest (ADR 0058 §2, OME-2068), gated by the room (room-view.ts `runningLoops`). */
 const AMBIENT_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
-/** Wave 26's at-rest loops by piece/colour (OME-2442). Not the manifests' `ambient` flag: v8 sets it on the bar counter and
+/** Wave 2's and wave 26's at-rest loops by piece/colour (OME-2455, OME-2442). Not the manifests' `ambient` flag: v8 sets it on the bar counter and
  * jukebox, which would push the bar over the idle renders budget (QA OME-2457); v9's velvet and wings loop one still frame. */
-const AMBIENT_COLOURS: ReadonlySet<string> = new Set(["partition/tank", "partition/tunnel", "stage/boards", "vanity/bulbs"]);
+const AMBIENT_COLOURS: ReadonlySet<string> = new Set(["window/sky", "window/rain", "longclock/wood", "lavalamp/lilac", "partition/tank", "partition/tunnel", "stage/boards", "vanity/bulbs"]);
 /** A one-frame "loop" never steps; the frame time only has to be a valid one. */
 const OPEN_MS = 3_600_000;
 /** From a piece's cell to the one at its front: +col is se, +row is sw on screen (cellCenter). */
@@ -398,8 +414,8 @@ interface Colour {
 export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null, back: FurnitureManifest | null = null): Scene {
   // From the north (OME-1961) a piece faces the other way, anchored at its far corner, and wall pieces go with the near walls.
   const north = isNorth();
-  // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's and v9's colours of older kinds (V7_COLOURS, V9_COLOURS).
-  const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? V9_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour, frames: m.frames }] as const))));
+  // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's, v8's and v9's colours of older kinds (V7_COLOURS, V8_COLOURS, V9_COLOURS).
+  const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? V8_COLOURS[`${p.id}/${colour}`] ?? V9_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour, frames: m.frames }] as const))));
   const layers = manifests[0]?.meta.omega.layers;
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
@@ -407,7 +423,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
   // A shell skin splits on the partition line and needs its frames: without a line, or before they load, the shell is today's.
   const skin = layout.shell === undefined ? undefined : SKINS[layout.shell];
   const line = partitionLine(layout);
-  const ready = skin !== undefined && line !== undefined && manifests.some((m) => m.frames[`floor/${skin.floor[2]}/0`] !== undefined);
+  const ready = skin !== undefined && line !== undefined && skin.floor.every((name) => name === null || manifests.some((m) => m.frames[`floor/${name}/0`] !== undefined));
   if (room !== null) pushShell(sprites, layout, room, ready ? { skin, line } : undefined);
   for (const [i, source] of layout.furniture.entries()) {
     const spec = FURNITURE[source.kind];
@@ -531,9 +547,11 @@ function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifes
   const north = isNorth();
   const last = FLOOR_CELLS - 1;
   // The skin's name at the drawn cell (x, y): its room cell's side of the line; the corner and ends (`edge`) have no split frame.
-  const skinName = (names: readonly [string, string, string], x: number, y: number, edge = false): string => {
+  // A wall segment passes its index `i`, for an alternating back wall.
+  const skinName = (names: Names, x: number, y: number, edge = false, i?: number): string | null => {
     const side = skinned === undefined ? 0 : north ? sideOf(skinned.line, last - x, last - y) : sideOf(skinned.line, x, y);
     if (side === 1 && !edge) return north ? `${names[1]}/north` : names[1];
+    if (side === 0 && i !== undefined && skinned?.skin.alternate === true) return `${names[0] ?? ""}/${String(i % 2)}`;
     return side === 0 ? names[0] : names[2];
   };
   const suggested = room.meta.omega.layout;
@@ -547,21 +565,23 @@ function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifes
       const [dc, dr] = rug === undefined ? [0, 0] : north ? [rugSize - 1 - (col - rug.col), rugSize - 1 - (row - rug.row)] : [col - rug.col, row - rug.row];
       const part = rug === undefined ? "" : `rug/${rugPart(dc, dr, rugSize - 1)}`;
       const recoloured = rug !== undefined && recolourOf("rug", rug.variant ?? 0) !== undefined;
-      const base = skinned !== undefined ? `floor/${skinName(skinned.skin.floor, x, y)}/${String((col + row) % 2)}` : plank.startsWith("floor/") ? plank : "floor/0";
+      const name = skinned === undefined ? null : skinName(skinned.skin.floor, x, y);
+      const base = name !== null ? `floor/${name}/${String((col + row) % 2)}` : plank.startsWith("floor/") ? plank : "floor/0";
       const key = rug === undefined ? base : recoloured ? recolourKey("rug", rug.variant ?? 0, part) : part;
       out.push(shellSprite(key, x, y, "floor"));
     }
   }
   const printL = !north && layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "se");
   const printR = !north && layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "sw");
+  const walls = skinned?.skin.wall ?? null;
   for (let i = 0; i < FLOOR_CELLS; i++) {
     // The skin's segments carry wall pieces as they are, so no plain swap.
-    const l = skinned !== undefined ? `wall/l/${skinName(skinned.skin.wall, 0, i)}` : printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain");
+    const l = walls !== null ? `wall/l/${skinName(walls, 0, i, false, i) ?? ""}` : printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain");
     out.push(shellSprite(l, 0, i, "wall"));
-    out.push(shellSprite(skinned !== undefined ? `wall/r/${skinName(skinned.skin.wall, i, 0)}` : printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
+    out.push(shellSprite(walls !== null ? `wall/r/${skinName(walls, i, 0, false, i) ?? ""}` : printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
   }
-  const edge = (names: readonly [string, string, string]): string[] => [`wall/corner/${skinName(names, 0, 0, true)}`, `wall/l/end/${skinName(names, 0, last, true)}`, `wall/r/end/${skinName(names, last, 0, true)}`];
-  const ends = skinned !== undefined ? edge(skinned.skin.wall) : ["wall/corner", "wall/l/end", "wall/r/end"];
+  const edge = (names: Names): string[] => [`wall/corner/${skinName(names, 0, 0, true) ?? ""}`, `wall/l/end/${skinName(names, 0, last, true) ?? ""}`, `wall/r/end/${skinName(names, last, 0, true) ?? ""}`];
+  const ends = walls !== null ? edge(walls) : ["wall/corner", "wall/l/end", "wall/r/end"];
   out.push(shellSprite(ends[0] ?? "", 0, 0, "wall"), shellSprite(ends[1] ?? "", 0, FLOOR_CELLS - 1, "wall"), shellSprite(ends[2] ?? "", FLOOR_CELLS - 1, 0, "wall"));
 }
 

@@ -969,6 +969,27 @@ describe("animator: ambient loops", () => {
     expect(fire).toEqual(new Set([0, 1, 2, 3]));
   });
 
+  // OME-2455: the jukebox's frames change on the tick itself. A browser timer fires a hair early (setTimeout floors a
+  // fractional wait), so the change looked 0.3 ms away and the animator woke again at once: two renders per tick.
+  test("a loop on the tick's own 150 ms, every timer firing a hair early: still one render per tick", () => {
+    const s = setup({ smooth: () => true });
+    s.anim.setLoops([{ frames: 4, ms: 150, ambient: true }]);
+    let at = 0;
+    s.frame(at);
+    const before = s.renders();
+    while (at < 4000) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      // A 0 ms wake draws on the next vsync.
+      at += timer.ms < 1 ? 16 : timer.ms - 0.4;
+      s.timers.length = 0;
+      timer.fn();
+      s.frame(at);
+    }
+    expect(s.renders() - before).toBeLessThanOrEqual(27);
+    expect(new Set(s.loopDraws.map(([, f]) => f))).toEqual(new Set([0, 1, 2, 3]));
+  });
+
   test("an ambient loop in the Basic tier still steps on the 150 ms walkers' clock (the room drops ambient loops there)", () => {
     const s = setup();
     s.anim.setLoops([{ frames: 3, ms: 160, ambient: true }]);

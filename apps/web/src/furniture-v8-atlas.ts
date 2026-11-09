@@ -1,4 +1,4 @@
-// Wave 2 furniture atlas (assets/furniture/furniture-v8, CC BY-SA 4.0, OME-2066): the wall screens (and, later, ambient loops). Its own chunk,
+// Wave 2 furniture atlas (assets/furniture/furniture-v8, CC BY-SA 4.0, OME-2066): the wave 2 pieces, their ambient loops and colours of older kinds. Its own chunk,
 // like v7s: stage.ts imports it only when usesV8 (OME-2069).
 import * as v from "valibot";
 import json from "../../../assets/furniture/furniture-v8.json";
