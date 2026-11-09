@@ -16,11 +16,11 @@ import { addOutline, box, renderSolids } from "./iso";
 import { PALETTE, colorIndex, type RampName, type Tone } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng } from "./png";
 import { AMBIENT_RECOLOURS, recolourRemap } from "./recolours";
-import { THUMB, THUMB_SCALE } from "./presets";
+import { THUMB, THUMB_SCALE, type ExtraThumb } from "./presets";
 import { WALL_H, carpetTile, floorTile, panelPaint, planks, solidsFrame, wallPaint, type RoomFrame } from "./room";
 import { upscale } from "./sprite";
 import type { Placement, RoomPlan } from "./build";
-import { beamFor, type Wave2Deps } from "./wave2";
+import { beamFor, wave2Thumb, type Wave2Deps } from "./wave2";
 
 type Paint = readonly [RampName, Tone];
 type Shell = NonNullable<RoomPlan["shell"]>;
@@ -625,3 +625,24 @@ export function buildWave26Previews(d: Wave2Deps, set: { frames: readonly RoomFr
   writeFileSync(join(ROOT, "preview", "w26-loops@2x.png"), encodeIndexedPng(SW * 2, SH * 2, upscale(strip, SW, SH, 2), PALETTE));
   return thumbs;
 }
+
+/** Thumb pieces the catalogue lacks (OME-2480, from OME-2471's concepts): wave 2's through wave2Thumb, wave 26's drawn on
+ *  their own footprint (pieceImage centres a piece on its anchor; a thumb blits it at the anchor cell). */
+export const wave26Thumb: ExtraThumb = (f, s, cv) => {
+  const w2 = wave2Thumb(f, s, cv);
+  if (w2) return w2;
+  const def = DEFS.find((x) => x.id === f.kind);
+  if (!def) return undefined;
+  const src = pieceImage(def, def.colours[f.variant ?? 0] ?? def.colours[0] ?? "", f.facing, s, cv);
+  const turned = f.facing === "se" || f.facing === "nw";
+  const fc = turned ? def.rows : def.cols, fr = turned ? def.cols : def.rows;
+  const mid = new Kit(f.facing).world(8 * (def.cols - 1), 8 * (def.rows - 1));
+  const du = 8 * (fc - 1) - mid.u, dv = 8 * (fr - 1) - mid.v;
+  const ox = Math.round(2 * (du - dv) * s), oy = Math.round((du + dv) * s);
+  const out = new Uint8Array(cv.w * cv.h);
+  for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) {
+    const px = x + ox, py = y + oy;
+    if (px >= 0 && py >= 0 && px < cv.w && py < cv.h) out[py * cv.w + px] = src[y * cv.w + x] ?? 0;
+  }
+  return out;
+};
