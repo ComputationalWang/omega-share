@@ -72,16 +72,20 @@ function velvetWall(k: Kit): void {
   pelmet(k);
 }
 /** The wings: open between a black stage plinth (a brass edge) and the pelmet, so a run of them is a row of openings onto the other
- *  room. A narrow black masking leg (darker than the velvet drape, so wings and velvet read as two partitions), tied back with a
+ *  room. A black masking leg (a soft flat over a third of the cell) (darker than the velvet drape, so wings and velvet read as two partitions), tied back with a
  *  gold cord, at each cell's leading end (+x, toward the stage door) carries the pelmet
  *  down to the plinth, so the run's last cell by the door doesn't leave the pelmet hanging in the air (judge's note). */
 function velvetWings(k: Kit): void {
   k.box(-8, 8, -T, T, 0, 7, "charcoal", { paint: (p, f) => (f === "top" ? ["charcoal", 0] : p.z > 4.5 ? ["mustard", 2] : ["charcoal", 2]) });
-  // The leg pinches in at the tie-back (z 70–73) and flares a little to the hem, like the shipped curtain.
+  // The leg pinches in at the tie-back (z 70–73) and flares to the hem, like the shipped curtain. A wide soft flat with folds every
+  // 2 units, not a post: a narrow leg in a row reads as bars.
+  const fold = (x: number): Paint => ["charcoal", ((8 - x) % 2) < 0.7 ? 2 : 1];
   for (let z = 7; z < PELMET; z += 2) {
-    const w = z < 70 ? 2.6 - (0.9 * (z - 7)) / 63 : z < 73 ? 1.6 : 1.7 + (0.9 * (z - 73)) / (PELMET - 73);
+    const w = z < 70 ? 6 - (2.4 * (z - 7)) / 63 : z < 73 ? 3.4 : 3.6 + (1.8 * (z - 73)) / (PELMET - 73);
     const tie = z >= 70 && z < 73;
-    k.box(8 - w, 8, -T + 0.6, T - 0.6, z, z + 2, tie ? "mustard" : "charcoal", { tones: tie ? { top: 0, sw: 1, se: 1 } : { top: 0, sw: 0, se: 1 } });
+    k.box(8 - w, 8, -T + 0.6, T - 0.6, z, z + 2, tie ? "mustard" : "charcoal", {
+      paint: (p, f) => (tie ? ["mustard", f === "top" ? 0 : 1] : f === "top" ? ["charcoal", 0] : fold(p.x)),
+    });
   }
   pelmet(k);
 }
