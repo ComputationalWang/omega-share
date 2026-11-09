@@ -100,11 +100,14 @@ test("320×640 touch, Theatre with a video and 4 people: every name tag whole to
   await expect(page.locator(".ui-float.is-live").first()).toBeVisible();
   await expect(async () => {
     const w = await box(window);
-    for (const b of await page.locator(".ui-float.is-live").all()) {
-      if (!(await b.isVisible())) continue;
-      const r = await box(b);
-      expect(r.x).toBeGreaterThanOrEqual(w.x);
-      expect(r.x + r.width).toBeLessThanOrEqual(w.x + w.width);
+    // One read of every bubble shown: one that goes between a count and a nth() read would wait for the timeout.
+    const shown = await page.locator(".ui-float.is-live").evaluateAll((els) => els.flatMap((e) => {
+      const r = e.getBoundingClientRect();
+      return e.checkVisibility() && r.width > 0 ? [{ x: r.x, right: r.right, text: e.textContent }] : [];
+    }));
+    for (const r of shown) {
+      expect(r.x, r.text).toBeGreaterThanOrEqual(w.x);
+      expect(r.right, r.text).toBeLessThanOrEqual(w.x + w.width);
     }
   }).toPass({ timeout: 5_000 });
 });
