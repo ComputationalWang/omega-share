@@ -20,6 +20,8 @@ export const BREATHE_TICK_MS = 400;
 /** The ambient loops' shared clock, the walkers' step: with one running, a room at rest renders under 7 times a second.
  * Not 8 fps: 81 ticks fit a 10 s window, and the ≤ 8 renders/s row (OME-2067) measured 8.3–8.4 (ADR 0058, OME-2068). */
 const AMBIENT_TICK_MS = WALK_FRAME_MS;
+/** How early a timer may wake and still be on its tick. */
+const AMBIENT_SLACK_MS = 2;
 
 /** How far above the floor point a sticker's bottom sits: just over the head, standing or seated. */
 export const EMOTE_LIFT = { idle: 60, sit: 50 } as const;
@@ -286,7 +288,12 @@ export function createAnimator(o: AnimatorOptions): Animator {
       wait = Math.min(wait, at - now);
     } else {
       if (nextBreath !== Infinity) wait = Math.min(wait, Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS - now);
-      if (ambient && wait !== Infinity) wait = Math.ceil((now + wait) / AMBIENT_TICK_MS) * AMBIENT_TICK_MS - now;
+      // A timer fires a hair early (setTimeout floors its wait), so a change due on the tick reads under 1 ms away: a wake
+      // that close counts as that tick's, not as a second render one vsync later (OME-2455).
+      if (ambient && wait !== Infinity) {
+        wait = Math.ceil((now + wait) / AMBIENT_TICK_MS) * AMBIENT_TICK_MS - now;
+        if (wait < AMBIENT_SLACK_MS) wait += AMBIENT_TICK_MS;
+      }
     }
     if (wait !== Infinity) timer = o.setTimer(onTimer, wait);
   }
