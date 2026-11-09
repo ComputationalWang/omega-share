@@ -21,12 +21,14 @@ import { isShout, meAction, thinkText } from "../chat/effects";
 import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
 import type { Box } from "../tag-stack";
 
-/** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
+/** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; a speaker's last 10 lines kept (OME-1050, state.ts). */
 export const FLOAT_LIFE_MS = 5000;
 export const FLOAT_RISE = 24;
 export const FLOAT_LEAVE_MS = 160;
 export const FLOAT_POOL = 16;
 export const FLOAT_PER_SPEAKER = 10;
+/** At most this many up at once (OME-2428: a crowd of 20 had 15 over the room): a new one folds the oldest away. */
+export const FLOAT_SHOWN = 8;
 /** Clear space between a pushed bubble and the newer one under it. */
 const GAP = 3;
 /** Overlap below this is float rounding at a fractional scale, not overlap: left in, resolve() never ended (QA OME-2156). */
@@ -410,12 +412,11 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const planned: number[] = [];
   const stackOnly: number[] = [];
   /**
-   * Plan the pushes (stage px) into `planned`, newest first, past the newer bubbles and, `past`, other members' tags; the
-   * number that go. Writes nothing but `stack` (a stacked bubble stays stacked) and, stack-only, a spilled column.
+   * Plan the pushes (stage px) into `planned`, newest first, past the newer bubbles and, `past`, other members' tags.
+   * Writes nothing but `stack` (a stacked bubble stays stacked) and a spilled column.
    */
-  const plan = (past: boolean): number => {
+  const plan = (past: boolean): void => {
     const reduced = o.reducedMotion.matches;
-    let goneCount = 0;
     planned.length = order.length;
     /** The push that clears every bubble newer than `order[i]` (and, `past`, the tags), from `push` up. */
     const climb = (s: Slot, i: number, push: number): number => {
@@ -462,15 +463,22 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     // Pushed up past the room's top (the phone window's, OME-2418) or into the TV, it goes, into the TV the newest too
     // (placeBox keeps one unpushed beside it).
     const out = (s: Slot, i: number, push: number): boolean => (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - sweep(s) < sideT) || over.some((b) => sweeps(s, push, b));
+    const overTag = (s: Slot, push: number): boolean => {
+      for (const [id, b] of tagBoxes) if (id !== s.speaker && sweeps(s, push, b)) return true;
+      return false;
+    };
+    /** The push that keeps its whole rise under the room's top. */
+    const ceiling = (s: Slot): number => s.ay - (s.h + TAIL_BELOW) * k - sweep(s) - sideT;
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       if (s === undefined) continue;
-      // The newest is never sent away: over a head near the top, it's nudged down so its whole rise stays inside (OME-2384).
-      let push = i === 0 ? Math.min(climb(s, i, 0), s.ay - (s.h + TAIL_BELOW) * k - sweep(s) - sideT) : climb(s, i, s.push);
-      let gone = out(s, i, push);
-      // Before it goes, the stack-only plan tries the nearest column beside it, right first (OME-2368: a cluster's lines
-      // otherwise all share one column), and it keeps that column; a spilled column climbs from the heads afresh.
-      if (gone && !past && !s.typing) {
+      let push = climb(s, i, i === 0 ? 0 : s.push);
+      // The newest is never sent away, but one past the top looks for a column first, like the others (OME-2428: past tags).
+      let gone = out(s, i, push) || (i === 0 && push > ceiling(s) + SLACK);
+      // Before it goes, the plan tries the nearest column beside it, right first (OME-2368: a cluster's lines otherwise
+      // all share one column; OME-2428: or a theatre row's tags block it), and it keeps that column; a spilled column
+      // climbs from the heads afresh.
+      if (gone && !s.typing) {
         const col = s.col;
         const reach = Math.ceil((sideR - sideL) / (s.w * k + GAP));
         for (let d = 1; d <= reach && gone; d++) {
@@ -478,7 +486,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
             s.col = c;
             placeBox(s);
             push = climb(s, i, 0);
-            gone = out(s, i, push);
+            gone = out(s, i, push) || (i === 0 && push > ceiling(s) + SLACK);
             if (!gone) break;
           }
         }
@@ -487,10 +495,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           placeBox(s);
         }
       }
-      if (gone) goneCount++;
+      // Over a head near the top, the newest is nudged down so its whole rise stays inside (OME-2384); left over another
+      // member's tag there, even it goes (OME-2428: a phone's window full of tags): the chat log has the line.
+      if (gone && i === 0) {
+        push = Math.min(climb(s, i, 0), ceiling(s));
+        gone = past && overTag(s, push);
+      }
       planned[i] = gone ? Number.NaN : push;
     }
-    return goneCount;
   };
 
   /**
@@ -506,16 +518,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
     // Typing dots stay nearest the heads (they never rise): lines climb over them.
     order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
-    const without = plan(false);
+    plan(false);
     stackOnly.length = 0;
     stackOnly.push(...planned);
     // The lifts past tags never become pushes: kept, the next line would stack on them and send the oldest off the top.
-    // Discarded, its slides beside the TV and its stacks stay (OME-2373): the stack is planned again where they are.
-    if (tagBoxes.size > 0 && plan(true) > without) {
-      plan(false);
-      stackOnly.length = 0;
-      stackOnly.push(...planned);
-    }
+    // A tag beats a line (OME-2428): one that can't rise clear of other members' tags goes; the chat log has it.
+    if (tagBoxes.size > 0) plan(true);
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
       const push = planned[i] ?? Number.NaN;
@@ -570,6 +578,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
 
   /** A node for `id`: a free one first, then the oldest leaving one, then the oldest on screen. */
   const take = (id: MemberId): Slot | null => {
+    // FLOAT_SHOWN up at once: the oldest line folds away (typing dots stay while there's a line to fold).
+    let live = 0;
+    let oldest: Slot | null = null;
+    for (const s of slots) {
+      if (s.state !== LIVE) continue;
+      live++;
+      if (!s.typing && (oldest === null || s.seq < oldest.seq)) oldest = s;
+    }
+    if (live >= FLOAT_SHOWN && oldest !== null) leave(oldest);
     let slot: Slot | null = null;
     for (const s of slots) {
       if (s.state === FREE) {
@@ -633,18 +650,6 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       // A line replaces its speaker's typing dots.
       waiting.delete(m.id);
       for (const s of slots) if (s.typing && s.speaker === m.id) free(s);
-      // FLOAT_PER_SPEAKER per speaker: their oldest goes.
-      for (;;) {
-        let count = 0;
-        let oldest: Slot | null = null;
-        for (const s of slots) {
-          if (s.state !== LIVE || s.speaker !== m.id) continue;
-          count++;
-          if (oldest === null || s.seq < oldest.seq) oldest = s;
-        }
-        if (count < FLOAT_PER_SPEAKER || oldest === null) break;
-        leave(oldest);
-      }
       const s = take(m.id);
       if (s === null) return;
       s.startedAt = now - elapsed;

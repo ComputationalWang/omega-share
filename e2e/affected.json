@@ -463,6 +463,7 @@
       ],
       "specs": [
         "e2e/bubbles.e2e.ts",
+        "e2e/crowd.e2e.ts",
         "e2e/fullscreen.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m8-bubbles.e2e.ts",

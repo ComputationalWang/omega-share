@@ -349,49 +349,38 @@ test("reduced motion: no rise; opaque until 80 % of its life, then a linear fade
   expect(o).toBeLessThan(1);
 });
 
-test("16 on screen at most: a 17th message reuses the oldest node, and no node is created or removed", async () => {
-  const { floats, frame, slots, shown, texts } = await setup();
+// OME-2428 (audit round 4): 20 members chatting put 15 bubbles over the room. 8 show at most; the oldest folds away.
+test("8 on screen at most: a 9th line folds the oldest away (a short fade), whoever said it; no node is created or removed", async () => {
+  const { floats, frame, advance, slots, shown, texts, bubbleOf, FLOAT_LEAVE_MS } = await setup();
   const before = slots();
-  for (let i = 0; i < 16; i++) floats.say(say(`m${String(i)}`, `t${String(i)}`, 60 + (i % 8) * 110, 400 + 100 * Math.floor(i / 8)));
+  for (let i = 0; i < 8; i++) floats.say(say(`m${String(i)}`, `t${String(i)}`, 60 + i * 110, 500));
   frame();
-  expect(shown()).toHaveLength(16);
-  const oldest = before.find((s) => s.textContent.includes("t0"));
-  floats.say(say("m16", "t16", 480));
+  expect(shown()).toHaveLength(8);
+  floats.say(say("m0", "t8", 60));
+  expect(bubbleOf("t0").classList.contains("is-leaving")).toBe(true);
   frame();
-  expect(shown()).toHaveLength(16);
+  advance(FLOAT_LEAVE_MS);
+  expect(shown()).toHaveLength(8);
+  expect(texts().sort()).toEqual(["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"]);
   expect(slots()).toEqual(before);
-  expect(texts()).not.toContain("t0");
-  expect(oldest?.textContent).toContain("t16");
 });
 
 /** `n` lines from one speaker, "l0" oldest. */
 const lines = (n: number): string[] => Array.from({ length: n }, (_, i) => `l${String(i)}`);
 
-test("10 per speaker (OME-1050): an 11th message sends their oldest away (a short fade), the others stay", async () => {
-  const { floats, frame, advance, texts, bubbleOf, FLOAT_LEAVE_MS } = await setup();
-  for (const t of lines(10)) floats.say(say("a", t, 200, 580));
-  floats.say(say("b", "other", 700));
-  frame();
-  expect(texts()).toHaveLength(11);
-  floats.say(say("a", "l10", 200, 580));
-  expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
-  advance(FLOAT_LEAVE_MS);
-  expect(texts().sort()).toEqual([...lines(11).slice(1), "other"].sort());
-});
-
 test("a bubble sent away before its size arrived goes at once: never painted unplaced, nothing to fade", async () => {
-  // A join-time replay or a burst can bring a speaker's 11th line in the same task as their first.
+  // A join-time replay or a burst can bring a 9th line in the same task as the first.
   const { floats, frame, shown, texts } = await setup();
-  for (const t of lines(11)) floats.say(say("a", t, 200, 580));
-  expect(shown()).toHaveLength(10);
+  for (const t of lines(9)) floats.say(say("a", t, 200, 580));
+  expect(shown()).toHaveLength(8);
   frame();
-  expect(texts().sort()).toEqual(lines(11).slice(1).sort());
+  expect(texts().sort()).toEqual(lines(9).slice(1).sort());
 });
 
 test("reduced motion: an early exit is instant", async () => {
   const { floats, texts } = await setup({ reduced: true });
-  for (const t of lines(11)) floats.say(say("a", t, 200, 580));
-  expect(texts().sort()).toEqual(lines(11).slice(1).sort());
+  for (const t of lines(9)) floats.say(say("a", t, 200, 580));
+  expect(texts().sort()).toEqual(lines(9).slice(1).sort());
 });
 
 // OME-1050: ten stacked bubbles are 330 px; over a back-row head they would climb out of the room's view (ROOM_VIEW,
@@ -399,59 +388,60 @@ test("reduced motion: an early exit is instant", async () => {
 test("a stack never climbs out of the room's view: an older bubble whose rise would cross its top, with no room beside, goes instead", async () => {
   const { floats, frame, texts, bubbleOf } = await setup();
   floats.sides(420, 540); // one column: no room to spill into
-  // Head at 300: the newest box's top is 266 and each older one 33 px higher; with the 24 px rise, l0 to l3 cross 60.
-  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  // Head at 300: the newest box's top is 266 and each older one 33 px higher; with the 24 px rise, l0 and l1 cross 60.
+  for (const t of lines(8)) floats.say(say("a", t, 480, 300));
   frame();
   expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
-  expect(bubbleOf("l3").classList.contains("is-leaving")).toBe(true);
-  expect(texts().sort()).toEqual(lines(10).slice(4).sort());
+  expect(bubbleOf("l1").classList.contains("is-leaving")).toBe(true);
+  expect(texts().sort()).toEqual(lines(8).slice(2).sort());
 });
 
 test("reduced motion has no rise: only a box that would itself cross the top goes", async () => {
   const { floats, frame, texts } = await setup({ reduced: true });
   floats.sides(420, 540);
-  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  for (const t of lines(8)) floats.say(say("a", t, 480, 300));
   frame();
-  expect(texts().sort()).toEqual(lines(10).slice(3).sort());
+  expect(texts().sort()).toEqual(lines(8).slice(1).sort());
 });
 
 // OME-2368: a cluster of speakers stacks every line in one column; with free wall beside it, a line spills sideways
 // before it leaves. Centred, a 100 px box is at -50; one column right is +103 (the box and the 3 px gap).
 test("a stack that would cross the top spills into the nearest free column beside it before a line goes", async () => {
   const { floats, frame, texts, bubbleOf, push } = await setup();
-  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  for (const t of lines(8)) floats.say(say("a", t, 480, 300));
   frame();
-  expect(texts().sort()).toEqual(lines(10).sort());
-  for (const t of ["l0", "l1", "l2", "l3"]) {
+  expect(texts().sort()).toEqual(lines(8).sort());
+  for (const t of ["l0", "l1"]) {
     expect(leftOf(bubbleOf(t))).toBe("53px");
     expect(bubbleOf(t).classList.contains("is-stacked")).toBe(true);
     expect(bubbleOf(t).classList.contains("is-leaving")).toBe(false);
   }
-  // The spilled column climbs from the heads like the first: l3 lowest, newest in it.
-  expect(push("l3")).toBe("0px");
-  expect(push("l2")).toBe("-33px");
-  expect(leftOf(bubbleOf("l4"))).toBe("-50px");
+  // The spilled column climbs from the heads like the first: l1 lowest, newest in it.
+  expect(push("l1")).toBe("0px");
+  expect(push("l0")).toBe("-33px");
+  expect(leftOf(bubbleOf("l2"))).toBe("-50px");
 });
 
 test("blocked on the right (the stage edge), it spills left", async () => {
   const { floats, frame, texts, bubbleOf } = await setup();
   floats.sides(0, 540);
-  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  for (const t of lines(8)) floats.say(say("a", t, 480, 300));
   frame();
-  expect(texts().sort()).toEqual(lines(10).sort());
-  expect(leftOf(bubbleOf("l3"))).toBe("-153px");
+  expect(texts().sort()).toEqual(lines(8).sort());
+  expect(leftOf(bubbleOf("l1"))).toBe("-153px");
 });
 
 test("a spilled bubble keeps its column: a walk end or a later line doesn't send it back over the stack", async () => {
   const { floats, frame, bubbleOf } = await setup();
-  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  for (const t of lines(8)) floats.say(say("a", t, 480, 300));
   frame();
+  // The 9th folds l0 away; l1 stays in its column.
   floats.say(say("b", "far", 100));
   frame();
-  expect(leftOf(bubbleOf("l3"))).toBe("53px");
+  expect(leftOf(bubbleOf("l1"))).toBe("53px");
   floats.settle("a", 480, 300);
-  expect(leftOf(bubbleOf("l3"))).toBe("53px");
-  expect(bubbleOf("l3").classList.contains("is-leaving")).toBe(false);
+  expect(leftOf(bubbleOf("l1"))).toBe("53px");
+  expect(bubbleOf("l1").classList.contains("is-leaving")).toBe(false);
 });
 
 test("an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker", async () => {
@@ -591,17 +581,17 @@ test("said while the stage is hidden: placed, stacked and shown at its age once 
 // not at the clock's next step (up to 368 ms of two bubbles on one box).
 test("a bubble sent away drops to half its opacity and is gone FLOAT_LEAVE_MS on, between the clock's steps", async () => {
   const { floats, frame, advance, shown, bubbleOf, motionOf, FLOAT_LEAVE_MS } = await setup();
-  for (const t of lines(10)) floats.say(say("a", t, 200, 580));
+  for (const t of lines(8)) floats.say(say("a", t, 200, 580));
   frame();
   advance(150);
-  floats.say(say("a", "l10", 200, 580));
+  floats.say(say("a", "l8", 200, 580));
   expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
   expect(motionOf("l0").style.opacity).toBe("0.5");
-  expect(shown()).toHaveLength(11);
+  expect(shown()).toHaveLength(9);
   advance(FLOAT_LEAVE_MS - 1);
-  expect(shown()).toHaveLength(11);
+  expect(shown()).toHaveLength(9);
   advance(1); // 310 ms: no step falls here
-  expect(shown()).toHaveLength(10);
+  expect(shown()).toHaveLength(8);
 });
 
 // OME-2431: a freed slot kept `.is-live` while hidden, so e2e's `.ui-float.is-live` `.first()` could pick one off screen.
@@ -946,32 +936,61 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     expect(bubbleOf("mine").classList.contains("is-stacked")).toBe(false);
   });
 
-  // CI on the first cut (m8-bubbles: a 4-member cluster lost a bubble, a 5-member burst peaked under 12): in a crowd there's
-  // no room for both. A line on screen beats a clear tag; the chat log has every line, but a bubble gone early is a miss.
-  test("clearing tags never costs a bubble: where rising past one would carry a bubble off the room's top, it stays over it", async () => {
+  // OME-2428 (audit round 4: 13 bubbles over tags in a crowd of 20). A clear tag beats a line: the chat log has every
+  // line. Before one goes, it tries the columns beside it, as a stack does (OME-2368).
+  test("where rising past a tag would carry a bubble off the room's top, it moves to a column beside the tag, unpushed", async () => {
     const { floats, frame, bubbleOf, push } = await setup();
     floats.tags(new Map([["b", { x0: 670, x1: 730, y0: 70, y1: 90 }]]));
     floats.say(say("a", "older", 700, 120));
     floats.say(say("c", "newer", 300, 200));
     frame();
-    // Past the tag it'd need 53 px: 86 - 53 - 24 is above the room's top (60), so it would go. It stays, unpushed.
+    // Past the tag it'd need 53 px: 86 - 53 - 24 is above the room's top (60). One column right (+103) clears the tag.
     expect(bubbleOf("older").classList.contains("is-leaving")).toBe(false);
+    expect(leftOf(bubbleOf("older"))).toBe("53px");
     expect(push("older")).toBe("0px");
   });
 
-  test("a lift past a tag doesn't stick: once the crowd takes it back, the bubble sits where the stack alone puts it", async () => {
+  test("the newest does the same: under a tag near the top, it takes the column beside it rather than cover the tag", async () => {
     const { floats, frame, bubbleOf, push } = await setup();
+    floats.tags(new Map([["b", { x0: 670, x1: 730, y0: 70, y1: 90 }]]));
+    floats.say(say("a", "newest", 700, 120));
+    frame();
+    expect(leftOf(bubbleOf("newest"))).toBe("53px");
+    expect(push("newest")).toBe("0px");
+  });
+
+  test("with no column free, a bubble that can't rise clear of a tag folds away; the newest that can stays", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.sides(420, 540); // one column
+    floats.tags(new Map([["b", { x0: 450, x1: 510, y0: 140, y1: 160 }]]));
+    floats.say(say("a", "first", 480, 200));
+    floats.say(say("c", "second", 490, 200));
+    frame();
+    // "second" rises past the tag (200 + 3 - 140); "first" over it would cross the room's top.
+    expect(push("second")).toBe("-63px");
+    expect(bubbleOf("first").classList.contains("is-leaving")).toBe(true);
+  });
+
+  test("the newest too: with no column free and a tag between it and the room's top, it folds away", async () => {
+    const { floats, frame, bubbleOf } = await setup();
+    floats.sides(420, 540);
+    floats.tags(new Map([["b", { x0: 450, x1: 510, y0: 70, y1: 90 }]]));
+    floats.say(say("a", "newest", 480, 120));
+    frame();
+    expect(bubbleOf("newest").classList.contains("is-leaving")).toBe(true);
+  });
+
+  test("a lift past a tag doesn't stick: once the tag moves away, the bubble sits where the stack alone puts it", async () => {
+    const { floats, frame, push } = await setup();
     floats.tags(new Map([["b", { x0: 450, x1: 510, y0: 140, y1: 160 }]]));
     floats.say(say("a", "first", 480, 200));
     frame();
     // Past b's tag: 200 + 3 - 140. It fits (166 - 63 - 24 = 79, under the room's top).
     expect(push("first")).toBe("-63px");
-    floats.say(say("c", "second", 490, 200));
+    floats.tags(new Map([["b", { x0: 50, x1: 110, y0: 140, y1: 160 }]]));
+    floats.say(say("c", "second", 800, 200));
     frame();
-    // Both past the tag would carry "first" off the top, so neither lifts: "first" clears "second" only, 33 px.
-    expect(bubbleOf("first").classList.contains("is-leaving")).toBe(false);
-    expect(push("first")).toBe("-33px");
-    expect(push("second")).toBe("0px");
+    expect(push("first")).toBe("0px");
   });
 
   // OME-2373 (QA, 1280×800): five under the corner TV, 3 lines each. A lift past tags that cost a bubble was dropped,
@@ -994,7 +1013,8 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
         const x0 = ax + (dx ?? 0);
         return { text: p.querySelector(".say > span")?.textContent ?? "", x0, x1: x0 + W + (p.classList.contains("is-stacked") ? 40 : 0), y0: top, y1: top + H };
       });
-    let run = 0;
+    /** How long each pair has sat on each other (ms): with 8 up at most, folds come one after another, each its own pair. */
+    let runs = new Map<string, number>();
     let longest = 0;
     const beside = new Set<string>();
     for (let t = 0; t < 7000; t += 16) {
@@ -1008,9 +1028,16 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
       advance(16);
       const b = boxes();
       for (const x of b) if (x.x0 === 387) beside.add(x.text.split(" ")[0] ?? "");
-      const hit = b.some((p, i) => b.some((q, j) => j > i && p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1));
-      run = hit ? run + 16 : 0;
-      longest = Math.max(longest, run);
+      const next = new Map<string, number>();
+      for (const [i, p] of b.entries()) {
+        for (const q of b.slice(i + 1)) {
+          if (!(p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1)) continue;
+          const key = [p.text, q.text].sort().join(" × ");
+          next.set(key, (runs.get(key) ?? 0) + 16);
+        }
+      }
+      runs = next;
+      longest = Math.max(longest, ...runs.values());
     }
     expect(beside.size).toBeGreaterThanOrEqual(2);
     expect(longest).toBeLessThanOrEqual(FLOAT_LEAVE_MS);
