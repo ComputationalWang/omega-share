@@ -83,8 +83,8 @@ describe("room presets", () => {
     const byId = (id: string) => PRESETS.find((p) => p.id === id);
     expect([byId("stage-door")?.name, byId("stage-door")?.blurb]).toEqual(["Stage Door", "A club stage in front, the green room behind the wings."]);
     expect([byId("reef")?.name, byId("reef")?.blurb]).toEqual(["Reef Tunnel", "A reef bar, and a tunnel through the tanks to the deep."]);
-    expect(byId("stage-door")?.layout).toEqual(STAGE_DOOR);
-    expect(byId("reef")?.layout).toEqual(REEF);
+    expect(byId("stage-door")?.layout).toEqual({ ...STAGE_DOOR, furniture: [...STAGE_DOOR.furniture] });
+    expect(byId("reef")?.layout).toEqual({ ...REEF, furniture: [...REEF.furniture] });
     const facings = (id: string, back: boolean) => [...new Set(layoutSeats(byId(id)?.layout ?? { furniture: [] }).filter((s) => (BACK_ROOM[id]?.(s) ?? false) === back).map((s) => s.facing))].sort();
     expect([facings("stage-door", true), facings("reef", true)]).toEqual([["se"], ["sw"]]);
     expect([facings("stage-door", false), facings("reef", false)]).toEqual([["ne"], ["nw"]]);
