@@ -137,7 +137,7 @@ mod tests {
     fn wave2_screens_and_shells() {
         let presets = Presets::load().unwrap();
         let screen = |id: &str| match id {
-            "living" | "cafe" | "bar" | "penthouse" | "studio" | "reef" => "wallscreen",
+            "classic" | "living" | "cafe" | "bar" | "penthouse" | "studio" | "reef" => "wallscreen",
             "lounge" | "stage-door" => "projector",
             "cinema" => "bigscreen",
             _ => "tv",
