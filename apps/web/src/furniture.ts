@@ -161,6 +161,15 @@ export function usesV7(layout: RoomLayout): boolean {
   return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || (f.variant ?? 0) >= (V7_FROM.get(f.kind) ?? Infinity) || glassAtNight(layout, f));
 }
 
+/** v9's partition colours, `"<id>/<colour>"` → variant (OME-2442). */
+export const V9_COLOURS: Readonly<Record<string, number>> = {};
+
+/** True if the layout needs the v9 sheet (OME-2442). */
+export const usesV9 = (_layout: RoomLayout): boolean => false;
+
+/** True if the layout's shell skin is on the v9 shell sheet (OME-2442). */
+export const usesV9Shell = (_layout: RoomLayout): boolean => false;
+
 /** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
 export function usesV5(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V5_KINDS.has(f.kind));

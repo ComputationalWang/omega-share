@@ -10,7 +10,7 @@ import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
 import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
 import { TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
-import { PADS, SET_G, doorTo } from "./layouts";
+import { PADS, SET_G, STAGE_DOOR, doorTo } from "./layouts";
 
 const [path, flag] = process.argv.slice(2);
 const lobbyOnly = flag === "--lobby-only";
@@ -36,6 +36,8 @@ const SEEDED_LAYOUTS = new Map([
   // The whole preset for the 180° view swap (OME-1961).
   [testRoomId("view-swap", "main"), DUNGEON],
   [testRoomId("view-swap", "drawn"), DUNGEON],
+  // Stage Door's column line (OME-2442).
+  [testRoomId("view-swap", "col"), STAGE_DOOR],
   [testRoomId("view-swap-perf", "frames"), DUNGEON],
   // The preset with a wall screen (span 2, segments 3-4 of the left wall, not the fixtures 5, 6, 8) in place of its TV: the swapped view's ghost (OME-2069).
   [testRoomId("wall-screen", "north"), { ...DUNGEON, furniture: DUNGEON.furniture.map((f) => (f.kind === "tv" ? { kind: "wallscreen" as const, col: 0, row: 3, facing: "se" as const } : f)) }],
