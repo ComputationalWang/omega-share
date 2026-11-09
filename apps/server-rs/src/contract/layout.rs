@@ -1647,7 +1647,9 @@ mod tests {
                 "empty",
                 "dank-dungeon",
                 "penthouse",
-                "studio"
+                "studio",
+                "stage-door",
+                "reef"
             ]
         );
         assert_eq!(DEFAULT_ROOM_PRESET.as_str(), "classic");

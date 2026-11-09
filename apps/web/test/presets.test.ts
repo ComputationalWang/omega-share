@@ -11,11 +11,13 @@ import empty from "../../../assets/presets/empty.json";
 import living from "../../../assets/presets/living.json";
 import lounge from "../../../assets/presets/lounge.json";
 import penthouse from "../../../assets/presets/penthouse.json";
+import reef from "../../../assets/presets/reef.json";
+import stageDoor from "../../../assets/presets/stage-door.json";
 import studio from "../../../assets/presets/studio.json";
 import manifest from "../../../assets/presets/presets.json";
 import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "../src/presets";
 
-const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon, penthouse, studio };
+const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty, "dank-dungeon": dankDungeon, penthouse, studio, "stage-door": stageDoor, reef };
 
 describe("room presets (assets/presets/presets.json)", () => {
   test("the picker offers exactly the contract's preset ids, in the manifest's order", () => {

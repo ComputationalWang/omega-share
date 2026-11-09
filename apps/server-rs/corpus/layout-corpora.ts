@@ -2,7 +2,6 @@
 import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FACINGS, FURNITURE, FURNITURE_KINDS, RoomLayoutInputSchema, RoomLayoutSchema, footprintCells, isStandable, layoutSeats } from "../../../packages/shared/src/layout";
-import { REEF, STAGE_DOOR } from "../../../packages/shared/test/wave26-layouts";
 import { decidedRaw, type Case, type Corpus, type RawInput } from "./corpora";
 
 type Piece = Record<string, unknown>;
@@ -26,7 +25,7 @@ const parsed = (schema: v.GenericSchema, inputs: readonly unknown[]): Case[] =>
 
 const preset = (id: string): unknown => JSON.parse(readFileSync(new URL(`../../../assets/presets/${id}.json`, import.meta.url), "utf8"));
 // Wave 26's layouts (OME-2439) ride with the presets until they ship as ones (OME-2441).
-const PRESETS = [...["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon", "penthouse", "studio"].map(preset), STAGE_DOOR, REEF];
+const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty", "dank-dungeon", "penthouse", "studio", "stage-door", "reef"].map(preset);
 
 const POSITIONS = [[0, 0], [0, 9], [9, 0], [9, 9], [4, 4], [5, 0], [0, 5], [8, 0], [0, 8], [2, 0], [0, 2], [9, 5], [3, 9]] as const;
 const everyKindEveryFacing = (): unknown[] =>
@@ -312,9 +311,9 @@ const rawDecision = (schema: v.GenericSchema) => (json: unknown): unknown => {
   return r.success ? r.output : null;
 };
 
-/** Every cell of the wave 26 layouts, and each partition colour on its own (OME-2439: the tunnel is floor). */
+/** Every cell of the wave 26 presets, and each partition colour on its own (OME-2439: the tunnel is floor). */
 const standInputs = (): { layout: unknown; x: number; y: number }[] => [
-  ...[STAGE_DOOR, REEF].flatMap((layout) => Array.from({ length: 100 }, (_, i) => ({ layout, x: i % 10, y: Math.floor(i / 10) }))),
+  ...["stage-door", "reef"].map(preset).flatMap((layout) => Array.from({ length: 100 }, (_, i) => ({ layout, x: i % 10, y: Math.floor(i / 10) }))),
   ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((variant) => ([[9, 9], [8, 9], [9, 8]] as const).map(([x, y]) => ({ layout: base({ kind: "partition", col: 9, row: 9, facing: "sw", variant }), x, y }))),
 ];
 

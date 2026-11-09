@@ -168,9 +168,9 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     await expect(page.locator(radio("classic"))).toBeChecked();
     // The untouched default (classic) is created by the #share= test below and empty by the garbage test: this file's
     // creates fill the global bucket (ROOM_CREATE_GLOBAL_BURST, 10), so neither is created here as well. Living and café
-    // hang a wall screen like the bar (OME-2071); the server tests check every id's layout (apps/server/test/room-create.test.ts).
+    // hang a wall screen like the bar (OME-2071), and wave 26's rooms (OME-2441) would overflow it; the server tests check every id's layout (apps/server/test/room-create.test.ts).
     let theatreUrl = "";
-    for (const preset of ROOM_PRESET_IDS.filter((p) => !["classic", "empty", "living", "cafe"].includes(p))) {
+    for (const preset of ROOM_PRESET_IDS.filter((p) => !["classic", "empty", "living", "cafe", "stage-door", "reef"].includes(p))) {
       await createRoom(page, `Room ${preset}`, radio(preset));
       expect(await layoutOf(page), preset).toEqual(presetLayout(preset));
       if (preset === "cinema") theatreUrl = page.url();
