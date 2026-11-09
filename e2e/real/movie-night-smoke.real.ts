@@ -419,7 +419,8 @@ test("row 6 · share at a time: extension one-click share from ~1:30 starts the 
         if (v === null || v.paused || v.ad) return Number.POSITIVE_INFINITY;
         const off = v.currentTime - (startSeconds + (v.t - sharedAt) / 1000);
         if (Number.isNaN(first)) first = off;
-        return Math.abs(off);
+        // A player YouTube stopped feeding sits at the share point, within 2 s at first: it must have moved on (OME-2453).
+        return v.currentTime - startSeconds < 2 ? Number.POSITIVE_INFINITY : Math.abs(off);
       }, { timeout: 60_000, intervals: [250], message: `${m.name} plays from ${String(startSeconds)} s` }).toBeLessThanOrEqual(2);
       return [m.name, Math.round(first * 1000)] as const;
     }));
