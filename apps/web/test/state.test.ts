@@ -334,6 +334,17 @@ describe("refused joins (ADR 0016 §4)", () => {
     expect(screen(s).stage).toBe(true);
   });
 
+  // OME-2429: the taken name is mine, in another tab of this browser (tab-presence.ts said so).
+  test("open-elsewhere turns a taken name into open in another tab, and nothing else", () => {
+    const taken = refuse(reduce(initialState, { type: "connecting" }), "nickname_taken");
+    expect(reduce(taken, { type: "open-elsewhere" }).refusal).toBe("open_elsewhere");
+    expect(screen(reduce(taken, { type: "open-elsewhere" })).refused).toBe("open_elsewhere");
+    const network = refuse(initialState, "too_many_members");
+    expect(reduce(network, { type: "open-elsewhere" })).toBe(network);
+    const j = joined();
+    expect(reduce(j, { type: "open-elsewhere" })).toBe(j);
+  });
+
   test("other errors are not refusals", () => {
     const s = server(joined(), { type: "error", code: "seat_taken", message: "no" });
     expect(s.status).toBe("open");

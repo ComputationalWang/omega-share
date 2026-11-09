@@ -21,8 +21,12 @@ function setup(title: string | null, until = T + 10_000) {
   const went: string[] = [];
   const timers: { fn: () => void; ms: number; cleared: boolean }[] = [];
   const parent = document.createElement("div");
+  const fallback = document.createElement("h1");
+  fallback.tabIndex = -1;
+  document.body.replaceChildren(fallback, parent);
   const opts: RejoinChipOptions = {
     parent,
+    fallback,
     left: { record, title, until },
     now: T,
     session,
@@ -36,7 +40,7 @@ function setup(title: string | null, until = T + 10_000) {
   const chip = mountRejoinChip(opts);
   const button = chip.querySelector("button");
   if (!(button instanceof HTMLButtonElement)) throw new Error("no Rejoin button");
-  return { chip, button, parent, data, went, timers };
+  return { chip, button, parent, fallback, data, went, timers };
 }
 
 describe("rejoin chip (OME-2105)", () => {
@@ -72,5 +76,19 @@ describe("rejoin chip (OME-2105)", () => {
     const { button, timers } = setup("Film night");
     button.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     expect(timers[0]?.cleared).toBe(true);
+  });
+
+  // OME-2429: after Leave, focus starts on Rejoin, never on <body>.
+  test("takes focus on Rejoin without holding the chip past its time", () => {
+    const { button, timers } = setup("Film night");
+    expect(document.activeElement).toBe(button);
+    expect(timers[0]?.cleared).toBe(false);
+  });
+
+  test("when its time is up with focus still on it, focus moves to the page, not <body>", () => {
+    const { chip, fallback, timers } = setup("Film night");
+    timers[0]?.fn();
+    expect(chip.isConnected).toBe(false);
+    expect(document.activeElement).toBe(fallback);
   });
 });
