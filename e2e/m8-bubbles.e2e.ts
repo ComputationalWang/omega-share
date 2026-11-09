@@ -174,7 +174,7 @@ function watchPool(ms: number): Promise<unknown> {
   });
 }
 
-test("five speakers, twenty lines at once: never more than 16 bubbles shown, the layer holds 16 nodes throughout", async ({ browser }) => {
+test("five speakers, twenty lines at once: never more than 8 bubbles shown (OME-2428), the layer holds 16 nodes throughout", async ({ browser }) => {
   // The watcher's room clears the shelf (1000 px tall): at 720 Room view pulls the room up under the TV and its shelf, which
   // no bubble goes under (OME-2349), and the cluster's stacks leave at the shelf before the pool fills.
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc", contextOptions: (i) => (i === 0 ? { viewport: { width: 1280, height: 1000 } } : undefined) });
@@ -182,12 +182,12 @@ test("five speakers, twenty lines at once: never more than 16 bubbles shown, the
   if (a === undefined) throw new Error("no client");
   for (const c of clients) await atRest(c.page);
   // Long enough to outlast slow sends (a cold dev server, five pages typing in turn); bubbles leaving after 5 s only
-  // lower the count, so a longer watch can't hide a pool over 16.
+  // lower the count, so a longer watch can't hide more than 8.
   const watching = a.page.evaluate(watchPool, 10_000);
   const sendStart = Date.now();
   await Promise.all(
     clients.map(async (c, i) => {
-      // Four each: inside the server's chat burst of 5, and 20 lines overfill the pool of 16.
+      // Four each: inside the server's chat burst of 5, and 20 lines overfill the 8 shown.
       for (const l of ["one", "two", "three", "four"]) await say(c.page, `speaker ${String(i + 1)} line ${l}`);
     }),
   );
@@ -195,9 +195,9 @@ test("five speakers, twenty lines at once: never more than 16 bubbles shown, the
   await expect(a.page.locator(site.chatLogLine).filter({ hasText: /speaker [1-5] line (one|two|three|four)/ })).toHaveCount(20); // all said, none dropped
   const pool = v.parse(PoolSchema, await watching);
   expect(pool.frames).toBeGreaterThan(10);
-  expect(pool.maxLive).toBeLessThanOrEqual(16);
-  // The pool really filled: 20 lines were said, only 16 fit.
-  expect(pool.maxLive, `peak live bubbles (the sends took ${String(sendMs)} ms):\n${pool.events.join("\n")}`).toBeGreaterThanOrEqual(12);
+  expect(pool.maxLive).toBeLessThanOrEqual(8);
+  // The cap really filled: 20 lines were said, only 8 show.
+  expect(pool.maxLive, `peak live bubbles (the sends took ${String(sendMs)} ms):\n${pool.events.join("\n")}`).toBeGreaterThanOrEqual(8);
   expect(pool.minNodes).toBe(16);
   expect(pool.maxNodes).toBe(16);
 });
