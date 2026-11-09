@@ -77,6 +77,7 @@ import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 import type { FloorKind, Sound } from "./audio";
 import { cellAt } from "./walk/path";
 import { play } from "./motion";
+import { createTabPresence, type TabPresence } from "./tab-presence";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -175,6 +176,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     reclaim: () => {
       dispatch({ type: "reclaim" });
       c.reclaim();
+    },
+    // The other tab hands its session over; resumed with it, the member moves here (4007 there). Nobody answered: the
+    // tab is gone, and a fresh boot takes its hand-off or finds the name free.
+    useThisTab: () => {
+      void tabs?.take().then((r) => {
+        if (r !== null) saveResume(resumeStore, r);
+        location.reload();
+      });
     },
   });
   const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
@@ -800,7 +809,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   // On a phone my Add that starts the TV hands the panel back to Chat, the room's talk under the picture (OME-2348).
-  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname], onStarted: () => { if (layout.portraitOn()) layout.panel.select("chat"); } });
+  // Focus went with the sheet: it lands on the Up next key, not on <body> (OME-2429).
+  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname], onStarted: () => {
+    if (!layout.portraitOn()) return;
+    const a = document.activeElement;
+    const had = a === null || a === document.body || layout.panel.panels.queue.contains(a);
+    layout.panel.select("chat");
+    if (had) layout.panel.tabs.querySelector<HTMLElement>("#panel-tab-queue")?.focus({ preventScroll: true });
+  } });
 
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
@@ -1055,6 +1071,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     people.key.hidden = !headKeys;
     snapKey.hidden = !headKeys;
     leaveKey.hidden = !headKeys;
+    // No panel tabs on a stop (OME-2429); a removal keeps the old chat lines above its card, so on Chat.
+    layout.panel.tabs.hidden = !headKeys;
+    if (shown.kicked && layout.panel.selected() !== "chat") layout.panel.select("chat");
     roomTop.classList.toggle("is-reserved", shown.reserve);
     onStage = shown.stage;
     soundKey.sync();
@@ -1277,6 +1296,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       localStorage.removeItem(k);
     },
   };
+  // Two tabs of this browser in this room (OME-2429): a name refused here may be ours over there. Closed on pagehide,
+  // as the pop-out's channel is, so the page stays eligible for the bfcache.
+  const openTabs = (): TabPresence | null => typeof BroadcastChannel !== "function" ? null : createTabPresence({
+    channel: new BroadcastChannel(`omega.tabs.${opts.roomId}`),
+    nickname: opts.nickname,
+    here: () => (state.status === "open" ? loadResume(resumeStore, opts.roomId) : null),
+    onElsewhere: () => { dispatch({ type: "open-elsewhere" }); },
+    setTimer: (fn, ms) => { setTimeout(fn, ms); },
+  });
+  let tabs = openTabs();
+  tabs?.ask();
   /** The last presence hint sent on this socket; the server clears away on a (re)join. */
   let sentAway = false;
   /** Send the away hint this tab owes, if any (on a visibility change, and after each rejoin). */
@@ -1426,6 +1456,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // The session is over for this tab: a reload shows the ordinary Enter (a replaced one keeps its token in memory only).
       if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed") clearResume(resumeStore, opts.roomId);
       routeConnectionEvent(e, sinks, Date.now());
+      // Asked at boot: the other tab's answer is usually in before the refusal.
+      if (state.refusal === "nickname_taken" && tabs?.elsewhere() === true) dispatch({ type: "open-elsewhere" });
       if (e.type !== "message") return;
       if (e.msg.type === "snapshot") chatOut.resend();
       else chatOut.onServer(e.msg, state.self);
@@ -1582,6 +1614,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const kept = loadResume(resumeStore, opts.roomId);
     if (kept !== null) handOffResume(localResume, kept, Date.now());
     relay?.close();
+    tabs?.close();
+    tabs = null;
     c.close();
     clock.stop();
     stopInvite();
@@ -1590,6 +1624,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (!ev.persisted) return;
     // Back from the bfcache: this tab keeps its session, so no other tab may take the hand-off.
     takeHandOff(localResume, opts.roomId, 0);
+    tabs = openTabs();
     c.ensureConnected();
     relay?.resume();
   });

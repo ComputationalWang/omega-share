@@ -362,7 +362,7 @@ if (pathRoom === null) {
   }
 } else if (resumed === null && creating === null) show("entry");
 if (pathRoom === null && left !== null) {
-  mountRejoinChip({ parent: document.body, left, now: Date.now(), session, navigate: (path) => { location.assign(path); }, setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => { window.clearTimeout(id); } });
+  mountRejoinChip({ parent: document.body, left, now: Date.now(), session, fallback: profile.nickname !== null ? directoryTitle : input, navigate: (path) => { location.assign(path); }, setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => { window.clearTimeout(id); } });
 }
 
 performance.mark("omega:interactive");

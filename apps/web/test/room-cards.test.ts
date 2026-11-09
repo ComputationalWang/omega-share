@@ -106,7 +106,7 @@ describe("room cards", () => {
     cards.render({ ...initialState, status: "kicked", kickedUntil: Date.now() + 120_000 });
     const find = card("room-kicked")?.querySelector<HTMLAnchorElement>('a[href="/"]');
     expect(find?.textContent).toBe("Find a room");
-    expect(document.activeElement).toBe(find);
+    expect(document.activeElement).toBe(find ?? null);
   });
 
   test("a refused join puts focus on its way out", async () => {

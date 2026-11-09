@@ -14,7 +14,7 @@ function bus() {
     const ch: TabChannel = {
       onmessage: null,
       postMessage: (data: unknown) => {
-        for (const o of all) if (o !== ch) o.onmessage?.({ data });
+        for (const o of all) if (o !== ch) o.onmessage?.(new MessageEvent("message", { data }));
       },
       close: () => {
         all.splice(all.indexOf(ch), 1);
