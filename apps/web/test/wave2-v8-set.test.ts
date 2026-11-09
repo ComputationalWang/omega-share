@@ -111,7 +111,7 @@ describe("the penthouse and studio shell skins (furniture-v8-shell)", () => {
     expect(keyAt(s, 0, 0, "floor/")).toBe("floor/deck/0");
     expect(keyAt(s, 1, 4, "floor/")).toBe("floor/pent/1");
     expect(keyAt(s, 2, 4, "floor/")).toBe("floor/pent/0");
-    expect(keyAt(s, 3, 7, "floor/")).toBe(room.meta.omega.layout.floor[7]?.[3]);
+    expect(keyAt(s, 3, 7, "floor/")).toBe(keyAt(sceneOf({ furniture: [] }, [], room), 3, 7, "floor/"));
     expect(keyAt(s, 0, 0, "wall/l/")).toBe("wall/l/sky/0");
     expect(keyAt(s, 0, 1, "wall/l/")).toBe("wall/l/sky/1");
     expect(keyAt(s, 0, 4, "wall/l/")).toBe("wall/l/sky/split");
@@ -134,16 +134,14 @@ describe("the penthouse and studio shell skins (furniture-v8-shell)", () => {
     const s = sceneOf(studio, [v7, v8Shell], room);
     expect(keyAt(s, 0, 0, "floor/")).toBe("floor/carpet/0");
     expect(keyAt(s, 2, 4, "floor/")).toBe("floor/nook/0");
-    expect(keyAt(s, 3, 7, "floor/")).toBe(room.meta.omega.layout.floor[7]?.[3]);
+    expect(keyAt(s, 3, 7, "floor/")).toBe(keyAt(sceneOf({ furniture: [] }, [], room), 3, 7, "floor/"));
     const walls = (l: RoomLayout): string[] => shellKeys(sceneOf(l, [v7, v8Shell], room)).filter((k) => k.startsWith("wall/"));
-    const { shell: _, ...plain } = studio;
-    expect(walls(studio)).toEqual(walls(plain));
+    expect(walls(studio)).toEqual(walls({ furniture: studio.furniture }));
   });
 
   test("without v8-shell (or v7) loaded, both draw today's shell", () => {
     for (const l of [penthouse, studio]) {
-      const { shell: _, ...plain } = l;
-      const today = shellKeys(sceneOf(plain, [v7, v8Shell], room));
+      const today = shellKeys(sceneOf({ furniture: l.furniture }, [v7, v8Shell], room));
       expect(shellKeys(sceneOf(l, [v7], room))).toEqual(today);
       expect(shellKeys(sceneOf(l, [v8Shell], room))).toEqual(today);
     }

@@ -2108,9 +2108,8 @@ wall screen and lava lamp).
 - **Two-deep loops** now go through `useFrames` like any piece: `kitImage` centres a two-deep model on its footprint as `pieceFrames`
   does (`anchorOf` in `src/furniture.ts`). No shipped frame moved.
 - **`lavalamp/bubbles`:** a runtime PLTE swap of the v8 lava lamp (pink blobs → glow, navy glass → teal), its loop frames included.
-  The entry is in **`furniture-v9.json` `meta.omega.recolours.lavalamp`**, in `recolours.json`'s shape (sheet `furniture/furniture-v8.png`,
-  frames `furniture/lavalamp/lilac/`, slots, variant 1 `bubbles`), not in `recolours.json`: the web's schema for that file lists the
-  sheets it swaps, and a v8 entry fails its parse. Moving it there later is a one-line change once the web takes v8 (`AMBIENT_RECOLOURS`).
+  The entry (`AMBIENT_RECOLOURS`: sheet `furniture/furniture-v8.png`, frames `furniture/lavalamp/lilac/`, slots, variant 1 `bubbles`) is in
+  `recolours.json`, which the web reads, since the web takes v8 (OME-2455); `furniture-v9.json` `meta.omega.recolours.lavalamp` keeps a copy.
 
 ### Shell skin (`furniture-v9-shell`, the room atlas's rects and anchors)
 

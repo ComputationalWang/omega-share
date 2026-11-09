@@ -216,7 +216,7 @@ describe("sceneOf: the generic partition split (OME-2070, ADR 0058)", () => {
   test("a column of partitions splits on its col: the right wall carries the split, the shell's frames are named by its value", () => {
     const layout: RoomLayout = { ...one({ kind: "partition", col: 6, row: 2, facing: "se" }, { kind: "partition", col: 6, row: 4, facing: "se" }), shell: "reef" };
     const frame = { frame: { x: 0, y: 0, w: 1, h: 1 }, anchor: { x: 0, y: 0 } };
-    const art = { ...v7, frames: { ...v7.frames, "floor/reef/front/0": frame } };
+    const art = { ...v7, frames: { ...v7.frames, "floor/reef/back/0": frame, "floor/reef/split/0": frame, "floor/reef/front/0": frame } };
     const s = sceneOf(layout, [art], room);
     expect(keyAt(s, 5, 8, "floor/")).toBe("floor/reef/back/1");
     expect(keyAt(s, 6, 8, "floor/")).toBe("floor/reef/split/0");

@@ -85,7 +85,7 @@ export function recoloursTable(): object {
     license: "CC-BY-SA-4.0",
     method:
       "runtime PLTE swap: in a copy of `sheet` replace PLTE entry slots[i] with colors[i] and use that copy only for the frames whose key starts with `frames` (the source colour's); do the same in a copy of ui/edit.png for `thumb`. Layout variant `variant` draws those frames; its tray chip is swatch/<id>",
-    kinds: Object.fromEntries(Object.entries(RECOLOURS).map(([kind, r]) => [kind, recolourEntry(r)])),
+    kinds: Object.fromEntries([...Object.entries(RECOLOURS), ...Object.entries(AMBIENT_RECOLOURS)].map(([kind, r]) => [kind, recolourEntry(r)])),
   };
 }
 
