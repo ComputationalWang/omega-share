@@ -547,6 +547,20 @@ test("walking moves the speaker's bubbles only; overlap is resolved when the wal
   expect(observed()).toBe(m);
 });
 
+// OME-2459 (QA wave 25): a bubble said near the stage's edge rode its walking speaker out of the stage box.
+test("walking to the stage edge, the speaker's bubble stays inside it; the tail leans", async () => {
+  const { floats, frame, bubbleOf } = await setup();
+  floats.say(say("a", "walker", 200));
+  frame();
+  expect(leftOf(bubbleOf("walker"))).toBe(`${String(-W / 2)}px`);
+  for (let x = 200; x >= 10; x -= 2) floats.move("a", x, 300);
+  // Box at stage x 4, as if said there.
+  expect(leftOf(bubbleOf("walker"))).toBe("-6px");
+  expect(bubbleOf("walker").classList.contains("tail-sw")).toBe(true);
+  for (let x = 860; x <= 950; x += 2) floats.move("a", x, 300);
+  expect(leftOf(bubbleOf("walker"))).toBe("-94px");
+});
+
 test("keep: a speaker who left takes their bubbles along", async () => {
   const { floats, texts } = await setup();
   floats.say(say("a", "mine", 200));
@@ -934,6 +948,16 @@ describe("clear of the TV and other members' tags, no layout shift (OME-2349)", 
     // Box and tail 266–300, 242 once risen: over b's tag. Its tail's tip goes 3 px over the tag's top: 300 + 3 - 240.
     expect(push("mine")).toBe("-63px");
     expect(bubbleOf("mine").classList.contains("is-stacked")).toBe(false);
+  });
+
+  // OME-2459 (QA wave 25): a member who stops under a bubble already up got their tag covered until the next line.
+  test("a tag that settles under a bubble already up lifts it at once, no line needed", async () => {
+    const { floats, frame, push } = await setup();
+    floats.say(say("a", "up", 480));
+    frame();
+    expect(push("up")).toBe("0px");
+    floats.tags(new Map([["b", { x0: 450, x1: 510, y0: 240, y1: 260 }]]));
+    expect(push("up")).toBe("-63px");
   });
 
   // OME-2428 (audit round 4: 13 bubbles over tags in a crowd of 20). A clear tag beats a line: the chat log has every

@@ -1114,6 +1114,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
     if (s.lastError !== shownError) {
       shownError = s.lastError;
+      // Taken back (a taken name that was this browser's other tab, OME-2459): the notice goes with it.
+      if (s.lastError === null) notice.hidden = true;
       // An add refusal the queue panel already says under its field isn't said twice (QA OME-569 F3).
       if (s.lastError !== null && !queueClaimed) {
         notice.textContent = ERROR_TEXT[s.lastError.code];

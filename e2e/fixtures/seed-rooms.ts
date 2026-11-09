@@ -22,10 +22,14 @@ const store = new RoomStore(db);
 // Rooms whose layout the test needs on the server itself, not only in the snapshot: teleport pads, two doors to each other.
 const DUNGEON = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")));
 const CINEMA = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/cinema.json", import.meta.url), "utf8")));
+const STUDIO = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/studio.json", import.meta.url), "utf8")));
 const SEEDED_LAYOUTS = new Map([
   // A crowd on the theatre rows' seats (OME-2428).
   [testRoomId("crowd", "cinema"), CINEMA],
   [testRoomId("crowd", "phone"), CINEMA],
+  // The same crowd standing at random spots (OME-2459).
+  [testRoomId("crowd", "random"), CINEMA],
+  [testRoomId("crowd", "studio"), STUDIO],
   [testRoomId("teleport", "pads"), PADS],
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],

@@ -339,6 +339,8 @@ describe("refused joins (ADR 0016 §4)", () => {
     const taken = refuse(reduce(initialState, { type: "connecting" }), "nickname_taken");
     expect(reduce(taken, { type: "open-elsewhere" }).refusal).toBe("open_elsewhere");
     expect(screen(reduce(taken, { type: "open-elsewhere" })).refused).toBe("open_elsewhere");
+    // OME-2459: and the "already has that name" notice goes with it.
+    expect(reduce(taken, { type: "open-elsewhere" }).lastError).toBeNull();
     const network = refuse(initialState, "too_many_members");
     expect(reduce(network, { type: "open-elsewhere" })).toBe(network);
     const j = joined();

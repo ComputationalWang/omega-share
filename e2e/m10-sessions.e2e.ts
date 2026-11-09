@@ -288,6 +288,8 @@ test("a second tab under the same name says the room is open in another tab, and
   const card = second.locator(site.roomRefused);
   await expect(card).toHaveAttribute("data-code", "open_elsewhere");
   await expect(card).toContainText("This room is open in another tab");
+  // OME-2459: the gate's "already has that name" notice doesn't stay over it: it's you, not someone else.
+  await expect(second.getByTestId("room-notice")).toBeHidden();
   const use = second.locator(site.roomRefusedAction);
   await expect(use).toHaveText("Use this tab");
   await expect(use).toBeFocused();
