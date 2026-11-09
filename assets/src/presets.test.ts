@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import * as v from "valibot";
 import { DOOR_CELL, RoomLayoutInputSchema, SEAT_COUNT, footprintCells, isScreen, layoutSeats } from "@omega/shared";
+import { REEF, STAGE_DOOR } from "../../packages/shared/test/wave26-layouts";
 import { PRESETS } from "./presets";
 
 const DIR = join(import.meta.dir, "..", "presets");
@@ -16,12 +17,14 @@ const Manifest = v.strictObject({
   presets: v.array(v.strictObject({ id: v.pipe(v.string(), v.regex(/^[a-z-]{1,12}$/)), name: v.string(), blurb: v.pipe(v.string(), v.maxLength(60)), layout: v.string(), thumb: v.string() })),
 });
 const manifest = v.parse(Manifest, JSON.parse(readFileSync(join(DIR, "presets.json"), "utf8")));
+/** Wave 26 (OME-2441): the room behind the partition line, its seats looking at the line (Stage Door col 4, Reef row 4). */
+const BACK_ROOM: Readonly<Record<string, (s: { col: number; row: number }) => boolean>> = { "stage-door": (s) => s.col < 4, reef: (s) => s.row < 4 };
 const pngSize = (buf: Buffer): { w: number; h: number } => ({ w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) });
 
 describe("room presets", () => {
-  test("five to ten, unique ids, the default among them", () => {
+  test("five to twelve, unique ids, the default among them", () => {
     expect(manifest.presets.length).toBeGreaterThanOrEqual(5);
-    expect(manifest.presets.length).toBeLessThanOrEqual(10);
+    expect(manifest.presets.length).toBeLessThanOrEqual(12);
     const ids = manifest.presets.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain(manifest.default);
@@ -34,8 +37,9 @@ describe("room presets", () => {
       expect(parsed.issues?.map((i) => i.message) ?? []).toEqual([]);
       if (!parsed.success) return;
       expect(layoutSeats(parsed.output)).toHaveLength(SEAT_COUNT);
-      // Every seat looks toward the TV corner.
-      expect(layoutSeats(parsed.output).every((s) => s.facing === "ne" || s.facing === "nw")).toBe(true);
+      // Every seat looks toward the TV corner, but wave 26's back rooms, which face their partition (tested below).
+      const back = BACK_ROOM[entry.id] ?? (() => false);
+      expect(layoutSeats(parsed.output).filter((s) => !back(s)).every((s) => s.facing === "ne" || s.facing === "nw")).toBe(true);
       expect(layout).toEqual(PRESETS.find((p) => p.id === entry.id)?.layout);
     });
   }
@@ -61,7 +65,7 @@ describe("room presets", () => {
     expect(dd?.layout.pairs).toBe(true);
     expect(PRESETS.filter((p) => p.layout.pairs === true).map((p) => p.id)).toEqual(["dank-dungeon"]);
     // OME-1989: the dungeon shell skin, on this preset only; wave 2's swap rooms wear their own (OME-2071).
-    expect(PRESETS.filter((p) => p.layout.shell !== undefined).map((p) => [p.id, p.layout.shell])).toEqual([["dank-dungeon", "dungeon"], ["penthouse", "penthouse"], ["studio", "studio"]]);
+    expect(PRESETS.filter((p) => p.layout.shell !== undefined).map((p) => [p.id, p.layout.shell])).toEqual([["dank-dungeon", "dungeon"], ["penthouse", "penthouse"], ["studio", "studio"], ["stage-door", "stage-door"], ["reef", "reef"]]);
   });
 
   // OME-2071 (ADR 0058): the wave 2 rooms. Four revamps hang a wall screen and drop the TV table, the lounge pulls a screen down;
@@ -70,8 +74,20 @@ describe("room presets", () => {
     const screens = Object.fromEntries(PRESETS.map((p) => [p.id, p.layout.furniture.filter((f) => isScreen(f.kind)).map((f) => f.kind)]));
     expect(screens).toEqual({
       classic: ["tv"], cinema: ["bigscreen"], living: ["wallscreen"], lounge: ["projector"], cafe: ["wallscreen"], bar: ["wallscreen"],
-      empty: ["tv"], "dank-dungeon": ["tv"], penthouse: ["wallscreen"], studio: ["wallscreen"],
+      empty: ["tv"], "dank-dungeon": ["tv"], penthouse: ["wallscreen"], studio: ["wallscreen"], "stage-door": ["projector"], reef: ["wallscreen"],
     });
+  });
+
+  // OME-2441: wave 26's rooms ship the contract's layouts (OME-2439, the wingback at (2, 5) as the judged art has it, OME-2440).
+  test("wave 26: Stage Door and Reef Tunnel are the contract's layouts, the back room's seats facing the partition", () => {
+    const byId = (id: string) => PRESETS.find((p) => p.id === id);
+    expect([byId("stage-door")?.name, byId("stage-door")?.blurb]).toEqual(["Stage Door", "A club stage in front, the green room behind the wings."]);
+    expect([byId("reef")?.name, byId("reef")?.blurb]).toEqual(["Reef Tunnel", "A reef bar, and a tunnel through the tanks to the deep."]);
+    expect(byId("stage-door")?.layout).toEqual({ ...STAGE_DOOR, furniture: [...STAGE_DOOR.furniture] });
+    expect(byId("reef")?.layout).toEqual({ ...REEF, furniture: [...REEF.furniture] });
+    const facings = (id: string, back: boolean) => [...new Set(layoutSeats(byId(id)?.layout ?? { furniture: [] }).filter((s) => (BACK_ROOM[id]?.(s) ?? false) === back).map((s) => s.facing))].sort();
+    expect([facings("stage-door", true), facings("reef", true)]).toEqual([["se"], ["sw"]]);
+    expect([facings("stage-door", false), facings("reef", false)]).toEqual([["ne"], ["nw"]]);
   });
 
   for (const id of ["penthouse", "studio"]) {
@@ -116,17 +132,15 @@ describe("room presets", () => {
     expect(chairs.some((c) => c.row === 5 && c.col >= 3 && c.facing === "ne")).toBe(true);
   });
 
-  test("thumbnails: one per preset (plus wave 26's, shipped ahead of their presets) at the manifest size, ≤ 48 KiB together, no strays", () => {
-    // OME-2440: stage-door and reef ship their thumbs before OME-2441 adds the presets; drop this once they're in the manifest.
-    const pending = ["stage-door", "reef"].filter((id) => !manifest.presets.some((p) => p.id === id)).map((id) => `thumbs/${id}.png`);
+  test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
     let bytes = 0;
-    for (const thumb of [...manifest.presets.map((p) => p.thumb), ...pending]) {
+    for (const thumb of manifest.presets.map((p) => p.thumb)) {
       const buf = readFileSync(join(DIR, thumb));
       expect(pngSize(buf)).toEqual({ w: manifest.thumb.w, h: manifest.thumb.h });
       bytes += buf.length;
     }
     expect(bytes).toBeLessThanOrEqual(48 * 1024);
     const files = readdirSync(join(DIR, "thumbs")).sort();
-    expect(files).toEqual([...manifest.presets.map((p) => p.thumb), ...pending].map((t) => t.replace("thumbs/", "")).sort());
+    expect(files).toEqual(manifest.presets.map((p) => p.thumb).map((t) => t.replace("thumbs/", "")).sort());
   });
 });

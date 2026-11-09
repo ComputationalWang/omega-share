@@ -793,9 +793,12 @@ pub enum RoomPresetId {
     DankDungeon,
     Penthouse,
     Studio,
+    #[serde(rename = "stage-door")]
+    StageDoor,
+    Reef,
 }
 
-pub const ROOM_PRESET_IDS: [RoomPresetId; 10] = [
+pub const ROOM_PRESET_IDS: [RoomPresetId; 12] = [
     RoomPresetId::Classic,
     RoomPresetId::Cinema,
     RoomPresetId::Living,
@@ -806,6 +809,8 @@ pub const ROOM_PRESET_IDS: [RoomPresetId; 10] = [
     RoomPresetId::DankDungeon,
     RoomPresetId::Penthouse,
     RoomPresetId::Studio,
+    RoomPresetId::StageDoor,
+    RoomPresetId::Reef,
 ];
 
 /// Omitted preset means today's `DEFAULT_LAYOUT` (classic).
@@ -824,6 +829,8 @@ impl RoomPresetId {
             Self::DankDungeon => "dank-dungeon",
             Self::Penthouse => "penthouse",
             Self::Studio => "studio",
+            Self::StageDoor => "stage-door",
+            Self::Reef => "reef",
         }
     }
 }
@@ -1647,7 +1654,9 @@ mod tests {
                 "empty",
                 "dank-dungeon",
                 "penthouse",
-                "studio"
+                "studio",
+                "stage-door",
+                "reef"
             ]
         );
         assert_eq!(DEFAULT_ROOM_PRESET.as_str(), "classic");

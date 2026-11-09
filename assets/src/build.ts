@@ -2525,8 +2525,8 @@ function presetPlan(layout: RoomLayout): RoomPlan {
     if (f.kind === "tv" || f.kind === "rug") continue; // the console and the big rug are part of the room shell
     // shortcut: wave 2's kinds and colours are left out of this sheet; preview/w2-* draws those rooms in full (OME-2071).
     if (WAVE2.some((d) => d.id === f.kind && d.variant === (f.variant ?? 0))) continue;
-    // shortcut: likewise wave 26's kinds and partition colours (OME-2440); preview/w26-* draws those rooms in full.
-    if (WAVE26_KINDS.has(f.kind) || (f.kind === "partition" && (f.variant ?? 0) >= 4)) continue;
+    // shortcut: likewise wave 26's kinds, partition and lava lamp colours (OME-2440); preview/w26-* draws those rooms in full.
+    if (WAVE26_KINDS.has(f.kind) || (f.kind === "partition" && (f.variant ?? 0) >= 4) || (f.kind === "lavalamp" && (f.variant ?? 0) >= 1)) continue;
     if (f.kind === "lamp" || f.kind === "plant") { plan.standing.push([`${f.kind}/0`, f.col, f.row]); continue; }
     if (f.kind === "armchair") {
       plan.standing.push([`armchair/${f.facing}/back`, f.col, f.row]);
@@ -2557,8 +2557,6 @@ function buildWave26(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   const pieces = [...set.pieces, ...WAVE2_PIECES.filter((m) => !set.pieces.some((p) => p.id === m.id))];
   WAVE26_THUMBS = buildWave26Previews({ pieces, all: set.all, compose: composeFurnitureRoom, northView, presetPlan }, WAVE26);
 }
-/** OME-2440: wave 26's thumbs ship ahead of their presets (OME-2441 adds those); drop once PRESETS has them. */
-const pendingThumbs = (): string[] => Object.keys(WAVE26_THUMBS).filter((id) => !PRESETS.some((p) => p.id === id));
 
 /** OME-2066: wave 2's previews and proposed layouts, on the shipped set plus the v8 pieces (new ids only: v8's colours of older
  *  kinds are drawn by key with the older kind's meta). */
@@ -2588,17 +2586,10 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
     bytes += png.length;
     return { id: pr.id, name: pr.name, blurb: pr.blurb, layout: `${pr.id}.json`, thumb: `thumbs/${pr.id}.png` };
   });
-  for (const [id, img] of Object.entries(WAVE26_THUMBS)) {
-    if (PRESETS.some((p) => p.id === id)) continue; // drawn above, as its preset's thumb
-    const small = compactPalette(img);
-    const png = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette);
-    writeFileSync(join(dir, "thumbs", `${id}.png`), png);
-    bytes += png.length;
-  }
   if (bytes > PRESET_THUMBS_MAX) throw new Error(`preset thumbnails are ${String(bytes)} B, over ${String(PRESET_THUMBS_MAX)}`);
   const manifest = { version: 1, license: "CC-BY-SA-4.0", default: "classic", thumb: { ...THUMB, scale: THUMB_SCALE }, presets: index };
   writeFileSync(join(dir, "presets.json"), JSON.stringify(manifest) + "\n");
-  console.log(`presets (set n): ${String(PRESETS.length + pendingThumbs().length)} thumbnails ${String(bytes)} B of ${String(PRESET_THUMBS_MAX)}`);
+  console.log(`presets (set n): ${String(PRESETS.length)} thumbnails ${String(bytes)} B of ${String(PRESET_THUMBS_MAX)}`);
   // Previews: thumbnails 3 across at 3× on the night page, then the same rooms at full size.
   const G = 4, cols = 3, rows = Math.ceil(PRESETS.length / cols);
   const tw = cols * THUMB.w + (cols + 1) * G, th = rows * THUMB.h + (rows + 1) * G;
@@ -2916,7 +2907,7 @@ function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
   const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "avatars/watching.png", "avatars/watching.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "ui/reactions.png", "ui/reactions.json", "ui/moments.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/furniture-v5.png", "furniture/furniture-v5.json", ...WAVE2_FILES, ...WAVE26_FILES, ...DUNGEON_FILES, ...LYING_FILES, "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
-  files.push("presets/presets.json", ...[...PRESETS.map((p) => p.id), ...pendingThumbs()].map((id) => `presets/thumbs/${id}.png`));
+  files.push("presets/presets.json", ...PRESETS.map((p) => p.id).map((id) => `presets/thumbs/${id}.png`));
   let total = 0, lazy = 0;
   for (const f of files) {
     const buf = readFileSync(join(ROOT, f));

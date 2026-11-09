@@ -39,7 +39,7 @@ export const STAGE_DOOR = {
     p("vanity", 0, 9, "se"),
     p("rack", 1, 6, "sw"),
     p("couch", 1, 3, "se", 1),
-    p("wingback", 2, 1, "se"),
+    p("wingback", 2, 5, "se"),
     p("pouf", 3, 2, "se", 1),
     p("minibar", 1, 0, "sw", 1),
     p("neonsign", 2, 0, "sw"),
