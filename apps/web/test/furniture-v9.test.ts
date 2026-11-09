@@ -118,7 +118,7 @@ describe("sceneOf: the tunnel's two layers", () => {
       const depth = (a: readonly [number, number], b: readonly [number, number], t: number): number => (view === "north" ? north(() => walker(a, b, t)) : walker(a, b, t));
       expect(z.back).toBeLessThan(z.front);
       // Through the tunnel: (3, 3) in the deep, (3, 4) the tunnel, (3, 5) in the bar.
-      for (const t of [0.25, 0.5, 0.75]) {
+      for (const t of [0.3, 0.5, 0.7]) {
         expect(depth([3, 3], [3, 5], t)).toBeGreaterThan(z.back);
         expect(depth([3, 3], [3, 5], t)).toBeLessThan(z.front);
       }

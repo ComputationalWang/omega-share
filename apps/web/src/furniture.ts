@@ -34,6 +34,12 @@ const V6_KINDS: ReadonlySet<FurnitureKind> = new Set(["bed", "whirlpool", "mirro
 const V7_KINDS: ReadonlySet<FurnitureKind> = new Set(["sauna", "soaktub", "lounger"]);
 /** Wave 2's pieces (assets/furniture/furniture-v8.json, its own lazy sheet, OME-2069): the wall screens, which also show as a ghosted back from the north. */
 const V8_KINDS: ReadonlySet<FurnitureKind> = new Set(["wallscreen", "projector"]);
+/** Wave 26's pieces (assets/furniture/furniture-v9.json, its own lazy sheet, OME-2442); it also holds the partition's colours 4–7 (`V9_COLOURS`). */
+const V9_KINDS: ReadonlySet<FurnitureKind> = new Set(["stage", "vanity", "rack"]);
+/** The shells skinned from the v9 shell sheet (assets/furniture/furniture-v9-shell.json, OME-2442). */
+const V9_SHELLS: ReadonlySet<RoomShell> = new Set(["stage-door", "reef"]);
+/** A walked-through piece's back sorts this far up the screen from its sort point and its front this far down: the cell's edges on a walk through it, so a walker anywhere in the cell is drawn between the two (the tunnel, OME-2442). */
+const THROUGH_REACH = 8;
 /** The glass partitions (glass, panelglass): at night their pane gets v7's amber mask (assets/README.md "Night pane masks"). */
 const GLASS: ReadonlySet<number> = new Set([1, 3]);
 const PANE_ALPHA = 0.2;
@@ -83,6 +89,10 @@ export const FurnitureManifestSchema = v.object({
           /** An interior wall (OME-1959): its cut-down stub, `furniture/<id>/<colour>/cut/<dir>`, with its own rect and anchor. */
           cut: v.optional(v.boolean()),
           walk: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
+          /** Its `use` loop runs at rest too (ADR 0058 §2; v9, OME-2442). */
+          ambient: v.optional(v.boolean()),
+          /** The colours with a `front` layer over avatars at their sort point, `furniture/<id>/<colour>/<dir>/front` (the tunnel, OME-2442). */
+          frontColours: v.optional(v.array(v.string())),
         }),
       ),
     }),
@@ -124,7 +134,7 @@ export function layoutOf(room: RoomState | null): RoomLayout {
 
 /** True if the layout holds a set (g) piece, i.e. the furniture atlas must load. */
 export function usesSetG(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind) && !V5_KINDS.has(f.kind) && !V6_KINDS.has(f.kind) && !V7_KINDS.has(f.kind) && !V8_KINDS.has(f.kind));
+  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind) && !V5_KINDS.has(f.kind) && !V6_KINDS.has(f.kind) && !V7_KINDS.has(f.kind) && !V8_KINDS.has(f.kind) && !V9_KINDS.has(f.kind));
 }
 
 /** True if the layout holds a catalogue v2 piece, i.e. the v2 sheet must load. */
@@ -142,33 +152,34 @@ export function usesV8(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V8_KINDS.has(f.kind));
 }
 
-/** True if the layout holds a Dank Dungeon piece, i.e. the v6 sheet must load. */
+/** True if the layout holds a Dank Dungeon piece, i.e. the v6 sheet must load; v6 has the partition's first two colours only. */
 export function usesV6(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => V6_KINDS.has(f.kind));
+  return layout.furniture.some((f) => V6_KINDS.has(f.kind) && (f.kind !== "partition" || (f.variant ?? 0) < 2));
 }
 
 /** v7's colours of older kinds (and the tv), `"<id>/<colour>"` → variant; the older sheets keep the lower variants (pinned to furniture-v7.json by a test). */
 export const V7_COLOURS: Readonly<Record<string, number>> = { "mirror/silver": 1, "minibar/fridge": 1, "carpet/oval": 1, "tv/flat": 1, "partition/panel": 2, "partition/panelglass": 3 };
-/** Each older kind's first v7 variant. */
-const V7_FROM = new Map<string, number>();
-for (const [k, n] of Object.entries(V7_COLOURS)) {
-  const id = k.slice(0, k.indexOf("/"));
-  V7_FROM.set(id, Math.min(n, V7_FROM.get(id) ?? n));
-}
+/** v9's colours of older kinds, the same way (pinned to furniture-v9.json by a test, OME-2442). */
+export const V9_COLOURS: Readonly<Record<string, number>> = { "partition/velvet": 4, "partition/wings": 5, "partition/tank": 6, "partition/tunnel": 7 };
+/** `"<kind>/<variant>"` of each table's colours. */
+const variantsOf = (table: Readonly<Record<string, number>>): ReadonlySet<string> => new Set(Object.entries(table).map(([k, n]) => `${k.slice(0, k.indexOf("/"))}/${String(n)}`));
+const V7_VARIANTS = variantsOf(V7_COLOURS);
+const V9_VARIANTS = variantsOf(V9_COLOURS);
+const variantKey = (f: Furniture): string => `${f.kind}/${String(f.variant ?? 0)}`;
 
 /** True if the layout needs the v7 sheet: a v7 kind, an older kind at a v7 variant, the dungeon shell skin, or a glass partition at night (its pane). */
 export function usesV7(layout: RoomLayout): boolean {
-  return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || (f.variant ?? 0) >= (V7_FROM.get(f.kind) ?? Infinity) || glassAtNight(layout, f));
+  return layout.shell === "dungeon" || layout.furniture.some((f) => V7_KINDS.has(f.kind) || V7_VARIANTS.has(variantKey(f)) || glassAtNight(layout, f));
 }
 
-/** v9's partition colours, `"<id>/<colour>"` → variant (OME-2442). */
-export const V9_COLOURS: Readonly<Record<string, number>> = {};
+/** True if the layout holds a wave 26 piece or a v9 colour, i.e. the v9 sheet must load (OME-2442). */
+export function usesV9(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => V9_KINDS.has(f.kind) || V9_VARIANTS.has(variantKey(f)));
+}
 
-/** True if the layout needs the v9 sheet (OME-2442). */
-export const usesV9 = (_layout: RoomLayout): boolean => false;
+/** True if the layout's shell is skinned from the v9 shell sheet (OME-2442). */
+export const usesV9Shell = (layout: RoomLayout): boolean => layout.shell !== undefined && V9_SHELLS.has(layout.shell);
 
-/** True if the layout's shell skin is on the v9 shell sheet (OME-2442). */
-export const usesV9Shell = (_layout: RoomLayout): boolean => false;
 
 /** True if the layout holds a theatre piece, i.e. the v5 sheet must load. */
 export function usesV5(layout: RoomLayout): boolean {
@@ -373,6 +384,8 @@ type Piece = FurnitureManifest["meta"]["omega"]["pieces"][number];
 interface Colour {
   readonly piece: Piece;
   readonly colour: string;
+  /** Its sheet's frames: a piece's turned views may be in its own sheet (v9's stage and dressing table, OME-2442). */
+  readonly frames: FurnitureManifest["frames"];
 }
 
 /**
@@ -384,8 +397,8 @@ interface Colour {
 export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null, back: FurnitureManifest | null = null): Scene {
   // From the north (OME-1961) a piece faces the other way, anchored at its far corner, and wall pieces go with the near walls.
   const north = isNorth();
-  // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's colours of older kinds (V7_COLOURS).
-  const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour }] as const))));
+  // By `<id>/<variant>`: a colour's variant is its index in its sheet, except v7's and v9's colours of older kinds (V7_COLOURS, V9_COLOURS).
+  const pieces = new Map<string, Colour>(manifests.flatMap((m) => m.meta.omega.pieces.flatMap((p) => p.colours.map((colour, n) => [`${p.id}/${String(V7_COLOURS[`${p.id}/${colour}`] ?? V9_COLOURS[`${p.id}/${colour}`] ?? n)}`, { piece: p, colour, frames: m.frames }] as const))));
   const layers = manifests[0]?.meta.omega.layers;
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
@@ -409,7 +422,9 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
     const reflected = north && own === undefined ? piece?.sortByDir[source.facing] : undefined;
     const sort = reflected === undefined ? own : { x: cellCenter(f.col, f.row).x - reflected.x - anchor.x, y: cellCenter(f.col, f.row).y - reflected.y - anchor.y };
     const backKey = (colour: string): string => `furniture/${id}/${colour}/${f.facing}/back`;
-    const fromBack = reflected !== undefined && found !== undefined && back?.frames[backKey(found.colour)] !== undefined;
+    // A turned view: in the back sheet, else in the piece's own.
+    const turned = (key: string): boolean => back?.frames[key] !== undefined || found?.frames[key] !== undefined;
+    const fromBack = reflected !== undefined && found !== undefined && turned(backKey(found.colour));
     const drawn = piece !== undefined && found !== undefined && sort !== undefined && layers !== undefined ? { piece, colour: found.colour, sort, layers } : null;
     const style = spec.lie;
     if (style !== undefined) {
@@ -427,7 +442,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
     if (drawn !== null && fromBack) {
       for (const part of drawn.piece.layersByDir[source.facing] ?? []) {
         const key = `furniture/${id}/${drawn.colour}/${f.facing}/${part}`;
-        if (back.frames[key] !== undefined) sprites.push({ key, x: anchor.x, y: anchor.y, layer: spec.layer, z: depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers[part]) });
+        if (turned(key)) sprites.push({ key, x: anchor.x, y: anchor.y, layer: spec.layer, z: depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers[part]) });
       }
     } else if (drawn !== null) {
       pushSprites(sprites, reflected === undefined ? f : source, i, anchor, drawn, !north);
@@ -468,17 +483,19 @@ function pushSprites(
   const prefix = recolour?.frames ?? `furniture/${piece.id}/${colour}/`;
   const frame = (rest: string): string => (recolour === undefined ? prefix + rest : recolourKey(f.kind, variant, prefix + rest));
   const layer = FURNITURE[f.kind].layer;
+  const through = piece.frontColours?.includes(colour) === true;
+  const reach = through ? THROUGH_REACH : 0;
   for (const part of piece.layersByDir[f.facing] ?? []) {
     out.push({
       key: frame(`${f.facing}/${part}`),
       x: anchor.x,
       y: anchor.y,
       layer,
-      z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
+      z: depth(anchor.x + sort.x, anchor.y + sort.y - reach, layers[part]),
       ...(isScreen(f.kind) ? { screen: true as const } : {}),
       // The loop swaps the back frame in place. An open piece (a door) or a cut one (a partition, OME-1960) has one frame: a state.
       ...(part === "back" && piece.use !== undefined
-        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms, ...(AMBIENT_KINDS.has(f.kind) ? { ambient: true as const } : {}) } }
+        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms, ...(AMBIENT_KINDS.has(f.kind) || piece.ambient === true ? { ambient: true as const } : {}) } }
         : part === "back" && states && (piece.open === true || piece.cut === true)
           ? { use: { piece: index, frames: [frame(`${piece.open === true ? "open" : "cut"}/${f.facing}`)], ms: OPEN_MS } }
           : part === "back" && piece.walk !== undefined
@@ -486,6 +503,7 @@ function pushSprites(
             : {}),
     });
   }
+  if (through) out.push({ key: frame(`${f.facing}/front`), x: anchor.x, y: anchor.y, layer, z: depth(anchor.x + sort.x, anchor.y + sort.y + reach, layers.front) });
 }
 
 function walkerOf(frame: (rest: string) => string, piece: number, home: number, facing: Facing, walk: { readonly frames: number; readonly ms: number }): CatWalker {
