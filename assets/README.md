@@ -2062,3 +2062,84 @@ Ruled out, measured: other zlib strategies and per-row adaptive filters (−75 B
 full PLTE), 1/2/4-bit depth for small palettes (−254 B), sorting frame keys (−1.3 KB), duplicate frames (only a few in
 `furniture-v2`). Every furniture piece is named in the shared catalogue, and hats are looked up for any frame an avatar shows, so
 no frame could be proven unreferenced.
+
+## Rooms wave 26: Stage Door + Reef Tunnel (OME-2440, ADR 0058, lazy)
+
+The shipped set from the OME-2434 concepts (judge PASS 32/40; concept previews `preview/c-wave26-*`). Source: `src/wave26.ts`, same
+palette (no new colours), Kit ray-caster, plum outline and top-left light. Two new lazy sheets in the v8 pattern (tight height, filter
+Up, identical frames deduped to one rect). Everything else that ships is byte-identical.
+
+| file | what | bytes |
+|---|---|---|
+| `furniture/furniture-v9.png` + `.json` (512×755) | `stage/boards`, `vanity/bulbs`, `rack/costumes`, `partition/{velvet,wings,tank,tunnel}`, their loops, the tunnel's front layer, the stage's and vanity's turned views, `meta.omega.recolours` (the bubble column) | 23 645 + 1 852 gz |
+| `furniture/furniture-v9-shell.png` + `.json` (512×453) | club brick and deep-water walls, the split segments, sand and the split floors | 10 032 + 754 gz |
+| `presets/thumbs/stage-door.png`, `reef.png` | the preset thumbs with the rooms' own skins, `compactPalette`d. Shipped ahead of their presets (OME-2441 adds those to `PRESETS`; `presets.test.ts` allows exactly these two until then) | 4 242 + 3 696 |
+| **total** | the build's `art total`: `main` 405 384 → **449 605 B of 460 800** (+44 221; the thumbs 7 938 eager, the rest lazy) | |
+
+**Thumb cap:** all twelve thumbs are 43 488 B of `PRESET_THUMBS_MAX` 49 152 (48 KiB, OME-2439; `src/build.ts` and `src/presets.test.ts`).
+
+**Load:** `furniture-v9` when a layout uses `stage`, `vanity`, `rack` or a partition variant from v9; `furniture-v9-shell` with
+`shell: "stage-door"` or `"reef"` (with v7, v8 and furniture-back: the rooms reuse v7's smoked panel and carpet, v8's projector, tripod,
+wall screen and lava lamp).
+
+### Pieces
+
+| id / colour | label | facings | footprint | loop | notes |
+|---|---|---|---|---|---|
+| `stage/boards` | Stage riser | se sw (+ turned nw ne) | 3×2 | 4 × 300 ms, footlights chase | not walkable; a steady back row of footlights shows in the swapped view |
+| `vanity/bulbs` | Dressing table | se sw (+ turned nw ne) | 1×1, wall-backed | 4 × 300 ms, bulbs twinkle | |
+| `rack/costumes` | Costume rail | se sw | 2×1 | none | the same both sides, no back view |
+| `partition/velvet` | Interior wall | se sw | 1×1 | 4 × 300 ms (the still repeated) | solid drape, symmetric |
+| `partition/wings` | Interior wall | se sw | 1×1 | 4 × 300 ms (the still repeated) | open between plinth and pelmet; a tied-back velvet leg at each cell's +x end holds the pelmet |
+| `partition/tank` | Interior wall | se sw | 1×1 | 4 × 300 ms, fish, kelp, bubbles | see-through water dither |
+| `partition/tunnel` | Interior wall | se sw | 1×1 | 4 × 300 ms | **walkable** (OME-2439); **two layers** |
+
+- **Loops** use the shipped schema (`furniture/<id>/<colour>/use/<dir>/<n>`, n = 0..3, frame 0 = the still, one rect per facing) and
+  `pieces[].ambient: true`. 300 ms is two ticks of the shared 150 ms ambient clock. The v9 `partition` row has `use` for every colour:
+  velvet's and wings' frames are the still four times, aliased to one rect (0 PNG bytes), so the web can treat the row uniformly.
+  Tank and tunnel have 4 distinct frames. The fish move one cell per loop and are drawn at x and x ± 16, so a run of tanks is one
+  stream. v7's `partition` colours (solid … panelglass) have no `use`; key the loop off the v9 row.
+- **Tunnel layers:** `furniture/partition/tunnel/<dir>/back` (+ its `use` frames) holds the water, the cabinet and the **far** ribs;
+  `furniture/partition/tunnel/<dir>/front` holds the **near** ribs and posts, on the same rect and anchor. Draw `front` over avatars at
+  the cell's sort point, as a seat's front layer. The meta says so with **`pieces[].frontColours: ["tunnel"]`** (`layersByDir` stays
+  `["back"]`, true for every colour). `preview/w26-tunnel-walk@*.png` shows an avatar between the two. The swapped view uses the
+  same frames (the near side is always local −y).
+- **No cut stubs** for the v9 colours: both rooms swap the view (they preload furniture-back), so a stub is never needed.
+- **Two-deep loops** now go through `useFrames` like any piece: `kitImage` centres a two-deep model on its footprint as `pieceFrames`
+  does (`anchorOf` in `src/furniture.ts`). No shipped frame moved.
+- **`lavalamp/bubbles`:** a runtime PLTE swap of the v8 lava lamp (pink blobs → glow, navy glass → teal), its loop frames included.
+  The entry is in **`furniture-v9.json` `meta.omega.recolours.lavalamp`**, in `recolours.json`'s shape (sheet `furniture/furniture-v8.png`,
+  frames `furniture/lavalamp/lilac/`, slots, variant 1 `bubbles`), not in `recolours.json`: the web's schema for that file lists the
+  sheets it swaps, and a v8 entry fails its parse. Moving it there later is a one-line change once the web takes v8 (`AMBIENT_RECOLOURS`).
+
+### Shell skin (`furniture-v9-shell`, the room atlas's rects and anchors)
+
+Named by value, as the web's `SKINS` reads them (ADR 0058, `apps/web/src/furniture.ts`), for `<shell>` = `stage-door` and `reef`.
+`back` is the side of the partition line with the smaller index, `front` the other, the same in both views:
+
+- floors `floor/<shell>/<back|split|split/north|front>/<0|1>` (`(col + row) % 2`);
+- walls `wall/<l|r>/<shell>/<back|front>`, plus `split` and `split/north` on the wall the line meets (Stage Door's col 4: the
+  right wall; Reef's row 4: the left wall);
+- edges `wall/corner/<shell>/<back|front>`, `wall/<l|r>/end/<shell>/<back|front>` (no split frame: on the line they wear `front`).
+
+Stage Door: back = the green room (v7's carpet, the plain paper wall), front = the club (planks, rust brick). Reef: back = the deep
+(sand, deep water with a porthole per segment), front = the bar (planks, v7's smoked panel). One frame serves every segment of a
+side, so the brick (16 wide) and the deep's caustics repeat every 16 px. Copies of the carpet, planks, paper and smoke live here
+too: a frame name can only point at its own sheet. The previews use the same keys (`skinShell` in `src/wave26.ts`).
+
+### Judge's polish notes (OME-2434)
+
+| note | done |
+|---|---|
+| kelp not cactus-like | a ribbon that snakes and swells, no stem and no side arms |
+| fish read as fish | lit back + cream belly, an eye, a forked tail; the rust one keeps its cream band |
+| soften the tank dither at 1× | 1 pixel in 16 on a staggered grid (was 1 in 8 on a diagonal), teal near the surface |
+| the pelmet over the wings floats | a tied-back velvet leg at each wings cell's door-side end carries it to the plinth |
+| footlights in the swapped view | a steady back row; the riser reads as a stage from the green room |
+| no seats directly behind the velvet legs | Stage Door's wingback moved (2, 1) → (2, 5); the layout change is OME-2439's |
+
+The tunnel's arch is taller than in the concept (top 66 → 78 units) so a standing avatar fits under it.
+
+Previews: `w26-{stage-door,reef}-{south,north}@1x/@2x.png` + `@1x.apng` (the ambient clock), `w26-tunnel-walk@1x/@2x.png`,
+`w26-loops@2x.png`, `w26-{stage-door,reef}-thumb@3x.png`, `furniture-v9-atlas@2x.png`, `furniture-v9-shell-atlas@2x.png`.
+Quick loop: `W26=1 bun assets/src/build.ts` builds the furniture set, wave 26's sheets and previews, and stops.

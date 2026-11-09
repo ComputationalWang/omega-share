@@ -2065,6 +2065,9 @@ export interface PieceMeta {
   ambient?: true;
   /** Wave 2: wall segments covered from the anchor toward +row (se) / +col (sw). Absent = 1. */
   wallSpan?: number;
+  /** Wave 26 (OME-2440): colours that also ship `furniture/<id>/<colour>/<dir>/front` (the tunnel's near ribs), drawn over avatars
+   *  at the piece's sort point like a seat's front; `layersByDir` lists what every colour has. */
+  frontColours?: string[];
 }
 
 export interface PieceDef {
@@ -2210,14 +2213,7 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir, turned 
   }
   const k = new Kit(dir, turned);
   def.build?.(k, colour, 0);
-  // Move the model so its centre sits on the footprint's centre and the anchor is the footprint's min corner, as the contract
-  // places it (footprintCells). Turned, it spins about its anchor cell; facing se/sw, local +y runs toward −u/−v, so a piece two
-  // cells deep would otherwise stand a cell off its footprint (OME-1999). One-deep and wall pieces already sit right.
-  const fp = swapsAxes(dir) ? { c: def.rows, r: def.cols } : { c: def.cols, r: def.rows };
-  const mid = k.world(8 * (def.cols - 1), 8 * (def.rows - 1));
-  const centre = turned || def.rows > 1;
-  const du = centre ? 8 * (fp.c - 1) - mid.u : 0, dv = centre ? 8 * (fp.r - 1) - mid.v : 0;
-  const AX = CANVAS.ax + 2 * (du - dv), AY = CANVAS.ay + du + dv;
+  const { AX, AY } = anchorOf(def, k, turned);
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);
   const all = [...back, ...front];
@@ -2274,10 +2270,24 @@ export function pieceFrames(def: PieceDef, colour: string, dir: FurnDir, turned 
   return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect), ...(turned ? [] : useFrames(def, colour, dir, rect, true))];
 }
 
+/** Where the anchor goes on CANVAS. Moves the model so its centre sits on the footprint's centre and the anchor is the footprint's
+ *  min corner, as the contract places it (footprintCells). Turned, it spins about its anchor cell; facing se/sw, local +y runs
+ *  toward −u/−v, so a piece two cells deep would otherwise stand a cell off its footprint (OME-1999). One-deep and wall pieces
+ *  already sit right. */
+function anchorOf(def: PieceDef, k: Kit, turned: boolean): { AX: number; AY: number } {
+  const fp = swapsAxes(k.dir) ? { c: def.rows, r: def.cols } : { c: def.cols, r: def.rows };
+  const mid = k.world(8 * (def.cols - 1), 8 * (def.rows - 1));
+  const centre = turned || def.rows > 1;
+  const du = centre ? 8 * (fp.c - 1) - mid.u : 0, dv = centre ? 8 * (fp.r - 1) - mid.v : 0;
+  return { AX: CANVAS.ax + 2 * (du - dv), AY: CANVAS.ay + du + dv };
+}
+
+/** One "in use" frame, on the same anchor as the still (OME-2440: a two-deep piece's loop used to stay where it was built). */
 function kitImage(def: PieceDef, colour: string, dir: FurnDir, n: number, backOnly = false): Uint8Array {
   const k = new Kit(dir);
   def.build?.(k, colour, n);
-  return renderSolids(k.parts.filter((p) => !(backOnly && p.front)).map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+  const { AX, AY } = anchorOf(def, k, false);
+  return renderSolids(k.parts.filter((p) => !(backOnly && p.front)).map((p) => p.solid), CANVAS.w, CANVAS.h, AX, AY, "all").img;
 }
 
 /** The "in use" loop of a back-only piece, cut to the idle frame's rect (so one anchor), checked to move only inside it. */

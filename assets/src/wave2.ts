@@ -515,7 +515,7 @@ const screenXY = (u: number, v: number, z: number): { x: number; y: number } => 
 /** The projector's light: a sparse dither of the glow highlight from the lens to the cloth's four corners (not over the cloth),
  *  only where `bare` (the room without its standing pieces and avatars) shows, so it starts at the lens and passes behind seats and
  *  sitters. The web draws it once as a cached Graphics under the object layer, never per frame. */
-function beam(img: Uint8Array, bare: Uint8Array, W: number, H: number, pj: Placement, screen: { col: number; row: number; dir: FurnDir }): void {
+function beam(img: Uint8Array, bare: Uint8Array, W: number, H: number, pj: Placement, screen: { col: number; row: number; dir: FurnDir }, every: number): void {
   const k = new Kit(pj.dir);
   const lw = k.world(-1.5, PJ.lensY - 0.5);
   const lens = screenXY(16 * pj.col + lw.u, 16 * pj.row + lw.v, PJ.Zb + 2.5);
@@ -544,16 +544,17 @@ function beam(img: Uint8Array, bare: Uint8Array, W: number, H: number, pj: Place
     if (p === hull[0]) break;
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if ((x + 2 * y) % 4 !== 0 || img[y * W + x] !== bare[y * W + x] || !inside(hull, x + 0.5, y + 0.5) || inside(quad, x + 0.5, y + 0.5)) continue;
+    if ((x + 2 * y) % every !== 0 || img[y * W + x] !== bare[y * W + x] || !inside(hull, x + 0.5, y + 0.5) || inside(quad, x + 0.5, y + 0.5)) continue;
     img[y * W + x] = c("glow", 0);
   }
 }
-function beamFor(d: Wave2Deps, pieces: readonly PieceMeta[], plan: RoomPlan): ((img: Uint8Array, W: number, H: number) => void) | undefined {
+/** `every`: one beam pixel in that many along a row. */
+export function beamFor(d: Wave2Deps, pieces: readonly PieceMeta[], plan: RoomPlan, every = 4): ((img: Uint8Array, W: number, H: number) => void) | undefined {
   const pj = plan.placements.find((p) => p.id === "tripod"), sc = plan.placements.find((p) => p.id === "projector");
   if (!pj || !sc) return undefined;
   const flat = (p: Placement): boolean => pieces.find((m) => m.id === p.id)?.layer !== "object"; // rugs and wall pieces take the light
   const bare = d.compose(pieces, d.all, { ...plan, placements: plan.placements.filter(flat), standing: [] }).img;
-  return (img, W, H) => { beam(img, bare, W, H, pj, sc); };
+  return (img, W, H) => { beam(img, bare, W, H, pj, sc, every); };
 }
 
 function blit(img: Uint8Array, W: number, H: number, all: FurnSprites, key: string, c0: number, r: number, ghost = false): void {
