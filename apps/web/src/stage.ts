@@ -10,7 +10,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import { createReactionGlyphs } from "./reactions/glyphs";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { cutaway, doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesV8Shell, usesBack, viewVerdict } from "./furniture";
+import { cutaway, doorAt, layoutOf, seatFacings as facingsOf, piecesInUse, sceneKey as keyOfLayout, sceneOf, seatPoints, seatTiles, standDepth, standingPoints, usesSetG, usesV2, usesV4, usesV5, usesV6, usesV7, usesV8, usesV8Shell, usesV9, usesV9Shell, usesBack, viewVerdict } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import type { RecolourSheets } from "./recolour-sheets";
 import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
@@ -478,6 +478,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let v8Atlas: FurnitureAtlas | null = null;
   /** The penthouse and studio shell skins once loaded (OME-2455). */
   let v8ShellAtlas: FurnitureAtlas | null = null;
+  /** Rooms wave 26's v9 atlas and its shell skins once loaded (OME-2442). */
+  let v9Atlas: FurnitureAtlas | null = null;
+  let v9ShellAtlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
   /** The new colours' sheet copies (OME-1463), once a layout used one; `recolouring` names the copies asked for. */
@@ -509,9 +512,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, v8ShellAtlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    const catalogues = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, v8ShellAtlas, v9Atlas, v9ShellAtlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null, backAtlas?.manifest ?? null);
-    const sheets = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, v8ShellAtlas, backAtlas, roomAtlas, recolours];
+    const sheets = [atlas, v2Atlas, v4Atlas, v5Atlas, v6Atlas, v7Atlas, v8Atlas, v8ShellAtlas, v9Atlas, v9ShellAtlas, backAtlas, roomAtlas, recolours];
     view.setScene(scene, sheets, grid);
     drawnSeats = undefined;
     screens = screenBoxes(scene.sprites, (key) => {
@@ -647,6 +650,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
     if (usesV8Shell(next) && v8ShellAtlas === null) {
       lazyAtlas("furniture v8 shell", key, next, () => import("./furniture-v8-shell-atlas").then((m) => m.loadFurnitureV8ShellAtlas()), (a) => (v8ShellAtlas = a));
+    }
+    if (usesV9(next) && v9Atlas === null) {
+      lazyAtlas("furniture v9", key, next, () => import("./furniture-v9-atlas").then((m) => m.loadFurnitureV9Atlas()), (a) => (v9Atlas = a));
+    }
+    if (usesV9Shell(next) && v9ShellAtlas === null) {
+      lazyAtlas("furniture v9 shell", key, next, () => import("./furniture-v9-shell-atlas").then((m) => m.loadFurnitureV9ShellAtlas()), (a) => (v9ShellAtlas = a));
     }
     if (usesBack(next) && backAtlas === null) {
       lazyAtlas("furniture back", key, next, () => import("./furniture-back-atlas").then((m) => m.loadFurnitureBackAtlas()), (a) => (backAtlas = a));

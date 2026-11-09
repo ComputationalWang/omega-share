@@ -996,6 +996,26 @@ describe("animator: ambient loops", () => {
     s.frame(0);
     expect(s.timers.at(-1)?.ms).toBe(150);
   });
+
+  test("Reef's partition loops (OME-2442): nine 300 ms loops swap together, one render per 150 ms tick at most", () => {
+    const s = setup({ smooth: () => true });
+    s.anim.setLoops(Array.from({ length: 9 }, () => ({ frames: 4, ms: 300, ambient: true })));
+    let t = 0;
+    s.frame(t);
+    const before = s.renders();
+    while (t < 3000) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      t += timer.ms;
+      expect(t % 150).toBe(0);
+      s.timers.length = 0;
+      timer.fn();
+      s.frame(t);
+    }
+    expect(t).toBeGreaterThanOrEqual(3000);
+    expect(s.renders() - before).toBeLessThanOrEqual(3000 / 150);
+    expect(new Set(s.loopDraws.filter(([i]) => i === 8).map(([, f]) => f))).toEqual(new Set([0, 1, 2, 3]));
+  });
 });
 
 // OME-1425: a door's open frame is a one-frame loop: a state (someone stands there), not motion.

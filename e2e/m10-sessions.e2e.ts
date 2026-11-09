@@ -275,6 +275,33 @@ test("two tabs with one token: only one member; the older tab says the session m
   await expect(obs.page.locator(site.peopleRow).filter({ hasText: "ana" })).toHaveCount(1);
 });
 
+// OME-2429: a second tab of the same browser, entering under the same name, isn't told the name is taken: it's you.
+test("a second tab under the same name says the room is open in another tab, and Use this tab moves the member", async ({ browser }) => {
+  const room = testRoom("m10-sessions", "twotabs");
+  const ana = await open(browser, room.url, "ana", undefined, false);
+  const obs = await open(browser, room.url, "obs");
+  const before = (await seen(ana.page)).self;
+  const second = await ana.context.newPage();
+  await second.goto(room.url);
+  await second.locator(site.nicknameInput).fill("ana");
+  await second.locator(site.joinButton).click();
+  const card = second.locator(site.roomRefused);
+  await expect(card).toHaveAttribute("data-code", "open_elsewhere");
+  await expect(card).toContainText("This room is open in another tab");
+  // OME-2459: the gate's "already has that name" notice doesn't stay over it: it's you, not someone else.
+  await expect(second.getByTestId("room-notice")).toBeHidden();
+  const use = second.locator(site.roomRefusedAction);
+  await expect(use).toHaveText("Use this tab");
+  await expect(use).toBeFocused();
+  await expect(second.locator(site.panelTabs)).toBeHidden();
+
+  await use.click();
+  await expect(second.locator(site.room)).toBeVisible();
+  expect((await seen(second)).self).toBe(before);
+  await expect(ana.page.getByTestId("room-replaced")).toBeVisible();
+  await expect(obs.page.locator(site.peopleRow).filter({ hasText: "ana" })).toHaveCount(1);
+});
+
 // OME-1967: Leave, top-left of the room bar. OME-2105 (ADR 0043 amendment 3): it can be undone. The landing shows a
 // "You left … Rejoin" chip for 10 s and the server holds the seat as for a closed tab, so Rejoin is back in the same seat.
 for (const phone of [true, false]) {
@@ -315,6 +342,8 @@ for (const phone of [true, false]) {
     await expect(ana.page).toHaveURL(`${URLS.web}/`);
     const chip = ana.page.locator(site.rejoinChip);
     await expect(chip).toBeVisible();
+    // Focus starts on Rejoin, not on <body> (OME-2429).
+    await expect(chip.getByRole("button", { name: "Rejoin" })).toBeFocused();
     await expect(chip).toContainText("You left");
     // The room settles on the landing (the public list included) with nothing moving.
     await expect(ana.page.locator(site.publicRooms)).toHaveAttribute("aria-busy", "false");
@@ -349,6 +378,8 @@ test("the Rejoin chip goes after 10 s and leaves nothing of the room in storage"
   await expect(ana.page).toHaveURL(`${URLS.web}/`);
   await expect(ana.page.locator(site.rejoinChip)).toBeVisible();
   await expect(ana.page.locator(site.rejoinChip)).toHaveCount(0, { timeout: 15_000 });
+  // It held focus till then: focus moves to the page's heading, not <body> (OME-2429).
+  await expect(ana.page.locator("#directory-title")).toBeFocused();
   // The profile and the room secrets stay as before Leave; no session, hand-off, share or chip record does.
   const keys = await ana.page.evaluate(() => [...Object.keys(sessionStorage), ...Object.keys(localStorage)]);
   expect(keys.filter((k) => k.includes(room.id) || k === "omega.left" || k === "omega.share")).toEqual([]);

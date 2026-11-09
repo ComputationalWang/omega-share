@@ -20,7 +20,8 @@ export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
 export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked" | "not-found" | "replaced";
 
 /** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. A refused invite is `not-found`. */
-export type Refusal = "nickname_taken" | "too_many_members" | "resume_expired";
+/** `open_elsewhere` is web-only: a taken name that is this browser's other tab (tab-presence.ts, OME-2429). */
+export type Refusal = "nickname_taken" | "too_many_members" | "resume_expired" | "open_elsewhere";
 
 export interface Bubble {
   /** The message's own key, rising for the life of the page (OME-809): the stage hands each id to the floats once. */
@@ -100,6 +101,8 @@ export type ViewEvent =
   | { readonly type: "replaced" }
   /** The user pressed "Return here" after `replaced`. */
   | { readonly type: "reclaim" }
+  /** Another tab of this browser is in the room under our name (tab-presence.ts, OME-2429). */
+  | { readonly type: "open-elsewhere" }
   /** I voted for `option` of poll `pollId` (the vote went out). */
   | { readonly type: "voted"; readonly pollId: PollId; readonly option: number };
 
@@ -398,6 +401,9 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "replaced" };
     case "reclaim":
       return state.status === "replaced" ? { ...state, status: "connecting" } : state;
+    case "open-elsewhere":
+      // The name isn't someone else's: its notice goes too (OME-2459).
+      return state.status === "refused" && state.refusal === "nickname_taken" ? { ...state, refusal: "open_elsewhere", lastError: null } : state;
     case "hide": {
       const kept = state.bubbles.filter((b) => b.memberId !== event.memberId);
       return kept.length === state.bubbles.length ? state : { ...state, bubbles: kept };

@@ -3,7 +3,7 @@
 // and destroys nothing. Each node is three elements: the outer one rides the speaker's head (`move`, on every walk frame,
 // a transform write only); a bare wrapper inside it carries the push, the rise and the fade (restyling it is cheap: no
 // rules, no tail, no custom properties); the bubble itself is only written when a message lands or it stacks. Overlap
-// is resolved once per frame that brings sizes and once per walk end (`settle`), never per walk frame: newest nearest
+// is resolved once per frame that brings sizes, once per walk end (`settle`) and when the still tags move, never per walk frame: newest nearest
 // the heads, an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker.
 // `.is-live` marks a bubble sized and placed (no style hangs on it: a hook for tests and QA).
 // OME-802 (ADR 0040): no CSS animation, and nothing here reads layout. Blink restyles every running CSS animation on
@@ -201,6 +201,16 @@ interface Slot {
 }
 
 const px = (n: number): string => `${String(n)}px`;
+
+/** The same tags in the same places: a members render that moved none re-resolves nothing. */
+function sameBoxes(a: ReadonlyMap<MemberId, Box>, b: ReadonlyMap<MemberId, Box>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [id, x] of a) {
+    const y = b.get(id);
+    if (x.x0 !== y?.x0 || x.x1 !== y.x1 || x.y0 !== y.y0 || x.y1 !== y.y1) return false;
+  }
+  return true;
+}
 
 export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   layer.setAttribute("aria-hidden", "true");
@@ -695,7 +705,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         w.x = x;
         w.y = y;
       }
-      for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, x, y);
+      for (const s of slots) {
+        if (s.state === FREE || s.speaker !== id) continue;
+        anchor(s, x, y);
+        // Carried past the stage's side, the box is clamped again (OME-2459); elsewhere it keeps its offset till the walk ends.
+        const left = Math.round(x) + s.dx;
+        if (s.measured && (left < sideL + MARGIN || left + s.w * k > sideR - MARGIN)) placeBox(s);
+      }
     },
     settle(id, x, y) {
       let any = false;
@@ -726,8 +742,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       resolve();
     },
     tags(boxes) {
-      // Seen at the next resolve (a line, a walk's end): a tag that moves under a bubble already up doesn't push it.
+      if (sameBoxes(boxes, tagBoxes)) return;
       tagBoxes = boxes;
+      // A tag that settles under a bubble already up lifts it (or sends it away) now, not at the next line (OME-2459).
+      if (slots.some((s) => s.state === LIVE && s.measured)) resolve();
     },
     scale(next) {
       if (next === k) return;

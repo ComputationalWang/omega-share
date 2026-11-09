@@ -18,7 +18,7 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "provider-generic-sync": ["main"],
   "room-view": ["main"],
-  "view-swap": ["main", "drawn"],
+  "view-swap": ["main", "drawn", "col"],
   "view-swap-perf": ["frames"],
   "wall-screen": ["north"],
   "tag-clusters": ["busy", "seated", "painted", "names-desk", "names-phone"],
@@ -66,7 +66,7 @@ export const SPEC_ROOMS = {
   "m10-portrait": ["360", "390", "people360", "people390", "qrow360", "qrow412"],
   "landscape-phone": ["l932", "l844", "l667", "q932", "q844", "q667", "notch", "twitch", "tvshelf", "tliveshelf", "vshelf", "vhourshelf", "f844", "f740", "w844", "p844", "n844", "v844", "a915", "a863", "burst915"],
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
-  "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs", "reopen", "leavephone", "leavedesk", "leavechip"],
+  "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs", "reopen", "leavephone", "leavedesk", "leavechip", "twotabs"],
   "m10-a11y": ["dock360", "dock390", "fs", "away", "moved", "fullq"],
   "a11y-sweep": ["w1280", "p390", "l844", "n320", "t768", "t1366", "t1024", "d1920"],
   "tablet-layout": ["t768", "t1024"],
@@ -92,7 +92,7 @@ export const SPEC_ROOMS = {
   "reaction-safety": ["shape", "big", "flood", "start"],
   "room-clip": ["idle1280", "idlepixel7", "idleland7", "idleme7", "studio", "penthouse", "slow1280", "boot1280", "shown1280", "play1280", "playstudio", "playpenthouse", "playpixel7", "hint7", "hintplay7"],
   // 20 members in the cinema, seeded with the preset so the theatre rows' seats are the server's (OME-2428).
-  crowd: ["cinema", "phone"],
+  crowd: ["cinema", "phone", "random", "studio"],
   rpolish: ["c1280", "c1920", "c2560", "d1280", "d1920", "d2560", "f1024", "f1366", "f1280", "e1280", "e1920", "e2560", "w320", "w360", "w1280", "p320", "p360", "p390", "t320", "t390", "m1024", "foot390", "nightdim", "fsband412"],
 } as const;
 

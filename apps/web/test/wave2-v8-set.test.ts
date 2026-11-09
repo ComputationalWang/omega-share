@@ -66,13 +66,14 @@ describe("v8 colours of older kinds (V8_COLOURS)", () => {
     for (const [kind, variant] of [["sidetable", 0], ["barcounter", 0], ["speaker", 1]] as const) expect(usesV8(only({ kind, col: 3, row: 3, facing: "se", variant }))).toBe(false);
   });
 
-  test("each draws its v8 frame with its ambient loop; the older sheets keep the lower variants", () => {
+  test("each draws its v8 frame; its loop runs in use only (not at rest, QA OME-2457); the older sheets keep the lower variants", () => {
     const at = (kind: Furniture["kind"], variant: number): Scene["sprites"][number] | undefined => backOf(sceneOf(only({ kind, col: 3, row: 3, facing: "se", variant }), [manifest, v2, v4, v8]), `furniture/${kind}/`);
     expect(at("sidetable", 1)?.key).toBe("furniture/sidetable/mug/se/back");
     expect(at("barcounter", 1)?.key).toBe("furniture/barcounter/espresso/se/back");
     expect(at("barcounter", 2)?.key).toBe("furniture/barcounter/kitchen/se/back");
     expect(at("speaker", 2)?.key).toBe("furniture/speaker/jukebox/se/back");
-    expect(at("speaker", 2)?.use?.ambient).toBe(true);
+    expect(at("speaker", 2)?.use?.frames).toHaveLength(4);
+    expect(at("speaker", 2)?.use?.ambient).toBeUndefined();
     expect(at("speaker", 1)?.key).toBe("furniture/speaker/teal/se/back");
     expect(at("sidetable", 0)?.key).toBe("furniture/sidetable/wood/se/back");
   });

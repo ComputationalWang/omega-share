@@ -162,7 +162,8 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await page.locator(site.queueUrl).fill(`https://youtu.be/${firstVideo}`);
     await page.locator(site.queueAdd).click();
     await expect(page.locator(site.sharedVideo)).toBeVisible();
-    // The Add that started the TV handed the panel back to Chat (OME-2348): Up next again for the next one.
+    // The Add that started the TV handed the panel back to Chat (OME-2348), and focus to the Up next key (OME-2429).
+    await expect(page.getByRole("tab", { name: "Up next", exact: true })).toBeFocused();
     await page.getByRole("tab", { name: "Up next", exact: true }).click();
     await page.locator(site.queueUrl).fill(`https://youtu.be/${nextVideo}`);
     await page.locator(site.queueAdd).click();

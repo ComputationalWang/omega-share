@@ -20,6 +20,8 @@ export interface RoomCardsOptions {
   readonly leave: () => void;
   /** "Return here" on the replaced card. */
   readonly reclaim: () => void;
+  /** "Use this tab" when the room is open in another tab of this browser (OME-2429). */
+  readonly useThisTab: () => void;
 }
 
 export interface RoomCards {
@@ -32,7 +34,14 @@ export interface RoomCards {
 
 export function createRoomCards(o: RoomCardsOptions): RoomCards {
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
-  full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
+  // Never a dead end (OME-2429): the same room again, or another one.
+  const fullRetry = el("a", { className: "enter", href: location.pathname, textContent: "Try again" }, "room-full-retry");
+  full.append(
+    el("h2", { textContent: "This room is full" }),
+    el("p", { textContent: "Try again in a little while." }),
+    fullRetry,
+    el("a", { className: "enter secondary", href: "/", textContent: "Find a room" }),
+  );
   // Refused join (nickname_taken, too_many_members, invite_required): the connection has stopped. Back to the landing to retry.
   const refused = el("div", { className: "room-full", hidden: true }, "room-refused");
   const refusedTitle = el("h2");
@@ -40,6 +49,12 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
   const refusedAction = el("a", { className: "enter", href: location.pathname }, "room-refused-action");
   refused.append(refusedTitle, refusedBody, refusedAction);
   let shownRefusal: Refusal | null = null;
+  // Open in another tab: the key takes the session over here instead of reloading into the same refusal.
+  refusedAction.addEventListener("click", (ev) => {
+    if (shownRefusal !== "open_elsewhere") return;
+    ev.preventDefault();
+    o.useThisTab();
+  });
   // 4004: the room was deleted or collected; 4006: the operators took it down after a report (ADR 0033 §6). The connection
   // has stopped; nothing here can bring it back.
   const closed = el("div", { className: "room-full", hidden: true }, "room-closed");
@@ -60,6 +75,7 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
   const rejoinIcon = el("span", { className: "ui-sprite ui-wait", ariaHidden: "true" });
   const rejoinText = el("span");
   const rejoin = el("button", { type: "button", className: "ui-button" }, "room-kicked-rejoin");
+  const kickedFind = el("a", { className: "enter secondary", href: "/", textContent: "Find a room" });
   rejoin.append(rejoinIcon, rejoinText);
   rejoin.addEventListener("click", () => {
     if (rejoin.getAttribute("aria-disabled") !== "true") location.reload();
@@ -69,7 +85,7 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
     kickedTitle,
     kickedBody,
     rejoin,
-    el("a", { className: "enter secondary", href: "/", textContent: "Find a room" }),
+    kickedFind,
   );
   // 4007 (ADR 0043): this session went on in another tab. Nothing reconnects by itself; "Return here" takes it back.
   const replacedCard = el("div", { className: "room-full", hidden: true }, "room-replaced");
@@ -106,7 +122,11 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
       // A room this browser held keys for that no longer lets us in: nothing left to keep.
       forgetRoom(o.secrets, o.roomId);
     }
-    full.hidden = !shown.full;
+    // Each card takes focus as it comes: what held it went with the room (OME-2429).
+    if (full.hidden === shown.full) {
+      full.hidden = !shown.full;
+      if (shown.full) fullRetry.focus({ preventScroll: true });
+    }
     refused.hidden = shown.refused === null;
     const isReplaced = s.status === "replaced";
     if (replacedCard.hidden === isReplaced) {
@@ -115,7 +135,11 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
     }
     if (kicked.hidden === shown.kicked) {
       kicked.hidden = !shown.kicked;
-      if (shown.kicked) renderKicked(s.kickedUntil);
+      if (shown.kicked) {
+        renderKicked(s.kickedUntil);
+        // Rejoin waits out the cooldown; Find a room works now.
+        kickedFind.focus({ preventScroll: true });
+      }
     }
     const isClosed = shown.closed !== false;
     if (closed.hidden === isClosed) {
@@ -144,6 +168,7 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
         refusedBody.textContent = card.body;
         refusedAction.textContent = card.action;
         refused.dataset["code"] = shown.refused;
+        refusedAction.focus({ preventScroll: true });
       }
     }
   };

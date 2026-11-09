@@ -10,7 +10,7 @@ import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
 import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
 import { TEST_ROOM_IDS, testRoomId } from "../support/test-rooms";
-import { PADS, SET_G, doorTo } from "./layouts";
+import { PADS, SET_G, STAGE_DOOR, doorTo } from "./layouts";
 
 const [path, flag] = process.argv.slice(2);
 const lobbyOnly = flag === "--lobby-only";
@@ -22,10 +22,14 @@ const store = new RoomStore(db);
 // Rooms whose layout the test needs on the server itself, not only in the snapshot: teleport pads, two doors to each other.
 const DUNGEON = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/dank-dungeon.json", import.meta.url), "utf8")));
 const CINEMA = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/cinema.json", import.meta.url), "utf8")));
+const STUDIO = v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL("../../assets/presets/studio.json", import.meta.url), "utf8")));
 const SEEDED_LAYOUTS = new Map([
   // A crowd on the theatre rows' seats (OME-2428).
   [testRoomId("crowd", "cinema"), CINEMA],
   [testRoomId("crowd", "phone"), CINEMA],
+  // The same crowd standing at random spots (OME-2459).
+  [testRoomId("crowd", "random"), CINEMA],
+  [testRoomId("crowd", "studio"), STUDIO],
   [testRoomId("teleport", "pads"), PADS],
   // Sofas and a couch (the sofa at layout index 2 is seats 0-1), for lying down (OME-1691).
   [testRoomId("lie", "sofa"), SET_G],
@@ -36,6 +40,8 @@ const SEEDED_LAYOUTS = new Map([
   // The whole preset for the 180° view swap (OME-1961).
   [testRoomId("view-swap", "main"), DUNGEON],
   [testRoomId("view-swap", "drawn"), DUNGEON],
+  // Stage Door's column line (OME-2442).
+  [testRoomId("view-swap", "col"), STAGE_DOOR],
   [testRoomId("view-swap-perf", "frames"), DUNGEON],
   // The preset with a wall screen (span 2, segments 3-4 of the left wall, not the fixtures 5, 6, 8) in place of its TV: the swapped view's ghost (OME-2069).
   [testRoomId("wall-screen", "north"), { ...DUNGEON, furniture: DUNGEON.furniture.map((f) => (f.kind === "tv" ? { kind: "wallscreen" as const, col: 0, row: 3, facing: "se" as const } : f)) }],

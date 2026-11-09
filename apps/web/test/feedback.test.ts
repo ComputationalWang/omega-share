@@ -28,6 +28,16 @@ describe("refusalCard (placeholder until the set (f) chrome, OME-193)", () => {
   });
 });
 
+describe("refusalCard open_elsewhere (OME-2429)", () => {
+  test("the name is taken by this browser's other tab: say so and offer this tab", () => {
+    expect(refusalCard("open_elsewhere")).toEqual({
+      title: "This room is open in another tab",
+      body: "You're already in this room in another tab of this browser. Use this tab instead, and the other one lets go.",
+      action: "Use this tab",
+    });
+  });
+});
+
 describe("refusalCard resume_expired (ADR 0043)", () => {
   test("a session that ended while away sends the user back to the ordinary Enter", () => {
     expect(refusalCard("resume_expired")).toEqual({

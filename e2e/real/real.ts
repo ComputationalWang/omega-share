@@ -132,9 +132,11 @@ export async function waitVideoPlaying(frame: Frame, timeout = 30_000): Promise<
   await expect
     .poll(async () => {
       const s = await sampleVideo(frame);
-      return s !== null && !s.paused && !s.ad && s.currentTime > 0.5;
+      if (s !== null && !s.paused && !s.ad && s.currentTime > 0.5) return "playing";
+      // YouTube's own "Something went wrong" names a provider-side stop (OME-2453), not a sync bug.
+      return s?.errorText ? `not playing, YouTube says: ${s.errorText}` : "not playing";
     }, { timeout, intervals: [250], message: "real video playing" })
-    .toBe(true);
+    .toBe("playing");
 }
 
 /** Least-squares slope of y over x. */
