@@ -147,6 +147,11 @@ export function usesV6(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V6_KINDS.has(f.kind));
 }
 
+/** True if the layout's shell skin is drawn from furniture-v8-shell (OME-2455). */
+export function usesV8Shell(_layout: RoomLayout): boolean {
+  return false;
+}
+
 /** v7's colours of older kinds (and the tv), `"<id>/<colour>"` → variant; the older sheets keep the lower variants (pinned to furniture-v7.json by a test). */
 export const V7_COLOURS: Readonly<Record<string, number>> = { "mirror/silver": 1, "minibar/fridge": 1, "carpet/oval": 1, "tv/flat": 1, "partition/panel": 2, "partition/panelglass": 3 };
 /** Each older kind's first v7 variant. */

@@ -214,24 +214,24 @@ describe("sceneOf: the generic partition split (OME-2070, ADR 0058)", () => {
   });
 
   test("a column of partitions splits on its col: the right wall carries the split, the shell's frames are named by its value", () => {
-    const layout: RoomLayout = { ...one({ kind: "partition", col: 6, row: 2, facing: "se" }, { kind: "partition", col: 6, row: 4, facing: "se" }), shell: "penthouse" };
+    const layout: RoomLayout = { ...one({ kind: "partition", col: 6, row: 2, facing: "se" }, { kind: "partition", col: 6, row: 4, facing: "se" }), shell: "reef" };
     const frame = { frame: { x: 0, y: 0, w: 1, h: 1 }, anchor: { x: 0, y: 0 } };
-    const art = { ...v7, frames: { ...v7.frames, "floor/penthouse/front/0": frame } };
+    const art = { ...v7, frames: { ...v7.frames, "floor/reef/front/0": frame } };
     const s = sceneOf(layout, [art], room);
-    expect(keyAt(s, 5, 8, "floor/")).toBe("floor/penthouse/back/1");
-    expect(keyAt(s, 6, 8, "floor/")).toBe("floor/penthouse/split/0");
-    expect(keyAt(s, 7, 8, "floor/")).toBe("floor/penthouse/front/1");
-    expect(keyAt(s, 6, 0, "wall/r/")).toBe("wall/r/penthouse/split");
-    expect(keyAt(s, 7, 0, "wall/r/")).toBe("wall/r/penthouse/front");
-    expect(keyAt(s, 0, 9, "wall/l/")).toBe("wall/l/penthouse/back");
-    for (const k of ["wall/corner/penthouse/back", "wall/l/end/penthouse/back", "wall/r/end/penthouse/front"]) expect(shellKeys(s)).toContain(k);
+    expect(keyAt(s, 5, 8, "floor/")).toBe("floor/reef/back/1");
+    expect(keyAt(s, 6, 8, "floor/")).toBe("floor/reef/split/0");
+    expect(keyAt(s, 7, 8, "floor/")).toBe("floor/reef/front/1");
+    expect(keyAt(s, 6, 0, "wall/r/")).toBe("wall/r/reef/split");
+    expect(keyAt(s, 7, 0, "wall/r/")).toBe("wall/r/reef/front");
+    expect(keyAt(s, 0, 9, "wall/l/")).toBe("wall/l/reef/back");
+    for (const k of ["wall/corner/reef/back", "wall/l/end/reef/back", "wall/r/end/reef/front"]) expect(shellKeys(s)).toContain(k);
     setNorth(true);
     try {
       const n = sceneOf(layout, [art], room);
-      expect(keyAt(n, 3, 8, "floor/")).toBe("floor/penthouse/split/north/1");
-      expect(keyAt(n, 3, 0, "wall/r/")).toBe("wall/r/penthouse/split/north");
-      expect(keyAt(n, 2, 0, "wall/r/")).toBe("wall/r/penthouse/front");
-      expect(keyAt(n, 0, 0, "wall/l/")).toBe("wall/l/penthouse/front");
+      expect(keyAt(n, 3, 8, "floor/")).toBe("floor/reef/split/north/1");
+      expect(keyAt(n, 3, 0, "wall/r/")).toBe("wall/r/reef/split/north");
+      expect(keyAt(n, 2, 0, "wall/r/")).toBe("wall/r/reef/front");
+      expect(keyAt(n, 0, 0, "wall/l/")).toBe("wall/l/reef/front");
     } finally {
       setNorth(false);
     }

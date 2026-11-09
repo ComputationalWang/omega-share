@@ -66,16 +66,15 @@ test("the stage and the vanity ship their turned views for the swap", () => {
   for (const k of ["stage/boards/nw", "stage/boards/ne", "vanity/bulbs/nw", "vanity/bulbs/ne"]) expect(byKey.has(`furniture/${k}/back`)).toBe(true);
 });
 
-test("the lava lamp's bubbles is variant 1, a PLTE swap on the v8 sheet listed in v9's meta; recolours.json is left alone", () => {
+test("the lava lamp's bubbles is variant 1, a PLTE swap on the v8 sheet, in recolours.json now the web takes v8 (OME-2455) and still in v9's meta", () => {
   const read = (f: string): unknown => JSON.parse(readFileSync(join(ROOT, f), "utf8"));
   const v9 = read("furniture/furniture-v9.json") as { meta: { omega: { recolours?: Record<string, { sheet: string; frames: string; variants: { variant: number; id: string }[] }> } } };
   const lamp = v9.meta.omega.recolours?.["lavalamp"];
   expect(lamp?.sheet).toBe("furniture/furniture-v8.png");
   expect(lamp?.frames).toBe("furniture/lavalamp/lilac/");
   expect(lamp?.variants.map((v) => [v.variant, v.id])).toEqual([[1, "bubbles"]]);
-  // The web's recolours.json schema lists the sheets it swaps; a v8 entry there would fail its parse (CI, PR #997).
   const table = recoloursTable() as { kinds: Record<string, unknown> };
-  expect(Object.keys(table.kinds)).not.toContain("lavalamp");
+  expect(table.kinds["lavalamp"]).toEqual(lamp);
   expect(read("furniture/recolours.json")).toEqual(JSON.parse(JSON.stringify(table)));
 });
 
