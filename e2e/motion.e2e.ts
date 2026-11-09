@@ -87,6 +87,22 @@ test("Enter shows its press slice on pointerdown, at 0 ms, and keeps it while th
   await context.close();
 });
 
+test("a held panel tab shows tab/press, the selected one too (OME-2477)", async ({ browser }) => {
+  const room = testRoom("motion", "tab-press");
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "tabpress",
+    contextOptions: () => ({ viewport: { width: 1280, height: 800 } }) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("No client");
+  for (const name of ["Chat", "Up next"]) {
+    const tab = page.getByRole("tab", { name, exact: true });
+    await tab.hover();
+    await page.mouse.down();
+    expect(await tab.evaluate((e) => getComputedStyle(e).borderImageSource), name).toContain("tab-press");
+    await page.mouse.up();
+  }
+  await expect(page.getByRole("tab", { name: "Up next", exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
 test("a room key shows -press on pointerdown; tab content enters by opacity + transform in 140 ms; nothing animates layout", async ({ browser }) => {
   const room = testRoom("motion", "desk");
   clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "motion",
