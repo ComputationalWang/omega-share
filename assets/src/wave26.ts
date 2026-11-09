@@ -72,21 +72,14 @@ function velvetWall(k: Kit): void {
   pelmet(k);
 }
 /** The wings: open between a black stage plinth (a brass edge) and the pelmet, so a run of them is a row of openings onto the other
- *  room. A black masking leg (a soft flat over a third of the cell) (darker than the velvet drape, so wings and velvet read as two partitions), tied back with a
+ *  room. A slim black masking leg (darker than the velvet drape, so wings and velvet read as two partitions), tied back with a
  *  gold cord, at each cell's leading end (+x, toward the stage door) carries the pelmet
  *  down to the plinth, so the run's last cell by the door doesn't leave the pelmet hanging in the air (judge's note). */
 function velvetWings(k: Kit): void {
   k.box(-8, 8, -T, T, 0, 7, "charcoal", { paint: (p, f) => (f === "top" ? ["charcoal", 0] : p.z > 4.5 ? ["mustard", 2] : ["charcoal", 2]) });
-  // The leg pinches in at the tie-back (z 70–73) and flares to the hem, like the shipped curtain. A wide soft flat with folds every
-  // 2 units, not a post: a narrow leg in a row reads as bars.
-  const fold = (x: number): Paint => ["charcoal", ((8 - x) % 2) < 0.7 ? 2 : 1];
-  for (let z = 7; z < PELMET; z += 2) {
-    const w = z < 70 ? 6 - (2.4 * (z - 7)) / 63 : z < 73 ? 3.4 : 3.6 + (1.8 * (z - 73)) / (PELMET - 73);
-    const tie = z >= 70 && z < 73;
-    k.box(8 - w, 8, -T + 0.6, T - 0.6, z, z + 2, tie ? "mustard" : "charcoal", {
-      paint: (p, f) => (tie ? ["mustard", f === "top" ? 0 : 1] : f === "top" ? ["charcoal", 0] : fold(p.x)),
-    });
-  }
+  // A slim leg on the cell's edge with a gold tie-back (OME-2470: the wide flat, a third of the cell, cut members standing or seated
+  // in the gaps; at the edge, a member centred in a cell clears it).
+  k.box(6.8, 8, -T + 0.6, T - 0.6, 7, PELMET, "charcoal", { paint: (p, f) => (p.z >= 70 && p.z < 73 ? ["mustard", f === "top" ? 0 : 1] : f === "top" ? ["charcoal", 0] : ["charcoal", 1]) });
   pelmet(k);
 }
 
@@ -94,11 +87,12 @@ function velvetWings(k: Kit): void {
  *  `tankTint`), sand, kelp swaying, a rock, fish swimming +x, bubbles, and a lid with a light under it. No header: the deep shows
  *  over the lid, so the tanks read as a long aquarium divider, not a wall with a slot in it.
  *  Every fish is drawn at x, x − 16 and x + 16 and clipped to the cell, so a run of cells shows one unbroken stream. */
-const TK = { base: 24, sand: 30, surf: 118, head: 124 } as const;
+// head: a thin lid rail (OME-2470: the 5-unit charcoal slab hid whoever stood behind; partitions ship no turned frame, so it is both views).
+const TK = { base: 24, sand: 30, surf: 118, head: 120.5 } as const;
 const ARCH = { half: 6.2, spring: 52, top: 78 } as const;
 /** Two-tone fish (judge's note): a lit back, a cream belly, a forked tail and an eye. 4 frames × 4 units = one cell, a clean loop. */
 const FISH: readonly { x: number; z: number; body: RampName; tail: RampName; len: number; speed: number }[] = [
-  { x: -3, z: 92, body: "mustard", tail: "mustard", len: 3.4, speed: 4 },
+  { x: -3, z: 42, body: "mustard", tail: "mustard", len: 3.4, speed: 4 }, // under face height (OME-2470: at 92 it sat on faces behind)
   { x: 5, z: 58, body: "rust", tail: "rust", len: 3, speed: 4 },
 ];
 function fish(k: Kit, n: number, hole?: (x: number, z: number) => boolean): void {
@@ -480,7 +474,8 @@ const STAGE_DOOR: Room = {
   south: skinShell("stage-door", "col", 4, false),
   // Turned: the stage is cols 0–4 now (behind), the green room cols 6–9 (in front), the partition at col 5.
   north: skinShell("stage-door", "col", 4, true),
-  standing: [],
+  // Preview only (OME-2470): members in the stage door and two wing gaps, and one just behind the wings, so occlusion can be checked.
+  standing: [["juno/idle/se/0", 4, 7], ["pip/idle/se/0", 4, 3], ["kiki/idle/se/0", 4, 5], ["mo/idle/se/0", 3, 4]],
 };
 
 /** Reef Tunnel. Partition on row 4 facing sw: smoked panel at cols 0 and 9, tanks at 1–2 and 4–8, the tunnel (the doorway) at
@@ -502,7 +497,8 @@ const REEF: Room = {
   south: skinShell("reef", "row", 4, false),
   north: skinShell("reef", "row", 4, true),
   // The tunnel's near ribs, its `front` layer (the composer draws `back` only; the web draws `front` over avatars).
-  standing: [["furniture/partition/tunnel/sw/front", 3, 4]],
+  // Preview only (OME-2470): Mo at the bar right against tank col 6, so the turned view shows a member behind the tank.
+  standing: [["furniture/partition/tunnel/sw/front", 3, 4], ["mo/idle/se/0", 6, 5]],
 };
 export const ROOMS: readonly Room[] = [STAGE_DOOR, REEF];
 
