@@ -9,5 +9,21 @@
  "vanity/bulbs": 2946,
  "rack/costumes": 1518,
  "shell/stage-door": 6201,
- "shell/reef": 5286
+ "shell/reef": 5286,
+ "OME-2470 eager (thumbs) before -> after": [
+  108243,
+  108252
+ ],
+ "OME-2470 lazy furniture-v9.png before -> after": [
+  23645,
+  23673
+ ],
+ "OME-2470 lazy furniture-v9.json gz before -> after": [
+  1846,
+  1836
+ ],
+ "OME-2470 art total before -> after": [
+  449730,
+  449757
+ ]
 }

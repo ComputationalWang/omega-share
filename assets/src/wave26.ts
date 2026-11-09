@@ -180,7 +180,8 @@ function tunnel(k: Kit, n: number): void {
   }
 }
 /** The water: a sparse dither over the pane wherever the sprite is still clear, so whatever is behind shows through it. One pixel
- *  in 16 on a staggered grid (judge's note: the concept's 1-in-8 diagonal read as a mesh at 1×), denser teal near the surface. */
+ *  in 16 on a staggered grid (judge's note: the concept's 1-in-8 diagonal read as a mesh at 1×), teal near the surface at the same
+ *  density (OME-2470: the denser band read as a wall over the member and the bar behind; a lower lid crossed sitters' faces). */
 function tankTint(img: Uint8Array, cv: Canvas, dir: FurnDir, hole?: (x: number, z: number) => boolean): void {
   for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) {
     const i = y * cv.w + x;
@@ -190,7 +191,7 @@ function tankTint(img: Uint8Array, cv: Canvas, dir: FurnDir, hole?: (x: number, 
     const z = lx - gy;
     if (Math.abs(lx) >= 8 || z <= TK.base || z >= TK.surf || hole?.(lx, z)) continue;
     const top = z > TK.surf - 14;
-    const on = top ? (gx & 1) === 0 && (gy & 3) === ((gx >> 1) & 1) * 2 : (gx & 3) === 0 && (gy & 3) === ((gx >> 2) & 1) * 2;
+    const on = (gx & 3) === 0 && (gy & 3) === ((gx >> 2) & 1) * 2;
     if (on) img[i] = top ? c("teal", 1) : c("navy", 0);
   }
 }
@@ -269,19 +270,20 @@ function stage(k: Kit, n: number): void {
 function vanity(k: Kit, n: number): void {
   k.box(-7, 7, 0, 8, 0, 22, "wood", { paint: (p, f) => (f === "top" ? ["wood", 0] : f === "front" && (Math.abs(p.x) < 0.4 || Math.abs(p.z - 12) < 0.4) ? ["wood", 2] : f === "front" && Math.abs(p.z - 17) < 0.6 && Math.abs(Math.abs(p.x) - 3.5) < 1 ? ["mustard", 0] : null) });
   k.box(-7.5, 7.5, -0.5, 8, 22, 24, "cream", { tones: { top: 0, sw: 1, se: 2 } });
-  k.box(-6, 6, 6.6, 8, 28, 70, "charcoal", {
+  // The board and its bulbs sit well inside the cell (OME-2470: at ±7.7 they clipped at the wall end in the turned view).
+  k.box(-5.2, 5.2, 6.6, 8, 28, 70, "charcoal", {
     paint: (p, f) => {
       if (f !== "front") return ["charcoal", 1];
-      if (Math.abs(p.x) > 5 || p.z < 29.5 || p.z > 68.5) return ["charcoal", 2];
+      if (Math.abs(p.x) > 4.2 || p.z < 29.5 || p.z > 68.5) return ["charcoal", 2];
       return (p.x + p.z * 0.6) % 14 > 11 ? ["glow", 0] : ["glow", 1];
     },
   });
   const bulbs: [number, number][] = [];
-  for (let z = 32; z <= 64; z += 8) bulbs.push([-6.4, z], [6.4, z]);
+  for (let z = 32; z <= 64; z += 8) bulbs.push([-5.6, z], [5.6, z]);
   for (let x = -4; x <= 4; x += 4) bulbs.push([x, 71.5]);
   bulbs.forEach(([x, z], i) => {
     const dim = (hash(i, 3) + ph(n)) % 5 === 0;
-    k.ell({ x, y: 6.2, z }, { x: 1.3, y: 1.3, z: 1.3 }, [-99, 99, -99, 99, z - 1.3, z + 1.3], dim ? "cream" : "mustard", { tones: dim ? { top: 1, sw: 2, se: 2 } : { top: 0, sw: 0, se: 0 } });
+    k.ell({ x, y: 7.3, z }, { x: 1.3, y: 1.3, z: 1.3 }, [-99, 99, -99, 99, z - 1.3, z + 1.3], dim ? "cream" : "mustard", { tones: dim ? { top: 1, sw: 2, se: 2 } : { top: 0, sw: 0, se: 0 } });
   });
   k.ell({ x: -3, y: 3, z: 24 }, { x: 1.6, y: 1.6, z: Infinity }, [-99, 99, -99, 99, 24, 26], "pink");
   k.box(2, 3, 2.5, 3.5, 24, 28, "velvet", { tones: { top: 0, sw: 1, se: 2 } });
