@@ -88,3 +88,17 @@ test("my view turns when my drawn avatar passes the doorway, not on the click (O
   const south = await cellAtTurn(a.page, "south", () => clickCell(a.page, 3, 8));
   expect(near(south), `turned south at ${JSON.stringify(south)}`).toBe(true);
 });
+
+test("Stage Door's wings are a column: walking into the green room turns my view north, walking back to the stage turns it south (OME-2442)", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("view-swap", "col").url, count: 2, nicknamePrefix: "stagehand" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await expect(stage(a.page)).toHaveAttribute("data-view", "south");
+  // Through the stage door (4, 7) into the green room, cols 0–3.
+  await clickCell(a.page, 2, 4);
+  await expect(stage(a.page)).toHaveAttribute("data-view", "north", { timeout: 15_000 });
+  await expect(stage(b.page)).toHaveAttribute("data-view", "south");
+  await clickCell(a.page, 7, 5);
+  await expect(stage(a.page)).toHaveAttribute("data-view", "south", { timeout: 15_000 });
+  await expect(stage(b.page)).toHaveAttribute("data-view", "south");
+});

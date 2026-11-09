@@ -116,3 +116,25 @@ export const BAR: RoomLayout = {
   ],
 };
 export const BAR_PIECE = ["stool/wood/ne", "stool/teal/ne", "stool/wood/nw", "stool/teal/nw", "hammock/rust/ne", "hammock/rust/ne", "hammock/rust/nw", "hammock/rust/nw"];
+
+/**
+ * Stage Door's split (OME-2434 concept, OME-2442): a column partition at col 4, facing se, velvet at rows 0–1 and 8–9, the
+ * wings at rows 2–6, the stage door a gap at (4, 7). The green room (cols 0–3) is behind it, the stage (cols 5–9) in front.
+ */
+export const STAGE_DOOR: RoomLayout = {
+  shell: "stage-door",
+  furniture: [
+    { kind: "projector", col: 6, row: 0, facing: "sw" },
+    { kind: "stage", col: 6, row: 0, facing: "sw" },
+    ...[0, 1, 2, 3, 4, 5, 6, 8, 9].map((row) => ({ kind: "partition" as const, col: 4, row, facing: "se" as const, variant: row <= 1 || row >= 8 ? 4 : 5 })),
+    { kind: "vanity", col: 0, row: 8, facing: "se" },
+    { kind: "rack", col: 1, row: 6, facing: "sw" },
+    { kind: "couch", col: 1, row: 3, facing: "se" },
+    { kind: "wingback", col: 2, row: 5, facing: "se" },
+    { kind: "pouf", col: 3, row: 2, facing: "se" },
+    { kind: "beanbag", col: 6, row: 4, facing: "ne" },
+    { kind: "beanbag", col: 8, row: 4, facing: "ne", variant: 1 },
+    { kind: "stool", col: 6, row: 6, facing: "ne" },
+    { kind: "stool", col: 8, row: 6, facing: "ne" },
+  ],
+};
