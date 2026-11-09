@@ -24,6 +24,8 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 **Shell hygiene** (OME-470, OME-511). `cd X; git ...` runs git in the old directory when the `cd` fails (once detached the shared `main`): use `cd X && git ...`. `cd X && setsid nohup ... & disown; git add` backgrounds the whole `&&` chain, so later commands run in the old cwd: put the detached job in its own Bash call. The QA2 worktree is `/home/wang/Projects/omega-share-worktrees/qa2`.
 
+**`tsc: command not found` in `bun run check`** (OME-2402). A Paperclip run can set `BASH_ENV` to a harness `.bashrc` that exports a fixed PATH; bun runs each package script through bash, which drops `node_modules/.bin`. Run the gate as `env -u BASH_ENV bun run check` (same for `perf`, `e2e`). A worktree nested in the root checkout fails the same way; keep it in the run scratch dir.
+
 **Milestone reports go in `docs/qa/`** (OME-511), not in git-ignored `perf/results/`. Let the script write there and commit a copy.
 
 ## Playwright and Chromium
