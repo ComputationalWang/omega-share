@@ -49,6 +49,8 @@ const SKINS: Readonly<Record<RoomShell, Skin>> = {
   dungeon: { floor: ["carpet", "split", "deck"], wall: ["oak", "split", "smoke"] },
   penthouse: { floor: byValue("penthouse"), wall: byValue("penthouse") },
   studio: { floor: byValue("studio"), wall: byValue("studio") },
+  "stage-door": { floor: byValue("stage-door"), wall: byValue("stage-door") },
+  reef: { floor: byValue("reef"), wall: byValue("reef") },
 };
 
 /** Which side of `line` the room cell (col, row) is on: 0 behind it (the smaller index, away from the camera), 1 on it, 2 in front. */

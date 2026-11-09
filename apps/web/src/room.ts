@@ -6,6 +6,7 @@ import "pixi.js/unsafe-eval";
 import "pixi.js/browser";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, REACTIONS_MAX, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type Member, type MemberId, type Nickname, type Reaction, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
+import { createChatOutbox } from "./chat-outbox";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
 import { trackShareToken } from "./share-token";
@@ -401,6 +402,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let state = initialState;
   let conn: Connection | null = null;
   const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
+  const chatOut = createChatOutbox(send);
   // connection → clock → sync loop → player (ADR 0011). One 4 Hz timer drives the clock tick, the loop and the chrome.
   const clock = createClockSync({
     now: browserNow,
@@ -1044,8 +1046,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage && !shown.reserve;
     wrap.classList.toggle("is-reserved", shown.reserve);
     // Nothing playing, the bar is idle (room.css): upright it keeps its row, invisible (OME-2347), or the chat moved for everyone.
+    // A drop doesn't idle it (OME-2427): on a phone it left the flow and the chat jumped twice per reconnect.
     reactionBar.root.hidden = !shown.stage && !shown.reserve;
-    reactionBar.root.classList.toggle("is-idle", !shown.stage || s.status !== "open" || s.room?.embed == null);
+    reactionBar.root.classList.toggle("is-idle", !shown.stage || s.room?.embed == null);
     // The head row's keys keep their place too, invisible (OME-2282): shown later, they moved the TV and the room down.
     const headKeys = shown.stage || shown.reserve;
     help.key.hidden = !headKeys;
@@ -1413,6 +1416,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     url: opts.socketUrl,
     join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair, takeVia(viaStore, opts.roomId), opts.avatarAuto === true),
     durable: true,
+    keepalive: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,
     onOpen: () => {
@@ -1422,6 +1426,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // The session is over for this tab: a reload shows the ordinary Enter (a replaced one keeps its token in memory only).
       if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed") clearResume(resumeStore, opts.roomId);
       routeConnectionEvent(e, sinks, Date.now());
+      if (e.type !== "message") return;
+      if (e.msg.type === "snapshot") chatOut.resend();
+      else chatOut.onServer(e.msg, state.self);
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => {
@@ -1437,7 +1444,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     typeof BroadcastChannel === "function"
       ? createChatRelay({
           channel: browserChannel(channelName(opts.roomId, tab)),
-          send: (m) => c.send(m),
+          send: (m) => chatOut.send(m),
           command: runSlash,
           onVote: castVote,
           onPollClose: closePoll,
@@ -1499,7 +1506,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const ran = runSlash(chatInput.value);
     if (ran === null && chatView(state, Date.now()).cooling) return;
     const msg = ran === null ? chatIntent(chatInput.value) : null;
-    if (ran === true || (msg !== null && c.send(msg))) {
+    if (ran === true || (msg !== null && chatOut.send(msg))) {
       chatInput.value = "";
       // A line clears typing on the server; a slash command sends no line, so say it here.
       if (ran === true) typingSender.input("");

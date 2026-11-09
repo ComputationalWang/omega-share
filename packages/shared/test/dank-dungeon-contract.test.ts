@@ -63,8 +63,8 @@ describe("dank dungeon contract", () => {
     expect(ok({ kind: "sauna", col: 3, row: 3, facing: "sw" })).toBe(false);
   });
 
-  test("v7 variants: mirror, minibar, tv and carpet two, partition four", () => {
-    expect([FURNITURE.mirror, FURNITURE.minibar, FURNITURE.tv, FURNITURE.carpet, FURNITURE.partition].map((s) => s.variants)).toEqual([2, 2, 2, 2, 4]);
+  test("v7 variants: mirror, minibar, tv and carpet two, partition eight (wave 26, OME-2439)", () => {
+    expect([FURNITURE.mirror, FURNITURE.minibar, FURNITURE.tv, FURNITURE.carpet, FURNITURE.partition].map((s) => s.variants)).toEqual([2, 2, 2, 2, 8]);
   });
 
   test("layout.shell: optional, a ROOM_SHELLS value, kept as sent", () => {

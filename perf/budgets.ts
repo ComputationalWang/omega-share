@@ -180,6 +180,9 @@ const OBSERVER_CLS: readonly Budget[] = Object.entries(OBSERVER_CLS_PROFILES).ma
 // OME-2382: layout shift on a member who never types over a 15-line chat burst (perf/room-cls.perf.ts).
 const CHAT_CLS: readonly Budget[] = Object.entries(OBSERVER_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.chatCls.${p}`, area: "Site", metric: `Cumulative Layout Shift on a member who never types during a chat burst, ${pl}`, docMetric: "Cumulative Layout Shift on a member who never types during a chat burst", unit: "score", limit: 0.01, comparator: "<" }));
 
+// OME-2426: layout shift on an observer through a server restart, drop + rejoin (perf/room-cls.perf.ts).
+const RESTART_CLS: readonly Budget[] = Object.entries(OBSERVER_CLS_PROFILES).map(([p, pl]): Budget => ({ id: `room.restartCls.${p}`, area: "Site", metric: `Cumulative Layout Shift on an observer through a server restart (drop + rejoin), ${pl}`, docMetric: "Cumulative Layout Shift on an observer through a server restart (drop + rejoin)", unit: "score", limit: 0.01, comparator: "<" }));
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -198,6 +201,7 @@ export const BUDGETS: readonly Budget[] = [
   ...OBSERVER_CLS,
   ...COLD_CLS,
   ...CHAT_CLS,
+  ...RESTART_CLS,
   ...THEATRE_JOIN,
   ...VIEW_SWAP,
   ...JOIN,

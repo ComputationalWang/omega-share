@@ -2510,8 +2510,8 @@ function slicesFiles(): string[] {
 
 // ---------------------------------------------------------------- set (n): room presets (M10, OME-906)
 
-/** Thumbnails ship on the landing / create flow: all six together stay under this (OME-906). */
-const PRESET_THUMBS_MAX = 40 * 1024;
+/** Thumbnails ship on the landing / create flow: all of them together stay under this (OME-906; docs/perf-budgets.md, OME-2439). */
+const PRESET_THUMBS_MAX = 48 * 1024;
 /** Who sits where in the full-size previews, by seat index (ADR 0021 order); gaps are free seats. */
 const PRESET_SITTERS: readonly (string | undefined)[] = ["juno", "pip", undefined, "mo", "kiki", undefined, undefined, undefined];
 

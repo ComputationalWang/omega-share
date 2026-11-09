@@ -123,8 +123,11 @@ export const FURNITURE = {
   minibar: piece("object", CAMERA, ONE, { variants: 2 }),
   desk: piece("object", CAMERA, ONE),
   washbasin: piece("object", CAMERA, ONE, { wallBacked: true }),
-  /** An interior wall cell (OME-1958): the facing picks its axis (like `curtain`); 0 and 2 solid, 1 and 3 glass (OME-1989). A doorway is a gap in the row. */
-  partition: piece("object", CAMERA, ONE, { variants: 4 }),
+  /**
+   * An interior wall cell (OME-1958): the facing picks its axis (like `curtain`); 0 and 2 solid, 1 and 3 glass (OME-1989);
+   * 4 velvet, 5 wings, 6 tank, 7 tunnel (OME-2439). A doorway is a gap in the row, or a tunnel, which is walkable.
+   */
+  partition: piece("object", CAMERA, ONE, { variants: 8 }),
   // Dank Dungeon v7 (OME-1989, `assets/furniture/furniture-v7.json`, lazy).
   sauna: piece("object", CAMERA, { cols: 2, rows: 2 }, { wallBacked: true }),
   /** Two bathers on its first row, drawn in front of them like the whirlpool. */
@@ -141,7 +144,13 @@ export const FURNITURE = {
   /** Variant 1 is the rainy one. */
   window: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
   longclock: piece("object", CAMERA, ONE, { wallBacked: true }),
-  lavalamp: piece("object", FIXED, ONE),
+  /** Variant 1 is `bubbles`, a runtime recolour (OME-2439). */
+  lavalamp: piece("object", FIXED, ONE, { variants: 2 }),
+  // Wave 26 (OME-2439, concepts OME-2434): Stage Door's pieces.
+  /** A stage riser with footlights; not walkable. */
+  stage: piece("object", CAMERA, { cols: 3, rows: 2 }),
+  vanity: piece("object", CAMERA, ONE, { wallBacked: true }),
+  rack: piece("object", CAMERA, { cols: 2, rows: 1 }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;
@@ -167,6 +176,7 @@ interface Placed {
   readonly col: number;
   readonly row: number;
   readonly facing: Facing;
+  readonly variant?: number | undefined;
 }
 
 const turned = (f: Placed): boolean => f.facing === "nw" || f.facing === "se";
@@ -241,9 +251,15 @@ export type FloorCell = v.InferOutput<typeof FloorCellSchema>;
 /** Where people walk in, and where a layout change sends someone whose cell it covered: the floor's front corner. */
 export const DOOR_CELL: FloorCell = { x: FLOOR_CELLS - 1, y: FLOOR_CELLS - 1 };
 
+/** The partition colour that is a doorway (OME-2439, CEO: option A): walkable, though it still takes its cell. */
+export const PARTITION_TUNNEL = 7;
+
+/** A piece someone can't walk through: an object, except a tunnel partition. */
+export const isSolid = (f: Placed): boolean => FURNITURE[f.kind].layer === "object" && !(f.kind === "partition" && f.variant === PARTITION_TUNNEL);
+
 /** A cell someone may stand on (`walk`): no solid piece covers it. Seats are solid, so they need `sit`. */
 export function isStandable(layout: { readonly furniture: readonly Placed[] }, cell: FloorCell): boolean {
-  return !layout.furniture.some((f) => FURNITURE[f.kind].layer === "object" && footprintCells(f).some(([c, r]) => c === cell.x && r === cell.y));
+  return !layout.furniture.some((f) => isSolid(f) && footprintCells(f).some(([c, r]) => c === cell.x && r === cell.y));
 }
 
 /** A `walk` with `teleport` from `from` to `cell` (OME-1545): `from` is one pad's cell, `cell` the other's, and nothing solid covers it. */
@@ -312,7 +328,7 @@ export const RoomMoodSchema = v.picklist(ROOM_MOODS);
 export type RoomMood = v.InferOutput<typeof RoomMoodSchema>;
 
 /** The room's wall and floor skin (OME-1989, ADR 0058), set by a partitioned preset. Absent means today's walls and floor. */
-export const ROOM_SHELLS = ["dungeon", "penthouse", "studio"] as const;
+export const ROOM_SHELLS = ["dungeon", "penthouse", "studio", "stage-door", "reef"] as const;
 export const RoomShellSchema = v.picklist(ROOM_SHELLS);
 export type RoomShell = v.InferOutput<typeof RoomShellSchema>;
 

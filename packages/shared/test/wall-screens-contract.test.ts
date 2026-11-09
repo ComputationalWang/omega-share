@@ -71,7 +71,7 @@ describe("partitions", () => {
   });
 });
 
-test("the shells: dungeon, penthouse, studio", () => {
-  expect(ROOM_SHELLS).toEqual(["dungeon", "penthouse", "studio"]);
+test("the shells: dungeon, penthouse, studio, stage-door, reef", () => {
+  expect(ROOM_SHELLS).toEqual(["dungeon", "penthouse", "studio", "stage-door", "reef"]);
   for (const shell of ROOM_SHELLS) expect(ok({ ...(room(TV) as object), shell })).toBe(true);
 });

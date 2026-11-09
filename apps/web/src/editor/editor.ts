@@ -127,6 +127,9 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   window: "Window",
   longclock: "Long-case clock",
   lavalamp: "Lava lamp",
+  stage: "Stage",
+  vanity: "Dressing table",
+  rack: "Costume rail",
 };
 
 const DELETED = "Room deleted.";
