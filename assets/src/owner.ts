@@ -218,7 +218,7 @@ function selfOn(): UiFrame {
   const img = slab(W, H, 2, (d, e) => {
     if (d === 0) return O;
     if (d === 1 && e === "t") return O;
-    if ((d === 1 && e === "l") || (d === 2 && e === "t")) return c("mustard", 2);
+    if ((d <= 2 && e === "l") || (d === 2 && e === "t")) return c("mustard", 2);
     if (d === 1) return c("mustard", 2);
     return c("mustard", 1);
   });
@@ -242,13 +242,14 @@ function tray(): UiFrame {
 }
 
 /** Tray tab. `on` is the lit wood face whose bottom row runs into the tray rim (it overlaps the rim's outline by 1 art px).
- *  `press` is the tab held down: it loses its lip like a pressed button, a shadow under the top edge over the `on` face it is about to become. */
+ *  `press` is the tab held down: it loses its lip like a pressed button, a shadow under the top edge and down the left over the `on` face it is about to become.
+ *  Its bottom runs into the rim like `on`, so a held selected tab shows no seam. */
 function tab(state: "idle" | "hover" | "on" | "press"): UiFrame {
   const W = 16, H = 14;
   const img = slab(W, H, 2, (d, e) => {
-    if (state === "on" && e === "b" && d <= 1) return d === 0 ? c("wood", 1) : c("wood", 1);
+    if ((state === "on" || state === "press") && e === "b" && d <= 1) return c("wood", 1);
     if (d === 0) return O;
-    if (state === "press") return d === 1 && e === "t" ? O : (d === 1 && e === "l") || (d === 2 && e === "t") ? c("wood", 2) : c("wood", 1);
+    if (state === "press") return d === 1 && e === "t" ? O : (d <= 2 && e === "l") || (d === 2 && e === "t") ? c("wood", 2) : c("wood", 1);
     if (state === "on") return d === 1 && lit(e) ? c("wood", 0) : d === 1 && e === "r" ? c("wood", 2) : c("wood", 1);
     if (d === 1) return lit(e) ? (state === "hover" ? c("cream", 0) : c("wood", 1)) : c("wood", 2);
     return c("wood", 2);
