@@ -20,6 +20,8 @@ export interface Bots {
   readonly close: () => Promise<void>;
   /** Sends `text` as a chat line from bot `i` (in join order). */
   readonly say: (i: number, text: string) => Promise<void>;
+  /** Sends bot `i` walking to `cell`. */
+  readonly walk: (i: number, cell: { readonly x: number; readonly y: number }) => Promise<void>;
 }
 
 export function socketUrl(roomId: string): string {
@@ -65,17 +67,19 @@ export async function spawnBots(browser: Browser, roomId: string, specs: readonl
     },
     { url: socketUrl(roomId), specs },
   );
-  const say = async (i: number, text: string): Promise<void> => {
+  const send = async (i: number, msg: object): Promise<void> => {
     await page.evaluate(
-      ({ i, text }) => {
+      ({ i, msg }) => {
         const kept: unknown = Reflect.get(window, "omegaBots");
         const ws: unknown = Array.isArray(kept) ? kept[i] : undefined;
-        if (ws instanceof WebSocket) ws.send(JSON.stringify({ type: "chat", text }));
+        if (ws instanceof WebSocket) ws.send(JSON.stringify(msg));
       },
-      { i, text },
+      { i, msg },
     );
   };
-  return { ...result, close: () => context.close(), say };
+  const say = (i: number, text: string): Promise<void> => send(i, { type: "chat", text });
+  const walk = (i: number, cell: { readonly x: number; readonly y: number }): Promise<void> => send(i, { type: "walk", cell });
+  return { ...result, close: () => context.close(), say, walk };
 }
 
 /** The room as the server sees it: joins as a throwaway observer, then leaves. Returns the raw snapshot frame. */
