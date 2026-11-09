@@ -142,7 +142,12 @@ mod tests {
             "cinema" => "bigscreen",
             _ => "tv",
         };
-        for (want, shell) in [("penthouse", "penthouse"), ("studio", "studio"), ("stage-door", "stage-door"), ("reef", "reef")] {
+        for (want, shell) in [
+            ("penthouse", "penthouse"),
+            ("studio", "studio"),
+            ("stage-door", "stage-door"),
+            ("reef", "reef"),
+        ] {
             let id = ROOM_PRESET_IDS.into_iter().find(|i| i.as_str() == want);
             let json = id.map(|i| presets.preset_layout(i).to_json()).unwrap_or_default();
             assert!(json.contains(&format!(r#""shell":"{shell}""#)), "{want}");
