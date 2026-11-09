@@ -89,6 +89,8 @@ export const site = {
   // M3 safety states (OME-189): a refused join (`data-code` is the refusal) and the connection line.
   roomRefused: id("room-refused"),
   roomRefusedAction: id("room-refused-action"),
+  /** The room panel's Chat / Up next / Room tablist. */
+  panelTabs: ".panel-tabs",
   connectionStatus: id("connection-status"),
   chatSend: id("chat-send"),
   emoteKey: id("emote-key"),

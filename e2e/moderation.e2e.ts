@@ -138,6 +138,9 @@ test("owner kicks a guest: the kicked tab sees the notice and can't come back in
   await expect(card).toContainText("You were removed from this room");
   await expect(kicked.page.locator(site.roomKickedRejoin)).toHaveAttribute("aria-disabled", "true");
   await expect(kicked.page.locator(site.roomKickedRejoin)).toContainText("Rejoin in");
+  // Focus on a way out, not <body>; no panel tabs over a stop (OME-2429).
+  await expect(card.getByRole("link", { name: "Find a room" })).toBeFocused();
+  await expect(kicked.page.locator(site.panelTabs)).toBeHidden();
   // The others: the avatar's name tag is gone; theirs and the owner's stay.
   for (const p of [owner.page, observer.page]) await expect(tag(p, "kit")).toHaveCount(0);
   await expect(tag(observer.page, "obs")).toHaveCount(1);

@@ -212,6 +212,10 @@ test.describe("M1a acceptance", () => {
       try {
         await expect(late.page.locator(site.roomFull)).toBeVisible();
         await expect(late.page.locator(site.roomFull)).toContainText("This room is full");
+        // Not a dead end (OME-2429): Try again, focused, and Find a room; no stray panel tabs.
+        await expect(late.page.locator(site.roomFull).getByRole("link", { name: "Try again" })).toBeFocused();
+        await expect(late.page.locator(site.roomFull).getByRole("link", { name: "Find a room" })).toBeVisible();
+        await expect(late.page.locator(site.panelTabs)).toBeHidden();
         await expect(late.page.locator(site.room)).toBeHidden();
         await expect(late.page.locator(site.chatInput)).toBeHidden();
         await info.attach("room-full", { body: await late.page.screenshot(), contentType: "image/png" });
