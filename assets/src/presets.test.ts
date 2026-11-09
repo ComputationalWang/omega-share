@@ -1,5 +1,5 @@
 // Set (n): the shipped room presets are valid layouts (the same strict schema an owner's `layout-set` meets), and their
-// thumbnails exist, have the manifest's size and stay inside the 40 KB budget (OME-906).
+// thumbnails exist, have the manifest's size and stay inside the 48 KiB budget (OME-906, OME-2439).
 import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -116,15 +116,17 @@ describe("room presets", () => {
     expect(chairs.some((c) => c.row === 5 && c.col >= 3 && c.facing === "ne")).toBe(true);
   });
 
-  test("thumbnails: one per preset at the manifest size, ≤ 40 KB together, no strays", () => {
+  test("thumbnails: one per preset (plus wave 26's, shipped ahead of their presets) at the manifest size, ≤ 48 KiB together, no strays", () => {
+    // OME-2440: stage-door and reef ship their thumbs before OME-2441 adds the presets; drop this once they're in the manifest.
+    const pending = ["stage-door", "reef"].filter((id) => !manifest.presets.some((p) => p.id === id)).map((id) => `thumbs/${id}.png`);
     let bytes = 0;
-    for (const entry of manifest.presets) {
-      const buf = readFileSync(join(DIR, entry.thumb));
+    for (const thumb of [...manifest.presets.map((p) => p.thumb), ...pending]) {
+      const buf = readFileSync(join(DIR, thumb));
       expect(pngSize(buf)).toEqual({ w: manifest.thumb.w, h: manifest.thumb.h });
       bytes += buf.length;
     }
-    expect(bytes).toBeLessThanOrEqual(40 * 1024);
+    expect(bytes).toBeLessThanOrEqual(48 * 1024);
     const files = readdirSync(join(DIR, "thumbs")).sort();
-    expect(files).toEqual(manifest.presets.map((p) => p.thumb.replace("thumbs/", "")).sort());
+    expect(files).toEqual([...manifest.presets.map((p) => p.thumb), ...pending].map((t) => t.replace("thumbs/", "")).sort());
   });
 });
