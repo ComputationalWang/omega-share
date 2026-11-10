@@ -33,7 +33,10 @@ export interface FrameMountOptions<Timer> {
   readonly onLate: (player: PlayerAdapter) => void;
 }
 
-/** Asks the extension to attach to `host`'s frame; resolves with a ready player on its first frame-state, else times out. Never rejects. */
+/**
+ * Asks the extension to attach to `host`'s frame; resolves with a ready player on its first frame-state, else times out.
+ * After a timeout it keeps listening: a late first frame-state goes to `onLate`, whose player the caller owns. Never rejects.
+ */
 export function mountFrame<Timer>(o: FrameMountOptions<Timer>): Promise<MountResult> {
   const { host, bridge } = o;
   let last: FrameStateMessage | null = null;
@@ -97,9 +100,14 @@ export function mountFrame<Timer>(o: FrameMountOptions<Timer>): Promise<MountRes
 
   return new Promise((resolve) => {
     let mounted = false;
+    /**
+     * Timed out and never attached: the first frame-state is a late attach.
+     * shortcut: a superseded attempt for a host that never sends keeps its listener until the page reloads; add a cancel if attempts pile up.
+     */
+    let late = false;
     const timer = o.setTimeout(() => {
       mounted = true;
-      off();
+      late = true;
       resolve({ ok: false, reason: "timeout" });
     }, ATTACH_TIMEOUT_MS);
     off = bridge.onFrame((m) => {
@@ -125,6 +133,11 @@ export function mountFrame<Timer>(o: FrameMountOptions<Timer>): Promise<MountRes
           mounted = true;
           o.clearTimeout(timer);
           resolve({ ok: true, player });
+          return;
+        }
+        if (late) {
+          late = false;
+          o.onLate(player);
           return;
         }
         // Back after frame-lost (the script re-attached to a swapped <video>).

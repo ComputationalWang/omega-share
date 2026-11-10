@@ -242,6 +242,11 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
             g.setSync(on ? "on" : "off");
             genericShelf(g, on);
           },
+          // A nested-host consent can outlast the timeout (ADR 0057 amendment 1): attach then, unless superseded.
+          onLate: (p) => {
+            if (current()) playback.attach(p, url);
+            else p.destroy();
+          },
         }),
       )
       .then(
