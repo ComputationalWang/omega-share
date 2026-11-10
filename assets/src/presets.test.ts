@@ -153,9 +153,18 @@ describe("room presets", () => {
 
   test("OME-2497: Classic adds a bookshelf on the right wall and a monstera on the front-right edge, off seats and fixture segments", () => {
     const f = PRESETS.find((p) => p.id === "classic")?.layout.furniture ?? [];
-    expect(f.filter((x) => x.kind === "bookshelf" || x.kind === "monstera").map((x) => [x.kind, x.col, x.row, x.facing])).toEqual([["bookshelf", 1, 0, "sw"], ["monstera", 9, 2, "sw"]]);
+    expect(f.filter((x) => x.kind === "bookshelf" || x.kind === "monstera").map((x) => [x.kind, x.col, x.row, x.facing])).toEqual([["bookshelf", 1, 0, "sw"], ["monstera", 9, 2, "sw"], ["monstera", 7, 9, "se"]]);
     // presets.ts: nothing on the window / poster / sconce segments (5, 6, 8) of the right wall, even wall-backed pieces.
     expect(f.filter((x) => x.row === 0 && x.facing === "sw").flatMap(footprintCells).filter(([c]) => [5, 6, 8].includes(c))).toEqual([]);
+  });
+
+  // OME-2507 (judge, OME-2498): the empty front floor below Classic's rug gets one piece from a sheet it already loads, on the
+  // front edge, clear of the door cell and its neighbours so the way in to every seat stays open.
+  test("OME-2507: Classic balances its front floor with a teal monstera on the front edge, off the way in", () => {
+    const f = PRESETS.find((p) => p.id === "classic")?.layout.furniture ?? [];
+    expect(f.filter((x) => x.kind === "monstera").map((x) => [x.col, x.row, x.facing, x.variant ?? 0])).toEqual([[9, 2, "sw", 0], [7, 9, "se", 1]]);
+    const near = f.flatMap(footprintCells).filter(([c, r]) => Math.abs(c - DOOR_CELL.x) <= 1 && Math.abs(r - DOOR_CELL.y) <= 1);
+    expect(near).toEqual([]);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
