@@ -2,7 +2,7 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import classicPreset from "../../../assets/presets/classic.json";
+import classicPreset from "../../../assets/presets/classic.json" with { type: "json" };
 import { DEFAULT_LAYOUT, RoomLayoutSchema, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, isScreen, layoutSeats, partitionLine, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type PartitionLine, type RoomLayout, type RoomShell, type RoomState } from "@omega/shared";
 import { STAGE_W, TURN, cellCenter, isNorth, rawCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
