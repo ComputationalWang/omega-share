@@ -130,8 +130,13 @@ export function buildDecorFrames(): { frames: RoomFrame[]; meta: DecorMeta[] } {
   add(onSill("easter/egg/dots", EGG_DOTS, egg("pink", "mustard"), 0), "wall/l/window0");
   add(onSill("easter/egg/zigzag", EGG_ZIGZAG, egg("teal", "cream"), 4.5), "wall/l/window0");
   add(onSill("easter/egg/band", EGG_BAND, egg("lilac", "cream"), 2), "wall/l/window1");
-  const TOP = WALL_H - 10;
   const order = ["teal", "pink", "mustard", "lilac"] as const;
+  // Paper eggs along both wall tops (two per segment), the deeper corner swag hanging below it.
+  for (const face of ["l", "r"] as const) {
+    const motifs = [-4, 4].map((s, i) => ({ s, rows: PAPER_EGG, colors: { X: [order[(i + (face === "l" ? 1 : 3)) % order.length] ?? "teal", 0] as const, y: ["cream", 0] as const } }));
+    add(wallDecal(`easter/bunting/${face}`, face, -8, 8, WALL_H - 22, WALL_H - 7, swag(face, WALL_H - 9, 4, ["cream", 2], motifs)), `wall/${face}`);
+  }
+  const TOP = WALL_H - 10;
   for (const face of ["l", "r"] as const) {
     const motifs = [-5, 0, 5].map((s, i) => ({ s, rows: PAPER_EGG, colors: { X: [order[(i + (face === "l" ? 0 : 2)) % order.length] ?? "teal", 0] as const, y: ["cream", 0] as const } }));
     add(wallDecal(`easter/eggs/corner-${face}`, face, -8, 8, TOP - 20, TOP + 2, swag(face, TOP, 10, ["cream", 2], motifs)), "wall/corner");
