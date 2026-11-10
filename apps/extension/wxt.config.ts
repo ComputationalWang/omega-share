@@ -74,8 +74,9 @@ export default defineConfig({
         hostPermissionPattern(defaultServerBaseUrl(mode)),
         // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab. Port-less patterns cover every
         // port (the default server's http://localhost/* included), so e2e runs on any OMEGA_SERVER_PORT (QA OME-611, OME-687).
-        // xfo.omega-fixture.net is the unlock spec's X-Frame-Options host, granted as a viewer would (e2e/unlock.e2e.ts).
-        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*"] : []),
+        // xfo.omega-fixture.net is the unlock spec's X-Frame-Options host, granted as a viewer would (e2e/unlock.e2e.ts);
+        // player.omega-fixture.net is the nested player host of e2e/provider-generic-nested.e2e.ts (OME-2521).
+        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*", "https://player.omega-fixture.net/*"] : []),
       ]),
     ],
     // What parseServerBaseUrl accepts: https anywhere, cleartext only on this computer (any port).
