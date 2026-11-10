@@ -118,21 +118,23 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "cafe",
     name: "Café",
-    blurb: "Tables for two, books, a snack cart.",
+    blurb: "Rain on the windows, a ticking clock, a mug at every table.",
     layout: {
       furniture: [
-        // Four tables, each with one chair on its far side (+row, looks ne) and one on its right (+col, looks nw).
-        p("sidetable", 2, 4, "se"), p("wingback", 2, 5, "ne"), p("wingback", 3, 4, "nw"),
-        p("sidetable", 4, 2, "sw"), p("wingback", 4, 3, "ne"), p("wingback", 5, 2, "nw"),
-        p("sidetable", 4, 6, "se"), p("wingback", 4, 7, "ne"), p("wingback", 5, 6, "nw"),
-        p("sidetable", 6, 4, "sw"), p("wingback", 6, 5, "ne"), p("wingback", 7, 4, "nw"),
-        p("bookshelf", 0, 2, "se"),
-        p("popcorn", 9, 7, "sw"),
+        // OME-2509 (concept OME-2508): two regulars on stools at the counter (they look at it, ne, the screen over their shoulder).
+        p("stool", 2, 1, "ne"), p("stool", 3, 1, "ne"),
+        // Three tables for two in a triangle, a steaming mug on each (static: sidetable/mug isn't ambient), each on a teal runner.
+        p("sidetable", 2, 4, "se", 1), p("wingback", 2, 5, "ne"), p("wingback", 3, 4, "nw"),
+        p("sidetable", 5, 3, "sw", 1), p("wingback", 5, 4, "ne"), p("wingback", 6, 3, "nw"),
+        p("sidetable", 6, 6, "se", 1), p("wingback", 6, 7, "ne"), p("wingback", 7, 6, "nw"),
+        p("runner", 1, 4, "ne", 1), p("runner", 5, 2, "nw", 1), p("runner", 5, 6, "ne", 1),
+        // The right wall: espresso bar and kitchenette as one counter, the long-case clock (the one new loop), the rain window.
+        p("barcounter", 2, 0, "sw", 1), p("barcounter", 4, 0, "sw", 2), p("longclock", 6, 0, "sw"), p("window", 7, 0, "sw", 1),
+        p("window", 0, 7, "se", 1), p("wallscreen", 0, 1, "se"),
+        p("bookshelf", 0, 3, "se"),
+        p("frame", 1, 0, "sw"), p("frame", 0, 4, "se", 1),
         p("arclamp", 1, 7, "se"),
-        p("monstera", 0, 9, "se"), p("monstera", 9, 0, "sw", 1), p("monstera", 0, 7, "se", 1),
-        p("frame", 0, 4, "se", 1), p("frame", 4, 0, "sw"),
-        // Wave 2: the espresso bar takes the right wall's bookcase, rain on the windows both sides, a small screen in the corner.
-        p("barcounter", 2, 0, "sw", 1), p("window", 7, 0, "sw", 1), p("window", 0, 7, "se", 1), p("wallscreen", 0, 1, "se"),
+        p("monstera", 0, 9, "se"), p("monstera", 9, 0, "sw", 1), p("monstera", 9, 4, "sw", 1),
       ],
     },
   },

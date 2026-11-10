@@ -1,14 +1,27 @@
 {
  "id": "cafe",
  "name": "Café",
- "blurb": "Tables for two, books, a snack cart.",
+ "blurb": "Rain on the windows, a ticking clock, a mug at every table.",
  "layout": {
   "furniture": [
+   {
+    "kind": "stool",
+    "col": 2,
+    "row": 1,
+    "facing": "ne"
+   },
+   {
+    "kind": "stool",
+    "col": 3,
+    "row": 1,
+    "facing": "ne"
+   },
    {
     "kind": "sidetable",
     "col": 2,
     "row": 4,
-    "facing": "se"
+    "facing": "se",
+    "variant": 1
    },
    {
     "kind": "wingback",
@@ -24,69 +37,121 @@
    },
    {
     "kind": "sidetable",
-    "col": 4,
-    "row": 2,
-    "facing": "sw"
-   },
-   {
-    "kind": "wingback",
-    "col": 4,
+    "col": 5,
     "row": 3,
-    "facing": "ne"
+    "facing": "sw",
+    "variant": 1
    },
    {
     "kind": "wingback",
     "col": 5,
-    "row": 2,
-    "facing": "nw"
-   },
-   {
-    "kind": "sidetable",
-    "col": 4,
-    "row": 6,
-    "facing": "se"
-   },
-   {
-    "kind": "wingback",
-    "col": 4,
-    "row": 7,
-    "facing": "ne"
-   },
-   {
-    "kind": "wingback",
-    "col": 5,
-    "row": 6,
-    "facing": "nw"
-   },
-   {
-    "kind": "sidetable",
-    "col": 6,
     "row": 4,
-    "facing": "sw"
+    "facing": "ne"
    },
    {
     "kind": "wingback",
     "col": 6,
-    "row": 5,
+    "row": 3,
+    "facing": "nw"
+   },
+   {
+    "kind": "sidetable",
+    "col": 6,
+    "row": 6,
+    "facing": "se",
+    "variant": 1
+   },
+   {
+    "kind": "wingback",
+    "col": 6,
+    "row": 7,
     "facing": "ne"
    },
    {
     "kind": "wingback",
     "col": 7,
-    "row": 4,
+    "row": 6,
     "facing": "nw"
+   },
+   {
+    "kind": "runner",
+    "col": 1,
+    "row": 4,
+    "facing": "ne",
+    "variant": 1
+   },
+   {
+    "kind": "runner",
+    "col": 5,
+    "row": 2,
+    "facing": "nw",
+    "variant": 1
+   },
+   {
+    "kind": "runner",
+    "col": 5,
+    "row": 6,
+    "facing": "ne",
+    "variant": 1
+   },
+   {
+    "kind": "barcounter",
+    "col": 2,
+    "row": 0,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "barcounter",
+    "col": 4,
+    "row": 0,
+    "facing": "sw",
+    "variant": 2
+   },
+   {
+    "kind": "longclock",
+    "col": 6,
+    "row": 0,
+    "facing": "sw"
+   },
+   {
+    "kind": "window",
+    "col": 7,
+    "row": 0,
+    "facing": "sw",
+    "variant": 1
+   },
+   {
+    "kind": "window",
+    "col": 0,
+    "row": 7,
+    "facing": "se",
+    "variant": 1
+   },
+   {
+    "kind": "wallscreen",
+    "col": 0,
+    "row": 1,
+    "facing": "se"
    },
    {
     "kind": "bookshelf",
     "col": 0,
-    "row": 2,
+    "row": 3,
     "facing": "se"
    },
    {
-    "kind": "popcorn",
-    "col": 9,
-    "row": 7,
+    "kind": "frame",
+    "col": 1,
+    "row": 0,
     "facing": "sw"
+   },
+   {
+    "kind": "frame",
+    "col": 0,
+    "row": 4,
+    "facing": "se",
+    "variant": 1
    },
    {
     "kind": "arclamp",
@@ -109,50 +174,10 @@
    },
    {
     "kind": "monstera",
-    "col": 0,
-    "row": 7,
-    "facing": "se",
-    "variant": 1
-   },
-   {
-    "kind": "frame",
-    "col": 0,
+    "col": 9,
     "row": 4,
-    "facing": "se",
-    "variant": 1
-   },
-   {
-    "kind": "frame",
-    "col": 4,
-    "row": 0,
-    "facing": "sw"
-   },
-   {
-    "kind": "barcounter",
-    "col": 2,
-    "row": 0,
     "facing": "sw",
     "variant": 1
-   },
-   {
-    "kind": "window",
-    "col": 7,
-    "row": 0,
-    "facing": "sw",
-    "variant": 1
-   },
-   {
-    "kind": "window",
-    "col": 0,
-    "row": 7,
-    "facing": "se",
-    "variant": 1
-   },
-   {
-    "kind": "wallscreen",
-    "col": 0,
-    "row": 1,
-    "facing": "se"
    }
   ]
  }
