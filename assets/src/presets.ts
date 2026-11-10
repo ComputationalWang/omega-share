@@ -145,21 +145,21 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "bar",
     name: "Bar",
-    blurb: "Bar stools, hammocks, a piano, a fire.",
+    blurb: "Stools at the bar, a velvet booth, a cat by the jukebox.",
     layout: {
       furniture: [
-        // Two counters backing onto the walls, two stools at each (they look at the counter, so toward the TV corner).
-        p("stool", 3, 1, "ne"), p("stool", 4, 1, "ne", 1),
-        p("stool", 1, 3, "nw"), p("stool", 1, 4, "nw", 1),
-        p("hammock", 4, 7, "ne"), p("hammock", 7, 4, "nw"),
-        p("barcounter", 3, 0, "sw"), p("barcounter", 0, 3, "se"),
-        p("piano", 1, 0, "sw"), p("bookshelf", 0, 1, "se"),
-        p("fireplace", 7, 0, "sw"),
-        p("runner", 4, 4, "ne", 1),
+        // OME-2537 (concept OME-2536, "Last orders"): four regulars on stools at one long bar, looking at it and the screen above it.
+        p("stool", 2, 1, "ne"), p("stool", 3, 1, "ne", 1), p("stool", 4, 1, "ne"), p("stool", 5, 1, "ne", 1),
+        // The velvet booth in front: two sofas facing the bar with a snack table between them.
+        p("sofa", 2, 6, "ne"), p("sofa", 5, 6, "ne"),
+        // The right wall: two counters end to end under the wall screen (no TV table), a lilac lava lamp at the end of the bar.
+        p("barcounter", 2, 0, "sw"), p("barcounter", 4, 0, "sw"), p("wallscreen", 3, 0, "sw"), p("lavalamp", 6, 0, "se"),
+        p("sidetable", 4, 6, "se"), p("runner", 3, 3, "ne", 1),
+        // The left wall is the music: the piano, the jukebox and the cat between them.
+        p("piano", 0, 1, "se", 1), p("speaker", 0, 4, "se", 2), p("cat", 1, 3, "se"),
+        p("arcade", 8, 5, "sw"), p("arclamp", 1, 6, "se"),
+        p("neonsign", 0, 7, "se"), p("neonsign", 7, 0, "sw", 1),
         p("monstera", 0, 9, "se", 1), p("monstera", 9, 0, "sw"),
-        p("neonsign", 0, 7, "se"),
-        // Wave 2: a jukebox by the left window, the wall screen over the counter.
-        p("speaker", 0, 5, "se", 2), p("wallscreen", 3, 0, "sw"),
       ],
     },
   },

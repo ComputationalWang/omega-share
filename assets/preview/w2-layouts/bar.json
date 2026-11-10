@@ -1,82 +1,127 @@
 {
  "id": "bar",
  "name": "Bar",
- "blurb": "Bar stools, hammocks, a piano, a fire.",
+ "blurb": "Stools at the bar, a velvet booth, a cat by the jukebox.",
  "layout": {
   "furniture": [
    {
     "kind": "stool",
-    "col": 3,
+    "col": 2,
     "row": 1,
     "facing": "ne"
    },
    {
     "kind": "stool",
-    "col": 4,
+    "col": 3,
     "row": 1,
     "facing": "ne",
     "variant": 1
    },
    {
     "kind": "stool",
-    "col": 1,
-    "row": 3,
-    "facing": "nw"
-   },
-   {
-    "kind": "stool",
-    "col": 1,
-    "row": 4,
-    "facing": "nw",
-    "variant": 1
-   },
-   {
-    "kind": "hammock",
     "col": 4,
-    "row": 7,
+    "row": 1,
     "facing": "ne"
    },
    {
-    "kind": "hammock",
-    "col": 7,
-    "row": 4,
-    "facing": "nw"
+    "kind": "stool",
+    "col": 5,
+    "row": 1,
+    "facing": "ne",
+    "variant": 1
+   },
+   {
+    "kind": "sofa",
+    "col": 2,
+    "row": 6,
+    "facing": "ne"
+   },
+   {
+    "kind": "sofa",
+    "col": 5,
+    "row": 6,
+    "facing": "ne"
    },
    {
     "kind": "barcounter",
+    "col": 2,
+    "row": 0,
+    "facing": "sw"
+   },
+   {
+    "kind": "barcounter",
+    "col": 4,
+    "row": 0,
+    "facing": "sw"
+   },
+   {
+    "kind": "wallscreen",
     "col": 3,
     "row": 0,
     "facing": "sw"
    },
    {
-    "kind": "barcounter",
-    "col": 0,
-    "row": 3,
+    "kind": "lavalamp",
+    "col": 6,
+    "row": 0,
     "facing": "se"
    },
    {
-    "kind": "piano",
-    "col": 1,
-    "row": 0,
-    "facing": "sw"
-   },
-   {
-    "kind": "bookshelf",
-    "col": 0,
-    "row": 1,
+    "kind": "sidetable",
+    "col": 4,
+    "row": 6,
     "facing": "se"
-   },
-   {
-    "kind": "fireplace",
-    "col": 7,
-    "row": 0,
-    "facing": "sw"
    },
    {
     "kind": "runner",
-    "col": 4,
-    "row": 4,
+    "col": 3,
+    "row": 3,
     "facing": "ne",
+    "variant": 1
+   },
+   {
+    "kind": "piano",
+    "col": 0,
+    "row": 1,
+    "facing": "se",
+    "variant": 1
+   },
+   {
+    "kind": "speaker",
+    "col": 0,
+    "row": 4,
+    "facing": "se",
+    "variant": 2
+   },
+   {
+    "kind": "cat",
+    "col": 1,
+    "row": 3,
+    "facing": "se"
+   },
+   {
+    "kind": "arcade",
+    "col": 8,
+    "row": 5,
+    "facing": "sw"
+   },
+   {
+    "kind": "arclamp",
+    "col": 1,
+    "row": 6,
+    "facing": "se"
+   },
+   {
+    "kind": "neonsign",
+    "col": 0,
+    "row": 7,
+    "facing": "se"
+   },
+   {
+    "kind": "neonsign",
+    "col": 7,
+    "row": 0,
+    "facing": "sw",
     "variant": 1
    },
    {
@@ -89,25 +134,6 @@
    {
     "kind": "monstera",
     "col": 9,
-    "row": 0,
-    "facing": "sw"
-   },
-   {
-    "kind": "neonsign",
-    "col": 0,
-    "row": 7,
-    "facing": "se"
-   },
-   {
-    "kind": "speaker",
-    "col": 0,
-    "row": 5,
-    "facing": "se",
-    "variant": 2
-   },
-   {
-    "kind": "wallscreen",
-    "col": 3,
     "row": 0,
     "facing": "sw"
    }
