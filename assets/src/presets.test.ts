@@ -158,6 +158,25 @@ describe("room presets", () => {
     expect(f.filter((x) => x.row === 0 && x.facing === "sw").flatMap(footprintCells).filter(([c]) => [5, 6, 8].includes(c))).toEqual([]);
   });
 
+  // OME-2509 (concept OME-2508, judge PASS): Café becomes a rainy-day corner café: a counter with two stools, a long-case clock,
+  // three tables for two with a mug each on teal runners. The layout is the judged `c4-cafe.json`, piece for piece.
+  test("OME-2509: Café is OME-2508's layout, 27 pieces and 8 seats, with its new blurb", () => {
+    const f = PRESETS.find((p) => p.id === "cafe")?.layout.furniture ?? [];
+    expect(f.map((x) => (x.variant === undefined ? [x.kind, x.col, x.row, x.facing] : [x.kind, x.col, x.row, x.facing, x.variant]))).toEqual([
+      ["stool", 2, 1, "ne"], ["stool", 3, 1, "ne"],
+      ["sidetable", 2, 4, "se", 1], ["wingback", 2, 5, "ne"], ["wingback", 3, 4, "nw"],
+      ["sidetable", 5, 3, "sw", 1], ["wingback", 5, 4, "ne"], ["wingback", 6, 3, "nw"],
+      ["sidetable", 6, 6, "se", 1], ["wingback", 6, 7, "ne"], ["wingback", 7, 6, "nw"],
+      ["runner", 1, 4, "ne", 1], ["runner", 5, 2, "nw", 1], ["runner", 5, 6, "ne", 1],
+      ["barcounter", 2, 0, "sw", 1], ["barcounter", 4, 0, "sw", 2], ["longclock", 6, 0, "sw"],
+      ["window", 7, 0, "sw", 1], ["window", 0, 7, "se", 1], ["wallscreen", 0, 1, "se"],
+      ["bookshelf", 0, 3, "se"], ["frame", 1, 0, "sw"], ["frame", 0, 4, "se", 1], ["arclamp", 1, 7, "se"],
+      ["monstera", 0, 9, "se"], ["monstera", 9, 0, "sw", 1], ["monstera", 9, 4, "sw", 1],
+    ]);
+    expect(layoutSeats(v.parse(RoomLayoutInputSchema, { furniture: f }))).toHaveLength(SEAT_COUNT);
+    expect(manifest.presets.find((p) => p.id === "cafe")?.blurb).toBe("Rain on the windows, a ticking clock, a mug at every table.");
+  });
+
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
     let bytes = 0;
     for (const thumb of manifest.presets.map((p) => p.thumb)) {
