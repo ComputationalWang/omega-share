@@ -8,6 +8,7 @@ import {
   CLOSE_CODES,
   CreateRoomResponseSchema,
   DEFAULT_LAYOUT,
+  DEFAULT_ROOM_PRESET,
   ROOM_EDIT_BURST,
   ROOM_EDIT_REFILL_MS,
   type CreateRoomResponse,
@@ -15,6 +16,7 @@ import {
   type RoomVisibility,
 } from "@omega/shared";
 import { openDatabase } from "../src/store/db";
+import { presetLayout } from "../src/presets";
 import { RoomStore } from "../src/store/rooms";
 import { Client, start, TestClock, type TestServer } from "./helpers";
 
@@ -470,7 +472,7 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
       .listRooms()
       .find((r) => r.id === room.room.id);
     expect(row?.title).toBe("Friday films");
-    expect(row?.layout).toEqual(DEFAULT_LAYOUT);
+    expect(row?.layout).toEqual(presetLayout(DEFAULT_ROOM_PRESET));
     await untilClosed(
       guest.client,
       1000,
