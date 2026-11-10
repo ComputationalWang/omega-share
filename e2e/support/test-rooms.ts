@@ -17,6 +17,7 @@ export const SPEC_ROOMS = {
   "provider-share": ["1", "2", "3", "4"],
   "provider-generic": ["main"],
   "provider-generic-sync": ["main"],
+  "provider-generic-nested": ["main"],
   "room-view": ["main"],
   "view-swap": ["main", "drawn", "col"],
   "view-swap-perf": ["frames"],
