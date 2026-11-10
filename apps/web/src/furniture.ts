@@ -2,7 +2,8 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), furniture-v4-atlas.ts batch 6 (OME-1439) and furniture-v5-atlas.ts the theatre set (OME-1630), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, isScreen, layoutSeats, partitionLine, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type PartitionLine, type RoomLayout, type RoomShell, type RoomState } from "@omega/shared";
+import classicPreset from "../../../assets/presets/classic.json";
+import { DEFAULT_LAYOUT, RoomLayoutSchema, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, isScreen, layoutSeats, partitionLine, type Facing, type Furniture, type FurnitureKind, type LieStyle, type RoomId, type PartitionLine, type RoomLayout, type RoomShell, type RoomState } from "@omega/shared";
 import { STAGE_W, TURN, cellCenter, isNorth, rawCenter, type Point } from "./layout";
 import { recolourKey, recolourOf } from "./recolours";
 import { lieOffset, seatLie } from "./walk/lie";
@@ -15,8 +16,8 @@ import { cellOf, colOf, rowOf } from "./walk/path";
 export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)} ${f.target ?? ""}`).join(";");
 /** What the stage redraws on: the layout key and the mood (the night pane mask, OME-1991). */
 export const sceneKey = (l: RoomLayout): string => `${layoutKey(l)}|${l.mood === "night" ? "night" : ""}`;
-/** The classic preset's layout key (OME-1186): its rooms get the holiday theme's decor. */
-const CLASSIC_KEY = layoutKey(DEFAULT_LAYOUT);
+/** The classic layouts' keys (OME-1186): their rooms get the holiday theme's decor, the old one and OME-2471's (OME-2480). */
+const CLASSIC_KEYS: ReadonlySet<string> = new Set([layoutKey(DEFAULT_LAYOUT), layoutKey(v.parse(RoomLayoutSchema, classicPreset))]);
 
 /** The pieces the room atlas draws (placeholder floor and seat markers until it loads); everything else is set (g). */
 const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp", "plant", "rug"]);
@@ -483,7 +484,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       seats.push({ at, z, marker: f.kind === "armchair" && room === null, ...(lie === undefined ? {} : { lie: { style: lie.style, at: { x: anchor.x + lie.off.x, y: anchor.y + lie.off.y } } }) });
     }
   }
-  return { lies, sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
+  return { lies, sprites, seats, classic: CLASSIC_KEYS.has(layoutKey(layout)) };
 }
 
 function pushSprites(

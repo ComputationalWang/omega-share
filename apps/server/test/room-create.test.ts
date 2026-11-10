@@ -124,11 +124,10 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     expect(joined.snapshot.owner).toBeUndefined();
   });
 
-  test("each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT", async () => {
+  test("each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic", async () => {
     const clock = fakeClock();
     t = start({ trustProxy: true, now: clock.now });
     const presetLayout = (id: string): RoomLayout => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(join(import.meta.dir, `../../../assets/presets/${id}.json`), "utf8")));
-    expect(presetLayout(DEFAULT_ROOM_PRESET)).toEqual(DEFAULT_LAYOUT);
     for (const preset of [...ROOM_PRESET_IDS, undefined]) {
       const body = preset === undefined ? { title: "Den", visibility: "public" } : { title: "Den", visibility: "public", preset };
       // More ids than the global creation burst (OME-2071): one refill per room keeps the limit as it is.
