@@ -99,6 +99,8 @@ test.describe("generic embed whose video sits in a nested player frame (OME-2521
       await a.getByTestId("generic-strip-unlock").click({ timeout: 20_000 });
     }
     await expect(a.getByTestId("synced")).toHaveCount(1, { timeout: 20_000 });
+    // ADR 0024 amendment 1 (OME-2532): on Chromium the unlocked frame has no sandbox, so anti-sandbox players show.
+    await expect(a.locator(site.sharedVideo)).not.toHaveAttribute("sandbox");
     const player = await playerFrame(a);
     await info.attach("nested-synced", { body: await a.screenshot(), contentType: "image/png" });
 

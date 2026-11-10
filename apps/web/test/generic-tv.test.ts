@@ -246,6 +246,50 @@ describe("generic embed TV (ADR 0024 §3)", () => {
       await Promise.resolve();
       expect(tv.screen.querySelectorAll("iframe")).toHaveLength(1);
     });
+
+    // ADR 0024 amendment 1 (OME-2532): some hosts refuse to play in a sandboxed frame, but only on Chromium.
+    describe("sandbox on Chromium", () => {
+      const asChromium = async <T>(run: () => Promise<T>): Promise<T> => {
+        Object.defineProperty(navigator, "userAgentData", { value: { brands: [] }, configurable: true });
+        try {
+          return await run();
+        } finally {
+          Reflect.deleteProperty(navigator, "userAgentData");
+        }
+      };
+      const unlocked = async (): Promise<HTMLIFrameElement | null> => {
+        const tv = await make();
+        deliver(PRESENT);
+        byId(tv, "generic-unlock")?.click();
+        deliver(unlockResult("unlocked"));
+        await Promise.resolve();
+        return tv.screen.querySelector("iframe");
+      };
+      const loadedOnly = async (): Promise<HTMLIFrameElement | null> => {
+        const tv = await make();
+        deliver(PRESENT);
+        loadButton(tv).click();
+        return tv.screen.querySelector("iframe");
+      };
+
+      test("an unlocked frame on Chromium has no sandbox; its other attributes stay", async () => {
+        const f = await asChromium(unlocked);
+        expect(f?.hasAttribute("sandbox")).toBe(false);
+        expect(f?.getAttribute("src")).toBe("https://media.example.org/embed/42");
+        expect(f?.getAttribute("allow")).toBe("fullscreen; autoplay");
+        expect(f?.getAttribute("referrerpolicy")).toBe("no-referrer");
+        expect(f?.getAttribute("title")).toBe("Shared video from media.example.org");
+      });
+
+      test("an unlocked frame elsewhere keeps the sandbox", async () => {
+        expect((await unlocked())?.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-presentation");
+      });
+
+      test("a frame that was only loaded keeps the sandbox, on Chromium and elsewhere", async () => {
+        expect((await asChromium(loadedOnly))?.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-presentation");
+        expect((await loadedOnly())?.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-presentation");
+      });
+    });
   });
 
   // ADR 0057 §2/§4: the per-viewer label says whether this viewer's frame follows the room.
