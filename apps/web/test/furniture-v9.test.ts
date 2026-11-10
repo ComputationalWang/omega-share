@@ -106,12 +106,13 @@ describe("sceneOf: partition loops in the ambient set", () => {
     expect(s.sprites.filter((x) => x.key.startsWith("furniture/partition/") && x.use?.ambient === true)).toHaveLength(0);
   });
 
-  test("the bar preset's ambient set stays the neon sign and the fireplace (v8's flags don't switch on, QA OME-2457)", async () => {
+  // OME-2537: Bar's "Last orders" loops its two neons and the lilac lava lamp; the jukebox (v8) still doesn't.
+  test("the bar preset's ambient set is the two neon signs and the lava lamp (v8's flags don't switch on, QA OME-2457)", async () => {
     const sheets = ["furniture", "furniture-v2", "furniture-v4", "furniture-v5", "furniture-v6", "furniture-v7", "furniture-v8", "furniture-v9"];
     const all = await Promise.all(sheets.map(async (name) => v.parse(FurnitureManifestSchema, await load(`furniture/${name}.json`))));
     const bar = v.parse(RoomLayoutSchema, await load("presets/bar.json"));
     const kinds = sceneOf(bar, all).sprites.filter((x) => x.use?.ambient === true).map((x) => x.key.split("/")[1]);
-    expect(new Set(kinds)).toEqual(new Set(["neonsign", "fireplace"]));
+    expect(kinds.sort()).toEqual(["lavalamp", "neonsign", "neonsign"]);
   });
 });
 

@@ -50,11 +50,12 @@ describe("room presets", () => {
     expect(most).toBeGreaterThanOrEqual(3);
   });
 
-  test("the Bar preset shows off at least four batch 6 pieces (OME-1439)", () => {
+  // OME-2537: "Last orders" drops the hammocks and the fireplace, so three of the five remain.
+  test("the Bar preset shows off at least three batch 6 pieces (OME-1439)", () => {
     const batch6 = ["hammock", "stool", "barcounter", "piano", "fireplace"];
     const bar = PRESETS.find((p) => p.id === "bar");
     expect(bar?.name).toBe("Bar");
-    expect(new Set(bar?.layout.furniture.map((f) => f.kind).filter((k) => batch6.includes(k))).size).toBeGreaterThanOrEqual(4);
+    expect(new Set(bar?.layout.furniture.map((f) => f.kind).filter((k) => batch6.includes(k))).size).toBeGreaterThanOrEqual(3);
   });
 
   test("Dank Dungeon (OME-1672): night mood, pair emote on, the README's blurb; no other preset has pairs", () => {
@@ -194,6 +195,27 @@ describe("room presets", () => {
     expect(f.filter((x) => x.kind === "frame" || x.kind === "arclamp").map((x) => [x.kind, x.col, x.row, x.facing])).toEqual([["frame", 0, 3, "se"], ["frame", 0, 4, "se"], ["arclamp", 0, 7, "se"]]);
     // Wall-mounted pieces have no footprint, so their anchor row counts too.
     expect(f.filter((x) => x.col === 0 && x.facing === "se").flatMap((x) => [x.row, ...footprintCells(x).map(([, r]) => r)]).filter((r) => [5, 6, 8].includes(r))).toEqual([]);
+  });
+
+  // OME-2537 (concept OME-2536, judge PASS 35/40): Bar becomes "Last orders": four stools at one long bar under the screen, a
+  // velvet booth in front, the piano, jukebox and cat on the left wall. The layout is the judged `c5-bar.json`, piece for piece.
+  test("OME-2537: Bar is OME-2536's layout, 21 pieces and 8 seats all facing ne, no table under the screen, with its new blurb", () => {
+    const f = PRESETS.find((p) => p.id === "bar")?.layout.furniture ?? [];
+    expect(f.map((x) => (x.variant === undefined ? [x.kind, x.col, x.row, x.facing] : [x.kind, x.col, x.row, x.facing, x.variant]))).toEqual([
+      ["stool", 2, 1, "ne"], ["stool", 3, 1, "ne", 1], ["stool", 4, 1, "ne"], ["stool", 5, 1, "ne", 1],
+      ["sofa", 2, 6, "ne"], ["sofa", 5, 6, "ne"],
+      ["barcounter", 2, 0, "sw"], ["barcounter", 4, 0, "sw"], ["wallscreen", 3, 0, "sw"], ["lavalamp", 6, 0, "se"],
+      ["sidetable", 4, 6, "se"], ["runner", 3, 3, "ne", 1],
+      ["piano", 0, 1, "se", 1], ["speaker", 0, 4, "se", 2], ["cat", 1, 3, "se"],
+      ["arcade", 8, 5, "sw"], ["arclamp", 1, 6, "se"],
+      ["neonsign", 0, 7, "se"], ["neonsign", 7, 0, "sw", 1],
+      ["monstera", 0, 9, "se", 1], ["monstera", 9, 0, "sw"],
+    ]);
+    const seats = layoutSeats(v.parse(RoomLayoutInputSchema, { furniture: f }));
+    expect(seats).toHaveLength(SEAT_COUNT);
+    expect(new Set(seats.map((s) => s.facing))).toEqual(new Set(["ne"]));
+    expect(f.some((x) => x.kind === "tv")).toBe(false);
+    expect(manifest.presets.find((p) => p.id === "bar")?.blurb).toBe("Stools at the bar, a velvet booth, a cat by the jukebox.");
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
