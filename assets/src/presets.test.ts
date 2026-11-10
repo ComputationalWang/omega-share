@@ -138,7 +138,7 @@ describe("room presets", () => {
     const byId = (id: string) => PRESETS.find((p) => p.id === id)?.layout.furniture ?? [];
     const at = (f: readonly { kind: string; col: number; row: number }[], kinds: readonly string[]) => f.filter((x) => kinds.includes(x.kind)).map((x) => [x.kind, x.col, x.row]);
     expect(at(byId("classic"), ["tv", "wallscreen", "lavalamp", "window", "longclock", "sidetable"])).toEqual([["wallscreen", 0, 0], ["lavalamp", 0, 0], ["window", 3, 0], ["longclock", 7, 0]]);
-    expect(at(byId("cinema"), ["stage", "curtain", "theatrerow"])).toEqual([["stage", 2, 0], ["stage", 0, 2], ["curtain", 1, 0], ["curtain", 0, 1], ["theatrerow", 2, 6], ["theatrerow", 6, 2], ["theatrerow", 3, 8], ["theatrerow", 8, 3]]);
+    expect(at(byId("cinema"), ["stage", "curtain", "theatrerow"])).toEqual([["stage", 2, 0], ["stage", 0, 2], ["curtain", 1, 0], ["curtain", 0, 1], ["theatrerow", 3, 5], ["theatrerow", 5, 3], ["theatrerow", 4, 7], ["theatrerow", 7, 4]]);
     for (const id of ["classic", "cinema"]) expect(layoutSeats(v.parse(RoomLayoutInputSchema, PRESETS.find((p) => p.id === id)?.layout)).length).toBe(SEAT_COUNT);
   });
 
