@@ -9,15 +9,20 @@ export interface FrameEnv {
 
 /**
  * The frame script (ADR 0057 §3, §5): the background injects it into every frame of the room tab it has host access
- * to with `scripting.executeScript({ func, args: [host] })`, so it runs only in the unlocked host's frames there. It
- * reads and drives that frame's first `<video>` and talks only to the background.
+ * to with `scripting.executeScript({ func, args: [host, nested] })`, so it runs only in the unlocked host's frames
+ * there and in those of the nested player hosts the viewer allowed for it (OME-2521). It reads and drives that frame's
+ * first `<video>`, reports for `host` either way, and talks only to the background.
+ *
+ * The unlocked host's own frame, while it has no `<video>`, reports the host of its largest player-sized iframe
+ * (`frame-nested`), so the background can ask the viewer about it.
  *
  * `executeScript` serializes the function: it must not use anything from outside its own body, not even an import
  * (a test runs it from its source). The limits mirror `@omega/shared` (MAX_POSITION_S, PLAYBACK_RATE_MIN/MAX).
  */
-export function frameSync(host: string, env?: FrameEnv): void {
+export function frameSync(host: string, nested: readonly string[], env?: FrameEnv): void {
   const win = env?.win ?? window;
-  if (win.top === win || win.location.hostname !== host) return;
+  const own = win.location.hostname === host;
+  if (win.top === win || !(own || nested.includes(win.location.hostname))) return;
   const ext = globalThis as unknown as { browser?: { runtime: FrameEnv["runtime"] }; chrome: { runtime: FrameEnv["runtime"] } };
   const runtime = env?.runtime ?? ext.browser?.runtime ?? ext.chrome.runtime;
   const source = "omega-share";
@@ -30,6 +35,7 @@ export function frameSync(host: string, env?: FrameEnv): void {
   slot.omegaFrameStop?.();
 
   let video: HTMLVideoElement | null = null;
+  let reportedNested = "";
   // Events our own commands will cause: their echoes are reported, never sent back as intents.
   const echoes = new Set<string>();
   const send = (message: unknown): void => {
@@ -101,9 +107,32 @@ export function frameSync(host: string, env?: FrameEnv): void {
     }
   };
 
-  const observer = new win.MutationObserver(() => {
+  /** The host of the largest iframe of at least 200×150 (embeds.ts MIN_FRAME_WIDTH/HEIGHT), if it's another https host. */
+  const playerHost = (): string => {
+    let best = 0;
+    let found = "";
+    for (const iframe of Array.from(win.document.querySelectorAll("iframe"))) {
+      const { width, height } = iframe.getBoundingClientRect();
+      if (width < 200 || height < 150 || width * height <= best) continue;
+      best = width * height;
+      try {
+        const url = new URL(iframe.getAttribute("src") ?? "", win.location.href);
+        found = url.protocol === "https:" && url.hostname !== host ? url.hostname : "";
+      } catch {
+        found = "";
+      }
+    }
+    return found;
+  };
+  const scan = (): void => {
     use(win.document.querySelector("video"));
-  });
+    if (!own || video !== null) return;
+    const next = playerHost();
+    if (next === "" || next === reportedNested) return;
+    reportedNested = next;
+    send({ source, kind: "frame-nested", host, nested: next });
+  };
+  const observer = new win.MutationObserver(scan);
   const timer = win.setInterval(() => {
     if (video?.paused === false) report();
   }, 1000);
@@ -123,6 +152,6 @@ export function frameSync(host: string, env?: FrameEnv): void {
   slot.omegaFrameStop = stop;
   runtime.onMessage.addListener(onCommand);
   win.addEventListener("pagehide", onHide);
-  observer.observe(win.document, { childList: true, subtree: true });
-  use(win.document.querySelector("video"));
+  observer.observe(win.document, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+  scan();
 }

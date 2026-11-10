@@ -32,7 +32,7 @@ const GECKO_ANDROID = { strict_min_version: "142.0" };
 const PRODUCTION_HOSTS = ["https://omega-share.duckdns.org/*"];
 // Port-less: Firefox never matches a pattern with a port, and http://localhost/* covers the default server on :8787.
 // The unlock fixture host (e2e/unlock.e2e.ts), pre-granted like a host the viewer already allowed.
-const E2E_HOSTS = ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*"];
+const E2E_HOSTS = ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*", "https://player.omega-fixture.net/*"];
 
 const SHORTCUT = "Alt+Shift+O";
 // Chrome's and Firefox's own Ctrl/Alt+Shift shortcuts (Windows/Linux keyboard-shortcut help pages) a suggestion must avoid.

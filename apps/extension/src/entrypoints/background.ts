@@ -4,7 +4,7 @@ import { defineBackground } from "wxt/utils/define-background";
 import { bridgeMatches } from "../bridge";
 import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, readServerBaseUrl } from "../settings";
 import { FOUND_ORIGINS, actionState, parseFoundMessage, syncFound } from "../found";
-import { createFrameRelay } from "../frame-relay";
+import { NESTED_HOSTS_KEY, createFrameRelay, nestedOf, withNested } from "../frame-relay";
 import { frameSync } from "../frame-sync";
 import { UNLOCK_HOSTS_KEY, createUnlocker, hasConsent, unlockPermissions, withoutRevoked } from "../unlock";
 
@@ -65,40 +65,49 @@ export default defineBackground(() => {
   const notify = async (tabId: number, message: ExtensionToPage) => {
     await browser.tabs.sendMessage(tabId, message, { frameId: 0 }).catch(() => undefined);
   };
+  const hasAccess = async (host: string) =>
+    hasConsent(
+      {
+        hostGranted: await browser.permissions.contains(unlockPermissions(host)),
+        everyHostGranted: await browser.permissions.contains({ origins: [...FOUND_ORIGINS] }),
+        stored: (await browser.storage.local.get(UNLOCK_HOSTS_KEY))[UNLOCK_HOSTS_KEY],
+      },
+      host,
+    );
+  const openConsent = async (params: Record<string, string>) => {
+    await browser.tabs.create({ url: `${browser.runtime.getURL("/consent.html")}?${new URLSearchParams(params).toString()}` });
+  };
+  const storedNested = async () => (await browser.storage.local.get(NESTED_HOSTS_KEY))[NESTED_HOSTS_KEY];
   const unlocker = createUnlocker({
     browser: BROWSER,
     consentUrl: browser.runtime.getURL("/consent.html"),
     version: browser.runtime.getManifest().version,
     ourOrigin,
     dnr: () => browser.declarativeNetRequest,
-    hasAccess: async (host) =>
-      hasConsent(
-        {
-          hostGranted: await browser.permissions.contains(unlockPermissions(host)),
-          everyHostGranted: await browser.permissions.contains({ origins: [...FOUND_ORIGINS] }),
-          stored: (await browser.storage.local.get(UNLOCK_HOSTS_KEY))[UNLOCK_HOSTS_KEY],
-        },
-        host,
-      ),
-    openConsent: async (tabId, host) => {
-      const query = new URLSearchParams({ tabId: String(tabId), host });
-      await browser.tabs.create({ url: `${browser.runtime.getURL("/consent.html")}?${query.toString()}` });
-    },
+    hasAccess,
+    openConsent: (tabId, host) => openConsent({ tabId: String(tabId), host }),
     tabUrl: (tabId) => browser.tabs.get(tabId).then((tab) => tab.url, () => undefined),
     notify,
   });
   // ADR 0057: frame sync for an unlocked host. allFrames injects only where we hold host access: our page (the
-  // script exits in the top frame) and the unlocked host's frames.
+  // script exits in the top frame), the unlocked host's frames and those of the nested hosts allowed for it (OME-2521).
   const frames = createFrameRelay({
     ourOrigin,
     unlockedHost: (tabId) => unlocker.unlockedHost(tabId),
-    inject: async (tabId, host) => {
-      await browser.scripting.executeScript({ target: { tabId, allFrames: true }, func: frameSync, args: [host] });
+    inject: async (tabId, host, nested) => {
+      await browser.scripting.executeScript({ target: { tabId, allFrames: true }, func: frameSync, args: [host, [...nested]] });
     },
     toFrames: async (tabId, message, frameId) => {
       await browser.tabs.sendMessage(tabId, message, frameId === undefined ? undefined : { frameId }).catch(() => undefined);
     },
     notify,
+    consentUrl: browser.runtime.getURL("/consent.html"),
+    hasAccess,
+    nestedHosts: async (host) => nestedOf(await storedNested(), host),
+    allowNested: async (host, nested) => {
+      await browser.storage.local.set({ [NESTED_HOSTS_KEY]: withNested(await storedNested(), host, nested) });
+    },
+    askNested: (tabId, host, nested) => openConsent({ tabId: String(tabId), host: nested, parent: host }),
   });
 
   browser.runtime.onMessage.addListener((message, sender) => {

@@ -8,6 +8,9 @@ import { UNLOCK_HOSTS_KEY, unlockPermissions, withApproved } from "../../unlock"
 const params = new URLSearchParams(location.search);
 const host = v.safeParse(GenericHostSchema, params.get("host"));
 const tabId = Number(params.get("tabId"));
+// A nested player host (OME-2521): asked for on behalf of the unlocked host that frames it.
+const rawParent = params.get("parent");
+const parent = rawParent === null ? null : v.safeParse(GenericHostSchema, rawParent);
 
 function byId(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -19,7 +22,8 @@ const status = byId("status");
 
 async function answer(): Promise<void> {
   if (!host.success) return;
-  await browser.runtime.sendMessage({ source: BRIDGE_SOURCE, kind: "consent", tabId, host: host.output });
+  const nested = parent?.success === true ? { parent: parent.output } : {};
+  await browser.runtime.sendMessage({ source: BRIDGE_SOURCE, kind: "consent", tabId, host: host.output, ...nested });
 }
 
 // Shown on the page rather than closing it, so a failure or a refusal never vanishes without a word.
@@ -27,10 +31,17 @@ function failed(): void {
   status.textContent = "Couldn't save your answer. Try again.";
 }
 
-if (host.success && Number.isSafeInteger(tabId)) {
+if (host.success && Number.isSafeInteger(tabId) && parent?.success !== false) {
   const name = host.output;
-  byId("title").textContent = `Let ${name} play in your omega-share room?`;
   byId("host-inline").textContent = name;
+  if (parent === null) byId("title").textContent = `Let ${name} play in your omega-share room?`;
+  else {
+    byId("title").textContent = `Let ${name} sync in your omega-share room?`;
+    byId("parent-inline").textContent = parent.output;
+    byId("nested-inline").textContent = name;
+    byId("unlock-text").hidden = true;
+    byId("nested").hidden = false;
+  }
   byId("allow").addEventListener("click", () => {
     void browser.permissions
       .request(unlockPermissions(name))

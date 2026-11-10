@@ -89,3 +89,15 @@ Nothing changes for them. They see the ADR 0024 card and play the frame on their
 5. **QA** (~1 d, after 2–4): an e2e lane on the existing `xfo.omega-fixture.net` fixture with a local `<video>` (deterministic), a real-provider kwik spec under xvfb (two extension viewers: play/pause/seek spread ≤ 500 ms; a third without the extension stays unsynced), Firefox, and the generic perf rows rechecked.
 
 About 5.5 engineer-days in total.
+
+## Amendment 1 — nested player hosts (2026-11-10, board decision on [OME-2521](/OME/issues/OME-2521), option A)
+
+**Context.** A share from anix.com.pl framed `gogoanime.com.by/streaming.php`, whose `<video>` sits in a third-party player frame (`megaplay.buzz`) nested inside it. That was an *accepted loss* above, so the room never synced. The board chose to sync such hosts.
+
+**Decision.**
+- When the unlocked host's frame has no `<video>`, the frame script reports the host of its largest player-sized iframe (at least 200×150, https, not the unlocked host) to the background as an extension-internal `frame-nested` message. It never reaches the page, and the bridge contract is unchanged.
+- The first time, the background opens the consent page for that host with `parent=<unlocked host>`. It asks once per tab, host and nested host while the background lives, so "Not now" isn't asked again on every attach. Allow grants `https://<nested>/*`, as an unlock does, and records the pair in `storage.local` (`nestedHosts`). No DNR rules are set for the nested host: its parent page frames it, not our room.
+- Attach injects the frame script into the unlocked host's frames and into those of the nested hosts allowed for it. In a nested frame it reports and obeys for the unlocked host's name, so the web adapter sees one host. The relay accepts frame reports only from the unlocked host's origin or an allowed nested origin, for the tab's unlocked host. A nested frame never reports nested frames of its own (one level).
+- Right after Allow, the background injects into the tab's frames at once. The web's 5 s attach timeout has usually run out by then, so the first time the viewer clicks Unlock in the room again. Every later attach syncs straight away.
+
+**Not changed.** The ADR 0024 sandbox stays. A player that refuses any sandbox (megaplay on Chrome) still shows its own error there, so this syncs only where the player plays (Firefox today). Ads in a nested player still count as the room's video (same as above). There are no new manifest permissions.
