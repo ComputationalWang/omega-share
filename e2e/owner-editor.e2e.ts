@@ -137,9 +137,9 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   // A catalogue v3 piece (OME-1351) comes from the same tray.
   await owner.locator(`${site.editorSlot}[data-kind="aquarium"]`).click();
   await clickCell(owner, 9, 8);
-  // So does a batch 6 piece (OME-1439): a fireplace backs onto the left wall.
+  // So does a batch 6 piece (OME-1439): a fireplace backs onto the left wall (row 2: Classic has an arc lamp on row 7 since OME-2517).
   await owner.locator(`${site.editorSlot}[data-kind="fireplace"]`).click();
-  await clickCell(owner, 0, 7);
+  await clickCell(owner, 0, 2);
   // The room mood (OME-1502) is saved with the same layout-set, and only tints the one dim layer.
   await owner.locator(`${site.editorMood}[data-mood="night"]`).click();
   await expect(owner.locator(`${site.editorMood}[data-mood="night"]`)).toHaveAttribute("aria-checked", "true");
@@ -152,7 +152,7 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await expect.poll(async () => (await layoutOf(guest)).find((f) => f.kind === "popcorn")).toMatchObject({ col: 9, row: 9 });
   expect((await layoutOf(guest)).find((f) => f.kind === "lamp")).toMatchObject({ col: 8, row: 1 });
   expect((await layoutOf(guest)).find((f) => f.kind === "aquarium")).toMatchObject({ col: 9, row: 8 });
-  expect((await savedOf(guest)).find((f) => f.kind === "fireplace")).toMatchObject({ col: 0, row: 7, facing: "se" });
+  expect((await savedOf(guest)).find((f) => f.kind === "fireplace")).toMatchObject({ col: 0, row: 2, facing: "se" });
   await expect(guest.locator(site.roomTint)).toHaveAttribute("data-mood", "night");
   await expect(guest.locator(site.roomTint)).toHaveCount(1);
   // The static furniture was rebuilt once for that change, and not again while the room just runs.
