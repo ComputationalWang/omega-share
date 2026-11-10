@@ -48,12 +48,17 @@ const TIE = 4;
 /** The sideways nudges (stage px) a tag tries over its owner's head before it stacks away. */
 const NUDGES = [0, -16, 16];
 
+/** How far (stage px, centre to head box) a tag of height `h` goes before spots further off count (OME-2518): a tag
+ * stacked once over the one on the head. In a dense phone room the upward stack climbed the back wall instead. */
+export const reachOf = (h: number): number => 1.5 * h + 2 * TAG_GAP;
+
 /**
  * Where each tag of height `h` goes so no two overlap and none covers a head (its owner's included) or an `avoid` box
  * (the screen, OME-2196) (OME-2149, OME-2172). A tag sits TAG_GAP above its owner's head, nudged sideways if that's
- * taken; else it stacks upward over what it hits; else it hangs under the feet, nudged likewise. Of those spots in
- * `minY`–`maxY` (the shown room) it takes the first nearer its owner's head than any other (OME-2196: in a cluster a tag
- * stacked over the heads behind named the wrong avatar), else the one nearest it by the most. With none in the window,
+ * taken; else it stacks upward over what it hits; else it sits beside the head; else it hangs under the feet, nudged
+ * likewise (under the feet before beside the head where the window cuts the spot over it). Of those spots in `minY`–`maxY` (the shown room), within `reachOf(h)` of the head if any are (OME-2518), it
+ * takes the first nearer its owner's head than any other (OME-2196: in a cluster a tag stacked over the heads behind
+ * named the wrong avatar), else the one nearest it by the most. With none in the window,
  * it stacks upward, or under the feet where that leaves the window, dropping under what it hits or, past `maxY`,
  * rising over it. A tag more than NEAR px off its owner's head is `led` (wears a leader pip).
  */
@@ -87,13 +92,23 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
       const own = d(t);
       return tags.reduce((m, o, j) => (j === i ? m : Math.min(m, d(o) - own)), Infinity);
     };
+    /** How far (stage px) a spot's centre lies from its owner's head box. */
+    const reach = ({ dx, y }: Spot): number => Math.hypot(Math.max(0, Math.abs(dx) - HEAD_W / 2), Math.max(0, t.top - y - h / 2, y + h / 2 - t.top - HEAD_H));
     const up = { dx: 0, y: settle(x0, x1, over, false) };
-    // Over the head, stacked upward, under the feet: the free ones in the window, the first nearest its owner's head, else
-    // the one nearest it by the most.
-    const spots = [...NUDGES.map((dx) => ({ dx, y: over })), up, ...NUDGES.map((dx) => ({ dx, y: t.y }))].filter(
+    const side = t.w / 2 + HEAD_W / 2 + TAG_GAP;
+    const beside = t.top + (HEAD_H - h) / 2;
+    const cut = over < minY;
+    const under = NUDGES.map((dx) => ({ dx, y: t.y }));
+    const sides = [{ dx: -side, y: beside }, { dx: side, y: beside }];
+    // Over the head, stacked upward, beside the head, under the feet (before beside it where the window cuts the spot over
+    // the head, OME-2118): the free ones in the window, the first nearest its owner's head, else the one nearest it by the
+    // most. Those within one stack step of the head, or under the feet where the window cuts, count first (OME-2518: in a
+    // dense phone room the upward stack climbed the back wall).
+    const spots = [...NUDGES.map((dx) => ({ dx, y: over })), up, ...(cut ? [...under, ...sides] : [...sides, ...under])].filter(
       (c) => c.y >= minY && c.y + h <= maxY && (c === up || blocker(x0 + c.dx, x1 + c.dx, c.y) === undefined),
     );
-    let at = spots.find((c) => margin(c) + TIE >= 0) ?? spots.reduce<Spot | undefined>((b, c) => (b === undefined || margin(c) > margin(b) ? c : b), undefined);
+    const pick = (cs: readonly Spot[]): Spot | undefined => cs.find((c) => margin(c) + TIE >= 0) ?? cs.reduce<Spot | undefined>((b, c) => (b === undefined || margin(c) > margin(b) ? c : b), undefined);
+    let at = pick(spots.filter((c) => reach(c) <= reachOf(h) || (cut && under.includes(c)))) ?? pick(spots);
     if (at === undefined) {
       if (up.y >= minY) at = up;
       else {
