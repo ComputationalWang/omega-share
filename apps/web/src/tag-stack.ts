@@ -56,7 +56,7 @@ export const reachOf = (h: number): number => 1.5 * h + 2 * TAG_GAP;
  * Where each tag of height `h` goes so no two overlap and none covers a head (its owner's included) or an `avoid` box
  * (the screen, OME-2196) (OME-2149, OME-2172). A tag sits TAG_GAP above its owner's head, nudged sideways if that's
  * taken; else it stacks upward over what it hits; else it sits beside the head; else it hangs under the feet, nudged
- * likewise (under the feet before beside the head where the window cuts the spot over it). Of those spots in `minY`–`maxY` (the shown room), within `reachOf(h)` of the head if any are (OME-2518), it
+ * likewise (under the feet before beside the head where the window cuts the spot over it); else it stacks upward, nudged. Of those spots in `minY`–`maxY` (the shown room), within `reachOf(h)` of the head if any are (OME-2518), it
  * takes the first nearer its owner's head than any other (OME-2196: in a cluster a tag stacked over the heads behind
  * named the wrong avatar), else the one nearest it by the most. With none in the window,
  * it stacks upward, or under the feet where that leaves the window, dropping under what it hits or, past `maxY`,
@@ -100,11 +100,13 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
     const cut = over < minY;
     const under = NUDGES.map((dx) => ({ dx, y: t.y }));
     const sides = [{ dx: -side, y: beside }, { dx: side, y: beside }];
+    // Stacked upward, nudged: in a row of wide phone tags the step up missed the one beside it by a few px (OME-2535).
+    const ups = NUDGES.slice(1).map((dx) => ({ dx, y: settle(x0 + dx, x1 + dx, over, false) }));
     // Over the head, stacked upward, beside the head, under the feet (before beside it where the window cuts the spot over
     // the head, OME-2118): the free ones in the window, the first nearest its owner's head, else the one nearest it by the
     // most. Those within one stack step of the head, or under the feet where the window cuts, count first (OME-2518: in a
     // dense phone room the upward stack climbed the back wall).
-    const spots = [...NUDGES.map((dx) => ({ dx, y: over })), up, ...(cut ? [...under, ...sides] : [...sides, ...under])].filter(
+    const spots = [...NUDGES.map((dx) => ({ dx, y: over })), up, ...(cut ? [...under, ...sides] : [...sides, ...under]), ...ups].filter(
       (c) => c.y >= minY && c.y + h <= maxY && (c === up || blocker(x0 + c.dx, x1 + c.dx, c.y) === undefined),
     );
     const pick = (cs: readonly Spot[]): Spot | undefined => cs.find((c) => margin(c) + TIE >= 0) ?? cs.reduce<Spot | undefined>((b, c) => (b === undefined || margin(c) > margin(b) ? c : b), undefined);
