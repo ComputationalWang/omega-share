@@ -138,8 +138,24 @@ describe("room presets", () => {
     const byId = (id: string) => PRESETS.find((p) => p.id === id)?.layout.furniture ?? [];
     const at = (f: readonly { kind: string; col: number; row: number }[], kinds: readonly string[]) => f.filter((x) => kinds.includes(x.kind)).map((x) => [x.kind, x.col, x.row]);
     expect(at(byId("classic"), ["tv", "wallscreen", "lavalamp", "window", "longclock", "sidetable"])).toEqual([["wallscreen", 0, 0], ["lavalamp", 0, 0], ["window", 3, 0], ["longclock", 7, 0]]);
-    expect(at(byId("cinema"), ["stage", "curtain", "theatrerow"])).toEqual([["stage", 2, 0], ["stage", 0, 2], ["curtain", 1, 0], ["curtain", 0, 1], ["theatrerow", 2, 5], ["theatrerow", 5, 2], ["theatrerow", 3, 7], ["theatrerow", 7, 3]]);
+    expect(at(byId("cinema"), ["stage", "curtain", "theatrerow"])).toEqual([["stage", 2, 0], ["stage", 0, 2], ["curtain", 1, 0], ["curtain", 0, 1], ["theatrerow", 3, 5], ["theatrerow", 5, 3], ["theatrerow", 3, 7], ["theatrerow", 7, 3]]);
     for (const id of ["classic", "cinema"]) expect(layoutSeats(v.parse(RoomLayoutInputSchema, PRESETS.find((p) => p.id === id)?.layout)).length).toBe(SEAT_COUNT);
+  });
+
+  // OME-2497 (judge, OME-2495): the Theatre's rows stand clear of the risers, not even corner to corner; Classic dresses its bare
+  // right wall and front-right edge with pieces from sheets it already loads, off the fixture segments, and keeps three loops.
+  test("OME-2497: no Theatre row touches a riser cell, corners included", () => {
+    const f = PRESETS.find((p) => p.id === "cinema")?.layout.furniture ?? [];
+    const riser = new Set(f.filter((x) => x.kind === "stage").flatMap(footprintCells).map(([c, r]) => `${String(c)},${String(r)}`));
+    const touching = f.filter((x) => x.kind === "theatrerow").filter((x) => footprintCells(x).some(([c, r]) => [-1, 0, 1].some((dc) => [-1, 0, 1].some((dr) => riser.has(`${String(c + dc)},${String(r + dr)}`)))));
+    expect(touching.map((x) => [x.col, x.row])).toEqual([]);
+  });
+
+  test("OME-2497: Classic adds a bookshelf on the right wall and a monstera on the front-right edge, off seats and fixture segments", () => {
+    const f = PRESETS.find((p) => p.id === "classic")?.layout.furniture ?? [];
+    expect(f.filter((x) => x.kind === "bookshelf" || x.kind === "monstera").map((x) => [x.kind, x.col, x.row, x.facing])).toEqual([["bookshelf", 1, 0, "sw"], ["monstera", 9, 2, "sw"]]);
+    // presets.ts: nothing on the window / poster / sconce segments (5, 6, 8) of the right wall, even wall-backed pieces.
+    expect(f.filter((x) => x.row === 0 && x.facing === "sw").flatMap(footprintCells).filter(([c]) => [5, 6, 8].includes(c))).toEqual([]);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {

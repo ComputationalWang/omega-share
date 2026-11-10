@@ -64,7 +64,8 @@ describe("the audience band (OME-1843)", () => {
 describe("where the band looks (seatsHome)", () => {
   test("a band too short for everyone keeps the front row's name tags whole, a pixel to spare", () => {
     const front = Math.max(...AUDIENCE.map((p) => p.y));
-    for (const h of [120, 160, 200]) expect(seatsHome(AUDIENCE, h, TAG_FOOT).y + h / 2).toBe(front + TAG_OFFSET_Y + TAG_H + 1);
+    // OME-2497: the Theatre's audience is under 200 px tall since its rows moved off the risers, so the bands stay below that.
+    for (const h of [100, 130, 160]) expect(seatsHome(AUDIENCE, h, TAG_FOOT).y + h / 2).toBe(front + TAG_OFFSET_Y + TAG_H + 1);
   });
 });
 
