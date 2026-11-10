@@ -62,7 +62,8 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge, onUnl
     loaded = true;
     // Every attribute is a constant from tv.ts `genericFrame`; src is its parsed url.
     const iframe = el("iframe", { src: frame.src, allow: frame.allow, referrerPolicy: frame.referrerPolicy, title: frame.title }, "shared-video");
-    iframe.setAttribute("sandbox", frame.sandbox);
+    // ADR 0024 amendment 1: Chromium-only anti-sandbox checks (megaplay) blank the player, so an unlocked frame there has none.
+    if (!(unlocked && "userAgentData" in navigator)) iframe.setAttribute("sandbox", frame.sandbox);
     if (unlocked && onUnlockedLoad !== undefined) iframe.addEventListener("load", onUnlockedLoad, { once: true });
     screen.replaceChildren(iframe);
     showStrip();
