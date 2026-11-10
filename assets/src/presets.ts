@@ -48,6 +48,8 @@ export const PRESETS: readonly Preset[] = [
         p("bookshelf", 1, 0, "sw"), p("monstera", 9, 2, "sw"),
         // OME-2507: the empty front floor below the rug, on the front edge and off the door cell; same sheet, still static.
         p("monstera", 7, 9, "se", 1),
+        // OME-2517: the bare left wall (two prints on plain segments 3-4) and the front-left corner by the plant; same sheet, static.
+        p("frame", 0, 3, "se"), p("frame", 0, 4, "se", 1), p("arclamp", 0, 7, "se"),
       ],
     },
   },
