@@ -210,6 +210,22 @@ describe("stackTags: tags keep off heads and by their owner", () => {
     expect(overlaps(tags, places, h)).toEqual([]);
     expect(places[3]?.led).toBe(true);
   });
+
+  // OME-2535 (judge OME-2519): Classic on Pixel 7, fitted, four in the left armchairs and the viewer between them: five
+  // heads 64 px apart on one row, tags 143 px wide. The fourth tag's spot one step up missed the third's by 14 px, two up
+  // was the screen's, and it hung two tags under its feet. One step up, nudged, is free.
+  test("in a row of wide tags each stays within one stack step of its own head (measured, CI fonts)", () => {
+    const tags = [[352, 291], [480, 272], [608, 291], [416, 288], [544, 293]].map(([x = 0, top = 0]): TagBox => ({ x, y: 342, w: 142.578125, top }));
+    const h = 50;
+    const places = stackTags(tags, h, 592, 60, [{ x0: 420, x1: 482, y0: 106, y1: 176 }]);
+    tags.forEach((t, i) => {
+      const y = t.y + (places[i]?.dy ?? NaN) + h / 2;
+      const dx = Math.max(0, Math.abs(places[i]?.dx ?? NaN) - HEAD_W / 2);
+      expect(Math.hypot(dx, Math.max(0, t.top - y, y - (t.top + HEAD_H))), `tag ${String(i)}`).toBeLessThanOrEqual(reachOf(h));
+      expect(places[i]?.led, `tag ${String(i)}`).toBe(fromHead(t, places[i] ?? { dx: 0, dy: 0 }, h) > 12);
+    });
+    expect(overlaps(tags, places, h)).toEqual([]);
+  });
 });
 
 // OME-2196 (design judge round 4): in a tight cluster a front avatar's tag stacked over the tags behind it, a cell off
