@@ -333,6 +333,7 @@
         "e2e/fake-players.e2e.ts",
         "e2e/fake-yt.e2e.ts",
         "e2e/provider-fullscreen.e2e.ts",
+        "e2e/provider-generic-nested.e2e.ts",
         "e2e/provider-generic-sync.e2e.ts",
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-quality.e2e.ts",
@@ -368,6 +369,7 @@
       "specs": [
         "e2e/acceptance.e2e.ts",
         "e2e/fullscreen.e2e.ts",
+        "e2e/provider-generic-nested.e2e.ts",
         "e2e/provider-generic-sync.e2e.ts",
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-quality.e2e.ts",
@@ -995,6 +997,7 @@
         "e2e/extension.e2e.ts",
         "e2e/extension.firefox.ts",
         "e2e/generic-sync.firefox.ts",
+        "e2e/provider-generic-nested.e2e.ts",
         "e2e/provider-generic-sync.e2e.ts",
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-share.e2e.ts",
