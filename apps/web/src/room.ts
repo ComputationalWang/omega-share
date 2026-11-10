@@ -850,6 +850,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
+  // Built off the page, then mounted and laid out: a task each (OME-2531), as the stage's yield above (the Theatre join's
+  // build alone came to 100 ms on a phone). Nothing is mounted or listening yet; the page still shows the join form.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, reactionBar.root, recap.root, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, pollCard.root, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // The bar and the transport are there at once; the scene fades in under them (HANDOFF "Motion").
   play(stage, [{ opacity: 0 }, { opacity: 1 }], 160);

@@ -106,12 +106,40 @@ interface OpenStore {
   __omega?: { room: { roomRenders: () => number } | null };
 }
 
+/**
+ * OME-2531: the WebGL contexts the page opened (`webglInFrame`: inside an animation frame). The stage draws on the 2D canvas
+ * (ADR 0029), but Pixi's batch shader opens one to read the shader precision when it is built.
+ */
+function countWebglOpens(): void {
+  const opened = { webglInFrame: 0, webgl: 0 };
+  Reflect.set(window, "__webglOpened", opened);
+  let inFrame = false;
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (cb) =>
+    raf((t) => {
+      inFrame = true;
+      try {
+        cb(t);
+      } finally {
+        inFrame = false;
+      }
+    });
+  const getContext = Reflect.get(HTMLCanvasElement.prototype, "getContext") as (...args: unknown[]) => RenderingContext | null;
+  Reflect.set(HTMLCanvasElement.prototype, "getContext", function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+    if (type.startsWith("webgl")) opened[inFrame ? "webglInFrame" : "webgl"]++;
+    return Reflect.apply(getContext, this, [type, ...rest]);
+  });
+}
+
 /** One cold, throttled join: ms from the click to the loading state and to the room's first frame. */
-async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof NETWORKS, n: number, layout?: RoomLayout): Promise<{ loading: number; open: number; longest: number }> {
+async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof NETWORKS, n: number, layout?: RoomLayout): Promise<{ loading: number; open: number; longest: number; webglInFrame: number }> {
   const context = await watchCsp(await browser.newContext(devices["Pixel 7"]));
   try {
     await stubExternalNetwork(context);
-    if (layout !== undefined) await showLayout(context, layout);
+    if (layout !== undefined) {
+      await showLayout(context, layout);
+      await context.addInitScript(countWebglOpens);
+    }
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
     await cdp.send("Network.enable");
@@ -146,11 +174,13 @@ async function openRoom(browser: Browser, roomUrl: string, network: keyof typeof
       );
     }, site.joinButton);
     await page.locator(site.joinButton).click();
-    await expect.poll(() => page.evaluate(() => (globalThis as unknown as OpenStore).__joinOpen.open), { timeout: 30_000 }).toBeGreaterThan(0);
+    // OME-2531: this waits for the room's first frame, not for a long task.
+    await expect.poll(() => page.evaluate(() => (globalThis as unknown as OpenStore).__joinOpen.open), { message: "the room's first frame after Join", timeout: 30_000 }).toBeGreaterThan(0);
     if (layout !== undefined) await page.waitForTimeout(JOIN_WINDOW_MS);
     const t = await page.evaluate(() => (globalThis as unknown as OpenStore).__joinOpen);
     const longest = Math.max(0, ...t.tasks.filter((k) => k.start <= JOIN_WINDOW_MS).map((k) => k.duration));
-    return { loading: t.loading, open: t.open, longest };
+    const webglInFrame = await page.evaluate(() => (Reflect.get(window, "__webglOpened") as { webglInFrame: number } | undefined)?.webglInFrame ?? 0);
+    return { loading: t.loading, open: t.open, longest, webglInFrame };
   } finally {
     await context.close();
   }
@@ -214,5 +244,7 @@ test("joining the Theatre preset on a throttled phone: first draw within a secon
   }
   // OME-2280: a median under the limit hid a 107 ms join (101/96/107); no single join may pass it.
   const limit = BUDGETS.find((b) => b.id === ids[1])?.limit ?? 0;
+  // OME-2531: the room's first frame built Pixi's batch shader, a throwaway WebGL context and all (~19 ms of the 101).
+  expect.soft(runs.map((r) => r.webglInFrame), "no WebGL context opened while the join draws a frame").toEqual(runs.map(() => 0));
   expect.soft(Math.max(...runs.map((r) => r.longest)), `every Theatre join's longest task ≤ ${String(limit)} ms (${rows[1]?.note ?? ""})`).toBeLessThanOrEqual(limit);
 });

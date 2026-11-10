@@ -1,7 +1,7 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
-import { Application, Container, Graphics, Sprite, ImageSource, Texture, Ticker } from "pixi.js";
+import { Application, Container, DefaultBatcher, Graphics, Sprite, ImageSource, Texture, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type LieStyle, type MemberId, type RoomMood } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import { createSceneTags, type SceneTags } from "./scene-tags";
@@ -304,6 +304,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     preference: "canvas",
   });
   app.ticker.stop();
+  // The first batch builds Pixi's one batch shader, a throwaway WebGL context and all (~19 ms on a 4× CPU phone): here, not
+  // in the join's first frame (OME-2531). The canvas renderer never runs it.
+  new DefaultBatcher({ maxTextures: app.renderer.limits.maxBatchableTextures });
   const pumpSystem = quietSystemTicker(Ticker.system);
 
   const floor = new Graphics({ label: "floor" });
