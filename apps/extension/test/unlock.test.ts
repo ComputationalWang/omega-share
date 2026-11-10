@@ -252,6 +252,14 @@ describe("answer from the consent page", () => {
   });
 });
 
+test("a nested-host consent (OME-2521) is the frame relay's: it never installs rules or answers the room", async () => {
+  const h = harness({ granted: true });
+  const sender = { url: `${CONSENT}?tabId=7&host=player.cdn-host.net&parent=video.cdn-host.net`, tab: { id: 99, url: CONSENT } };
+  await h.unlocker.onMessage({ source: "omega-share", kind: "consent", tabId: ROOM_TAB, host: "player.cdn-host.net", parent: "video.cdn-host.net" }, sender);
+  expect(h.rules()).toEqual([]);
+  expect(h.notes).toEqual([]);
+});
+
 describe("removal", () => {
   const unlocked = async () => {
     const h = harness({ granted: true });

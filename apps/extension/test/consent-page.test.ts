@@ -9,7 +9,7 @@ const DOM_GLOBALS = ["window", "document", "location", "HTMLElement"] as const;
 interface BrowserStub {
   readonly request?: () => Promise<boolean>;
   readonly storageSet?: () => Promise<void>;
-  readonly sendMessage?: () => Promise<unknown>;
+  readonly sendMessage?: (message: unknown) => Promise<unknown>;
 }
 
 const unhandled: unknown[] = [];
@@ -22,7 +22,7 @@ void mock.module("wxt/browser", () => ({
   browser: {
     permissions: { request: () => current.request?.() ?? Promise.resolve(true) },
     storage: { local: { get: () => Promise.resolve({}), set: () => current.storageSet?.() ?? Promise.resolve() } },
-    runtime: { sendMessage: () => current.sendMessage?.() ?? Promise.resolve(undefined) },
+    runtime: { sendMessage: (message: unknown) => current.sendMessage?.(message) ?? Promise.resolve(undefined) },
   },
 }));
 
@@ -112,4 +112,31 @@ test("a bad host param offers a visible Close button that closes the window", as
   expect(close.hidden).toBe(false);
   close.click();
   expect(closed()).toBe(1);
+});
+
+// OME-2521: a nested player host is asked for on behalf of the unlocked host that frames it.
+test("a nested host's page names both hosts and answers with the parent", async () => {
+  const sent: unknown[] = [];
+  const { document, closed } = await openConsent("?host=player.cdn-host.net&tabId=7&parent=video.cdn-host.net", {
+    sendMessage: (m) => (sent.push(m), Promise.resolve(undefined)),
+  });
+  expect(el(document, "title").textContent).toBe("Let player.cdn-host.net sync in your omega-share room?");
+  expect(el(document, "nested").hidden).toBe(false);
+  expect(el(document, "nested").textContent).toContain("video.cdn-host.net");
+  expect(el(document, "unlock-text").hidden).toBe(true);
+  el(document, "allow").click();
+  await settle();
+  expect(sent).toEqual([{ source: "omega-share", kind: "consent", tabId: 7, host: "player.cdn-host.net", parent: "video.cdn-host.net" }]);
+  expect(closed()).toBe(1);
+});
+
+test("a plain unlock page shows no nested text and sends no parent; a bad parent is nothing to unlock", async () => {
+  const sent: unknown[] = [];
+  const { document } = await openConsent(GOOD, { sendMessage: (m) => (sent.push(m), Promise.resolve(undefined)) });
+  expect(el(document, "nested").hidden).toBe(true);
+  el(document, "deny").click();
+  await settle();
+  expect(sent).toEqual([{ source: "omega-share", kind: "consent", tabId: 7, host: "example.com" }]);
+  const bad = await openConsent("?host=player.cdn-host.net&tabId=7&parent=not%20a%20host");
+  expect(el(bad.document, "title").textContent).toBe("Nothing to unlock here.");
 });
