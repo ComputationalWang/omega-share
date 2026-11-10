@@ -16,6 +16,7 @@ function harness() {
   let listener: ((m: FrameMessage) => void) | null = null;
   const timers: { fn: () => void; at: number; cleared: boolean }[] = [];
   const sync: boolean[] = [];
+  const late: PlayerAdapter[] = [];
   const result = mountFrame({
     host: HOST,
     bridge: {
@@ -37,6 +38,7 @@ function harness() {
       h.cleared = true;
     },
     onSync: (on) => sync.push(on),
+    onLate: (p) => late.push(p),
   });
   const deliver = (m: FrameMessage) => listener?.(m);
   const advance = (ms: number) => {
@@ -46,7 +48,7 @@ function harness() {
       h.fn();
     }
   };
-  return { t, sent, deliver, advance, result, sync, listening: () => listener !== null };
+  return { t, sent, deliver, advance, result, sync, late, listening: () => listener !== null };
 }
 
 async function attached() {
@@ -84,12 +86,40 @@ describe("frame adapter mount (ADR 0057 §4)", () => {
     expect(h.sync).toEqual([true]);
   });
 
-  test("no frame-state within the attach timeout: timeout, and the listener is dropped", async () => {
+  test("no frame-state within the attach timeout: timeout, but it keeps listening for a late attach", async () => {
     const h = harness();
     h.advance(ATTACH_TIMEOUT_MS);
     expect(await h.result).toEqual({ ok: false, reason: "timeout" });
-    expect(h.listening()).toBe(false);
+    expect(h.listening()).toBe(true);
+    expect(h.late).toEqual([]);
     expect(ATTACH_TIMEOUT_MS).toBe(5000);
+  });
+
+  test("a first frame-state after the timeout (a nested-host consent) attaches late; another host's doesn't", async () => {
+    const h = harness();
+    h.advance(ATTACH_TIMEOUT_MS);
+    await h.result;
+    h.deliver(state({ host: "other.example.org" }));
+    expect(h.late).toEqual([]);
+    expect(h.sync).toEqual([]);
+    h.deliver(state({ state: "playing", position: 42 }));
+    expect(h.sync).toEqual([true]);
+    expect(h.late.length).toBe(1);
+    const p = h.late[0];
+    if (p === undefined) return;
+    expect(p.ready()).toBe(true);
+    expect(p.state()).toBe("playing");
+    h.deliver(state());
+    expect(h.late.length).toBe(1);
+  });
+
+  test("a late attach the caller destroyed (superseded) stops listening", async () => {
+    const h = harness();
+    h.advance(ATTACH_TIMEOUT_MS);
+    await h.result;
+    h.deliver(state());
+    h.late[0]?.destroy();
+    expect(h.listening()).toBe(false);
   });
 });
 

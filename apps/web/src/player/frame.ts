@@ -29,6 +29,8 @@ export interface FrameMountOptions<Timer> {
   readonly clearTimeout: (t: Timer) => void;
   /** The frame is (true) or is no longer (false) attached: the per-viewer label follows. */
   readonly onSync: (attached: boolean) => void;
+  /** The first frame-state came after the timeout (a nested-host consent, ADR 0057 amendment 1): the player, attached late. */
+  readonly onLate: (player: PlayerAdapter) => void;
 }
 
 /** Asks the extension to attach to `host`'s frame; resolves with a ready player on its first frame-state, else times out. Never rejects. */
