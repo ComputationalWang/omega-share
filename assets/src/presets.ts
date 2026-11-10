@@ -46,6 +46,8 @@ export const PRESETS: readonly Preset[] = [
         p("lamp", 9, 0, "se"), p("plant", 0, 9, "se"),
         // OME-2497: the bare right wall and front-right edge, off the fixture segments; static pieces, so still three loops.
         p("bookshelf", 1, 0, "sw"), p("monstera", 9, 2, "sw"),
+        // OME-2507: the empty front floor below the rug, on the front edge and off the door cell; same sheet, still static.
+        p("monstera", 7, 9, "se", 1),
       ],
     },
   },
