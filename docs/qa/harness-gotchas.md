@@ -24,6 +24,8 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 **Shell hygiene** (OME-470, OME-511). `cd X; git ...` runs git in the old directory when the `cd` fails (once detached the shared `main`): use `cd X && git ...`. `cd X && setsid nohup ... & disown; git add` backgrounds the whole `&&` chain, so later commands run in the old cwd: put the detached job in its own Bash call. The QA2 worktree is `/home/wang/Projects/omega-share-worktrees/qa2`.
 
+**`vite: command not found` in `bun run`** (OME-2500). The Paperclip run sets `BASH_ENV` to a runtime `.bashrc` that re-exports `PATH`, so bun's script shells lose `node_modules/.bin` and builds (perf, e2e) fail before any test. Prefix the command with `env -u BASH_ENV`.
+
 **Milestone reports go in `docs/qa/`** (OME-511), not in git-ignored `perf/results/`. Let the script write there and commit a copy.
 
 ## Playwright and Chromium
