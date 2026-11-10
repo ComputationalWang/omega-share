@@ -128,6 +128,7 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
 
   // Move the lamp from (9,0) to (8,1), put a popcorn cart at (9,9) and an aquarium at (9,8): one save, one layout-changed.
   const before = await builds(guest);
+  const pieces = (await layoutOf(guest)).length;
   await clickCell(owner, 9, 0);
   await clickCell(owner, 8, 1);
   await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
@@ -145,7 +146,7 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await expect(owner.locator(site.roomTint)).toHaveAttribute("data-mood", "night");
   await expect(guest.locator(site.roomTint)).not.toHaveAttribute("data-mood", /./);
   // The owner sees the draft; the guest doesn't until it's saved.
-  expect(await layoutOf(guest)).toHaveLength(DEFAULT_LAYOUT.furniture.length);
+  expect(await layoutOf(guest)).toHaveLength(pieces);
   await expect(owner.locator(site.editorProblems)).toBeEmpty();
   await owner.locator(site.editorSave).click();
   await expect.poll(async () => (await layoutOf(guest)).find((f) => f.kind === "popcorn")).toMatchObject({ col: 9, row: 9 });

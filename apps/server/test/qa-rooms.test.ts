@@ -8,6 +8,7 @@ import {
   CLOSE_CODES,
   CreateRoomResponseSchema,
   DEFAULT_LAYOUT,
+  DEFAULT_ROOM_PRESET,
   DeleteRoomResponseSchema,
   MAX_ROOMS,
   ROOM_CREATE_GLOBAL_BURST,
@@ -25,6 +26,7 @@ import {
 import { ROOM_GC_INTERVAL_MS, ROOM_IDLE_TTL_MS } from "../src/rooms-gc";
 import { hashSecret, mintSecret, newRoomId } from "../src/secrets";
 import { openDatabase } from "../src/store/db";
+import { presetLayout } from "../src/presets";
 import { RoomStore } from "../src/store/rooms";
 import { Client, start, postShare, TestClock, tokenOf, type TestServer } from "./helpers";
 
@@ -710,7 +712,7 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
     }
     await owner.client.none("layout-changed", 100);
     await guest.client.none("layout-changed", 10);
-    expect(layoutsEqual(await layoutOf(created.room.id), DEFAULT_LAYOUT)).toBe(true);
+    expect(layoutsEqual(await layoutOf(created.room.id), presetLayout(DEFAULT_ROOM_PRESET))).toBe(true);
     // An unjoined socket can't either.
     const lurker = await open(created.room.id);
     lurker.send({ type: "layout-set", layout: movedLayout() });
@@ -720,7 +722,7 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
     await sync(owner.client);
     owner.client.send({ type: "layout-set", layout: movedLayout() });
     expect((await owner.client.next("error")).code).toBe("not_joined");
-    expect(layoutsEqual(await layoutOf(created.room.id), DEFAULT_LAYOUT)).toBe(true);
+    expect(layoutsEqual(await layoutOf(created.room.id), presetLayout(DEFAULT_ROOM_PRESET))).toBe(true);
   });
 
   test("the owner's invalid layouts are refused with bad_message and the stored layout is unchanged", async () => {
@@ -764,9 +766,9 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
       sent++;
     }
     await guest.client.none("layout-changed", 50);
-    expect(layoutsEqual(await layoutOf(created.room.id), DEFAULT_LAYOUT)).toBe(true);
+    expect(layoutsEqual(await layoutOf(created.room.id), presetLayout(DEFAULT_ROOM_PRESET))).toBe(true);
     const stored = store.listRooms().find((r) => r.id === created.room.id) ?? fail("no row");
-    expect(layoutsEqual(stored.layout, DEFAULT_LAYOUT)).toBe(true);
+    expect(layoutsEqual(stored.layout, presetLayout(DEFAULT_ROOM_PRESET))).toBe(true);
   });
 
   test("a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged", async () => {
@@ -776,7 +778,7 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
     const close = await owner.client.closed;
     // The contract (constants.ts): Bun closes oversize frames, which a client sees as 1006 (or 1009); never an accepted edit.
     expect([1006, 1009, CLOSE_CODES.BAD_MESSAGES]).toContain(close.code);
-    expect(layoutsEqual(await layoutOf(created.room.id), DEFAULT_LAYOUT)).toBe(true);
+    expect(layoutsEqual(await layoutOf(created.room.id), presetLayout(DEFAULT_ROOM_PRESET))).toBe(true);
   });
 
   test("a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners", async () => {

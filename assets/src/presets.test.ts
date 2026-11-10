@@ -73,7 +73,7 @@ describe("room presets", () => {
   test("wave 2: every room has one screen, on the wall in the revamps and swap rooms", () => {
     const screens = Object.fromEntries(PRESETS.map((p) => [p.id, p.layout.furniture.filter((f) => isScreen(f.kind)).map((f) => f.kind)]));
     expect(screens).toEqual({
-      classic: ["tv"], cinema: ["bigscreen"], living: ["wallscreen"], lounge: ["projector"], cafe: ["wallscreen"], bar: ["wallscreen"],
+      classic: ["wallscreen"], cinema: ["bigscreen"], living: ["wallscreen"], lounge: ["projector"], cafe: ["wallscreen"], bar: ["wallscreen"],
       empty: ["tv"], "dank-dungeon": ["tv"], penthouse: ["wallscreen"], studio: ["wallscreen"], "stage-door": ["projector"], reef: ["wallscreen"],
     });
   });
@@ -130,6 +130,16 @@ describe("room presets", () => {
     }
     // Beside the glass (cols 3–9 on row 4), on the spa side, looking in.
     expect(chairs.some((c) => c.row === 5 && c.col >= 3 && c.facing === "ne")).toBe(true);
+  });
+
+  // OME-2480: OME-2471's judged concepts. Classic hangs the screen and keeps three loops (no mugs: they don't animate and
+  // crowd the front chairs); the Theatre's screen stands on risers, the rows one cell further back.
+  test("OME-2480: Classic and the Theatre are OME-2471's layouts, eight seats each", () => {
+    const byId = (id: string) => PRESETS.find((p) => p.id === id)?.layout.furniture ?? [];
+    const at = (f: readonly { kind: string; col: number; row: number }[], kinds: readonly string[]) => f.filter((x) => kinds.includes(x.kind)).map((x) => [x.kind, x.col, x.row]);
+    expect(at(byId("classic"), ["tv", "wallscreen", "lavalamp", "window", "longclock", "sidetable"])).toEqual([["wallscreen", 0, 0], ["lavalamp", 0, 0], ["window", 3, 0], ["longclock", 7, 0]]);
+    expect(at(byId("cinema"), ["stage", "curtain", "theatrerow"])).toEqual([["stage", 2, 0], ["stage", 0, 2], ["curtain", 1, 0], ["curtain", 0, 1], ["theatrerow", 2, 5], ["theatrerow", 5, 2], ["theatrerow", 3, 7], ["theatrerow", 7, 3]]);
+    for (const id of ["classic", "cinema"]) expect(layoutSeats(v.parse(RoomLayoutInputSchema, PRESETS.find((p) => p.id === id)?.layout)).length).toBe(SEAT_COUNT);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {

@@ -94,14 +94,7 @@ impl Presets {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::layout::{DEFAULT_ROOM_PRESET, ROOM_PRESET_IDS, default_layout};
-
-    // apps/server/test/room-create.test.ts:133 the default preset is DEFAULT_LAYOUT
-    #[test]
-    fn the_default_preset_is_the_default_layout() {
-        let presets = Presets::load().unwrap();
-        assert_eq!(presets.preset_layout(DEFAULT_ROOM_PRESET), &default_layout());
-    }
+    use crate::contract::layout::ROOM_PRESET_IDS;
 
     #[test]
     fn every_preset_loads_seats_eight_and_round_trips_its_canonical_json() {
@@ -137,7 +130,7 @@ mod tests {
     fn wave2_screens_and_shells() {
         let presets = Presets::load().unwrap();
         let screen = |id: &str| match id {
-            "living" | "cafe" | "bar" | "penthouse" | "studio" | "reef" => "wallscreen",
+            "classic" | "living" | "cafe" | "bar" | "penthouse" | "studio" | "reef" => "wallscreen",
             "lounge" | "stage-door" => "projector",
             "cinema" => "bigscreen",
             _ => "tv",

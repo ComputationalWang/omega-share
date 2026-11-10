@@ -13,8 +13,9 @@ const v2 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../ass
 const v4 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v4.json", import.meta.url)).json());
 const v5 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v5.json", import.meta.url)).json());
 const v6 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v6.json", import.meta.url)).json());
+const v8 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v8.json", import.meta.url)).json());
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
-/** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
+/** The classic preset (OME-2480): a 7×7 rug, eight armchairs, lamp and plant from the room atlas; wave 2's wall screen, lava lamp, window and clock. */
 const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
 
 /** A layout with set (g) pieces: two sofas, a couch, a wingback and a beanbag (8 seats), a runner, a print, a bookcase and props. */
@@ -297,8 +298,10 @@ describe("room atlas", () => {
     expect(z).toBeLessThan(front?.z ?? NaN);
   });
 
-  test("the console, lamp and plant are drawn on their cells", () => {
-    expect(at(classic, "tv/0", 0, 0)).toBeDefined();
+  test("the lamp and plant are drawn on their cells; wave 2 hangs the screen, window and clock, no console", () => {
+    expect(keysOf(classic).some((k) => k.startsWith("tv/"))).toBe(false);
+    const full = keysOf(sceneOf(CLASSIC, [v8], room));
+    for (const kind of ["wallscreen", "lavalamp", "window", "longclock"]) expect(full.some((k) => k.startsWith(`furniture/${kind}/`)), kind).toBe(true);
     expect(at(classic, "lamp/0", 9, 0)?.layer).toBe("object");
     expect(at(classic, "plant/0", 0, 9)?.layer).toBe("object");
     expect(standDepth(cellCenter(9, 1))).toBeGreaterThan(at(classic, "lamp/0", 9, 0)?.z ?? NaN);
@@ -327,9 +330,8 @@ describe("room atlas", () => {
     expect(at(classic, "wall/corner", 0, 0)).toBeDefined();
     expect(at(classic, "wall/l/end", 0, 9)).toBeDefined();
     expect(at(classic, "wall/r/end", 9, 0)).toBeDefined();
-    // The atlas's suggested walls: a window on the left, a poster on the right.
-    expect(keysOf(classic)).toContain("wall/l/window0");
-    expect(keysOf(classic)).toContain("wall/r/poster0");
+    // The wall screen (left) and window (right) hang on the walls, so the atlas's suggested window and poster step aside.
+    expect(keysOf(classic).filter((k) => /^wall\/[lr]\/(?!end$)/.test(k)).every((k) => k === "wall/l/plain" || k === "wall/r/plain")).toBe(true);
   });
 
   test("a set (g) room gets the floor and walls too; a wall with a print hangs it on plain segments, drawn after them", () => {
@@ -772,7 +774,7 @@ describe("sceneOf: the screen's sprites", () => {
     ["classic", CLASSIC],
     ["cinema", CINEMA],
   ] as const)("%s: only the screen piece's sprites are marked", (_, l) => {
-    const s = sceneOf(l, [manifest, v2, v4, v5, v6], room);
+    const s = sceneOf(l, [manifest, v2, v4, v5, v6, v8], room);
     const marked = s.sprites.filter((x) => x.screen === true).map((x) => x.key);
     expect(marked.length).toBeGreaterThan(0);
     expect(marked.every((k) => /(^|\/)(tv|bigscreen|wallscreen|projector)\//.test(k))).toBe(true);

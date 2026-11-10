@@ -8,7 +8,7 @@
 //   - nothing on the window / poster / sconce wall segments (5, 6, 8), even wall-backed pieces.
 // Thumbnails re-cast the same 3D models at 5/16 scale (a 20×10 tile), like set (h)'s tray thumbnails: not a downscaled
 // screenshot, so light, tones and the plum outline are the room's own. No avatars: it's the empty room you'll walk into.
-import { DEFAULT_LAYOUT, FURNITURE, footprintCells, type Furniture, type RoomLayout } from "@omega/shared";
+import { FURNITURE, footprintCells, type Furniture, type RoomLayout } from "@omega/shared";
 import { PIECES, fitThumb, pieceImage, type Canvas, type PieceDef } from "./furniture";
 import { addOutline, box, renderSolids, type Solid, type Vec3 } from "./iso";
 import type { RampName } from "./palette";
@@ -34,26 +34,36 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "classic",
     name: "Classic",
-    blurb: "Two rows of armchairs on the big rug.",
-    layout: DEFAULT_LAYOUT,
+    blurb: "Armchairs on the big rug, rain on the window.",
+    // OME-2480 (OME-2471's judged concept): the screen on the wall, three at-rest loops (lava lamp, rain, clock).
+    // DEFAULT_LAYOUT stays the TV-table room (no contract change).
+    layout: {
+      furniture: [
+        p("rug", 1, 1, "se"),
+        p("armchair", 1, 5, "ne"), p("armchair", 2, 4, "ne"), p("armchair", 4, 2, "nw"), p("armchair", 5, 1, "nw"),
+        p("armchair", 3, 7, "ne"), p("armchair", 4, 6, "ne"), p("armchair", 6, 4, "nw"), p("armchair", 7, 3, "nw"),
+        p("wallscreen", 0, 0, "se"), p("lavalamp", 0, 0, "se"), p("window", 3, 0, "sw", 1), p("longclock", 7, 0, "sw"),
+        p("lamp", 9, 0, "se"), p("plant", 0, 9, "se"),
+      ],
+    },
   },
   {
     id: "cinema",
     name: "Theatre",
-    blurb: "Rows on risers before the big screen.",
+    blurb: "Rows on risers before a lit stage and the big screen.",
     layout: {
       furniture: [
-        // The theatre set (OME-1639's judged theatre room, OME-1630): the big screen in the TV corner between two
-        // curtains, two tiers of rows on carpet (front on the floor, back one riser up), aisle lights down the middle.
-        // OME-2150: the back tier stands a free row behind the front one (one row back, each back sitter landed right under a
-        // front one on screen); one col in, so its outer seat stays in a phone's room window, clear of the zoom keys.
+        // The theatre set (OME-1639's judged theatre room, OME-1630), its stage risers (wave 26) under the big screen and
+        // the curtains on them (OME-2480, OME-2471's judged concept): the carpet and both tiers one cell back, so the
+        // back tier still stands a free row behind the front one (OME-2150), aisle lights down the middle.
         p("bigscreen", 0, 0, "se"),
-        p("curtain", 2, 0, "sw"), p("curtain", 0, 2, "se"),
-        p("carpet", 1, 1, "se"), p("carpet", 3, 1, "se"), p("carpet", 5, 1, "se"), p("carpet", 1, 3, "se"),
-        p("carpet", 3, 3, "se"), p("carpet", 5, 3, "se"), p("carpet", 1, 5, "se"), p("carpet", 3, 5, "se"),
-        p("aislelight", 5, 5, "nw"), p("aislelight", 6, 6, "nw"), p("aislelight", 7, 7, "nw"), p("aislelight", 8, 8, "nw"),
-        p("theatrerow", 1, 4, "ne"), p("theatrerow", 4, 1, "nw"),
-        p("theatrerow", 2, 6, "ne", 1), p("theatrerow", 6, 2, "nw", 1),
+        p("stage", 2, 0, "sw"), p("stage", 0, 2, "se"),
+        p("curtain", 1, 0, "sw"), p("curtain", 0, 1, "se"),
+        p("carpet", 2, 2, "se"), p("carpet", 4, 2, "se"), p("carpet", 6, 2, "se"), p("carpet", 2, 4, "se"),
+        p("carpet", 4, 4, "se"), p("carpet", 6, 4, "se"), p("carpet", 2, 6, "se"), p("carpet", 4, 6, "se"),
+        p("aislelight", 6, 6, "nw"), p("aislelight", 7, 7, "nw"), p("aislelight", 8, 8, "nw"),
+        p("theatrerow", 2, 5, "ne"), p("theatrerow", 5, 2, "nw"),
+        p("theatrerow", 3, 7, "ne", 1), p("theatrerow", 7, 3, "nw", 1),
         p("popcorn", 0, 8, "se"), p("monstera", 9, 0, "sw", 1),
       ],
     },

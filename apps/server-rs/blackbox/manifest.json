@@ -417,7 +417,7 @@
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::a foreign Origin is refused; the site origin may create",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::a private room also gets an invite key; ids, tokens and keys are all distinct",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::an unknown, mis-cased or non-string preset id is 400 invalid_body and creates nothing",
-    "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT",
+    "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::the blocklist ignores whitespace and punctuation between letters: 'bad word', 'b.a.d-w_o r d' are refused",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::the room starts from DEFAULT_LAYOUT with no embed, and anyone can join it",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::the title is normalised by RoomTitleSchema (NFKC, trimmed)",

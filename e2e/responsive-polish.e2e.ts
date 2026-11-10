@@ -324,9 +324,9 @@ for (const [w, h, cols] of [[1024, 768, 4], [1920, 1080, 4], [2560, 1440, 4], [7
     if (cols === 4) {
       await expect(page.locator(".preset-blurb").first()).toBeHidden();
       await expect(note).toBeVisible();
-      await expect(note).toHaveText("Two rows of armchairs on the big rug.");
+      await expect(note).toHaveText("Armchairs on the big rug, rain on the window.");
       await page.locator(".preset").nth(1).click();
-      await expect(note).toHaveText("Rows on risers before the big screen.");
+      await expect(note).toHaveText("Rows on risers before a lit stage and the big screen.");
       expect(Number.parseFloat(await note.evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(13);
     } else {
       await expect(page.locator(".preset-blurb").first()).toBeVisible();

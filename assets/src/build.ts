@@ -44,8 +44,8 @@ import { HAIR_PALETTE, hairSheet, hairsTable, lookRemap } from "./hairs";
 import { AMBIENT_RECOLOURS, recolourEntry, recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { applyRemap, contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, CATALOGUE_V5, CATALOGUE_V6, CATALOGUE_V7, THUMB_BOX, TURN, V7_COLOURS, buildBackViews, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
-import { WAVE2, buildWave2Pieces, buildWave2Previews, buildWave2Shell, wave2Thumb } from "./wave2";
-import { buildWave26Previews, buildWave26Sheets } from "./wave26";
+import { WAVE2, buildWave2Pieces, buildWave2Previews, buildWave2Shell } from "./wave2";
+import { buildWave26Previews, buildWave26Sheets, wave26Thumb } from "./wave26";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildPanelShell, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -2580,7 +2580,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
     const parsed = v.safeParse(RoomLayoutInputSchema, pr.layout);
     if (!parsed.success) throw new Error(`preset ${pr.id}: ${parsed.issues.map((i) => i.message).join("; ")}`);
     writeFileSync(join(dir, `${pr.id}.json`), JSON.stringify(pr.layout) + "\n");
-    const small = compactPalette(WAVE26_THUMBS[pr.id] ?? presetThumb(pr.layout, wave2Thumb));
+    const small = compactPalette(WAVE26_THUMBS[pr.id] ?? presetThumb(pr.layout, wave26Thumb));
     const png = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette);
     writeFileSync(join(dir, "thumbs", `${pr.id}.png`), png);
     bytes += png.length;
@@ -2595,7 +2595,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   const tw = cols * THUMB.w + (cols + 1) * G, th = rows * THUMB.h + (rows + 1) * G;
   const sheet = new Uint8Array(tw * th).fill(colorIndex("night", 2));
   PRESETS.forEach((pr, i) => {
-    const img = WAVE26_THUMBS[pr.id] ?? presetThumb(pr.layout, wave2Thumb);
+    const img = WAVE26_THUMBS[pr.id] ?? presetThumb(pr.layout, wave26Thumb);
     blitAt(sheet, tw, th, img, THUMB.w, THUMB.h, G + (i % cols) * (THUMB.w + G), G + Math.floor(i / cols) * (THUMB.h + G));
   });
   writeFileSync(join(ROOT, "preview", "presets-thumbs@3x.png"), encodeIndexedPng(tw * 3, th * 3, upscale(sheet, tw, th, 3), PALETTE));
