@@ -186,6 +186,16 @@ describe("room presets", () => {
     expect(manifest.presets.find((p) => p.id === "cafe")?.blurb).toBe("Rain on the windows, a ticking clock, a mug at every table.");
   });
 
+  // OME-2517 (judge, OME-2516): Classic's left wall carries only the screen and the front-left floor is bare. A pair of framed prints on
+  // plain left-wall segments (not the window 5/6 or sconce 8) and an arc lamp by the corner plant, both from the sheet the
+  // bookshelf and monstera come from, both static: no new art, still three loops.
+  test("OME-2517: Classic dresses its left wall with a pair of prints and its front-left corner with an arc lamp, off the fixture segments", () => {
+    const f = PRESETS.find((p) => p.id === "classic")?.layout.furniture ?? [];
+    expect(f.filter((x) => x.kind === "frame" || x.kind === "arclamp").map((x) => [x.kind, x.col, x.row, x.facing])).toEqual([["frame", 0, 3, "se"], ["frame", 0, 4, "se"], ["arclamp", 0, 7, "se"]]);
+    // Wall-mounted pieces have no footprint, so their anchor row counts too.
+    expect(f.filter((x) => x.col === 0 && x.facing === "se").flatMap((x) => [x.row, ...footprintCells(x).map(([, r]) => r)]).filter((r) => [5, 6, 8].includes(r))).toEqual([]);
+  });
+
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
     let bytes = 0;
     for (const thumb of manifest.presets.map((p) => p.thumb)) {
