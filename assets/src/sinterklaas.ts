@@ -156,6 +156,11 @@ export function buildDecorFrames(): { frames: RoomFrame[]; meta: DecorMeta[] } {
   add(onSill("sinterklaas/shoe", SHOE, SHOE_ROLES, 1), "wall/l/window0");
   add(onSill("sinterklaas/surprise/small", SMALL_BOX, BOX_ROLES, 6), "wall/l/window0");
   add(onSill("sinterklaas/surprise/big", BIG_BOX, BOX_ROLES, 1), "wall/l/window1");
+  // Bunting along both wall tops (two flags per segment), the deeper corner swag hanging below it.
+  for (const face of ["l", "r"] as const) {
+    const motifs = [-4, 4].map((s, i) => ({ s, rows: FLAG, colors: flag((["rust", "mustard", "cream"] as const)[(i + (face === "l" ? 0 : 1)) % 3] ?? "rust") }));
+    add(wallDecal(`sinterklaas/bunting/${face}`, face, -8, 8, WALL_H - 22, WALL_H - 7, swag(face, WALL_H - 9, 4, ["cream", 2], motifs)), `wall/${face}`);
+  }
   // Corner swag: one half per wall, from the corner out along the first segment.
   const TOP = WALL_H - 10;
   const order = ["rust", "mustard", "cream", "rust", "mustard"] as const;

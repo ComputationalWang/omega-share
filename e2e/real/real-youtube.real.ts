@@ -69,6 +69,8 @@ test("8 · path-scoped CSP loads the current www-widgetapi.js; 4 · nocookie hos
 });
 
 test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playbackRate; which rung is active", async ({ browser, request }) => {
+  // ~2.5 min of fixed waits (40 s measure, 12 replay windows, 27 s in the room) before any load: 180 s was too tight (OME-2494).
+  test.setTimeout(300_000);
   // (a) Raw player, outside the sync loop: attach the API to a nocookie iframe on a localhost page, like tvFrame() does.
   const ctx = await watchCsp(await browser.newContext());
   const page = await ctx.newPage();
