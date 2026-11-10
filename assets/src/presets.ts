@@ -57,9 +57,9 @@ export const PRESETS: readonly Preset[] = [
       furniture: [
         // The theatre set (OME-1639's judged theatre room, OME-1630), its stage risers (wave 26) under the big screen and
         // the curtains on them (OME-2480, OME-2471's judged concept): the carpet and both tiers one cell back, so the
-        // back tier still stands a free row behind the front one (OME-2150), aisle lights down the middle. OME-2497: both tiers
-        // one cell in toward the aisle, so no row touches a riser, not even corner to corner (one cell back puts seat 7
-        // under a phone's zoom keys).
+        // back tier still stands a free row behind the front one (OME-2150), aisle lights down the middle. OME-2497: the front
+        // tier one cell in toward the aisle, so no row touches a riser, not even corner to corner. The back tier stays: any
+        // nearer the camera and a phone's pane crops seat 7.
         p("bigscreen", 0, 0, "se"),
         p("stage", 2, 0, "sw"), p("stage", 0, 2, "se"),
         p("curtain", 1, 0, "sw"), p("curtain", 0, 1, "se"),
@@ -67,7 +67,7 @@ export const PRESETS: readonly Preset[] = [
         p("carpet", 4, 4, "se"), p("carpet", 6, 4, "se"), p("carpet", 2, 6, "se"), p("carpet", 4, 6, "se"),
         p("aislelight", 6, 6, "nw"), p("aislelight", 7, 7, "nw"), p("aislelight", 8, 8, "nw"),
         p("theatrerow", 3, 5, "ne"), p("theatrerow", 5, 3, "nw"),
-        p("theatrerow", 4, 7, "ne", 1), p("theatrerow", 7, 4, "nw", 1),
+        p("theatrerow", 3, 7, "ne", 1), p("theatrerow", 7, 3, "nw", 1),
         p("popcorn", 0, 8, "se"), p("monstera", 9, 0, "sw", 1),
       ],
     },
