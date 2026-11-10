@@ -85,6 +85,12 @@ describe("stackTags", () => {
     });
   });
 
+  // OME-2518 CI (a11y sweep, 844×390): two standing apart under the window's top went beside their heads, not under the feet.
+  test("tags whose spots over the heads lie past the window's top hang under the feet, not beside the heads", () => {
+    const tags = [member({ x: 448, y: 444 }, 33), member({ x: 512, y: 444 }, 22)];
+    expect(stackTags(tags, H, 489, 369)).toEqual([{ dx: 0, dy: 0, led: true }, { dx: 0, dy: 0, led: true }]);
+  });
+
   test("a tag whose spot over the head lies past the window's top hangs under the feet, led", () => {
     const t = member({ x: 200, y: 300 }, 40);
     const [p] = stackTags([t], H, Infinity, 260);
