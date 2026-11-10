@@ -2,7 +2,7 @@
 // effect's particles.
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
+import { DEFAULT_LAYOUT, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import { RoomManifestSchema, sceneOf } from "../src/furniture";
 import { decorSprites } from "../src/theme/decor";
 import { MOTIONS } from "../src/theme/atlas";
@@ -104,6 +104,13 @@ describe("decorSprites: classic room only, on its wall frames", () => {
   test("an equal layout parsed from a snapshot is classic too", () => {
     const copy: RoomLayout = structuredClone(DEFAULT_LAYOUT);
     expect(decorSprites(sceneOf(copy, [], room), decor)).toHaveLength(2);
+  });
+  test("the classic preset's own layout (OME-2471, not DEFAULT_LAYOUT since OME-2480) gets the decor too, minus what hangs on wall art it lacks", async () => {
+    const classic: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
+    const scene = sceneOf(classic, [], room);
+    const corner = scene.sprites.find((s) => s.key === "wall/corner");
+    // Its walls are plain (the wall screen, window and clock hang there), so a window piece has no frame to hang on.
+    expect(decorSprites(scene, decor)).toEqual([{ key: "t/corner", x: corner?.x ?? NaN, y: corner?.y ?? NaN }]);
   });
   test("any other layout gets no decor", () => {
     const edited: RoomLayout = { furniture: DEFAULT_LAYOUT.furniture.slice(1) };
