@@ -340,9 +340,12 @@ for (const [label, options] of [
 }
 
 // OME-2518 (judge OME-2516, w31-cafe-pixel7-4-seated): on Pixel 7 with four guests on the Café's seats 0–3, one tag stacked
-// up to the back wall, far over its avatar, and the others covered the counter. Each tag's centre lies within 1.5 tag
-// heights of its owner's head box (over it, one stack step up, beside it or under the feet), wears a leader pip once it's off the head,
+// up to the back wall, far over its avatar, and the others covered the counter. Each tag's centre lies within one stack
+// step (1.5 tag heights and two gaps) of its owner's head box (over it, one step up, beside it or under the feet), wears a leader pip once it's off the head,
 // and covers no other tag.
+/** Where the viewer stands in turn: the judge's spot by the front table, in front of the left table, by the lamp. */
+const VIEWER_CELLS = [[5, 8], [4, 5], [3, 6], [1, 8], [2, 7]] as const;
+
 test("Pixel 7, Café, four seated: each tag near its own head, led when moved, none overlap", async ({ browser, request }) => {
   test.setTimeout(120_000);
   const room = testRoom("tag-clusters", "cafe-phone");
@@ -394,7 +397,8 @@ test("Pixel 7, Café, four seated: each tag near its own head, led when moved, n
       const dx = Math.max(0, Math.abs(cx - h.x) - (HEAD_W / 2) * k);
       const dy = Math.max(0, top - cy, cy - (top + HEAD_H * k));
       const far = Math.hypot(dx, dy) / r.height;
-      if (far > 1.5) out.push(`${t.text}: ${far.toFixed(2)} tag heights off its head`);
+      // tag-stack reachOf: a tag stacked once over the one on the head.
+      if (far > 1.5 + (2 * TAG_GAP * k) / r.height) out.push(`${t.text}: ${far.toFixed(2)} tag heights off its head`);
       // stackTags' NEAR: a tag off its head's width, or more than 12 stage px over or under it, wears the pip.
       const offHead = r.x + r.width < h.x - (HEAD_W / 2) * k || h.x + (HEAD_W / 2) * k < r.x || Math.max(top - (r.y + r.height), r.y - (top + HEAD_H * k)) > 12 * k;
       if (offHead && !t.led) out.push(`${t.text}: moved, no pip`);
@@ -404,5 +408,10 @@ test("Pixel 7, Café, four seated: each tag near its own head, led when moved, n
   };
   // Fitted whole, as the judge's shot was: as the phone opens the room, the sitters are off its window.
   await watcher.page.getByTestId("room-zoom-fit").click();
-  await expect.poll(report, { timeout: 20_000 }).toEqual([]);
+  for (const [x, y] of VIEWER_CELLS) {
+    await clickCell(watcher.page, x, y);
+    // The walk ends and the tags restack (stage.ts TAG_SETTLE_MS) before the check holds.
+    await watcher.page.waitForTimeout(2500);
+    await expect.poll(report, { message: `viewer on ${String(x)},${String(y)}`, timeout: 10_000 }).toEqual([]);
+  }
 });

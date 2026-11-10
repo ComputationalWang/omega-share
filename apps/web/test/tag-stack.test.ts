@@ -6,7 +6,7 @@ import * as v from "valibot";
 import { RoomLayoutSchema } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
 import { TAG_OFFSET_Y, cellCenter, setNorth } from "../src/layout";
-import { HEAD_H, HEAD_W, createTagStacker, screenBoxes, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
+import { HEAD_H, HEAD_W, createTagStacker, reachOf, screenBoxes, stackTags, wearPlace, type TagBox, type TagPlace } from "../src/tag-stack";
 import { EMOTE_LIFT } from "../src/walk/animator";
 
 const preset = (name: string) => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../../../assets/presets/${name}.json`, import.meta.url), "utf8")));
@@ -61,15 +61,18 @@ describe("stackTags", () => {
     expect(dys(tags, H)).toEqual(tags.map((t) => t.top - 2 - H - t.y));
   });
 
-  test("three tags on one spot stack upward: none overlap, each above the heads, the far ones led", () => {
+  // OME-2518: the others no longer climb over the first; they sit beside the heads, within reach.
+  test("three tags on one spot: one over the heads, the others beside them; none overlap, the far ones led", () => {
     const tags = [member({ x: 200, y: 300 }, 40), member({ x: 205, y: 302 }, 44), member({ x: 198, y: 301 }, 40)];
     const placed = stackTags(tags, H);
     expect(overlaps(tags, placed, H)).toEqual([]);
     tags.forEach((t, i) => {
       const p = placed[i] ?? { dx: 0, dy: 0, led: false };
-      expect(t.y + p.dy + H).toBeLessThanOrEqual(Math.min(...tags.map((o) => o.top)));
       expect(p.led).toBe(fromHead(t, p, H) > 12);
+      const y = t.y + p.dy + H / 2;
+      expect(Math.hypot(Math.max(0, Math.abs(p.dx) - HEAD_W / 2), Math.max(0, t.top - y, y - t.top - HEAD_H))).toBeLessThanOrEqual(reachOf(H));
     });
+    expect(tags.filter((t, i) => t.y + (placed[i]?.dy ?? 0) + H <= Math.min(...tags.map((o) => o.top))).length).toBe(1);
   });
 
   // OME-2118 CI (landscape-phone): two members at the front edge; the second tag dropped out of the room window.
@@ -184,6 +187,23 @@ describe("stackTags: tags keep off heads and by their owner", () => {
       });
     },
   );
+
+  // OME-2518 (judge OME-2516): Café on Pixel 7, fitted (labels 2.5×), four on the counter stools and the left table and a
+  // viewer standing. The fourth tag, its spots over the head and under the feet taken by a few px, stacked 3 tag heights
+  // up the back wall. Spots within one stack step of the head come first, beside the head among them.
+  test("in a dense cluster every tag stays within one stack step of its own head", () => {
+    const sit = (x: number, py: number): TagBox => ({ x, y: py + TAG_OFFSET_Y, w: 125, top: py - 41 });
+    const tags = [sit(815, 1524), sit(847, 1540), sit(687, 1588), sit(751, 1588), { x: 815, y: 1726, w: 125, top: 1656 }];
+    const h = 50;
+    const places = stackTags(tags, h);
+    tags.forEach((t, i) => {
+      const y = t.y + (places[i]?.dy ?? NaN) + h / 2;
+      const dx = Math.max(0, Math.abs(places[i]?.dx ?? NaN) - HEAD_W / 2);
+      expect(Math.hypot(dx, Math.max(0, t.top - y, y - (t.top + HEAD_H))), `tag ${String(i)}`).toBeLessThanOrEqual(reachOf(h));
+    });
+    expect(overlaps(tags, places, h)).toEqual([]);
+    expect(places[3]?.led).toBe(true);
+  });
 });
 
 // OME-2196 (design judge round 4): in a tight cluster a front avatar's tag stacked over the tags behind it, a cell off
