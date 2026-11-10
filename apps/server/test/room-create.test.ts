@@ -9,7 +9,6 @@ import * as confusables from "@omega/shared/confusables";
 import {
   CLOSE_CODES,
   CreateRoomResponseSchema,
-  DEFAULT_LAYOUT,
   DEFAULT_ROOM_PRESET,
   DeleteRoomResponseSchema,
   MAX_ROOMS,
