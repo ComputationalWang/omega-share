@@ -94,3 +94,27 @@ The web and the extension need no flag of their own. The web renders only what t
 - Shared code has a second canonicaliser and one wider wire union. The web gains one card and one iframe recipe. The server gains one flag and one hook. The web bundle grows by well under 1 KB gzipped.
 - CLAUDE.md and the product spec drop "never render arbitrary iframes". The rule is now: **never build an iframe from an unparsed string**. A synced embed must parse as `Embed`. Anything else goes through the generic tier, which is validated, sandboxed and click-to-load.
 - Accepted losses: framing-refusing sites show a blank frame, DRM-only and referrer-gated embeds fail, links that open new windows inside the frame do nothing, and Twitch clips stay unsupported until they get a registry entry.
+
+## Amendment 1 (2026-11-10, OME-2521, board decision): no sandbox on Chromium for a host the viewer unlocked
+
+**Problem.** Some players run an anti-sandbox check and replace themselves with an error inside any sandboxed frame. The case we hit is `megaplay.buzz`, nested in `gogoanime.com.by`, which is framed by anix. Its script tries `document.domain = document.domain` and `requestPointerLock()`, then looks for "sandboxed" in the error text. Chromium's error messages contain that word and Firefox's don't. So for Chrome viewers the player is gone, whatever sandbox flags we set. Only a frame with no `sandbox` attribute at all gets past the check.
+
+**Decision.** On **Chromium only** (feature test: `"userAgentData" in navigator`), the generic iframe is built **without a `sandbox` attribute** when:
+- this viewer unlocked the frame's host with the extension (ADR 0057 §3), and
+- the iframe is the one recreated after that unlock.
+
+Everything else in §2b stays the same: `allow`, `referrerpolicy`, `title`, the page's `Permissions-Policy`, `frame-src`, click-to-load and the parsed `src`. Other browsers, and every frame that wasn't unlocked, keep the §2b sandbox. Firefox stays sandboxed because the check doesn't fire there.
+
+**Why it's bounded.**
+- The viewer opts in per host, twice: once with the extension's host-permission prompt, once with Unlock in the room.
+- The frame's origin is never ours (§1), so the same-origin policy still keeps it away from our DOM, storage and cookies.
+- Nobody else in the room is affected: each viewer's unlock is their own.
+
+**What we give up for that frame, on Chromium.**
+- Popups and new tabs, which Chromium's popup blocker limits to user clicks.
+- Form submission, modals and downloads.
+- Top-level navigation of the room tab. Here we rely on Chromium's framebusting intervention, which blocks it for a cross-origin frame without a user gesture. After a click inside the frame, the frame can navigate the room tab away.
+
+The board accepted these costs so that Chrome viewers get a working player instead of none. §4's statement that the sandbox bounds a hostile embed no longer holds for such a frame. The only bound left is that the viewer chose to unlock that host.
+
+**Reversal.** If this is abused, remove the Chromium branch in `apps/web/src/controls/generic-tv.ts` and that frame is back under §2b. No contract or server change is involved.
