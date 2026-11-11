@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { MemberId } from "@omega/shared";
 import { autoHair } from "../src/auto-hair";
 
-const id = (s: string): MemberId => s as MemberId;
+const id = (s: string): MemberId => s;
 const m = (s: string, avatar: number, hair?: number) => ({ id: id(s), avatar, ...(hair === undefined ? {} : { hair }) });
 
 // OME-2559: an auto guest whose avatar is already in the room takes the first hair nobody on that avatar wears.
@@ -21,7 +21,7 @@ describe("autoHair", () => {
     expect(autoHair([m("a", 0), m("me", 0)], id("me"), new Set(), 6)).toBeNull();
   });
   test("every hair taken: keep today's hair", () => {
-    const others = [0, 1, 2].map((h) => m(`o${h}`, 0, h));
+    const others = [0, 1, 2].map((h) => m(`o${String(h)}`, 0, h));
     expect(autoHair([...others, m("me", 0)], id("me"), new Set(others.map((o) => o.id)), 3)).toBeNull();
   });
   test("not in the room: nothing", () => {

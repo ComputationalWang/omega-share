@@ -104,6 +104,7 @@ let avatarAuto = profile.avatarAuto;
 let tint: Tint = profile.tint;
 let accessory: Accessory = profile.accessory;
 let hair: Hair = profile.hair;
+let hairAuto = profile.hairAuto;
 if (profile.nickname !== null) input.value = profile.nickname;
 
 // Shirt tint (ADR 0053): the row under the avatars shows the chosen avatar's ramps; a pick is saved at once.
@@ -115,6 +116,7 @@ const tintRow = bindTintRow(tintGroup, (t) => {
 // Hair colour (OME-1438), beside the tints: the same row on the avatar's hair ramps.
 const hairRow = bindTintRow(hairGroup, (h) => {
   hair = h;
+  hairAuto = false;
   saveHair(storage, h);
 });
 // The accessory (OME-1391), under the tints; saved at once and sent with join. The row is static markup (index.html).
@@ -225,6 +227,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
         nickname,
         avatar: as,
         avatarAuto: avatarAuto && resumeToken === undefined,
+        hairAuto: avatarAuto && hairAuto && resumeToken === undefined,
         tint,
         accessory,
         hair,

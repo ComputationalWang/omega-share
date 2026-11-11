@@ -69,6 +69,7 @@ import { createAccessorySection } from "./controls/accessory-section";
 import { createHairSection, createTintSection } from "./controls/tint-section";
 import { saveAccessory, saveHair, saveTint } from "./profile";
 import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
+import { autoHair } from "./auto-hair";
 import { followStep } from "./walk/follow";
 import { NO_CONGA, congaAhead, congaJoin, congaStep, congaText } from "./chat/conga";
 import { createPads } from "./walk/pad";
@@ -93,6 +94,8 @@ export interface RoomOptions {
   readonly accessory: Accessory;
   /** Hair colour to join with (OME-1438, the profile's). */
   readonly hair: Hair;
+  /** Joined `avatarAuto` with no saved hair: take a hair nobody on my avatar wears if an earlier member shares my look (OME-2559). */
+  readonly hairAuto?: boolean;
   /** This room's owner token and invite key from `omega.rooms`, if the browser holds any (ADR 0028). */
   readonly secret: RoomSecret | undefined;
   /** Where `omega.rooms` lives: a closed room is forgotten. */
@@ -674,6 +677,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let lookAvatar = opts.avatar;
   let tint = opts.tint;
   let hair = opts.hair;
+  let hairAuto = opts.hairAuto === true;
+  // Who was here before me (my first snapshot): only a clash with one of them moves my hair (OME-2559).
+  let earlier: ReadonlySet<MemberId> | null = null;
   const tintRow = (a: Avatar): HTMLElement =>
     createTintSection({
       tints: tintsByAvatar[a]?.tints ?? [],
@@ -691,6 +697,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       send: (m) => send(m),
       onPick: (h) => {
         hair = h;
+        hairAuto = false;
         saveHair(opts.secrets, h);
       },
     });
@@ -704,6 +711,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   look.append(tintSection, hairSection, accessorySection);
+  // Not saved: like the avatar the room chose, it's this visit's, not a pick.
+  const takeAutoHair = (room: RoomState, self: MemberId): void => {
+    earlier ??= new Set(room.members.map((m) => m.id).filter((m) => m !== self));
+    const h = autoHair(room.members, self, earlier, AVATAR_HAIRS[lookAvatar]?.hairs.length ?? 0);
+    if (h === null || !send({ type: "set-hair", hair: h })) return;
+    hair = h;
+    const s = hairRow(lookAvatar);
+    hairSection.replaceWith(s);
+    hairSection = s;
+  };
   let sessionToken: ResumeToken | null = null;
   const adoptAvatar = (a: Avatar): void => {
     lookAvatar = a;
@@ -1244,6 +1261,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (e.type === "server" && e.msg.type === "snapshot") {
       const mine = next.room?.members.find((m) => m.id === next.self)?.avatar;
       if (mine !== undefined && mine !== lookAvatar) adoptAvatar(mine);
+      if (hairAuto && next.room !== null && next.self !== null) takeAutoHair(next.room, next.self);
       reactions = [...(e.msg.reactions ?? [])];
       replay.start(reactions);
       drawMoments();
@@ -1255,6 +1273,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       replay.stop();
       drawMoments();
     }
+    // Two auto guests joining at once: the later one saw the earlier one's old hair, so look again when it changes.
+    if (hairAuto && e.type === "server" && e.msg.type === "hair-changed" && earlier?.has(e.msg.memberId) === true && next.room !== null && next.self !== null) takeAutoHair(next.room, next.self);
     if (next.room?.members !== prevRoom?.members) see(next.room?.members);
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
