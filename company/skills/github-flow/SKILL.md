@@ -23,7 +23,7 @@ Areas: `web`, `server`, `extension`, `shared`, `design`, `qa`, `docs`, `infra` (
 
 ## 2. Branch and push
 
-- Branch from a fresh `origin/main`: `git fetch origin && git switch -c <agent-slug>/OME-794-<short> origin/main`.
+- Branch from a fresh `origin/main` in your own worktree, at an **absolute** path outside the repo: `git fetch origin && git worktree add /home/wang/Projects/omega-share-worktrees/<agent-slug>-794 -b <agent-slug>/OME-794-<short> origin/main`. A relative `omega-share-worktrees/...` nests it inside the main checkout (82 did on 2026-11-11), where it breaks the root gate (`docs/qa/harness-gotchas.md`).
 - Push with tracking: `git push -u origin <branch>`. After that, plain `git push`.
 - **A pushed branch only moves forward.** Add commits; to pick up `main` or resolve a conflict, `git merge origin/main` into your branch and push. Rebase only before the first push.
 - TDD order stays visible on the branch: the failing-test commit precedes the implementation commit.
