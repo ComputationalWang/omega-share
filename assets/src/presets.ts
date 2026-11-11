@@ -100,8 +100,8 @@ export const PRESETS: readonly Preset[] = [
     id: "lounge",
     name: "Lounge",
     blurb: "Beanbags and poufs on kilim runners, neon.",
-    // Wave 2: a movie corner. The pull-down screen covers left-wall segments 2–4 (5 is a window), the projector stands behind
-    // the beanbags, lava lamps in place of the arc lamps, the print moves down to 7.
+    // Wave 2: a movie corner. The pull-down screen covers left-wall segments 2–4 (5 is a window), the projector's tripod
+    // stands in the back corner (OME-2569), lava lamps in place of the arc lamps, the print moves down to 7.
     layout: {
       furniture: [
         p("beanbag", 2, 4, "ne"), p("beanbag", 4, 2, "nw", 1),
@@ -112,7 +112,7 @@ export const PRESETS: readonly Preset[] = [
         p("coffeetable", 4, 4, "sw"),
         p("monstera", 0, 7, "se", 1), p("monstera", 7, 0, "sw"), p("monstera", 9, 9, "se", 1),
         p("neonsign", 2, 0, "sw", 1),
-        p("projector", 0, 2, "se"), p("tripod", 6, 6, "nw"),
+        p("projector", 0, 2, "se"), p("tripod", 9, 3, "nw"),
         p("frame", 0, 7, "se"),
         p("lavalamp", 1, 6, "se"), p("lavalamp", 6, 1, "se"),
       ],
