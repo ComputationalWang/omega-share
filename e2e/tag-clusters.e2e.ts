@@ -405,8 +405,9 @@ for (const preset of ROOM_PRESET_IDS) {
         const dx = Math.max(0, Math.abs(cx - h.x) - (HEAD_W / 2) * k);
         const dy = Math.max(0, top - cy, cy - (top + HEAD_H * k));
         const far = Math.hypot(dx, dy) / r.height;
-        // tag-stack reachOf: a tag stacked once over the one on the head.
-        if (far > 1.5 + (2 * TAG_GAP * k) / r.height) out.push(`${t.text}: ${far.toFixed(2)} tag heights off its head`);
+        // tag-stack reachOf: a tag stacked once over the one on the head. The stack places at reach exactly; the CSS px
+        // round trip leaves float noise over it (Cinema: 1.5800000000000034 vs 1.58).
+        if (far > 1.5 + (2 * TAG_GAP * k) / r.height + 1e-9) out.push(`${t.text}: ${far.toFixed(2)} tag heights off its head`);
         // stackTags' NEAR: a tag off its head's width, or more than 12 stage px over or under it, wears the pip.
         const offHead = r.x + r.width < h.x - (HEAD_W / 2) * k || h.x + (HEAD_W / 2) * k < r.x || Math.max(top - (r.y + r.height), r.y - (top + HEAD_H * k)) > 12 * k;
         if (offHead && !t.led) out.push(`${t.text}: moved, no pip`);
