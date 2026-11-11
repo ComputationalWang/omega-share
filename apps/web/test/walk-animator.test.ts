@@ -1080,6 +1080,30 @@ describe("animator: walking props (the cat)", () => {
     expect(s.rendered.every((r) => !r.walking)).toBe(true);
   });
 
+  // OME-2549 QA: while the cat walked, the Bar's neons woke on their own 120/140 ms frames, 8.8–10.1 renders/s.
+  test("Smooth: ambient loops off the 150 ms grid and a walking cat: every wake-up on a 150 ms multiple", () => {
+    const s = setup({ smooth: () => true, props: (t) => t < 3000 });
+    s.anim.set([]);
+    s.anim.setLoops([
+      { frames: 4, ms: 120, ambient: true },
+      { frames: 3, ms: 140, ambient: true },
+    ]);
+    let t = 0;
+    s.frame(t);
+    const before = s.renders();
+    while (t < 4000) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      t += timer.ms;
+      expect(t % 150).toBe(0);
+      s.timers.length = 0;
+      timer.fn();
+      s.frame(t);
+    }
+    expect(t).toBeGreaterThanOrEqual(4000);
+    expect(s.renders() - before).toBeLessThanOrEqual(27);
+  });
+
   test("Smooth: a walking cat beside a walker is drawn on the walker's every-frame rhythm", () => {
     const drawn: number[] = [];
     const s = setup({ smooth: () => true, props: (t) => (drawn.push(t), true) });
