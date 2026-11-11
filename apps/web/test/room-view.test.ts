@@ -63,7 +63,8 @@ describe("Room view at 1280×800 (OME-2170)", () => {
   });
 
   test("a band that holds the whole room shows it from the walls' tops (stage y 60)", () => {
-    const room = preset("living");
+    // OME-2558: Lounge, whose front seats reach the floor's front corner (Living's front row moved back to the rug).
+    const room = preset("lounge");
     // From the walls' tops (60) to the floor's front corner 8 px clear (548, OME-2282).
     const c = bandHome(seatPoints(room), standingPoints(room), { w: 700, h: 488 });
     expect(c.y - 488 / 2).toBe(60);
