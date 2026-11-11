@@ -79,21 +79,20 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "living",
     name: "Living room",
-    blurb: "Couches, a reading chair, a bookcase.",
-    // Wave 2 (OME-2071, assets/README.md § "Wave 2"): the hearth takes the TV corner with the wall screen over it; the mugs steam.
+    blurb: "Movie night by the fire: couches, wingbacks, beanbags.",
     layout: {
       furniture: [
-        p("couch", 2, 6, "ne"), p("couch", 6, 2, "nw"),
-        // OME-2150: the reading chairs sit by the hearth, so no sitter (or tag) lands right over a couch pair.
-        p("wingback", 1, 2, "ne"), p("wingback", 2, 1, "nw"),
-        p("beanbag", 4, 8, "ne"), p("beanbag", 8, 4, "nw", 1),
-        p("runner", 3, 3, "ne"),
-        p("arclamp", 1, 6, "se"),
-        p("bookshelf", 2, 0, "sw"),
-        p("frame", 0, 3, "se", 1), p("frame", 0, 4, "se"),
+        // OME-2558 (concept OME-2557, "Movie night by the fire"): everyone on one big rug, facing the hearth wall.
+        p("couch", 3, 4, "ne"), p("couch", 5, 7, "ne"),
+        p("wingback", 1, 3, "ne"), p("wingback", 6, 3, "ne"),
+        p("beanbag", 3, 2, "ne"), p("beanbag", 5, 2, "ne", 1),
+        p("rug", 1, 1, "se", 1),
+        // The right wall reads shelf | screen over the fire | shelf (no TV table).
+        p("fireplace", 3, 0, "sw"), p("wallscreen", 3, 0, "sw"),
+        p("bookshelf", 1, 0, "sw"), p("bookshelf", 5, 0, "sw"),
+        p("sidetable", 4, 2, "sw"), p("aquarium", 9, 5, "sw"), p("arclamp", 1, 5, "se"),
+        p("longclock", 0, 7, "se"), p("frame", 0, 3, "se", 1), p("frame", 0, 4, "se"),
         p("monstera", 9, 0, "sw", 1), p("monstera", 0, 9, "se"),
-        p("fireplace", 0, 0, "sw"), p("wallscreen", 0, 0, "sw"),
-        p("sidetable", 4, 6, "se", 1), p("sidetable", 6, 4, "sw", 1),
       ],
     },
   },
