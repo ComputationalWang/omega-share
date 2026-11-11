@@ -242,6 +242,27 @@ describe("room presets", () => {
     expect(manifest.presets.find((p) => p.id === "living")?.blurb).toBe("Movie night by the fire: couches, wingbacks, beanbags.");
   });
 
+  // OME-2569 (concept OME-2568, judge PASS 32/40): the projector's tripod leaves the front of the room (6, 6), where it stood
+  // between the front seats and the pulled-down screen, for the back corner (9, 3). Nothing else moves: the judged `c7-lounge.json`.
+  test("OME-2569: Lounge is OME-2568's layout, the tripod at the back (9, 3), 8 seats, no TV table", () => {
+    const expected = [
+      ["beanbag", 2, 4, "ne"], ["beanbag", 4, 2, "nw", 1], ["pouf", 2, 6, "ne", 1], ["pouf", 6, 2, "nw"],
+      ["beanbag", 5, 7, "ne"], ["beanbag", 7, 5, "nw", 1], ["couch", 6, 8, "ne", 1],
+      ["runner", 1, 4, "ne"], ["runner", 4, 1, "nw", 1], ["runner", 5, 5, "nw"], ["coffeetable", 4, 4, "sw"],
+      ["monstera", 0, 7, "se", 1], ["monstera", 7, 0, "sw"], ["monstera", 9, 9, "se", 1], ["neonsign", 2, 0, "sw", 1],
+      ["projector", 0, 2, "se"], ["tripod", 9, 3, "nw"], ["frame", 0, 7, "se"], ["lavalamp", 1, 6, "se"], ["lavalamp", 6, 1, "se"],
+    ];
+    const row = (x: { kind: string; col: number; row: number; facing: string; variant?: number | undefined }): unknown[] =>
+      x.variant === undefined ? [x.kind, x.col, x.row, x.facing] : [x.kind, x.col, x.row, x.facing, x.variant];
+    const f = PRESETS.find((p) => p.id === "lounge")?.layout.furniture ?? [];
+    expect(f.map(row)).toEqual(expected);
+    // The shipped file, not just the source: the build regenerated it.
+    const built = v.parse(RoomLayoutInputSchema, JSON.parse(readFileSync(join(DIR, "lounge.json"), "utf8")));
+    expect(built.furniture.map(row)).toEqual(expected);
+    expect(layoutSeats(built)).toHaveLength(SEAT_COUNT);
+    expect(f.some((x) => x.kind === "tv")).toBe(false);
+  });
+
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
     let bytes = 0;
     for (const thumb of manifest.presets.map((p) => p.thumb)) {
