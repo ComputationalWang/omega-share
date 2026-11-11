@@ -97,8 +97,9 @@ export interface Stage {
   anchor(id: MemberId): Point | undefined;
   /** Where a member's name tag shows (stage px, its top centre): over their head, or where it stacked (OME-2172). */
   tag(id: MemberId): Point | undefined;
-  /** Every name tag as painted, its text and box in CSS px from the viewport (the e2e test contract, OME-2307). */
-  tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean }[];
+  /** Every name tag as painted, its text and box in CSS px from the viewport (the e2e test contract, OME-2307), and the top
+   * centre of its owner's head as the stack keeps tags off it (a sitter's drawn head, OME-2252), or null (OME-2556). */
+  tagRects(): { member: MemberId; text: string; rect: { x: number; y: number; width: number; height: number }; led: boolean; head: Point | null }[];
   /** The reaction glyphs live now as painted: kind and box in CSS px from the viewport (e2e, OME-2307). */
   glyphRects(): { kind: ReactionKind; rect: { x: number; y: number; width: number; height: number } }[];
   /** The hover cursor as painted: its kind and box in CSS px from the viewport, or null while hidden (e2e, OME-2307). */
@@ -964,7 +965,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       return [...tagEls].flatMap(([member, e]) => {
         const r = view.tags.rect(member);
         const led = (tagAt.get(member) ?? aboveHead(member)).led;
-        return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led }];
+        const p = view.position(member) ?? placedAt.get(member);
+        const head = p === undefined ? null : { x: c.left + p.x * k, y: c.top + (p.y - headOf(member)) * k };
+        return r === undefined ? [] : [{ member, text: e.querySelector(".tag-name")?.textContent ?? "", rect: { x: c.left + r.x * k, y: c.top + r.y * k, width: r.w * k, height: r.h * k }, led, head }];
       });
     },
     glyphRects: () => {

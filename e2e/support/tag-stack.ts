@@ -4,8 +4,9 @@ import type { Page } from "@playwright/test";
 import * as v from "valibot";
 
 const RectSchema = v.object({ x: v.number(), y: v.number(), width: v.number(), height: v.number() });
-/** `led`: stacked off its owner's head, it wears a leader pip (OME-2172). */
-const TagSchema = v.object({ member: v.string(), text: v.string(), rect: RectSchema, led: v.boolean() });
+/** `led`: stacked off its owner's head, it wears a leader pip (OME-2172). `head`: the top centre of its owner's head as the
+ * stack keeps tags off it (OME-2556). */
+const TagSchema = v.object({ member: v.string(), text: v.string(), rect: RectSchema, led: v.boolean(), head: v.nullable(v.object({ x: v.number(), y: v.number() })) });
 /** A painted tag's box, in CSS px from the viewport's top left (Playwright `boundingBox` shape). */
 export type TagRect = v.InferOutput<typeof RectSchema>;
 export type RoomTag = v.InferOutput<typeof TagSchema>;

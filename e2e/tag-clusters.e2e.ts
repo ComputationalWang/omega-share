@@ -380,36 +380,27 @@ for (const preset of ROOM_PRESET_IDS) {
       await c.page.waitForTimeout(1500);
     }
     await expect.poll(() => watcher.page.evaluate(() => (Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { seats: (string | null)[] } } }).state().room.seats.filter((s) => s !== null).length), { timeout: 20_000 }).toBe(sitters);
-    /** Each member's `head()` (CSS px: the top centre of a tag over the head) and the CSS px per stage px. */
-    const heads = (): Promise<{ k: number; at: Record<string, { x: number; y: number }> }> =>
+    /** CSS px per stage px: the canvas is the stage, CSS-scaled and zoomed on a phone (stage.ts tagRects). */
+    const scale = (): Promise<number> =>
       watcher.page.evaluate((stageW) => {
-        const room = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { members: { id: string; nickname: string }[] } }; head: (id: string) => { x: number; y: number } | undefined };
-        // The canvas is the stage, CSS-scaled and zoomed on a phone (stage.ts tagRects).
         const canvas = document.querySelector("canvas.scene");
-        if (canvas === null) return { k: 0, at: {} };
-        const c = canvas.getBoundingClientRect();
-        const k = c.width / stageW;
-        const at: Record<string, { x: number; y: number }> = {};
-        for (const m of room.state().room.members) {
-          const h = room.head(m.id);
-          if (h !== undefined) at[m.nickname] = { x: c.left + h.x * k, y: c.top + h.y * k };
-        }
-        return { k, at };
+        return canvas === null ? 0 : canvas.getBoundingClientRect().width / stageW;
       }, STAGE_W);
     const report = async (): Promise<string[]> => {
-      const { k, at } = await heads();
+      const k = await scale();
       const tags = await roomTags(watcher.page);
       const out: string[] = [];
       if (tags.length !== sitters + 1) out.push(`${String(tags.length)} tags`);
       for (const t of tags) {
-        const h = at[t.text];
-        if (h === undefined) {
+        // The head the stack keeps tags off: a sitter's is their drawn one (OME-2252), not `head()`'s nominal lift (OME-2556).
+        const h = t.head;
+        if (h === null) {
           out.push(`${t.text}: no head`);
           continue;
         }
         const r = t.rect;
-        // The head box: HEAD_W wide, HEAD_H tall, under a tag over it (TAG_GAP under `head()`'s tag).
-        const top = h.y + r.height + TAG_GAP * k;
+        // The head box: HEAD_W wide, HEAD_H tall, from its top.
+        const top = h.y;
         const [cx, cy] = [r.x + r.width / 2, r.y + r.height / 2];
         const dx = Math.max(0, Math.abs(cx - h.x) - (HEAD_W / 2) * k);
         const dy = Math.max(0, top - cy, cy - (top + HEAD_H * k));
