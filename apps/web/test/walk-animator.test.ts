@@ -1069,13 +1069,28 @@ describe("animator: walking props (the cat)", () => {
     expect(s.rafs.length).toBe(0);
   });
 
-  test("Smooth: a walking cat asks for the next frame on every frame, like a walker", () => {
-    const s = setup({ smooth: () => true, props: (t) => t < 100 });
+  // OME-2549: a cat alone at 60/s cost an idle Bar 23 renders/s; Smooth's every-frame rhythm is for walkers, a lone cat steps.
+  test("Smooth: a walking cat with nobody else walking still steps once per 150 ms, and isn't a Smooth walk frame", () => {
+    const s = setup({ smooth: () => true, props: (t) => t < 300 });
     s.anim.set([]);
     s.anim.wake();
     expect(s.frame(0)).toBe(true);
-    expect(s.frame(16)).toBe(true);
-    expect(s.frame(120)).toBe(true);
     expect(s.rafs.length).toBe(0);
+    expect(s.timers.at(-1)?.ms).toBe(150);
+    expect(s.rendered.every((r) => !r.walking)).toBe(true);
+  });
+
+  test("Smooth: a walking cat beside a walker is drawn on the walker's every-frame rhythm", () => {
+    const drawn: number[] = [];
+    const s = setup({ smooth: () => true, props: (t) => (drawn.push(t), true) });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([standAt("a", 9, 9)], 0);
+    s.anim.wake();
+    expect(s.frame(16)).toBe(true);
+    expect(s.frame(33)).toBe(true);
+    expect(drawn).toContain(33);
   });
 });
