@@ -16,6 +16,8 @@ export interface Profile {
   readonly accessory: Accessory;
   /** Hair colour (OME-1438), 0 the avatar's own. */
   readonly hair: Hair;
+  /** No valid hair was ever saved: an auto guest's hair may be swapped for one nobody on their avatar wears (OME-2559). */
+  readonly hairAuto: boolean;
 }
 
 const NICKNAME_KEY = "omega.nickname";
@@ -53,8 +55,8 @@ export function loadProfile(store: KeyValueStore, random: () => number = Math.ra
   const avatar = saved.success ? saved : v.safeParse(AvatarSchema, Math.floor(random() * AVATAR_COUNT));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
   const accessory = v.safeParse(AccessorySchema, Number(read(store, ACCESSORY_KEY) ?? "0"));
-  const hair = v.safeParse(HairSchema, Number(read(store, HAIR_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, avatarAuto: !saved.success, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: hair.success ? hair.output : 0 };
+  const savedHair = v.safeParse(HairSchema, Number(read(store, HAIR_KEY) ?? NaN));
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, avatarAuto: !saved.success, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: savedHair.success ? savedHair.output : 0, hairAuto: !savedHair.success };
 }
 
 /** Without an avatar (a guest who never picked one, OME-2131) only the nickname is saved. */
