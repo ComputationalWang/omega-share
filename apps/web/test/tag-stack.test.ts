@@ -226,6 +226,27 @@ describe("stackTags: tags keep off heads and by their owner", () => {
     });
     expect(overlaps(tags, places, h)).toEqual([]);
   });
+
+  // OME-2556 (judge OME-2553): every preset on Pixel 7, fitted, four seated and a viewer standing in front. In the Bar
+  // (stools in a row under the wall screen), the Cinema and Stage-door a tag ended 2.7–3.9 tag heights off its head.
+  const ROOMS = {
+    bar: { at: [[448, 454, 384], [608, 342, 291], [576, 326, 277], [544, 310, 256], [512, 294, 243]], screen: { x0: 574, x1: 636, y0: 154, y1: 224 } },
+    cinema: { at: [[512, 390, 339], [544, 374, 325], [448, 390, 336], [416, 374, 323], [320, 454, 384]], screen: { x0: 403, x1: 557, y0: 162, y1: 236 } },
+    "stage-door": { at: [[544, 406, 355], [512, 454, 384], [480, 438, 389], [608, 438, 384], [544, 470, 419]], screen: { x0: 678, x1: 754, y0: 167, y1: 286 } },
+  } as const;
+  for (const [room, { at, screen }] of Object.entries(ROOMS))
+    for (const w of [125.078125, 142.578125])
+      test(`${room}, four seated, tags ${String(w)} px wide: each within one stack step of its own head (measured)`, () => {
+        const tags = at.map(([x, y, top]): TagBox => ({ x, y, w, top }));
+        const h = 50;
+        const places = stackTags(tags, h, 592, 60, [screen]);
+        tags.forEach((t, i) => {
+          const y = t.y + (places[i]?.dy ?? NaN) + h / 2;
+          const dx = Math.max(0, Math.abs(places[i]?.dx ?? NaN) - HEAD_W / 2);
+          expect(Math.hypot(dx, Math.max(0, t.top - y, y - (t.top + HEAD_H))), `tag ${String(i)}`).toBeLessThanOrEqual(reachOf(h));
+        });
+        expect(overlaps(tags, places, h)).toEqual([]);
+      });
 });
 
 // OME-2196 (design judge round 4): in a tight cluster a front avatar's tag stacked over the tags behind it, a cell off

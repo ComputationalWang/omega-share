@@ -48,6 +48,9 @@ const TIE = 4;
 /** The sideways nudges (stage px) a tag tries over its owner's head before it stacks away. */
 const NUDGES = [0, -16, 16];
 
+/** How many more passes `stackTags` makes for tags it left out of reach. */
+const RETRIES = 3;
+
 /** How far (stage px, centre to head box) a tag of height `h` goes before spots further off count (OME-2518): a tag
  * stacked once over the one on the head. In a dense phone room the upward stack climbed the back wall instead. */
 export const reachOf = (h: number): number => 1.5 * h + 2 * TAG_GAP;
@@ -60,12 +63,29 @@ export const reachOf = (h: number): number => 1.5 * h + 2 * TAG_GAP;
  * takes the first nearer its owner's head than any other (OME-2196: in a cluster a tag stacked over the heads behind
  * named the wrong avatar), else the one nearest it by the most. With none in the window,
  * it stacks upward, or under the feet where that leaves the window, dropping under what it hits or, past `maxY`,
- * rising over it. A tag more than NEAR px off its owner's head is `led` (wears a leader pip).
+ * rising over it. A tag more than NEAR px off its owner's head is `led` (wears a leader pip). Where some end out of
+ * reach, they're placed first in another pass (OME-2556).
  */
 export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, minY = -Infinity, avoid: readonly Box[] = []): TagPlace[] {
+  // A tag left out of reach goes first in another pass, with those before it (OME-2556: in the Stage-door the front
+  // sitter's every near spot was taken by the tags behind it). The pass that leaves fewest out of reach wins; at most
+  // RETRIES more passes, as a restack in a crowd stays cheap.
+  const first = new Set<number>();
+  let best = placeTags(tags, h, maxY, minY, avoid, first);
+  for (let last = best, n = 0; n < RETRIES && last.far.size > 0 && [...last.far].some((i) => !first.has(i)); n++) {
+    for (const i of last.far) first.add(i);
+    last = placeTags(tags, h, maxY, minY, avoid, first);
+    if (last.far.size < best.far.size) best = last;
+  }
+  return best.out;
+}
+
+/** `stackTags`, the tags in `first` placed before the others; `far`: the tags it left out of reach. */
+function placeTags(tags: readonly TagBox[], h: number, maxY: number, minY: number, avoid: readonly Box[], first: ReadonlySet<number>): { out: TagPlace[]; far: Set<number> } {
   const out: TagPlace[] = tags.map(() => ({ dx: 0, dy: 0, led: false }));
+  const far = new Set<number>();
   // Back row first, then left to right: the same tags stack the same way in any order.
-  const order = tags.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
+  const order = tags.map((t, i) => ({ t, i })).sort((a, b) => Number(first.has(b.i)) - Number(first.has(a.i)) || a.t.y - b.t.y || a.t.x - b.t.x || a.t.w - b.t.w);
   const heads = tags.map((t): Box => ({ x0: t.x - HEAD_W / 2, x1: t.x + HEAD_W / 2, y0: t.top, y1: t.top + HEAD_H }));
   const placed: Box[] = [];
   /** What a tag at (x0, x1, y) would cover first: a tag placed before it, or a head. */
@@ -110,7 +130,12 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
       (c) => c.y >= minY && c.y + h <= maxY && (c === up || blocker(x0 + c.dx, x1 + c.dx, c.y) === undefined),
     );
     const pick = (cs: readonly Spot[]): Spot | undefined => cs.find((c) => margin(c) + TIE >= 0) ?? cs.reduce<Spot | undefined>((b, c) => (b === undefined || margin(c) > margin(b) ? c : b), undefined);
-    let at = pick(spots.filter((c) => reach(c) <= reachOf(h) || (cut && under.includes(c)))) ?? pick(spots);
+    const near = (cs: readonly Spot[]): Spot[] => cs.filter((c) => reach(c) <= reachOf(h) || (cut && under.includes(c)));
+    // With none near, under the feet; else beside the head stacked up or down, or under the feet stacked down, if near
+    // (OME-2556: in the Bar's stool row the near spots were all diagonal); else any.
+    const slid = (): Spot[] =>
+      near([...sides.flatMap(({ dx, y }) => [{ dx, y: settle(x0 + dx, x1 + dx, y, false) }, { dx, y: settle(x0 + dx, x1 + dx, y, true) }]), ...NUDGES.map((dx) => ({ dx, y: settle(x0 + dx, x1 + dx, t.y, true) }))]).filter((c) => c.y >= minY && c.y + h <= maxY);
+    let at = pick(near(spots)) ?? pick(spots.filter((c) => under.includes(c))) ?? pick(slid()) ?? pick(spots);
     if (at === undefined) {
       if (up.y >= minY) at = up;
       else {
@@ -122,8 +147,9 @@ export function stackTags(tags: readonly TagBox[], h: number, maxY = Infinity, m
     }
     placed.push({ x0: x0 + at.dx, x1: x1 + at.dx, y0: at.y, y1: at.y + h });
     out[i] = { dx: at.dx, dy: at.y - t.y, led: fromHead(t, at.dx, at.y) > NEAR };
+    if (near([at]).length === 0) far.add(i);
   }
-  return out;
+  return { out, far };
 }
 
 /** `stackTags` that returns its last places when called again with equal tags, height, window and avoid boxes (OME-2317). */
