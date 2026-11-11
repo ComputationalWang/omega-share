@@ -9,6 +9,7 @@ import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { hideTags, roomTags } from "./support/tag-stack";
 import { presetFile, showLayout } from "../perf/show-layout";
+import { DOOR_CELL, FLOOR_CELLS, ROOM_PRESET_IDS, isStandable, layoutSeats, type RoomLayout } from "@omega/shared";
 import { STAGE_W, TAG_H, cellCenter } from "../apps/web/src/layout";
 import { HEAD_H, HEAD_W, TAG_GAP } from "../apps/web/src/tag-stack";
 import { EMOTE_LIFT } from "../apps/web/src/walk/animator";
@@ -344,31 +345,41 @@ for (const [label, options] of [
 // step (1.5 tag heights and two gaps) of its owner's head box (over it, one step up, beside it or under the feet), wears a leader pip once it's off the head,
 // and covers no other tag.
 // OME-2535 (judge OME-2519, w32-classic-pixel7-4-seated): the same in Classic, seats 0–3 the left armchairs.
-/** Where the viewer stands in turn. Café: the judge's spot by the front table, in front of the left table, by the lamp.
- * Classic: the front, the back corner, by the arc lamp, mid-room, the right. */
-const VIEWER_CELLS = {
-  cafe: [[5, 8], [4, 5], [3, 6], [1, 8], [2, 7]],
-  classic: [[5, 8], [3, 3], [2, 7], [6, 6], [8, 5]],
-} as const;
+// OME-2556 (judge OME-2553, w34-bar-pixel7-4-seated): the same in every shipped preset, not a hand-picked list.
+/** Where the viewer stands in turn: the cell nearest each of these spots that both the shown preset and the server's
+ * (the default, Classic) let it stand on. The front, the back corner, by the left wall, mid-room, the right. */
+const VIEWER_SPOTS = [[5, 8], [3, 3], [2, 7], [6, 6], [8, 5]] as const;
+const SERVER_LAYOUT = presetFile("classic");
 
-for (const [label, preset] of [["Café", "cafe"], ["Classic", "classic"]] as const) {
-  test(`Pixel 7, ${label}, four seated: each tag near its own head, led when moved, none overlap`, async ({ browser, request }) => {
+function viewerCells(layout: RoomLayout): [number, number][] {
+  const free: [number, number][] = [];
+  for (let x = 0; x < FLOOR_CELLS; x++)
+    for (let y = 0; y < FLOOR_CELLS; y++) if (isStandable(layout, { x, y }) && isStandable(SERVER_LAYOUT, { x, y }) && (x !== DOOR_CELL.x || y !== DOOR_CELL.y)) free.push([x, y]);
+  return VIEWER_SPOTS.flatMap(([sx, sy]) => {
+    const best = free.reduce<[number, number] | undefined>((a, c) => (a === undefined || Math.hypot(c[0] - sx, c[1] - sy) < Math.hypot(a[0] - sx, a[1] - sy) ? c : a), undefined);
+    return best === undefined ? [] : [best];
+  });
+}
+
+for (const preset of ROOM_PRESET_IDS) {
+  test(`Pixel 7, ${preset}, four seated: each tag near its own head, led when moved, none overlap`, async ({ browser, request }) => {
     test.setTimeout(120_000);
-    const room = testRoom("tag-clusters", `${preset}-phone`);
+    const room = testRoom("tag-clusters", `p-${preset}`);
     await shareVideo(request, room.id);
     const layout = presetFile(preset);
-    // QA's setup: four guests on seats 0–3 and a viewer who stands.
-    clients = await joinRoom(browser, { roomUrl: room.url, count: 5, nicknamePrefix: "guest", setup: (context) => showLayout(context, layout), contextOptions: () => ({ ...devices["Pixel 7"], reducedMotion: "reduce" }) });
-    const watcher = clients[4];
+    // QA's setup: four guests on seats 0–3 (as many as the preset has) and a viewer who stands.
+    const sitters = Math.min(4, layoutSeats(layout).length);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: sitters + 1, nicknamePrefix: "guest", setup: (context) => showLayout(context, layout), contextOptions: () => ({ ...devices["Pixel 7"], reducedMotion: "reduce" }) });
+    const watcher = clients[sitters];
     if (watcher === undefined) throw new Error("no client");
     // The phone shows part of the room: a seat key off screen is clicked in the page, as a tap after panning would.
-    for (const [i, c] of clients.slice(0, 4).entries()) {
+    for (const [i, c] of clients.slice(0, sitters).entries()) {
       await c.page.locator(`${site.seat}[data-seat="${String(i)}"]`).evaluate((e) => {
         (e as HTMLElement).click();
       });
       await c.page.waitForTimeout(1500);
     }
-    await expect.poll(() => watcher.page.evaluate(() => (Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { seats: (string | null)[] } } }).state().room.seats.filter((s) => s !== null).length), { timeout: 20_000 }).toBe(4);
+    await expect.poll(() => watcher.page.evaluate(() => (Reflect.get(Reflect.get(window, "__omega") ?? {}, "room") as { state: () => { room: { seats: (string | null)[] } } }).state().room.seats.filter((s) => s !== null).length), { timeout: 20_000 }).toBe(sitters);
     /** Each member's `head()` (CSS px: the top centre of a tag over the head) and the CSS px per stage px. */
     const heads = (): Promise<{ k: number; at: Record<string, { x: number; y: number }> }> =>
       watcher.page.evaluate((stageW) => {
@@ -389,7 +400,7 @@ for (const [label, preset] of [["Café", "cafe"], ["Classic", "classic"]] as con
       const { k, at } = await heads();
       const tags = await roomTags(watcher.page);
       const out: string[] = [];
-      if (tags.length !== 5) out.push(`${String(tags.length)} tags`);
+      if (tags.length !== sitters + 1) out.push(`${String(tags.length)} tags`);
       for (const t of tags) {
         const h = at[t.text];
         if (h === undefined) {
@@ -414,7 +425,7 @@ for (const [label, preset] of [["Café", "cafe"], ["Classic", "classic"]] as con
     };
     // Fitted whole, as the judge's shot was: as the phone opens the room, the sitters are off its window.
     await watcher.page.getByTestId("room-zoom-fit").click();
-    for (const [x, y] of VIEWER_CELLS[preset]) {
+    for (const [x, y] of viewerCells(layout)) {
       await clickCell(watcher.page, x, y);
       // The walk ends and the tags restack (stage.ts TAG_SETTLE_MS) before the check holds.
       await watcher.page.waitForTimeout(2500);
