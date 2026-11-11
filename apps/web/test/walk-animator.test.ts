@@ -1069,13 +1069,52 @@ describe("animator: walking props (the cat)", () => {
     expect(s.rafs.length).toBe(0);
   });
 
-  test("Smooth: a walking cat asks for the next frame on every frame, like a walker", () => {
-    const s = setup({ smooth: () => true, props: (t) => t < 100 });
+  // OME-2549: a cat alone at 60/s cost an idle Bar 23 renders/s; Smooth's every-frame rhythm is for walkers, a lone cat steps.
+  test("Smooth: a walking cat with nobody else walking still steps once per 150 ms, and isn't a Smooth walk frame", () => {
+    const s = setup({ smooth: () => true, props: (t) => t < 300 });
     s.anim.set([]);
     s.anim.wake();
     expect(s.frame(0)).toBe(true);
-    expect(s.frame(16)).toBe(true);
-    expect(s.frame(120)).toBe(true);
     expect(s.rafs.length).toBe(0);
+    expect(s.timers.at(-1)?.ms).toBe(150);
+    expect(s.rendered.every((r) => !r.walking)).toBe(true);
+  });
+
+  // OME-2549 QA: while the cat walked, the Bar's neons woke on their own 120/140 ms frames, 8.8–10.1 renders/s.
+  test("Smooth: ambient loops off the 150 ms grid and a walking cat: every wake-up on a 150 ms multiple", () => {
+    const s = setup({ smooth: () => true, props: (t) => t < 3000 });
+    s.anim.set([]);
+    s.anim.setLoops([
+      { frames: 4, ms: 120, ambient: true },
+      { frames: 3, ms: 140, ambient: true },
+    ]);
+    let t = 0;
+    s.frame(t);
+    const before = s.renders();
+    while (t < 4000) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      t += timer.ms;
+      expect(t % 150).toBe(0);
+      s.timers.length = 0;
+      timer.fn();
+      s.frame(t);
+    }
+    expect(t).toBeGreaterThanOrEqual(4000);
+    expect(s.renders() - before).toBeLessThanOrEqual(27);
+  });
+
+  test("Smooth: a walking cat beside a walker is drawn on the walker's every-frame rhythm", () => {
+    const drawn: number[] = [];
+    const s = setup({ smooth: () => true, props: (t) => (drawn.push(t), true) });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([standAt("a", 9, 9)], 0);
+    s.anim.wake();
+    expect(s.frame(16)).toBe(true);
+    expect(s.frame(33)).toBe(true);
+    expect(drawn).toContain(33);
   });
 });
