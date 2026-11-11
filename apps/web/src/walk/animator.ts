@@ -253,9 +253,9 @@ export function createAnimator(o: AnimatorOptions): Animator {
     const now = o.now();
     const next = drawAll(now);
     o.render();
-    const walking = o.walks.walking(now) || dancing || propWalking;
+    const walking = o.walks.walking(now) || dancing;
     o.rendered?.(now, walking && o.smooth());
-    schedule(now, next, walking);
+    schedule(now, next, walking, propWalking);
   };
 
   function requestFrame(): void {
@@ -269,8 +269,9 @@ export function createAnimator(o: AnimatorOptions): Animator {
     requestFrame();
   };
 
-  /** `walking` is `walks.walking(now)` or someone dancing, asked once per frame by the caller (each call walks a Map iterator). */
-  function schedule(now: number, nextBreath: number, walking: boolean): void {
+  /** `walking` is `walks.walking(now)` or someone dancing, asked once per frame by the caller (each call walks a Map iterator).
+   * A walking prop alone steps on the walkers' clock even in Smooth: a lone cat at 60/s cost an idle room 23 renders/s (OME-2549). */
+  function schedule(now: number, nextBreath: number, walking: boolean, prop: boolean): void {
     if (timer !== null) {
       o.clearTimer(timer);
       timer = null;
@@ -281,7 +282,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       requestFrame();
       return;
     }
-    if (walking) {
+    if (walking || prop) {
       // A jog (OME-1464) steps on the half ticks of the same clock.
       const ms = o.walks.jogging(now) ? WALK_FRAME_MS / 2 : WALK_FRAME_MS;
       const at = (Math.floor(now / ms) + 1) * ms;
@@ -306,7 +307,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       if (paused) return;
       const now = o.now();
       const next = drawAll(now);
-      schedule(now, next, o.walks.walking(now) || dancing || propWalking);
+      schedule(now, next, o.walks.walking(now) || dancing, propWalking);
     },
     setLoops(next) {
       loops = next;
