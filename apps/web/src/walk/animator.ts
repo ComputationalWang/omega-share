@@ -6,7 +6,7 @@
 // above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock; a conga
 // member (OME-1690) walks in it.
 // Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
-// Ambient loops (ADR 0058 §2, OME-2068) are loops too; while one runs, every wake-up at rest snaps to the walkers' 150 ms
+// Ambient loops (ADR 0058 §2, OME-2068) are loops too; while one runs, every wake-up at rest (or with only the cat walking) snaps to the walkers' 150 ms
 // clock, so loops and breathing share their renders.
 import type { LieStyle, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type AvatarEmote, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
@@ -289,12 +289,13 @@ export function createAnimator(o: AnimatorOptions): Animator {
       wait = Math.min(wait, at - now);
     } else {
       if (nextBreath !== Infinity) wait = Math.min(wait, Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS - now);
-      // A timer fires a hair early (setTimeout floors its wait), so a change due on the tick reads under 1 ms away: a wake
-      // that close counts as that tick's, not as a second render one vsync later (OME-2455).
-      if (ambient && wait !== Infinity) {
-        wait = Math.ceil((now + wait) / AMBIENT_TICK_MS) * AMBIENT_TICK_MS - now;
-        if (wait < AMBIENT_SLACK_MS) wait += AMBIENT_TICK_MS;
-      }
+    }
+    // At rest or with only a prop walking (OME-2549), loops snap to the shared tick too. A timer fires a hair early
+    // (setTimeout floors its wait), so a change due on the tick reads under 1 ms away: a wake that close counts as that
+    // tick's, not as a second render one vsync later (OME-2455).
+    if (ambient && !walking && wait !== Infinity) {
+      wait = Math.ceil((now + wait) / AMBIENT_TICK_MS) * AMBIENT_TICK_MS - now;
+      if (wait < AMBIENT_SLACK_MS) wait += AMBIENT_TICK_MS;
     }
     if (wait !== Infinity) timer = o.setTimer(onTimer, wait);
   }
