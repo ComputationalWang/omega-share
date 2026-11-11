@@ -218,6 +218,30 @@ describe("room presets", () => {
     expect(manifest.presets.find((p) => p.id === "bar")?.blurb).toBe("Stools at the bar, a velvet booth, a cat by the jukebox.");
   });
 
+  // OME-2558 (concept OME-2557, judge PASS 33/40): Living becomes "Movie night by the fire": the hearth in the middle of the right
+  // wall under the screen, a shelf each side, every seat on one big rug facing it. The judged `c6-living.json` with the judge's
+  // polish: the fire and the right shelf one col left (shelf | screen over fire | shelf), no sidetable at (7, 3), the aquarium
+  // off the rug at (9, 5), both couches cream.
+  test("OME-2558: Living is OME-2557's layout, 19 pieces and 8 seats all facing ne, the screen over the mantel, its new blurb", () => {
+    const f = PRESETS.find((p) => p.id === "living")?.layout.furniture ?? [];
+    expect(f.map((x) => (x.variant === undefined ? [x.kind, x.col, x.row, x.facing] : [x.kind, x.col, x.row, x.facing, x.variant]))).toEqual([
+      ["couch", 3, 4, "ne"], ["couch", 5, 7, "ne"],
+      ["wingback", 1, 3, "ne"], ["wingback", 6, 3, "ne"],
+      ["beanbag", 3, 2, "ne"], ["beanbag", 5, 2, "ne", 1],
+      ["rug", 1, 1, "se", 1],
+      ["fireplace", 3, 0, "sw"], ["wallscreen", 3, 0, "sw"],
+      ["bookshelf", 1, 0, "sw"], ["bookshelf", 5, 0, "sw"],
+      ["sidetable", 4, 2, "sw"], ["aquarium", 9, 5, "sw"], ["arclamp", 1, 5, "se"],
+      ["longclock", 0, 7, "se"], ["frame", 0, 3, "se", 1], ["frame", 0, 4, "se"],
+      ["monstera", 9, 0, "sw", 1], ["monstera", 0, 9, "se"],
+    ]);
+    const seats = layoutSeats(v.parse(RoomLayoutInputSchema, { furniture: f }));
+    expect(seats).toHaveLength(SEAT_COUNT);
+    expect(new Set(seats.map((s) => s.facing))).toEqual(new Set(["ne"]));
+    expect(f.some((x) => x.kind === "tv")).toBe(false);
+    expect(manifest.presets.find((p) => p.id === "living")?.blurb).toBe("Movie night by the fire: couches, wingbacks, beanbags.");
+  });
+
   test("thumbnails: one per preset at the manifest size, ≤ 48 KiB together, no strays", () => {
     let bytes = 0;
     for (const thumb of manifest.presets.map((p) => p.thumb)) {
