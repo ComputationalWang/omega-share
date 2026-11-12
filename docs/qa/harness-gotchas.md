@@ -78,6 +78,8 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 **Detach long runs** (OME-334). Background jobs die at run teardown and Bash caps at 10 min. Use `setsid nohup bash -c '<cmd>; echo "EXIT=$?"' > log 2>&1 < /dev/null & disown`, then poll `grep -q ^EXIT= log` in loops under 10 min, with the `flock` inside the `bash -c`. Don't wrap `flock` in `timeout` (OME-652): it expires while waiting and orphans your preview, server and fixture processes.
 
+**`wxt: command not found` (exit 127) under Paperclip** (OME-2464). The run sets `BASH_ENV` to a `.bashrc` that re-exports `PATH`, so every `bash -c` a `bun run` script spawns drops `node_modules/.bin`. Run with `env -u BASH_ENV bun run e2e` (also inside a detached `setsid nohup env -u BASH_ENV bash -c ...`).
+
 **Don't build or edit in the perf worktree mid-run** (OME-301). Perf serves `apps/web/dist` via preview; a build swaps chunks and times out frame specs. Bisect bundle sizes in a second worktree.
 
 **Single perf spec by hand** (OME-294, OME-523, OME-525). The preview build needs `VITE_SERVER_URL=http://localhost:$OMEGA_SERVER_PORT` baked in (else "Connection lost"), and `mkdir -p perf/results` in a fresh worktree (git-ignored, only `perf/run.ts` creates it). Soak alone, once dist exists: `OMEGA_PERF_SOAK=1 OMEGA_WEB_MODE=preview flock ... bunx playwright test --project=perf --trace off perf/soak.perf.ts` (about 10 min, writes `site.heapAfterSoak.json`). Don't count lock wait as a hang.
